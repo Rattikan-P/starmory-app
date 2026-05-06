@@ -35,6 +35,35 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
 
+  # AI & Core
+  google_generative_ai: ^0.4.6
+
+  # Auth & Backend
+  supabase_flutter: ^2.8.4
+
+  # Image Handling
+  image_picker: ^1.1.2
+  camera: ^0.11.0
+
+  # Local Storage (Guest Mode)
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+
+  # State Management
+  flutter_riverpod: ^2.6.1
+  riverpod_annotation: ^2.6.1
+
+  # Utilities
+  intl: ^0.20.1
+  equatable: ^2.0.7
+  json_annotation: ^4.9.0
+
+  # UI Components
+  flutter_svg: ^2.0.16
+  cached_network_image: ^3.4.1
+  shimmer: ^3.0.0
+  table_calendar: ^3.1.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -45,6 +74,12 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+
+  # Code generation
+  build_runner: ^2.4.13
+  json_serializable: ^6.9.2
+  riverpod_generator: ^2.6.2
+  # hive_generator: ^2.0.1  # Temporarily disabled due to conflict, will use manual adapters
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
