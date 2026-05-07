@@ -6,6 +6,7 @@ import 'progress_tab.dart';
 
 /// Main Navigation Screen with Bottom Navigation Bar
 /// 4 Tabs: Home, Review, Scrapbook, Progress
+/// Profile accessible from Progress tab
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
 
@@ -34,7 +35,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         decoration: BoxDecoration(
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withValues(alpha: 0.1),
               blurRadius: 10,
               offset: const Offset(0, -2),
             ),

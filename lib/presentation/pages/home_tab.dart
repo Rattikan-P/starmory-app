@@ -7,7 +7,18 @@ class HomeTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
-      body: SafeArea(child: Center(child: Text('Home'))),
+      body: SafeArea(
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: const [
+              Text('Starmory - Home'),
+              SizedBox(height: 16),
+              Text('Start your language journey'),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
