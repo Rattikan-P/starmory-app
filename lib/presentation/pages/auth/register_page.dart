@@ -39,7 +39,8 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Registration successful! Please check your email.')),
         );
-        Navigator.pop(context);
+        // Send email back to LoginPage for auto-fill
+        Navigator.pop(context, _emailController.text.trim());
       }
     } catch (e) {
       if (mounted) {

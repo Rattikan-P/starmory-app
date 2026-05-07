@@ -182,11 +182,15 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           style: theme.textTheme.bodyMedium,
                         ),
                         TextButton(
-                          onPressed: () {
-                            Navigator.push(
+                          onPressed: () async {
+                            final email = await Navigator.push(
                               context,
                               MaterialPageRoute(builder: (_) => const RegisterPage()),
                             );
+                            // Auto-fill email if returned from RegisterPage
+                            if (email is String && mounted) {
+                              _emailController.text = email;
+                            }
                           },
                           child: const Text('Register'),
                         ),
