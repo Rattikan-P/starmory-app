@@ -29,7 +29,7 @@ class ProgressTab extends ConsumerWidget {
         ),
         body: const SafeArea(
           child: Center(
-            child: Text('Please login to view your progress'),
+            child: Text('progress tracking coming soon'),
           ),
         ),
       );

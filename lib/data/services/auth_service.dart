@@ -9,10 +9,12 @@ class AuthService {
   Future<AuthResponse> signUp({
     required String email,
     required String password,
+    String? displayName,
   }) async {
     return await _client.auth.signUp(
       email: email,
       password: password,
+      data: displayName != null ? {'display_name': displayName} : null,
     );
   }
 

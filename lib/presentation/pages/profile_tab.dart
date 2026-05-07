@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../providers/auth_provider.dart';
+import 'auth/login_page.dart';
 
 class ProfileTab extends ConsumerWidget {
   const ProfileTab({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final user = Supabase.instance.client.auth.currentSession?.user;
+    final user = ref.watch(currentUserProvider);
 
     return Scaffold(
       body: user == null
@@ -50,7 +52,10 @@ class _NotLoggedInView extends StatelessWidget {
             const SizedBox(height: 24),
             FilledButton.icon(
               onPressed: () {
-                // TODO: Navigate to login
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const LoginPage()),
+                );
               },
               icon: const Icon(Icons.login),
               label: const Text('Login'),
@@ -233,7 +238,7 @@ class _LoggedInView extends StatelessWidget {
                   width: double.infinity,
                   child: FilledButton.tonalIcon(
                     onPressed: () async {
-                      // TODO: Logout
+                      await Supabase.instance.client.auth.signOut();
                     },
                     icon: const Icon(Icons.logout),
                     label: const Text('Logout'),

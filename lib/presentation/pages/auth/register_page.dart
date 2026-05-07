@@ -32,6 +32,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
       await authService.signUp(
         email: _emailController.text.trim(),
         password: _passwordController.text,
+        displayName: _displayNameController.text.trim(),
       );
 
       if (mounted) {
