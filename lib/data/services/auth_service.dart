@@ -10,12 +10,31 @@ class AuthService {
     required String email,
     required String password,
     String? displayName,
+    String? languageLevel,
   }) async {
-    return await _client.auth.signUp(
+    final response = await _client.auth.signUp(
       email: email,
       password: password,
-      data: displayName != null ? {'display_name': displayName} : null,
+      data: {
+        'display_name': displayName,
+        'language_level': languageLevel,
+      }..removeWhere((key, value) => value == null),
     );
+
+    // Also update the users table with language level
+    if (response.user != null) {
+      await _client.from('users').upsert({
+        'id': response.user!.id,
+        'email': email,
+        'display_name': displayName,
+        'language_level': languageLevel,
+      }..removeWhere((key, value) => value == null));
+
+      // Auto login after registration
+      await signIn(email: email, password: password);
+    }
+
+    return response;
   }
 
   Future<AuthResponse> signIn({

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'register_page.dart';
 import 'forgot_password_page.dart';
+import '../language_selection_page.dart';
+import '../main_navigation.dart';
 import '../../../data/services/auth_service.dart';
 
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
@@ -37,7 +38,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Login successful!')),
         );
-        Navigator.popUntil(context, (route) => route.isFirst);
+        // Go to main navigation, clear all previous routes
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
+          (route) => false,
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -185,9 +190,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           onPressed: () async {
                             final email = await Navigator.push(
                               context,
-                              MaterialPageRoute(builder: (_) => const RegisterPage()),
+                              MaterialPageRoute(builder: (_) => const LanguageSelectionPage()),
                             );
-                            // Auto-fill email if returned from RegisterPage
+                            // Auto-fill email if returned from flow
                             if (email is String && mounted) {
                               _emailController.text = email;
                             }

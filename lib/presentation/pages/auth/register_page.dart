@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/services/auth_service.dart';
+import '../main_navigation.dart';
 
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
 
 class RegisterPage extends ConsumerStatefulWidget {
-  const RegisterPage({super.key});
+  final String initialLevel;
+
+  const RegisterPage({super.key, this.initialLevel = 'B1'});
 
   @override
   ConsumerState<RegisterPage> createState() => _RegisterPageState();
@@ -33,14 +36,18 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
         email: _emailController.text.trim(),
         password: _passwordController.text,
         displayName: _displayNameController.text.trim(),
+        languageLevel: widget.initialLevel,
       );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Registration successful! Please check your email.')),
+          const SnackBar(content: Text('Registration successful!')),
         );
-        // Send email back to LoginPage for auto-fill
-        Navigator.pop(context, _emailController.text.trim());
+        // Go to main navigation, clear all previous routes
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
+          (route) => false,
+        );
       }
     } catch (e) {
       if (mounted) {
