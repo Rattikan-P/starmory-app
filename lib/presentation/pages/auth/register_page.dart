@@ -7,8 +7,13 @@ final authServiceProvider = Provider<AuthService>((ref) => AuthService());
 
 class RegisterPage extends ConsumerStatefulWidget {
   final String initialLevel;
+  final String initialVariant;
 
-  const RegisterPage({super.key, this.initialLevel = 'B1'});
+  const RegisterPage({
+    super.key,
+    this.initialLevel = 'B1',
+    this.initialVariant = 'US',
+  });
 
   @override
   ConsumerState<RegisterPage> createState() => _RegisterPageState();
@@ -37,6 +42,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
         password: _passwordController.text,
         displayName: _displayNameController.text.trim(),
         languageLevel: widget.initialLevel,
+        englishVariant: widget.initialVariant,
       );
 
       if (mounted) {

@@ -11,6 +11,7 @@ class AuthService {
     required String password,
     String? displayName,
     String? languageLevel,
+    String? englishVariant,
   }) async {
     final response = await _client.auth.signUp(
       email: email,
@@ -18,16 +19,18 @@ class AuthService {
       data: {
         'display_name': displayName,
         'language_level': languageLevel,
+        'english_variant': englishVariant,
       }..removeWhere((key, value) => value == null),
     );
 
-    // Also update the users table with language level
+    // Also update the users table with language level and variant
     if (response.user != null) {
       await _client.from('users').upsert({
         'id': response.user!.id,
         'email': email,
         'display_name': displayName,
         'language_level': languageLevel,
+        'english_variant': englishVariant,
       }..removeWhere((key, value) => value == null));
 
       // Auto login after registration

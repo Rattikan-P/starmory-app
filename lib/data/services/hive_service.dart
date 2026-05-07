@@ -5,6 +5,7 @@ class HiveService {
   static const String _onboardingKey = 'onboarding_completed';
   static const String _guestModeKey = 'is_guest_mode';
   static const String _languageLevelKey = 'guest_language_level';
+  static const String _englishVariantKey = 'guest_english_variant';
 
   Box? _box;
 
@@ -44,6 +45,17 @@ class HiveService {
   Future<void> setGuestLanguageLevel(String level) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_languageLevelKey, level);
+  }
+
+  // English Variant (for guest mode)
+  Future<String?> getGuestEnglishVariant() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_englishVariantKey) ?? 'US'; // Default US
+  }
+
+  Future<void> setGuestEnglishVariant(String variant) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_englishVariantKey, variant);
   }
 
   // Guest data storage

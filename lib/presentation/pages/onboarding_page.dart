@@ -56,7 +56,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
     // Don't mark as completed yet - user might go back
     if (mounted) {
       await Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const LanguageSelectionPage()),
+        MaterialPageRoute(builder: (_) => const LanguageSelectionPage(isInitialSetup: true)),
       );
       // If we return here, user went back - don't mark as completed
     }

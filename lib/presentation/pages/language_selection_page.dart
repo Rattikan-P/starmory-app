@@ -4,15 +4,18 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'onboarding_page.dart';
 import 'auth/register_page.dart';
 import 'main_navigation.dart';
+import 'english_variant_page.dart';
 
 class LanguageSelectionPage extends ConsumerStatefulWidget {
   final bool isGuest;
   final bool isEditing;
+  final bool isInitialSetup;
 
   const LanguageSelectionPage({
     super.key,
     this.isGuest = false,
     this.isEditing = false,
+    this.isInitialSetup = false,
   });
 
   @override
@@ -47,11 +50,16 @@ class _LanguageSelectionPageState extends ConsumerState<LanguageSelectionPage> {
           );
         }
       } else {
-        // Register flow: go to register with existing level
+        // Register flow: go to register with existing level AND variant
+        final existingVariant = await hiveService.getGuestEnglishVariant();
+        if (!mounted) return;
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (_) => RegisterPage(initialLevel: existingLevel),
+            builder: (_) => RegisterPage(
+              initialLevel: existingLevel,
+              initialVariant: existingVariant ?? 'US',
+            ),
           ),
         );
       }
@@ -220,21 +228,16 @@ class _LanguageSelectionPageState extends ConsumerState<LanguageSelectionPage> {
       return;
     }
 
-    if (widget.isGuest) {
-      // Guest mode: save and go to main
-      await hiveService.setGuestMode(true);
-      await hiveService.setOnboardingCompleted(true);
-      if (!context.mounted) return;
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
-        (route) => false,
-      );
-    } else {
-      // Register flow: go to register page
+    // Go to English variant selection
+    if (context.mounted) {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => RegisterPage(initialLevel: code),
+          builder: (_) => EnglishVariantPage(
+            isGuest: widget.isGuest,
+            isInitialSetup: widget.isInitialSetup,
+            languageLevel: code,
+          ),
         ),
       );
     }

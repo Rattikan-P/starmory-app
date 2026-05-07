@@ -5,6 +5,7 @@ import '../providers/auth_provider.dart';
 import 'onboarding_page.dart';
 import 'auth/login_page.dart';
 import 'language_selection_page.dart';
+import 'english_variant_page.dart';
 
 class ProfileTab extends ConsumerStatefulWidget {
   const ProfileTab({super.key});
@@ -144,7 +145,7 @@ class _NotLoggedInViewState extends ConsumerState<_NotLoggedInView> {
                 onPressed: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const LanguageSelectionPage()),
+                    MaterialPageRoute(builder: (_) => const LanguageSelectionPage(isInitialSetup: false)),
                   );
                 },
                 icon: const Icon(Icons.person_add),
@@ -181,6 +182,10 @@ class _LoggedInView extends StatelessWidget {
     final email = user.email ?? '';
     // Default: B1 (can be changed here)
     final languageLevel = user.userMetadata?['language_level'] ?? 'B1';
+    // Default: US (can be changed here)
+    final englishVariant = user.userMetadata?['english_variant'] ?? 'US';
+    final variantName = englishVariant == 'UK' ? 'British English' : 'American English';
+    final variantFlag = englishVariant == 'UK' ? '🇬🇧' : '🇺🇸';
 
     return Column(
       children: [
@@ -306,6 +311,30 @@ class _LoggedInView extends StatelessWidget {
                           builder: (_) => const LanguageSelectionPage(
                             isGuest: false,
                             isEditing: true,
+                            isInitialSetup: false,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // English Variant Card
+                Card(
+                  child: ListTile(
+                    leading: Text(variantFlag, style: const TextStyle(fontSize: 24)),
+                    title: const Text('English Variant'),
+                    subtitle: Text(variantName),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const EnglishVariantPage(
+                            isGuest: false,
+                            isEditing: true,
+                            isInitialSetup: false,
                           ),
                         ),
                       );
