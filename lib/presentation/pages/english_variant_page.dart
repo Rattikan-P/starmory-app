@@ -10,6 +10,7 @@ class EnglishVariantPage extends ConsumerWidget {
   final bool isEditing;
   final bool isInitialSetup;
   final String? languageLevel;
+  final bool forceSelection; // New: force show selection even if guest data exists
 
   const EnglishVariantPage({
     super.key,
@@ -17,6 +18,7 @@ class EnglishVariantPage extends ConsumerWidget {
     this.isEditing = false,
     this.isInitialSetup = false,
     this.languageLevel,
+    this.forceSelection = false,
   });
 
   static const List<EnglishVariant> variants = [
@@ -136,8 +138,8 @@ class EnglishVariantPage extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
   ) async {
-    // Skip if: editing mode, guest mode, or initial onboarding setup
-    if (isEditing || isGuest || isInitialSetup) return;
+    // Skip if: editing mode, guest mode, initial onboarding setup, or forcing selection
+    if (isEditing || isGuest || isInitialSetup || forceSelection) return;
 
     final hiveService = ref.read(onboardingServiceProvider);
     final existingVariant = await hiveService.getGuestEnglishVariant();

@@ -17,7 +17,7 @@ void main() async {
   final hiveService = HiveService();
   await hiveService.init();
 
-  // Initialize Supabase
+  // Initialize Supabase (auto-handles JWT session persistence)
   await Supabase.initialize(
     url: dotenv.env['SUPABASE_URL'] ?? '',
     anonKey: dotenv.env['SUPABASE_ANON_KEY'] ?? '',

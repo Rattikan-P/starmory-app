@@ -190,7 +190,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           onPressed: () async {
                             final email = await Navigator.push(
                               context,
-                              MaterialPageRoute(builder: (_) => const LanguageSelectionPage()),
+                              MaterialPageRoute(builder: (_) => const LanguageSelectionPage(forceSelection: true)),
                             );
                             // Auto-fill email if returned from flow
                             if (email is String && mounted) {

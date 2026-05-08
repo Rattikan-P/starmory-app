@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/services/auth_service.dart';
 import '../main_navigation.dart';
+import 'login_page.dart';
 
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
 
@@ -230,7 +231,12 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                           style: theme.textTheme.bodyMedium,
                         ),
                         TextButton(
-                          onPressed: () => Navigator.pop(context),
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const LoginPage()),
+                            );
+                          },
                           child: const Text('Login'),
                         ),
                       ],

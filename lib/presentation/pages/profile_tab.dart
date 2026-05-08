@@ -55,6 +55,98 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
   }
 }
 
+// Shared Preferences Widget
+class _PreferencesSection extends ConsumerWidget {
+  final String languageLevel;
+  final String englishVariant;
+  final bool isGuest;
+  final VoidCallback? onPreferenceChanged;
+
+  const _PreferencesSection({
+    required this.languageLevel,
+    required this.englishVariant,
+    required this.isGuest,
+    this.onPreferenceChanged,
+  });
+
+  String get variantName => englishVariant == 'UK' ? 'British English' : 'American English';
+  String get variantFlag => englishVariant == 'UK' ? '🇬🇧' : '🇺🇸';
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          // Language Proficiency Card
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.language),
+              title: const Text('Language Proficiency'),
+              subtitle: Text(languageLevel),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => LanguageSelectionPage(
+                      isGuest: isGuest,
+                      isEditing: true,
+                      isInitialSetup: false,
+                    ),
+                  ),
+                );
+                onPreferenceChanged?.call();
+              },
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // English Variant Card
+          Card(
+            child: ListTile(
+              leading: Text(variantFlag, style: const TextStyle(fontSize: 24)),
+              title: const Text('English Variant'),
+              subtitle: Text(variantName),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => EnglishVariantPage(
+                      isGuest: isGuest,
+                      isEditing: true,
+                      isInitialSetup: false,
+                    ),
+                  ),
+                );
+                onPreferenceChanged?.call();
+              },
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Settings
+          Card(
+            child: Column(
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.settings_outlined),
+                  title: const Text('Settings'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    // TODO: Navigate to settings
+                  },
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _NotLoggedInView extends ConsumerStatefulWidget {
   final bool isGuestMode;
 
@@ -66,27 +158,158 @@ class _NotLoggedInView extends ConsumerStatefulWidget {
 
 class _NotLoggedInViewState extends ConsumerState<_NotLoggedInView> {
   String? _guestLanguageLevel;
+  String? _guestEnglishVariant;
 
   @override
   void initState() {
     super.initState();
     if (widget.isGuestMode) {
-      _loadGuestLevel();
+      _loadGuestPreferences();
     }
   }
 
-  Future<void> _loadGuestLevel() async {
+  Future<void> _loadGuestPreferences() async {
     final hiveService = ref.read(onboardingServiceProvider);
     final level = await hiveService.getGuestLanguageLevel();
+    final variant = await hiveService.getGuestEnglishVariant();
     if (mounted) {
       setState(() {
         _guestLanguageLevel = level;
+        _guestEnglishVariant = variant;
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Non-guest: show simple login prompt
+    if (!widget.isGuestMode) {
+      return _buildLoginPrompt();
+    }
+
+    // Guest mode with preferences
+    final theme = Theme.of(context);
+    final languageLevel = _guestLanguageLevel ?? 'B1';
+    final englishVariant = _guestEnglishVariant ?? 'US';
+
+    return Column(
+      children: [
+        // Guest Header with register card
+        Container(
+          width: double.infinity,
+          color: theme.colorScheme.surface,
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  // Top bar with back button
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.arrow_back),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Register Prompt Card
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          theme.colorScheme.primary.withValues(alpha: 0.1),
+                          theme.colorScheme.primary.withValues(alpha: 0.05),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: theme.colorScheme.primary.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        // Guest User badge inside the card
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.person_outline,
+                              size: 14,
+                              color: theme.colorScheme.primary,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Guest User',
+                              style: TextStyle(
+                                color: theme.colorScheme.primary,
+                                fontWeight: FontWeight.w500,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Icon(
+                          Icons.cloud_sync_outlined,
+                          size: 32,
+                          color: theme.colorScheme.primary,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Save your progress',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Create an account to sync across devices',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 12),
+                        FilledButton.icon(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const LanguageSelectionPage(),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.person_add),
+                          label: const Text('Create Account'),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+              ),
+            ),
+          ),
+        ),
+
+        // Preferences Section (using shared widget)
+        Expanded(
+          child: _PreferencesSection(
+            languageLevel: languageLevel,
+            englishVariant: englishVariant,
+            isGuest: true,
+            onPreferenceChanged: _loadGuestPreferences,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLoginPrompt() {
     final theme = Theme.of(context);
 
     return SafeArea(
@@ -95,74 +318,33 @@ class _NotLoggedInViewState extends ConsumerState<_NotLoggedInView> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              widget.isGuestMode ? Icons.person_outline : Icons.account_circle_outlined,
+              Icons.account_circle_outlined,
               size: 80,
               color: theme.colorScheme.primary.withValues(alpha: 0.5),
             ),
             const SizedBox(height: 16),
             Text(
-              widget.isGuestMode ? 'Guest Mode' : 'Not logged in',
+              'Not logged in',
               style: theme.textTheme.titleLarge,
             ),
             const SizedBox(height: 8),
-
-            // Show language level for guests
-            if (widget.isGuestMode && _guestLanguageLevel != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.language,
-                      size: 16,
-                      color: theme.colorScheme.primary,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      'Level: $_guestLanguageLevel',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.primary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
             Text(
-              widget.isGuestMode
-                  ? 'Create an account to save your progress'
-                  : 'Sign in to track your progress',
+              'Sign in to track your progress',
               style: theme.textTheme.bodyMedium?.copyWith(
                     color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                   ),
             ),
             const SizedBox(height: 24),
-
-            // Create Account button for guests
-            if (widget.isGuestMode)
-              FilledButton.icon(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const LanguageSelectionPage(isInitialSetup: false)),
-                  );
-                },
-                icon: const Icon(Icons.person_add),
-                label: const Text('Create Account'),
-              ),
-
-            if (!widget.isGuestMode)
-              FilledButton.icon(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const LoginPage()),
-                  );
-                },
-                icon: const Icon(Icons.login),
-                label: const Text('Login'),
-              ),
+            FilledButton.icon(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const LoginPage()),
+                );
+              },
+              icon: const Icon(Icons.login),
+              label: const Text('Login'),
+            ),
           ],
         ),
       ),
@@ -170,22 +352,18 @@ class _NotLoggedInViewState extends ConsumerState<_NotLoggedInView> {
   }
 }
 
-class _LoggedInView extends StatelessWidget {
+class _LoggedInView extends ConsumerWidget {
   final User user;
 
   const _LoggedInView({required this.user});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final displayName = user.userMetadata?['display_name'] ?? 'User';
     final email = user.email ?? '';
-    // Default: B1 (can be changed here)
     final languageLevel = user.userMetadata?['language_level'] ?? 'B1';
-    // Default: US (can be changed here)
     final englishVariant = user.userMetadata?['english_variant'] ?? 'US';
-    final variantName = englishVariant == 'UK' ? 'British English' : 'American English';
-    final variantFlag = englishVariant == 'UK' ? '🇬🇧' : '🇺🇸';
 
     return Column(
       children: [
@@ -263,132 +441,39 @@ class _LoggedInView extends StatelessWidget {
           ),
         ),
 
-        // User Characteristics
+        // Preferences Section (using shared widget)
         Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                // User Type Badge
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.verified,
-                        size: 16,
-                        color: theme.colorScheme.primary,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Registered User',
-                        style: TextStyle(
-                          color: theme.colorScheme.primary,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
+          child: _PreferencesSection(
+            languageLevel: languageLevel,
+            englishVariant: englishVariant,
+            isGuest: false,
+          ),
+        ),
+        const SizedBox(height: 16),
 
-                // Language Proficiency Card
-                Card(
-                  child: ListTile(
-                    leading: const Icon(Icons.language),
-                    title: const Text('Language Proficiency'),
-                    subtitle: Text(languageLevel),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const LanguageSelectionPage(
-                            isGuest: false,
-                            isEditing: true,
-                            isInitialSetup: false,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: 16),
+        // Logout Button (separate for logged-in users)
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: SizedBox(
+            width: double.infinity,
+            child: FilledButton.tonalIcon(
+              onPressed: () async {
+                // Sync preferences to guest before logout
+                final client = Supabase.instance.client;
+                final level = user.userMetadata?['language_level'];
+                final variant = user.userMetadata?['english_variant'];
 
-                // English Variant Card
-                Card(
-                  child: ListTile(
-                    leading: Text(variantFlag, style: const TextStyle(fontSize: 24)),
-                    title: const Text('English Variant'),
-                    subtitle: Text(variantName),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const EnglishVariantPage(
-                            isGuest: false,
-                            isEditing: true,
-                            isInitialSetup: false,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: 16),
+                final hiveService = ref.read(onboardingServiceProvider);
+                if (level != null) await hiveService.setGuestLanguageLevel(level);
+                if (variant != null) await hiveService.setGuestEnglishVariant(variant);
 
-                // Settings
-                Card(
-                  child: Column(
-                    children: [
-                      ListTile(
-                        leading: const Icon(Icons.settings_outlined),
-                        title: const Text('Settings'),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: () {
-                          // TODO: Navigate to settings
-                        },
-                      ),
-                      const Divider(height: 1),
-                      ListTile(
-                        leading: Icon(
-                          Icons.delete_outline,
-                          color: theme.colorScheme.error,
-                        ),
-                        title: Text(
-                          'Delete Account',
-                          style: TextStyle(color: theme.colorScheme.error),
-                        ),
-                        onTap: () {
-                          // TODO: Delete account confirmation
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // Logout Button
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.tonalIcon(
-                    onPressed: () async {
-                      await Supabase.instance.client.auth.signOut();
-                    },
-                    icon: const Icon(Icons.logout),
-                    label: const Text('Logout'),
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
-                  ),
-                ),
-              ],
+                await client.auth.signOut();
+              },
+              icon: const Icon(Icons.login),
+              label: const Text('Logout'),
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+              ),
             ),
           ),
         ),

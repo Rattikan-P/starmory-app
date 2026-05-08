@@ -10,12 +10,14 @@ class LanguageSelectionPage extends ConsumerStatefulWidget {
   final bool isGuest;
   final bool isEditing;
   final bool isInitialSetup;
+  final bool forceSelection; // New: force show selection even if guest data exists
 
   const LanguageSelectionPage({
     super.key,
     this.isGuest = false,
     this.isEditing = false,
     this.isInitialSetup = false,
+    this.forceSelection = false,
   });
 
   @override
@@ -32,8 +34,8 @@ class _LanguageSelectionPageState extends ConsumerState<LanguageSelectionPage> {
   }
 
   Future<void> _checkExistingGuestLevel() async {
-    // Skip auto-navigation when editing
-    if (widget.isEditing) return;
+    // Skip auto-navigation when editing or forcing selection
+    if (widget.isEditing || widget.forceSelection) return;
 
     final hiveService = ref.read(onboardingServiceProvider);
     final existingLevel = await hiveService.getGuestLanguageLevel();
@@ -237,6 +239,7 @@ class _LanguageSelectionPageState extends ConsumerState<LanguageSelectionPage> {
             isGuest: widget.isGuest,
             isInitialSetup: widget.isInitialSetup,
             languageLevel: code,
+            forceSelection: widget.forceSelection,
           ),
         ),
       );

@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class AuthService {
   final SupabaseClient _client = Supabase.instance.client;
 
+  // Session auto-persisted by Supabase SDK (no manual storage needed)
   bool get isLoggedIn => _client.auth.currentSession != null;
   String? get currentUserId => _client.auth.currentSession?.user.id;
 
