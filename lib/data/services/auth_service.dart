@@ -72,4 +72,50 @@ class AuthService {
     await _client.from('users').delete().eq('id', userId);
     await _client.auth.admin.deleteUser(userId);
   }
+
+  // Send OTP to email (for both login and signup)
+  Future<void> sendOtp(String email) async {
+    await _client.auth.signInWithOtp(
+      email: email,
+      emailRedirectTo: null, // null = use OTP code instead of magic link
+    );
+  }
+
+  // Verify OTP and complete auth
+  Future<AuthResponse> verifyOtp({
+    required String email,
+    required String token,
+    String? displayName,
+    String? languageLevel,
+    String? englishVariant,
+  }) async {
+    final response = await _client.auth.verifyOTP(
+      email: email,
+      token: token,
+      type: OtpType.email,
+    );
+
+    // If user metadata provided and this is a new user, update profile
+    if (response.user != null &&
+        (displayName != null || languageLevel != null || englishVariant != null)) {
+      await _client.from('users').upsert({
+        'id': response.user!.id,
+        'email': email,
+        'display_name': displayName,
+        'language_level': languageLevel,
+        'english_variant': englishVariant,
+      }..removeWhere((key, value) => value == null));
+
+      // Also update user metadata in auth
+      await _client.auth.updateUser(
+        UserAttributes(data: {
+          'display_name': displayName,
+          'language_level': languageLevel,
+          'english_variant': englishVariant,
+        }..removeWhere((key, value) => value == null)),
+      );
+    }
+
+    return response;
+  }
 }

@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'forgot_password_page.dart';
 import '../language_selection_page.dart';
-import '../main_navigation.dart';
 import '../../../data/services/auth_service.dart';
+import 'otp_verification_page.dart';
 
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
 
@@ -17,37 +16,33 @@ class LoginPage extends ConsumerStatefulWidget {
 class _LoginPageState extends ConsumerState<LoginPage> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
 
   bool _isLoading = false;
-  bool _obscurePassword = true;
 
-  Future<void> _login() async {
+  Future<void> _sendOtp() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
 
     try {
       final authService = ref.read(authServiceProvider);
-      await authService.signIn(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-      );
+      await authService.sendOtp(_emailController.text.trim());
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Login successful!')),
-        );
-        // Go to main navigation, clear all previous routes
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
-          (route) => false,
+        // Navigate to OTP verification
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => OtpVerificationPage(
+              email: _emailController.text.trim(),
+            ),
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Login failed: ${e.toString()}')),
+          SnackBar(content: Text('Failed to send OTP: ${e.toString()}')),
         );
       }
     } finally {
@@ -58,7 +53,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   @override
   void dispose() {
     _emailController.dispose();
-    _passwordController.dispose();
     super.dispose();
   }
 
@@ -119,52 +113,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Password
-                    TextFormField(
-                      controller: _passwordController,
-                      decoration: InputDecoration(
-                        labelText: 'Password',
-                        hintText: 'Enter your password',
-                        prefixIcon: const Icon(Icons.lock_outline),
-                        suffixIcon: IconButton(
-                          icon: Icon(_obscurePassword
-                              ? Icons.visibility_outlined
-                              : Icons.visibility_off_outlined),
-                          onPressed: () {
-                            setState(() => _obscurePassword = !_obscurePassword);
-                          },
-                        ),
-                      ),
-                      obscureText: _obscurePassword,
-                      textInputAction: TextInputAction.done,
-                      onFieldSubmitted: (_) => _login(),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter your password';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 8),
-
-                    // Forgot Password
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => const ForgotPasswordPage()),
-                          );
-                        },
-                        child: const Text('Forgot password?'),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Login Button
+                    // Send OTP Button
                     FilledButton(
-                      onPressed: _isLoading ? null : _login,
+                      onPressed: _isLoading ? null : _sendOtp,
                       style: FilledButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                       ),
@@ -174,7 +125,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                               width: 20,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Text('Login'),
+                          : const Text('Send OTP'),
                     ),
                     const SizedBox(height: 16),
 

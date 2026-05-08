@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/services/auth_service.dart';
-import '../main_navigation.dart';
 import 'login_page.dart';
+import 'otp_verification_page.dart';
 
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
 
@@ -23,43 +23,37 @@ class RegisterPage extends ConsumerStatefulWidget {
 class _RegisterPageState extends ConsumerState<RegisterPage> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController();
   final _displayNameController = TextEditingController();
 
   bool _isLoading = false;
-  bool _obscurePassword = true;
-  bool _obscureConfirmPassword = true;
 
-  Future<void> _register() async {
+  Future<void> _sendOtp() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
 
     try {
       final authService = ref.read(authServiceProvider);
-      await authService.signUp(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-        displayName: _displayNameController.text.trim(),
-        languageLevel: widget.initialLevel,
-        englishVariant: widget.initialVariant,
-      );
+      await authService.sendOtp(_emailController.text.trim());
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Registration successful!')),
-        );
-        // Go to main navigation, clear all previous routes
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
-          (route) => false,
+        // Navigate to OTP verification with user data
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => OtpVerificationPage(
+              email: _emailController.text.trim(),
+              displayName: _displayNameController.text.trim(),
+              languageLevel: widget.initialLevel,
+              englishVariant: widget.initialVariant,
+            ),
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Registration failed: ${e.toString()}')),
+          SnackBar(content: Text('Failed to send OTP: ${e.toString()}')),
         );
       }
     } finally {
@@ -70,8 +64,6 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
   @override
   void dispose() {
     _emailController.dispose();
-    _passwordController.dispose();
-    _confirmPasswordController.dispose();
     _displayNameController.dispose();
     super.dispose();
   }
@@ -143,72 +135,11 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                         return null;
                       },
                     ),
-                    const SizedBox(height: 16),
-
-                    // Password
-                    TextFormField(
-                      controller: _passwordController,
-                      decoration: InputDecoration(
-                        labelText: 'Password',
-                        hintText: 'Enter your password',
-                        prefixIcon: const Icon(Icons.lock_outline),
-                        suffixIcon: IconButton(
-                          icon: Icon(_obscurePassword
-                              ? Icons.visibility_outlined
-                              : Icons.visibility_off_outlined),
-                          onPressed: () {
-                            setState(() => _obscurePassword = !_obscurePassword);
-                          },
-                        ),
-                      ),
-                      obscureText: _obscurePassword,
-                      textInputAction: TextInputAction.next,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter a password';
-                        }
-                        if (value.length < 6) {
-                          return 'Password must be at least 6 characters';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Confirm Password
-                    TextFormField(
-                      controller: _confirmPasswordController,
-                      decoration: InputDecoration(
-                        labelText: 'Confirm Password',
-                        hintText: 'Re-enter your password',
-                        prefixIcon: const Icon(Icons.lock_outline),
-                        suffixIcon: IconButton(
-                          icon: Icon(_obscureConfirmPassword
-                              ? Icons.visibility_outlined
-                              : Icons.visibility_off_outlined),
-                          onPressed: () {
-                            setState(() => _obscureConfirmPassword = !_obscureConfirmPassword);
-                          },
-                        ),
-                      ),
-                      obscureText: _obscureConfirmPassword,
-                      textInputAction: TextInputAction.done,
-                      onFieldSubmitted: (_) => _register(),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please confirm your password';
-                        }
-                        if (value != _passwordController.text) {
-                          return 'Passwords do not match';
-                        }
-                        return null;
-                      },
-                    ),
                     const SizedBox(height: 24),
 
-                    // Register Button
+                    // Send OTP Button
                     FilledButton(
-                      onPressed: _isLoading ? null : _register,
+                      onPressed: _isLoading ? null : _sendOtp,
                       style: FilledButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                       ),
