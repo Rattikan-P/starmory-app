@@ -69,8 +69,18 @@ class AuthService {
     final userId = currentUserId;
     if (userId == null) throw Exception('No user logged in');
 
-    await _client.from('users').delete().eq('id', userId);
-    await _client.auth.admin.deleteUser(userId);
+    // Call Edge Function to delete account completely (PDPA compliant)
+    final response = await _client.functions.invoke(
+      'delete-account',
+      body: {'userId': userId},
+    );
+
+    if (response.status != 200) {
+      throw Exception(response.data['error'] ?? 'Failed to delete account');
+    }
+
+    // Sign out from current session
+    await signOut();
   }
 
   // Send OTP to email (for both login and signup)
@@ -133,5 +143,16 @@ class AuthService {
         'english_variant': englishVariant,
       }..removeWhere((key, value) => value == null)),
     );
+  }
+
+  // Fetch user data from users table (source of truth)
+  Future<Map<String, dynamic>?> fetchUserData(String userId) async {
+    final response = await _client
+        .from('users')
+        .select()
+        .eq('id', userId)
+        .maybeSingle();
+
+    return response;
   }
 }

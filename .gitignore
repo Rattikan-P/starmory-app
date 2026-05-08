@@ -44,6 +44,10 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
+# JVM crash logs
+hs_err_pid*.log
+replay_pid*.log
+
 # Environment variables and secrets
 .env
 .env.local
@@ -61,3 +65,9 @@ secrets/
 *.cert
 google-services.json
 GoogleService-Info.plist
+
+# Supabase CLI and local development
+supabase.exe
+.supabase/
+supabase/.branches/
+supabase/.temp/

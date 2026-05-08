@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers/auth_provider.dart';
+import '../../data/services/auth_service.dart';
 import 'onboarding_page.dart';
 import 'language_selection_page.dart';
 import 'english_variant_page.dart';
+
+final authServiceProvider = Provider<AuthService>((ref) => AuthService());
 
 class ProfileTab extends ConsumerStatefulWidget {
   const ProfileTab({super.key});
@@ -304,18 +307,51 @@ class _NotLoggedInViewState extends ConsumerState<_NotLoggedInView> {
   }
 }
 
-class _LoggedInView extends ConsumerWidget {
+class _LoggedInView extends ConsumerStatefulWidget {
   final User user;
 
   const _LoggedInView({required this.user});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_LoggedInView> createState() => _LoggedInViewState();
+}
+
+class _LoggedInViewState extends ConsumerState<_LoggedInView> {
+  Map<String, dynamic>? _userData;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchUserData();
+  }
+
+  Future<void> _fetchUserData() async {
+    final authService = ref.read(authServiceProvider);
+    final data = await authService.fetchUserData(widget.user.id);
+    if (mounted) {
+      setState(() {
+        _userData = data;
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final displayName = user.userMetadata?['display_name'] ?? 'User';
-    final email = user.email ?? '';
-    final languageLevel = user.userMetadata?['language_level'] ?? 'B1';
-    final englishVariant = user.userMetadata?['english_variant'] ?? 'US';
+
+    // Fallback to metadata if data not loaded yet
+    final displayName = _userData?['display_name'] ?? widget.user.userMetadata?['display_name'] ?? 'User';
+    final email = widget.user.email ?? '';
+    final languageLevel = _userData?['language_level'] ?? widget.user.userMetadata?['language_level'] ?? 'B1';
+    final englishVariant = _userData?['english_variant'] ?? widget.user.userMetadata?['english_variant'] ?? 'US';
+
+    if (_isLoading) {
+      return Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
 
     return Column(
       children: [
@@ -399,21 +435,22 @@ class _LoggedInView extends ConsumerWidget {
             languageLevel: languageLevel,
             englishVariant: englishVariant,
             isGuest: false,
+            onPreferenceChanged: _fetchUserData,
           ),
         ),
         const SizedBox(height: 16),
 
         // Logout Button (separate for logged-in users)
         Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
           child: SizedBox(
             width: double.infinity,
             child: FilledButton.tonalIcon(
               onPressed: () async {
                 // Sync preferences to guest before logout
                 final client = Supabase.instance.client;
-                final level = user.userMetadata?['language_level'];
-                final variant = user.userMetadata?['english_variant'];
+                final level = _userData?['language_level'];
+                final variant = _userData?['english_variant'];
 
                 final hiveService = ref.read(onboardingServiceProvider);
                 if (level != null) await hiveService.setGuestLanguageLevel(level);
@@ -432,7 +469,72 @@ class _LoggedInView extends ConsumerWidget {
             ),
           ),
         ),
+
+        // Delete Account Button
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => _showDeleteAccountDialog(context, ref),
+              icon: const Icon(Icons.delete_forever, size: 18),
+              label: const Text('Delete Account'),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                foregroundColor: Colors.red,
+              ),
+            ),
+          ),
+        ),
       ],
     );
+  }
+}
+
+Future<void> _showDeleteAccountDialog(BuildContext context, WidgetRef ref) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Delete Account'),
+      content: const Text(
+        'Are you sure you want to delete your account? This action cannot be undone and all your data will be permanently lost.',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, true),
+          style: FilledButton.styleFrom(backgroundColor: Colors.red),
+          child: const Text('Delete'),
+        ),
+      ],
+    ),
+  );
+
+  if (confirmed == true && context.mounted) {
+    try {
+      final authService = ref.read(authServiceProvider);
+      await authService.deleteAccount();
+
+      // Clear guest mode and go to onboarding
+      final hiveService = ref.read(onboardingServiceProvider);
+      await hiveService.setGuestMode(true);
+      await hiveService.setOnboardingCompleted(false);
+
+      if (context.mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const OnboardingPage()),
+          (route) => false,
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to delete account: ${e.toString()}')),
+        );
+      }
+    }
   }
 }

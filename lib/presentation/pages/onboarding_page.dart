@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/services/hive_service.dart';
-import 'auth/login_method_page.dart';
 import 'language_selection_page.dart';
 
 final onboardingServiceProvider =
@@ -60,12 +59,6 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
       );
       // If we return here, user went back - don't mark as completed
     }
-  }
-
-  void _goToLogin() {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const LoginMethodPage()),
-    );
   }
 
   @override
@@ -231,19 +224,6 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                         padding: const EdgeInsets.symmetric(vertical: 16),
                       ),
                       child: const Text('Continue as Guest'),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Login Button (Tertiary)
-                  SizedBox(
-                    width: double.infinity,
-                    child: TextButton(
-                      onPressed: _goToLogin,
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                      ),
-                      child: const Text('I already have an account • Log in'),
                     ),
                   ),
                 ],

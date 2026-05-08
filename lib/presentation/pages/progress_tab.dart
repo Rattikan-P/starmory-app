@@ -1,15 +1,65 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'profile_tab.dart';
 import '../providers/auth_provider.dart';
+import '../../data/services/auth_service.dart';
 
-class ProgressTab extends ConsumerWidget {
+final authServiceProvider = Provider<AuthService>((ref) => AuthService());
+
+class ProgressTab extends ConsumerStatefulWidget {
   const ProgressTab({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ProgressTab> createState() => _ProgressTabState();
+}
+
+class _ProgressTabState extends ConsumerState<ProgressTab> {
+  Map<String, dynamic>? _userData;
+  User? _lastUser;
+
+  Future<void> _loadUserData(String userId) async {
+    if (!mounted) return;
+    try {
+      final authService = ref.read(authServiceProvider);
+      final data = await authService.fetchUserData(userId);
+      if (mounted) {
+        setState(() => _userData = data);
+      }
+    } catch (e) {
+      // Silently fail, metadata will be used as fallback
+    }
+  }
+
+  Future<void> _handleRefresh() async {
+    final user = ref.read(currentUserProvider);
+    if (user != null) {
+      await _loadUserData(user.id);
+    }
+  }
+
+  Future<void> _openProfile() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ProfileTab()),
+    );
+    // Refresh when returning from profile
+    final user = ref.read(currentUserProvider);
+    if (user != null && mounted) {
+      _loadUserData(user.id);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final user = ref.watch(currentUserProvider);
     final theme = Theme.of(context);
+
+    // Load data on first build or when user changes
+    if (user != null && _lastUser != user) {
+      _lastUser = user;
+      _loadUserData(user.id);
+    }
 
     if (user == null) {
       // Show guest UI (similar to logged in UI but with Guest badge)
@@ -83,12 +133,7 @@ class ProgressTab extends ConsumerWidget {
                           // Settings button
                           IconButton(
                             icon: const Icon(Icons.settings_outlined, color: Colors.white),
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (_) => const ProfileTab()),
-                              );
-                            },
+                            onPressed: _openProfile,
                           ),
                         ],
                       ),
@@ -129,23 +174,19 @@ class ProgressTab extends ConsumerWidget {
 
             // Empty content area
             Expanded(
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.login_outlined,
-                      size: 48,
-                      color: theme.colorScheme.primary.withValues(alpha: 0.5),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Sign in to track your progress',
-                      style: TextStyle(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+              child: RefreshIndicator(
+                onRefresh: () async {},
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: SizedBox(
+                    height: MediaQuery.of(context).size.height - 200,
+                    child: const Center(
+                      child: Text(
+                        'Progress tracking coming soon',
+                        style: TextStyle(color: Colors.grey),
                       ),
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -154,7 +195,7 @@ class ProgressTab extends ConsumerWidget {
       );
     }
 
-    final displayName = user.userMetadata?['display_name'] ?? 'User';
+    final displayName = _userData?['display_name'] ?? user.userMetadata?['display_name'] ?? 'User';
     final email = user.email ?? '';
 
     return Scaffold(
@@ -229,12 +270,7 @@ class ProgressTab extends ConsumerWidget {
                         // Settings button
                         IconButton(
                           icon: const Icon(Icons.settings_outlined, color: Colors.white),
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (_) => const ProfileTab()),
-                            );
-                          },
+                          onPressed: _openProfile,
                         ),
                       ],
                     ),
@@ -274,11 +310,20 @@ class ProgressTab extends ConsumerWidget {
           ),
 
           // Empty content area
-          const Expanded(
-            child: Center(
-              child: Text(
-                'Progress tracking coming soon',
-                style: TextStyle(color: Colors.grey),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: _handleRefresh,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: SizedBox(
+                  height: MediaQuery.of(context).size.height - 200,
+                  child: const Center(
+                    child: Text(
+                      'Progress tracking coming soon',
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  ),
+                ),
               ),
             ),
           ),

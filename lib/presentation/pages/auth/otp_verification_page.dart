@@ -4,7 +4,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../data/services/auth_service.dart';
+import '../../../data/services/hive_service.dart';
 import '../main_navigation.dart';
+import '../onboarding_page.dart';
 import 'set_display_name_bottom_sheet.dart';
 
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
@@ -166,22 +168,31 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
           builder: (_) => const SetDisplayNameBottomSheet(),
         );
 
-        // Whether saved or skipped, go to main navigation
+        // Mark onboarding as completed
         if (mounted) {
+          final hiveService = ref.read(onboardingServiceProvider);
+          await hiveService.setOnboardingCompleted(true);
+
           Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
             (route) => false,
           );
         }
       } else {
+        // Mark onboarding as completed
+        final hiveService = ref.read(onboardingServiceProvider);
+        await hiveService.setOnboardingCompleted(true);
+
         // Go to main navigation
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Login successful!')),
-        );
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
-          (route) => false,
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Login successful!')),
+          );
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
+            (route) => false,
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -200,8 +211,23 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
       barrierDismissible: false,
       builder: (context) => AlertDialog(
         title: const Text('Found your existing account!'),
-        content: const Text(
-          'Would you like to keep your old settings or update with your latest guest preferences?',
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: const [
+            Text(
+              'We found an account with this email. Would you like to keep your old settings or update with your latest guest preferences?',
+            ),
+            SizedBox(height: 12),
+            Text(
+              '⚠️ Note: If you create a new account instead, your old account data will be lost.',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.orange,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
         ),
         actions: [
           TextButton(
