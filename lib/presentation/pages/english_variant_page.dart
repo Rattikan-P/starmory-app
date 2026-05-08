@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'onboarding_page.dart';
-import 'auth/register_page.dart';
+import 'auth/login_method_page.dart';
 import 'main_navigation.dart';
 
 class EnglishVariantPage extends ConsumerWidget {
@@ -149,9 +149,10 @@ class EnglishVariantPage extends ConsumerWidget {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (_) => RegisterPage(
-            initialLevel: languageLevel ?? 'B1',
-            initialVariant: existingVariant,
+          builder: (_) => LoginMethodPage(
+            languageLevel: languageLevel ?? 'B1',
+            englishVariant: existingVariant,
+            isRegistration: true,
           ),
         ),
       );
@@ -198,14 +199,15 @@ class EnglishVariantPage extends ConsumerWidget {
         );
       }
     } else {
-      // Register flow: go to register page with level
+      // Register flow: go to login method selection with level
       if (context.mounted) {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => RegisterPage(
-              initialLevel: languageLevel ?? 'B1',
-              initialVariant: code,
+            builder: (_) => LoginMethodPage(
+              languageLevel: languageLevel ?? 'B1',
+              englishVariant: code,
+              isRegistration: true,
             ),
           ),
         );

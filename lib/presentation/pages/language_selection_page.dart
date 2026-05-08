@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'onboarding_page.dart';
-import 'auth/register_page.dart';
+import 'auth/login_method_page.dart';
 import 'main_navigation.dart';
 import 'english_variant_page.dart';
 
@@ -58,9 +58,10 @@ class _LanguageSelectionPageState extends ConsumerState<LanguageSelectionPage> {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (_) => RegisterPage(
-              initialLevel: existingLevel,
-              initialVariant: existingVariant ?? 'US',
+            builder: (_) => LoginMethodPage(
+              languageLevel: existingLevel,
+              englishVariant: existingVariant ?? 'US',
+              isRegistration: true,
             ),
           ),
         );

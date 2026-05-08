@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/services/auth_service.dart';
 import '../main_navigation.dart';
+import 'set_display_name_bottom_sheet.dart';
 
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
 
@@ -106,7 +107,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
     setState(() => _isLoading = true);
     try {
       final authService = ref.read(authServiceProvider);
-      await authService.verifyOtp(
+      final response = await authService.verifyOtp(
         email: widget.email,
         token: otp,
         displayName: widget.displayName,
@@ -115,13 +116,36 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Login successful!')),
-        );
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
-          (route) => false,
-        );
+        // Check if user has display name
+        final user = response.user;
+        final hasDisplayName = user?.userMetadata?['display_name'] != null;
+
+        if (!hasDisplayName) {
+          // Show bottom sheet to set display name
+          await showModalBottomSheet<bool>(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            builder: (_) => const SetDisplayNameBottomSheet(),
+          );
+
+          // Whether saved or skipped, go to main navigation
+          if (mounted) {
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
+              (route) => false,
+            );
+          }
+        } else {
+          // Go to main navigation
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Login successful!')),
+          );
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
+            (route) => false,
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -137,6 +161,12 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
   void _onOtpChanged(int index, String value) {
     if (value.isNotEmpty && index < 5) {
       _focusNodes[index + 1].requestFocus();
+    }
+
+    // Auto verify when all 6 digits are entered
+    final otp = _otpControllers.map((c) => c.text).join();
+    if (otp.length == 6 && !_isLoading) {
+      _verifyOtp();
     }
   }
 
@@ -240,25 +270,6 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
                       'Tap anywhere to paste code',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-
-                    // Verify Button
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton(
-                        onPressed: _isLoading ? null : _verifyOtp,
-                        style: FilledButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                        ),
-                        child: _isLoading
-                            ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : const Text('Verify'),
                       ),
                     ),
                     const SizedBox(height: 16),

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/services/hive_service.dart';
-import 'auth/login_page.dart';
+import 'auth/login_method_page.dart';
 import 'language_selection_page.dart';
 
 final onboardingServiceProvider =
@@ -63,11 +63,8 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
   }
 
   void _goToLogin() {
-    final hiveService = ref.read(onboardingServiceProvider);
-    hiveService.setOnboardingCompleted(true);
-
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const LoginPage()),
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const LoginMethodPage()),
     );
   }
 
@@ -236,23 +233,18 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                       child: const Text('Continue as Guest'),
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
 
-                  // Already have account link
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Already have account? ',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                        ),
+                  // Login Button (Tertiary)
+                  SizedBox(
+                    width: double.infinity,
+                    child: TextButton(
+                      onPressed: _goToLogin,
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
                       ),
-                      TextButton(
-                        onPressed: _goToLogin,
-                        child: const Text('Log in'),
-                      ),
-                    ],
+                      child: const Text('I already have an account • Log in'),
+                    ),
                   ),
                 ],
               ),

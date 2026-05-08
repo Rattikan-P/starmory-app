@@ -1,13 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../language_selection_page.dart';
 import '../../../data/services/auth_service.dart';
 import 'otp_verification_page.dart';
 
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
 
 class LoginPage extends ConsumerStatefulWidget {
-  const LoginPage({super.key});
+  final String? displayName;
+  final String? languageLevel;
+  final String? englishVariant;
+  final bool isRegistration;
+
+  const LoginPage({
+    super.key,
+    this.displayName,
+    this.languageLevel,
+    this.englishVariant,
+    this.isRegistration = false,
+  });
 
   @override
   ConsumerState<LoginPage> createState() => _LoginPageState();
@@ -29,12 +39,15 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       await authService.sendOtp(_emailController.text.trim());
 
       if (mounted) {
-        // Navigate to OTP verification
+        // Navigate to OTP verification with metadata
         Navigator.push(
           context,
           MaterialPageRoute(
             builder: (_) => OtpVerificationPage(
               email: _emailController.text.trim(),
+              displayName: widget.displayName,
+              languageLevel: widget.languageLevel,
+              englishVariant: widget.englishVariant,
             ),
           ),
         );
@@ -75,7 +88,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   children: [
                     // Logo or Title
                     Text(
-                      'Welcome Back',
+                      widget.isRegistration ? 'Create your account' : 'Welcome Back',
                       style: theme.textTheme.headlineMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -83,7 +96,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Continue your language journey',
+                      widget.isRegistration
+                          ? 'Enter your email to get started'
+                          : 'Continue your language journey',
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                       ),
@@ -126,31 +141,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : const Text('Send OTP'),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Register Link
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          "Don't have an account? ",
-                          style: theme.textTheme.bodyMedium,
-                        ),
-                        TextButton(
-                          onPressed: () async {
-                            final email = await Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (_) => const LanguageSelectionPage(forceSelection: true)),
-                            );
-                            // Auto-fill email if returned from flow
-                            if (email is String && mounted) {
-                              _emailController.text = email;
-                            }
-                          },
-                          child: const Text('Register'),
-                        ),
-                      ],
                     ),
                   ],
                 ),

@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers/auth_provider.dart';
 import 'onboarding_page.dart';
-import 'auth/login_page.dart';
 import 'language_selection_page.dart';
 import 'english_variant_page.dart';
 
@@ -182,12 +181,7 @@ class _NotLoggedInViewState extends ConsumerState<_NotLoggedInView> {
 
   @override
   Widget build(BuildContext context) {
-    // Non-guest: show simple login prompt
-    if (!widget.isGuestMode) {
-      return _buildLoginPrompt();
-    }
-
-    // Guest mode with preferences
+    // Default to guest mode if not set (safety net)
     final theme = Theme.of(context);
     final languageLevel = _guestLanguageLevel ?? 'B1';
     final englishVariant = _guestEnglishVariant ?? 'US';
@@ -308,48 +302,6 @@ class _NotLoggedInViewState extends ConsumerState<_NotLoggedInView> {
       ],
     );
   }
-
-  Widget _buildLoginPrompt() {
-    final theme = Theme.of(context);
-
-    return SafeArea(
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.account_circle_outlined,
-              size: 80,
-              color: theme.colorScheme.primary.withValues(alpha: 0.5),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Not logged in',
-              style: theme.textTheme.titleLarge,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Sign in to track your progress',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                  ),
-            ),
-            const SizedBox(height: 24),
-            FilledButton.icon(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const LoginPage()),
-                );
-              },
-              icon: const Icon(Icons.login),
-              label: const Text('Login'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 class _LoggedInView extends ConsumerWidget {
@@ -466,6 +418,9 @@ class _LoggedInView extends ConsumerWidget {
                 final hiveService = ref.read(onboardingServiceProvider);
                 if (level != null) await hiveService.setGuestLanguageLevel(level);
                 if (variant != null) await hiveService.setGuestEnglishVariant(variant);
+
+                // Set guest mode before logout so ProfileTab shows guest view
+                await hiveService.setGuestMode(true);
 
                 await client.auth.signOut();
               },
