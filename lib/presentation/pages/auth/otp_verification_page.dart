@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../data/services/auth_service.dart';
 import '../main_navigation.dart';
 import 'set_display_name_bottom_sheet.dart';
@@ -107,7 +108,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
     setState(() => _isLoading = true);
     try {
       final authService = ref.read(authServiceProvider);
-      final response = await authService.verifyOtp(
+      final result = await authService.verifyOtp(
         email: widget.email,
         token: otp,
         displayName: widget.displayName,
@@ -115,37 +116,72 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
         englishVariant: widget.englishVariant,
       );
 
-      if (mounted) {
-        // Check if user has display name
-        final user = response.user;
-        final hasDisplayName = user?.userMetadata?['display_name'] != null;
+      final response = result['response'] as AuthResponse;
+      final isNewUser = result['isNewUser'] as bool;
+      final user = response.user;
 
-        if (!hasDisplayName) {
-          // Show bottom sheet to set display name
-          await showModalBottomSheet<bool>(
-            context: context,
-            isScrollControlled: true,
-            backgroundColor: Colors.transparent,
-            builder: (_) => const SetDisplayNameBottomSheet(),
-          );
+      if (!mounted) return;
 
-          // Whether saved or skipped, go to main navigation
-          if (mounted) {
-            Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
-              (route) => false,
-            );
-          }
-        } else {
-          // Go to main navigation
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Login successful!')),
+      // Check if existing user with guest data that might differ
+      final hasGuestData = widget.languageLevel != null ||
+          widget.englishVariant != null ||
+          widget.displayName != null;
+
+      if (!isNewUser && hasGuestData) {
+        // Ask user which data to use
+        final useGuestData = await _showDataChoiceDialog(context);
+        if (useGuestData == true && user != null) {
+          // User chose to use guest data - update
+          await authService.updateUserPreferences(
+            userId: user.id,
+            email: widget.email,
+            displayName: widget.displayName,
+            languageLevel: widget.languageLevel,
+            englishVariant: widget.englishVariant,
           );
+        }
+        // If useGuestData is false or null, keep existing data
+      } else if (isNewUser && hasGuestData && user != null) {
+        // New user - use guest data automatically
+        await authService.updateUserPreferences(
+          userId: user.id,
+          email: widget.email,
+          displayName: widget.displayName,
+          languageLevel: widget.languageLevel,
+          englishVariant: widget.englishVariant,
+        );
+      }
+
+      if (!mounted) return;
+
+      // Check if user has display name
+      final hasDisplayName = user?.userMetadata?['display_name'] != null;
+
+      if (!hasDisplayName) {
+        // Show bottom sheet to set display name
+        await showModalBottomSheet<bool>(
+          context: context,
+          isScrollControlled: true,
+          backgroundColor: Colors.transparent,
+          builder: (_) => const SetDisplayNameBottomSheet(),
+        );
+
+        // Whether saved or skipped, go to main navigation
+        if (mounted) {
           Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
             (route) => false,
           );
         }
+      } else {
+        // Go to main navigation
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Login successful!')),
+        );
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
+          (route) => false,
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -156,6 +192,29 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  Future<bool?> _showDataChoiceDialog(BuildContext context) async {
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Found your existing account!'),
+        content: const Text(
+          'Would you like to keep your old settings or update with your latest guest preferences?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Keep Old'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Update New'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _onOtpChanged(int index, String value) {

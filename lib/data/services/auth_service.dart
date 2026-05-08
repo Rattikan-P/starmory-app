@@ -82,7 +82,8 @@ class AuthService {
   }
 
   // Verify OTP and complete auth
-  Future<AuthResponse> verifyOtp({
+  // Returns a tuple: (AuthResponse, isNewUser)
+  Future<Map<String, dynamic>> verifyOtp({
     required String email,
     required String token,
     String? displayName,
@@ -95,27 +96,42 @@ class AuthService {
       type: OtpType.email,
     );
 
-    // If user metadata provided and this is a new user, update profile
-    if (response.user != null &&
-        (displayName != null || languageLevel != null || englishVariant != null)) {
-      await _client.from('users').upsert({
-        'id': response.user!.id,
-        'email': email,
+    // Check if this is a new user (created within last minute via OTP)
+    final createdAt = response.user?.createdAt;
+    final isNewUser = createdAt != null &&
+        DateTime.now().difference(DateTime.parse(createdAt)) < const Duration(minutes: 1);
+
+    return {
+      'response': response,
+      'isNewUser': isNewUser,
+    };
+  }
+
+  // Update user preferences (called after user chooses)
+  Future<void> updateUserPreferences({
+    required String userId,
+    required String email,
+    String? displayName,
+    String? languageLevel,
+    String? englishVariant,
+  }) async {
+    final data = {
+      'id': userId,
+      'email': email,
+      'display_name': displayName,
+      'language_level': languageLevel,
+      'english_variant': englishVariant,
+    }..removeWhere((key, value) => value == null);
+
+    await _client.from('users').upsert(data);
+
+    // Also update user metadata in auth
+    await _client.auth.updateUser(
+      UserAttributes(data: {
         'display_name': displayName,
         'language_level': languageLevel,
         'english_variant': englishVariant,
-      }..removeWhere((key, value) => value == null));
-
-      // Also update user metadata in auth
-      await _client.auth.updateUser(
-        UserAttributes(data: {
-          'display_name': displayName,
-          'language_level': languageLevel,
-          'english_variant': englishVariant,
-        }..removeWhere((key, value) => value == null)),
-      );
-    }
-
-    return response;
+      }..removeWhere((key, value) => value == null)),
+    );
   }
 }

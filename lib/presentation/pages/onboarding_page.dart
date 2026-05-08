@@ -46,7 +46,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
     // Go to language selection first, then enter as guest
     if (mounted) {
       await Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const LanguageSelectionPage(isGuest: true)),
+        MaterialPageRoute(builder: (_) => const LanguageSelectionPage(isGuest: true, forceSelection: true)),
       );
       // After language selection, guest mode will be set and proceed to main
     }
