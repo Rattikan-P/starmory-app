@@ -6,6 +6,7 @@ import '../../data/services/auth_service.dart';
 import 'onboarding_page.dart';
 import 'language_selection_page.dart';
 import 'english_variant_page.dart';
+import 'auth/account_method_page.dart';
 
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
 
@@ -276,7 +277,7 @@ class _NotLoggedInViewState extends ConsumerState<_NotLoggedInView> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => const LanguageSelectionPage(),
+                                builder: (_) => const AccountMethodPage(),
                               ),
                             );
                           },

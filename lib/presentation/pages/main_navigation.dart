@@ -3,12 +3,15 @@ import 'home_tab.dart';
 import 'review_tab.dart';
 import 'scrapbook_tab.dart';
 import 'progress_tab.dart';
+import 'auth/set_display_name_bottom_sheet.dart';
 
 /// Main Navigation Screen with Bottom Navigation Bar
 /// 4 Tabs: Home, Review, Scrapbook, Progress
 /// Profile accessible from Progress tab
 class MainNavigationScreen extends StatefulWidget {
-  const MainNavigationScreen({super.key});
+  final bool showDisplayNamePrompt;
+
+  const MainNavigationScreen({super.key, this.showDisplayNamePrompt = false});
 
   @override
   State<MainNavigationScreen> createState() => _MainNavigationScreenState();
@@ -23,6 +26,27 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     ScrapbookTab(),
     ProgressTab(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.showDisplayNamePrompt) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _showDisplayNameBottomSheet();
+      });
+    }
+  }
+
+  void _showDisplayNameBottomSheet() {
+    if (mounted) {
+      showModalBottomSheet<bool>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) => const SetDisplayNameBottomSheet(),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

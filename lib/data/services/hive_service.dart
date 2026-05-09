@@ -70,4 +70,10 @@ class HiveService {
   Future<void> clearGuestData() async {
     await _box?.clear();
   }
+
+  Future<void> clearGuestPreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_languageLevelKey);
+    await prefs.remove(_englishVariantKey);
+  }
 }

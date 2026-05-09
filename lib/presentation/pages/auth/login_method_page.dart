@@ -117,6 +117,7 @@ class LoginMethodPage extends ConsumerWidget {
             displayName: displayName,
             languageLevel: languageLevel,
             englishVariant: englishVariant,
+            isGuestCreatingAccount: isRegistration,
           ),
         ),
       );

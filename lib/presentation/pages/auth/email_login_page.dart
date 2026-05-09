@@ -5,64 +5,19 @@ import 'otp_verification_page.dart';
 
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
 
-class LoginPage extends ConsumerStatefulWidget {
-  final String? displayName;
-  final String? languageLevel;
-  final String? englishVariant;
-  final bool isRegistration;
+class EmailLoginPage extends ConsumerStatefulWidget {
+  final bool isGuestCreatingAccount;
 
-  const LoginPage({
-    super.key,
-    this.displayName,
-    this.languageLevel,
-    this.englishVariant,
-    this.isRegistration = false,
-  });
+  const EmailLoginPage({super.key, this.isGuestCreatingAccount = false});
 
   @override
-  ConsumerState<LoginPage> createState() => _LoginPageState();
+  ConsumerState<EmailLoginPage> createState() => _EmailLoginPageState();
 }
 
-class _LoginPageState extends ConsumerState<LoginPage> {
-  final _formKey = GlobalKey<FormState>();
+class _EmailLoginPageState extends ConsumerState<EmailLoginPage> {
   final _emailController = TextEditingController();
-
+  final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
-
-  Future<void> _sendOtp() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    setState(() => _isLoading = true);
-
-    try {
-      final authService = ref.read(authServiceProvider);
-      await authService.sendOtp(_emailController.text.trim());
-
-      if (mounted) {
-        // Navigate to OTP verification with metadata
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => OtpVerificationPage(
-              email: _emailController.text.trim(),
-              displayName: widget.displayName,
-              languageLevel: widget.languageLevel,
-              englishVariant: widget.englishVariant,
-              isGuestCreatingAccount: widget.isRegistration,
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to send OTP: ${e.toString()}')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
 
   @override
   void dispose() {
@@ -70,11 +25,52 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     super.dispose();
   }
 
+  Future<void> _checkEmail() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      final email = _emailController.text.trim();
+
+      // Go to OTP page - it will handle checking if user is new or existing
+      if (!mounted) return;
+
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => OtpVerificationPage(
+            email: email,
+            isGuestCreatingAccount: widget.isGuestCreatingAccount,
+          ),
+        ),
+      );
+
+      // Reset loading state when returning from OTP page
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: ${e.toString()}')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
     return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -87,19 +83,27 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Logo or Title
+                    // Icon
+                    Icon(
+                      Icons.email_outlined,
+                      size: 60,
+                      color: theme.colorScheme.primary.withValues(alpha: 0.5),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Title
                     Text(
-                      widget.isRegistration ? 'Create your account' : 'Welcome Back',
+                      'Enter your email',
                       style: theme.textTheme.headlineMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 8),
+
+                    // Subtitle
                     Text(
-                      widget.isRegistration
-                          ? 'Enter your email to get started'
-                          : 'Continue your language journey',
+                      'We\'ll check if you already have an account',
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                       ),
@@ -107,31 +111,33 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     ),
                     const SizedBox(height: 32),
 
-                    // Email
+                    // Email Field
                     TextFormField(
                       controller: _emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      textInputAction: TextInputAction.done,
+                      autofocus: true,
                       decoration: const InputDecoration(
                         labelText: 'Email',
                         hintText: 'your@email.com',
                         prefixIcon: Icon(Icons.email_outlined),
                       ),
-                      keyboardType: TextInputType.emailAddress,
-                      textInputAction: TextInputAction.next,
+                      onFieldSubmitted: (_) => _checkEmail(),
                       validator: (value) {
-                        if (value == null || value.isEmpty) {
+                        if (value == null || value.trim().isEmpty) {
                           return 'Please enter your email';
                         }
-                        if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                        if (!value.trim().contains('@')) {
                           return 'Please enter a valid email';
                         }
                         return null;
                       },
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 24),
 
-                    // Send OTP Button
+                    // Continue Button
                     FilledButton(
-                      onPressed: _isLoading ? null : _sendOtp,
+                      onPressed: _isLoading ? null : _checkEmail,
                       style: FilledButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                       ),
@@ -141,7 +147,17 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                               width: 20,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Text('Send OTP'),
+                          : const Text('Continue'),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Info text
+                    Text(
+                      'If you already have an account, we\'ll log you in automatically.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                      ),
+                      textAlign: TextAlign.center,
                     ),
                   ],
                 ),

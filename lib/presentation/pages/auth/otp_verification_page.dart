@@ -5,9 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../data/services/hive_service.dart';
+import '../language_selection_page.dart';
 import '../main_navigation.dart';
-import '../onboarding_page.dart';
-import 'set_display_name_bottom_sheet.dart';
+
+final onboardingServiceProvider = Provider<HiveService>((ref) => HiveService());
 
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
 
@@ -16,6 +17,7 @@ class OtpVerificationPage extends ConsumerStatefulWidget {
   final String? displayName;
   final String? languageLevel;
   final String? englishVariant;
+  final bool isGuestCreatingAccount;
 
   const OtpVerificationPage({
     super.key,
@@ -23,6 +25,7 @@ class OtpVerificationPage extends ConsumerStatefulWidget {
     this.displayName,
     this.languageLevel,
     this.englishVariant,
+    this.isGuestCreatingAccount = false,
   });
 
   @override
@@ -48,6 +51,19 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
   void initState() {
     super.initState();
     _startCountdown();
+    // Auto-send OTP on page load
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _sendOtpAutomatically();
+    });
+  }
+
+  Future<void> _sendOtpAutomatically() async {
+    try {
+      final authService = ref.read(authServiceProvider);
+      await authService.sendOtp(widget.email);
+    } catch (e) {
+      // Silently fail, user can retry with resend button
+    }
   }
 
   @override
@@ -125,33 +141,79 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
       if (!mounted) return;
 
       // Check if existing user with guest data that might differ
-      final hasGuestData = widget.languageLevel != null ||
+      // Check both passed data AND Hive storage
+      final hiveService = ref.read(onboardingServiceProvider);
+      final guestLevel = await hiveService.getGuestLanguageLevel();
+      final guestVariant = await hiveService.getGuestEnglishVariant();
+
+      final hasPassedGuestData = widget.languageLevel != null ||
           widget.englishVariant != null ||
           widget.displayName != null;
+      final hasHiveGuestData = guestLevel != null || guestVariant != null;
 
-      if (!isNewUser && hasGuestData) {
-        // Ask user which data to use
+      final hasGuestData = hasPassedGuestData || hasHiveGuestData;
+
+      // Merge guest data: prioritize passed data, fall back to Hive data
+      final finalGuestLevel = widget.languageLevel ?? guestLevel;
+      final finalGuestVariant = widget.englishVariant ?? guestVariant;
+
+      if (!isNewUser && hasGuestData && widget.isGuestCreatingAccount) {
+        // Guest creating account with existing email - ask which data to use
         final useGuestData = await _showDataChoiceDialog(context);
         if (useGuestData == true && user != null) {
-          // User chose to use guest data - update
+          // User chose to use guest data - update with merged guest data
           await authService.updateUserPreferences(
             userId: user.id,
             email: widget.email,
             displayName: widget.displayName,
-            languageLevel: widget.languageLevel,
-            englishVariant: widget.englishVariant,
+            languageLevel: finalGuestLevel,
+            englishVariant: finalGuestVariant,
           );
         }
         // If useGuestData is false or null, keep existing data
-      } else if (isNewUser && hasGuestData && user != null) {
-        // New user - use guest data automatically
+      } else if (!isNewUser && hasGuestData && !widget.isGuestCreatingAccount) {
+        // Logging in with existing email - keep existing data, don't ask
+        // Just continue to main app
+      } else if (isNewUser && hasGuestData && widget.isGuestCreatingAccount && user != null) {
+        // Guest creating account with new email - use existing guest data
         await authService.updateUserPreferences(
           userId: user.id,
           email: widget.email,
           displayName: widget.displayName,
-          languageLevel: widget.languageLevel,
-          englishVariant: widget.englishVariant,
+          languageLevel: finalGuestLevel,
+          englishVariant: finalGuestVariant,
         );
+      } else if (isNewUser && user != null) {
+        // New user from onboarding - ask for level/variant (clear any old guest data first)
+        await hiveService.clearGuestPreferences();
+
+        // Go to language selection, then come back to continue
+        final result = await Navigator.of(context).push<bool>(
+          MaterialPageRoute(
+            builder: (_) => const LanguageSelectionPage(
+              isInitialSetup: true,
+              returnAfterSelection: true,
+              forceSelection: true,
+            ),
+          ),
+        );
+
+        // If user cancelled or went back, exit
+        if (!mounted || result != true) return;
+
+        // Continue with the flow - user has selected level/variant
+        // Need to update user preferences with the selected values
+        final level = await hiveService.getGuestLanguageLevel();
+        final variant = await hiveService.getGuestEnglishVariant();
+
+        if (level != null) {
+          await authService.updateUserPreferences(
+            userId: user.id,
+            email: widget.email,
+            languageLevel: level,
+            englishVariant: variant ?? 'US',
+          );
+        }
       }
 
       if (!mounted) return;
@@ -160,21 +222,13 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
       final hasDisplayName = user?.userMetadata?['display_name'] != null;
 
       if (!hasDisplayName) {
-        // Show bottom sheet to set display name
-        await showModalBottomSheet<bool>(
-          context: context,
-          isScrollControlled: true,
-          backgroundColor: Colors.transparent,
-          builder: (_) => const SetDisplayNameBottomSheet(),
-        );
-
-        // Mark onboarding as completed
+        // Mark onboarding as completed and go to main, then show display name prompt
         if (mounted) {
           final hiveService = ref.read(onboardingServiceProvider);
           await hiveService.setOnboardingCompleted(true);
 
           Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
+            MaterialPageRoute(builder: (_) => const MainNavigationScreen(showDisplayNamePrompt: true)),
             (route) => false,
           );
         }
@@ -271,18 +325,20 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      body: SafeArea(
-        child: GestureDetector(
-          onTap: _onPaste,
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 400),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
+      body: Stack(
+        children: [
+          SafeArea(
+            child: GestureDetector(
+              onTap: _onPaste,
+              child: Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(24),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 400),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
                     // Icon
                     Icon(
                       Icons.email_outlined,
@@ -398,6 +454,15 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
             ),
           ),
         ),
+      ),
+      if (_isLoading)
+        Container(
+          color: theme.colorScheme.surface,
+          child: const Center(
+            child: CircularProgressIndicator(),
+          ),
+        ),
+    ],
       ),
     );
   }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/services/hive_service.dart';
+import 'auth/email_login_page.dart';
 import 'language_selection_page.dart';
 
 final onboardingServiceProvider =
@@ -51,13 +52,21 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
     }
   }
 
-  Future<void> _getStarted() async {
-    // Don't mark as completed yet - user might go back
+  Future<void> _continueWithGoogle() async {
+    // TODO: Implement Google OAuth
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Google sign in coming soon!')),
+      );
+    }
+  }
+
+  Future<void> _continueWithEmail() async {
+    // Go to email input page (checks if email exists first)
     if (mounted) {
       await Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const LanguageSelectionPage(isInitialSetup: true)),
+        MaterialPageRoute(builder: (_) => const EmailLoginPage()),
       );
-      // If we return here, user went back - don't mark as completed
     }
   }
 
@@ -202,25 +211,39 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
               padding: const EdgeInsets.all(24),
               child: Column(
                 children: [
-                  // Get Started Button (Primary)
+                  // Continue with Google Button
                   SizedBox(
                     width: double.infinity,
-                    child: FilledButton(
-                      onPressed: _getStarted,
-                      style: FilledButton.styleFrom(
+                    child: OutlinedButton.icon(
+                      onPressed: _continueWithGoogle,
+                      style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                       ),
-                      child: const Text('Get Started Free'),
+                      icon: const Icon(Icons.g_mobiledata, size: 20),
+                      label: const Text('Continue with Google'),
                     ),
                   ),
                   const SizedBox(height: 12),
 
-                  // Continue as Guest Button (Secondary)
+                  // Continue with Email Button (Primary)
                   SizedBox(
                     width: double.infinity,
-                    child: OutlinedButton(
+                    child: FilledButton(
+                      onPressed: _continueWithEmail,
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                      child: const Text('Continue with Email'),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Continue as Guest Button
+                  SizedBox(
+                    width: double.infinity,
+                    child: TextButton(
                       onPressed: _continueAsGuest,
-                      style: OutlinedButton.styleFrom(
+                      style: TextButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                       ),
                       child: const Text('Continue as Guest'),

@@ -10,7 +10,8 @@ class LanguageSelectionPage extends ConsumerStatefulWidget {
   final bool isGuest;
   final bool isEditing;
   final bool isInitialSetup;
-  final bool forceSelection; // New: force show selection even if guest data exists
+  final bool forceSelection;
+  final bool returnAfterSelection; // Return to previous screen after selection
 
   const LanguageSelectionPage({
     super.key,
@@ -18,6 +19,7 @@ class LanguageSelectionPage extends ConsumerStatefulWidget {
     this.isEditing = false,
     this.isInitialSetup = false,
     this.forceSelection = false,
+    this.returnAfterSelection = false,
   });
 
   @override
@@ -233,7 +235,7 @@ class _LanguageSelectionPageState extends ConsumerState<LanguageSelectionPage> {
 
     // Go to English variant selection
     if (context.mounted) {
-      Navigator.push(
+      final result = await Navigator.push<bool>(
         context,
         MaterialPageRoute(
           builder: (_) => EnglishVariantPage(
@@ -241,9 +243,15 @@ class _LanguageSelectionPageState extends ConsumerState<LanguageSelectionPage> {
             isInitialSetup: widget.isInitialSetup,
             languageLevel: code,
             forceSelection: widget.forceSelection,
+            returnAfterSelection: widget.returnAfterSelection,
           ),
         ),
       );
+
+      // If returning after selection, propagate the result
+      if (widget.returnAfterSelection && context.mounted) {
+        Navigator.pop(context, result ?? true);
+      }
     }
   }
 }

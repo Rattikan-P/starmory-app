@@ -10,7 +10,8 @@ class EnglishVariantPage extends ConsumerWidget {
   final bool isEditing;
   final bool isInitialSetup;
   final String? languageLevel;
-  final bool forceSelection; // New: force show selection even if guest data exists
+  final bool forceSelection;
+  final bool returnAfterSelection; // Return to previous screen after selection
 
   const EnglishVariantPage({
     super.key,
@@ -19,6 +20,7 @@ class EnglishVariantPage extends ConsumerWidget {
     this.isInitialSetup = false,
     this.languageLevel,
     this.forceSelection = false,
+    this.returnAfterSelection = false,
   });
 
   static const List<EnglishVariant> variants = [
@@ -184,6 +186,12 @@ class EnglishVariantPage extends ConsumerWidget {
         }
       }
       if (context.mounted) Navigator.pop(context);
+      return;
+    }
+
+    // Return after selection (for post-OTP level selection)
+    if (returnAfterSelection) {
+      if (context.mounted) Navigator.pop(context, true);
       return;
     }
 
