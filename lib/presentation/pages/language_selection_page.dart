@@ -23,7 +23,8 @@ class LanguageSelectionPage extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<LanguageSelectionPage> createState() => _LanguageSelectionPageState();
+  ConsumerState<LanguageSelectionPage> createState() =>
+      _LanguageSelectionPageState();
 }
 
 class _LanguageSelectionPageState extends ConsumerState<LanguageSelectionPage> {
@@ -126,7 +127,9 @@ class _LanguageSelectionPageState extends ConsumerState<LanguageSelectionPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    widget.isEditing ? 'Change your level' : 'What\'s your level?',
+                    widget.isEditing
+                        ? 'Change your level'
+                        : 'What\'s your level?',
                     style: theme.textTheme.headlineMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -136,8 +139,8 @@ class _LanguageSelectionPageState extends ConsumerState<LanguageSelectionPage> {
                     widget.isEditing
                         ? 'Select your new proficiency level'
                         : (widget.isGuest
-                            ? 'This helps personalize your experience'
-                            : 'This helps us personalize your learning experience'),
+                              ? 'This helps personalize your experience'
+                              : 'This helps us personalize your learning experience'),
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                     ),
@@ -226,7 +229,10 @@ class _LanguageSelectionPageState extends ConsumerState<LanguageSelectionPage> {
             UserAttributes(data: {'language_level': code}),
           );
           // Update users table
-          await client.from('users').update({'language_level': code}).eq('id', userId);
+          await client
+              .from('users')
+              .update({'language_level': code})
+              .eq('id', userId);
         }
       }
       if (context.mounted) Navigator.pop(context);
@@ -247,9 +253,11 @@ class _LanguageSelectionPageState extends ConsumerState<LanguageSelectionPage> {
         ),
       );
 
-      // If returning after selection, propagate the result
       if (widget.returnAfterSelection && context.mounted) {
-        Navigator.pop(context, result ?? true);
+        if (result == true) {
+          Navigator.pop(context, true); // ส่ง true กลับไป onboarding_page
+        }
+        // ถ้า null (กด back จาก variant) → ไม่ pop อยู่หน้า language ต่อ
       }
     }
   }

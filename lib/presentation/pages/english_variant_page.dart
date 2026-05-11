@@ -65,7 +65,9 @@ class EnglishVariantPage extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    isEditing ? 'Change your preference' : 'Select your preference',
+                    isEditing
+                        ? 'Change your preference'
+                        : 'Select your preference',
                     style: theme.textTheme.headlineMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -150,9 +152,10 @@ class EnglishVariantPage extends ConsumerWidget {
           await client.auth.updateUser(
             UserAttributes(data: {'english_variant': code}),
           );
-          await client.from('users').update(
-            {'english_variant': code},
-          ).eq('id', userId);
+          await client
+              .from('users')
+              .update({'english_variant': code})
+              .eq('id', userId);
         }
       }
       if (context.mounted) Navigator.pop(context);
@@ -160,7 +163,9 @@ class EnglishVariantPage extends ConsumerWidget {
     }
 
     if (returnAfterSelection) {
-      if (context.mounted) Navigator.pop(context, true);
+      if (context.mounted) {
+        Navigator.of(context).pop(true); // pop กลับไป LanguageSelectionPage
+      }
       return;
     }
 
@@ -179,10 +184,12 @@ class EnglishVariantPage extends ConsumerWidget {
       final userId = client.auth.currentSession?.user.id;
       if (userId != null) {
         await client.auth.updateUser(
-          UserAttributes(data: {
-            'language_level': languageLevel ?? 'B1',
-            'english_variant': code,
-          }),
+          UserAttributes(
+            data: {
+              'language_level': languageLevel ?? 'B1',
+              'english_variant': code,
+            },
+          ),
         );
         await client.from('users').upsert({
           'id': userId,
@@ -199,9 +206,8 @@ class EnglishVariantPage extends ConsumerWidget {
       if (context.mounted) {
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(
-            builder: (_) => const MainNavigationScreen(
-              showDisplayNamePrompt: true,
-            ),
+            builder: (_) =>
+                const MainNavigationScreen(showDisplayNamePrompt: true),
           ),
           (route) => false,
         );

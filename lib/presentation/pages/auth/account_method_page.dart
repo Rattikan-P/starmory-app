@@ -5,6 +5,7 @@ import '../../../data/services/auth_service.dart';
 import '../../../data/services/hive_service.dart';
 import '../main_navigation.dart';
 import '../onboarding_page.dart';
+import '../language_selection_page.dart';
 import 'email_login_page.dart';
 
 class AccountMethodPage extends ConsumerWidget {
@@ -13,7 +14,10 @@ class AccountMethodPage extends ConsumerWidget {
   Future<void> _continueWithGoogle(BuildContext context, WidgetRef ref) async {
     try {
       final authService = AuthService();
-      final success = await authService.signInWithGoogle();
+      // force ถาม account ใหม่ตอน guest สร้าง account
+      final success = await authService.signInWithGoogle(
+        forceAccountSelection: true,
+      );
 
       if (!success || !context.mounted) return;
 
@@ -26,43 +30,63 @@ class AccountMethodPage extends ConsumerWidget {
       final guestVariant = await hiveService.getGuestEnglishVariant();
       final hasGuestData = guestLevel != null || guestVariant != null;
 
-      // เช็คจาก users table โดยตรง
       final userData = await client
           .from('users')
-          .select('id, language_level, display_name')
+          .select('id, language_level, onboarding_completed, display_name')
           .eq('id', userId)
           .maybeSingle();
 
-      // มี language_level = existing user ที่ setup แล้ว
-      final isExistingUser =
-          userData != null && userData['language_level'] != null;
+      final isNewUser =
+          userData == null || userData['onboarding_completed'] != true;
 
       if (!context.mounted) return;
 
-      if (isExistingUser && hasGuestData) {
-        // มี account แล้ว และมีข้อมูล guest → ถาม dialog
-        final useGuestData = await _showDataChoiceDialog(context);
-        if (useGuestData == null) {
-          // กด Cancel → sign out แล้วกลับ
-          await client.auth.signOut();
-          return;
-        }
-        if (useGuestData == true && context.mounted) {
-          await authService.updateUserPreferences(
-            userId: userId,
-            email: client.auth.currentUser?.email ?? '',
-            languageLevel: guestLevel,
-            englishVariant: guestVariant ?? 'US',
+      if (isNewUser) {
+        //  New user
+        String? finalLevel = guestLevel;
+        String? finalVariant = guestVariant;
+
+        if (!hasGuestData) {
+          // ไม่มีข้อมูล guest → ถาม level/variant
+          // navigate ไป LanguageSelectionPage แล้วรอผล
+          final result = await Navigator.of(context).push<bool>(
+            MaterialPageRoute(
+              builder: (_) => const LanguageSelectionPage(
+                isInitialSetup: true,
+                returnAfterSelection: true,
+                forceSelection: true,
+              ),
+            ),
           );
+          if (!context.mounted || result != true) return;
+          finalLevel = await hiveService.getGuestLanguageLevel();
+          finalVariant = await hiveService.getGuestEnglishVariant();
         }
-      } else if (!isExistingUser && hasGuestData) {
-        // user ใหม่ มีข้อมูล guest → บันทึกข้อมูล guest ลง Supabase
+
+        // บันทึกข้อมูล
         await authService.updateUserPreferences(
           userId: userId,
           email: client.auth.currentUser?.email ?? '',
-          languageLevel: guestLevel,
-          englishVariant: guestVariant ?? 'US',
+          languageLevel: finalLevel ?? 'B1',
+          englishVariant: finalVariant ?? 'US',
         );
+
+        // set onboarding_completed
+        await client
+            .from('users')
+            .update({'onboarding_completed': true})
+            .eq('id', userId);
+      } else {
+        // Existing user → ใช้ข้อมูลเดิมไว้เลย ไม่ overwrite
+        // TODO: อาจเพิ่ม merge strategy ในอนาคตเมื่อมี feature คำศัพท์
+        // if (hasGuestData) {
+        //   await authService.updateUserPreferences(
+        //     userId: userId,
+        //     email: client.auth.currentUser?.email ?? '',
+        //     languageLevel: guestLevel,
+        //     englishVariant: guestVariant ?? 'US',
+        //   );
+        // }
       }
 
       if (!context.mounted) return;
@@ -72,15 +96,16 @@ class AccountMethodPage extends ConsumerWidget {
 
       if (!context.mounted) return;
 
-      // เช็ค display name เฉพาะ user ใหม่เท่านั้น
+      // ถาม display name เฉพาะ new user เท่านั้น
       final hasDisplayName =
           client.auth.currentUser?.userMetadata?['display_name'] != null ||
-          (userData?['display_name'] != null);
+          userData?['display_name'] != null;
 
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(
-          builder: (_) =>
-              MainNavigationScreen(showDisplayNamePrompt: !hasDisplayName),
+          builder: (_) => MainNavigationScreen(
+            showDisplayNamePrompt: isNewUser && !hasDisplayName,
+          ),
         ),
         (route) => false,
       );
@@ -91,49 +116,6 @@ class AccountMethodPage extends ConsumerWidget {
         ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
       }
     }
-  }
-
-  Future<bool?> _showDataChoiceDialog(BuildContext context) async {
-    return showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Text('Found your existing account!'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
-            Text(
-              'We found an account with this email. Would you like to keep your old settings or update with your latest guest preferences?',
-            ),
-            SizedBox(height: 12),
-            Text(
-              '⚠️ Note: Updating will overwrite your old settings.',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.orange,
-                fontStyle: FontStyle.italic,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          // ✅ เพิ่มปุ่ม Cancel
-          TextButton(
-            onPressed: () => Navigator.pop(context, null),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Keep Old'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Use Guest Data'),
-          ),
-        ],
-      ),
-    );
   }
 
   @override
@@ -200,7 +182,7 @@ class AccountMethodPage extends ConsumerWidget {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'If you already have an account, we\'ll ask which data to keep.',
+                            'If you already have an account, your current preferences will be applied.',
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: theme.colorScheme.onSurface.withValues(
                                 alpha: 0.7,

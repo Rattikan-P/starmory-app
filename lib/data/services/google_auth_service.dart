@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -5,18 +6,22 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 class GoogleAuthService {
   final SupabaseClient _client = Supabase.instance.client;
 
-  final GoogleSignIn _googleSignIn = GoogleSignIn(
-    clientId: dotenv.env['ANDROID_CLIENT'],
+  GoogleSignIn get _googleSignIn => GoogleSignIn(
+    clientId: Platform.isIOS
+        ? dotenv.env['IOS_CLIENT']
+        : dotenv.env['ANDROID_CLIENT'],
     serverClientId: dotenv.env['WEB_CLIENT'],
   );
 
-  Future<bool> signInWithGoogle() async {
+  Future<bool> signInWithGoogle({bool forceAccountSelection = false}) async {
     try {
-      // เปิด popup เลือก account
-      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-      if (googleUser == null) return false; // user กด cancel
+      if (forceAccountSelection) {
+        await _googleSignIn.signOut(); // force ถาม account ใหม่
+      }
 
-      // ดึง auth tokens
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      if (googleUser == null) return false;
+
       final GoogleSignInAuthentication googleAuth =
           await googleUser.authentication;
 
@@ -25,7 +30,6 @@ class GoogleAuthService {
 
       if (idToken == null) throw Exception('No ID token found');
 
-      // ส่งให้ Supabase
       await _client.auth.signInWithIdToken(
         provider: OAuthProvider.google,
         idToken: idToken,

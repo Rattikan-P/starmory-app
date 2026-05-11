@@ -112,10 +112,6 @@ class AuthService {
           .eq('id', userId)
           .maybeSingle();
 
-      print('🔵 OTP - userData: $userData');
-      print('🔵 OTP - onboarding_completed: ${userData?['onboarding_completed']}',);
-      print('🔵 OTP - isNewUser: ${userData == null || userData['onboarding_completed'] != true}',);
-
       isNewUser = userData == null || userData['onboarding_completed'] != true;
     }
 
@@ -163,9 +159,11 @@ class AuthService {
   }
 
   // Google Authentication methods
-  Future<bool> signInWithGoogle() async {
-    return await _googleAuthService.signInWithGoogle();
-  }
+  Future<bool> signInWithGoogle({bool forceAccountSelection = false}) async {
+  return await _googleAuthService.signInWithGoogle(
+    forceAccountSelection: forceAccountSelection,
+  );
+}
 
   Future<void> signOutFromGoogle() async {
     await _googleAuthService.signOutFromGoogle();

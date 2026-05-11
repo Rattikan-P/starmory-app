@@ -141,73 +141,49 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
       final guestLevel = await hiveService.getGuestLanguageLevel();
       final guestVariant = await hiveService.getGuestEnglishVariant();
 
-      final hasPassedGuestData =
-          widget.languageLevel != null ||
-          widget.englishVariant != null ||
-          widget.displayName != null;
-      final hasHiveGuestData = guestLevel != null || guestVariant != null;
-      final hasGuestData = hasPassedGuestData || hasHiveGuestData;
+      final hasGuestData = widget.languageLevel != null || guestLevel != null;
 
-      // Merge guest data: prioritize passed data, fall back to Hive data
-      final finalGuestLevel = widget.languageLevel ?? guestLevel;
-      final finalGuestVariant = widget.englishVariant ?? guestVariant;
+      if (!isNewUser) {
+        // Existing user → ใช้ข้อมูลเดิมไว้เลย ไม่ overwrite
+        // TODO: อาจเพิ่ม merge strategy ในอนาคตเมื่อมี feature คำศัพท์
+      } else if (isNewUser && user != null) {
+        // New user → มีข้อมูล guest ใช้เลย ไม่มีค่อยถาม
+        await hiveService.clearGuestPreferences();
+        final finalLevel = widget.languageLevel ?? guestLevel;
+        final finalVariant = widget.englishVariant ?? guestVariant;
 
-      if (!isNewUser && hasGuestData && widget.isGuestCreatingAccount) {
-        // Guest creating account with existing email - ask which data to use
-        final useGuestData = await _showDataChoiceDialog(context);
-        if (useGuestData == true && user != null) {
-          // User chose to use guest data - update with merged guest data
+        if (hasGuestData) {
+          // มีข้อมูล guest → บันทึกเลย
           await authService.updateUserPreferences(
             userId: user.id,
             email: widget.email,
             displayName: widget.displayName,
-            languageLevel: finalGuestLevel,
-            englishVariant: finalGuestVariant,
+            languageLevel: finalLevel ?? 'B1',
+            englishVariant: finalVariant ?? 'US',
           );
-        }
-        // If useGuestData is false or null, keep existing data
-      } else if (!isNewUser && hasGuestData && !widget.isGuestCreatingAccount) {
-        // Logging in with existing email - keep existing data, don't ask
-        // Just continue to main app
-      } else if (isNewUser &&
-          hasGuestData &&
-          widget.isGuestCreatingAccount &&
-          user != null) {
-        // Guest creating account with new email - use existing guest data
-        await authService.updateUserPreferences(
-          userId: user.id,
-          email: widget.email,
-          displayName: widget.displayName,
-          languageLevel: finalGuestLevel,
-          englishVariant: finalGuestVariant,
-        );
-      } else if (isNewUser && user != null) {
-        // New user from onboarding - ask for level/variant (clear any old guest data first)
-        await hiveService.clearGuestPreferences();
+        } else {
+          // ไม่มีข้อมูล guest → ถาม level/variant
+          await hiveService.clearGuestPreferences();
 
-        // Go to language selection, then come back to continue
-        final selectionResult = await Navigator.of(context).push<bool>(
-          MaterialPageRoute(
-            builder: (_) => const LanguageSelectionPage(
-              isInitialSetup: true,
-              returnAfterSelection: true,
-              forceSelection: true,
+          final selectionResult = await Navigator.of(context).push<bool>(
+            MaterialPageRoute(
+              builder: (_) => const LanguageSelectionPage(
+                isInitialSetup: true,
+                returnAfterSelection: true,
+                forceSelection: true,
+              ),
             ),
-          ),
-        );
+          );
 
-        // If user cancelled or went back, exit
-        if (!mounted || selectionResult != true) return;
+          if (!mounted || selectionResult != true) return;
 
-        // Continue with the flow - user has selected level/variant
-        final level = await hiveService.getGuestLanguageLevel();
-        final variant = await hiveService.getGuestEnglishVariant();
+          final level = await hiveService.getGuestLanguageLevel();
+          final variant = await hiveService.getGuestEnglishVariant();
 
-        if (level != null) {
           await authService.updateUserPreferences(
             userId: user.id,
             email: widget.email,
-            languageLevel: level,
+            languageLevel: level ?? 'B1',
             englishVariant: variant ?? 'US',
           );
         }
@@ -221,28 +197,17 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
 
       if (!mounted) return;
 
-      // Check if user has display name
+      // ถาม display name เฉพาะ new user เท่านั้น
       final hasDisplayName = user?.userMetadata?['display_name'] != null;
 
-      if (!hasDisplayName) {
-        // Go to main, then show display name prompt
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(
-            builder: (_) =>
-                const MainNavigationScreen(showDisplayNamePrompt: true),
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (_) => MainNavigationScreen(
+            showDisplayNamePrompt: isNewUser && !hasDisplayName,
           ),
-          (route) => false,
-        );
-      } else {
-        // Go to main navigation
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Login successful!')));
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
-          (route) => false,
-        );
-      }
+        ),
+        (route) => false,
+      );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -252,49 +217,6 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
-  }
-
-  Future<bool?> _showDataChoiceDialog(BuildContext context) async {
-    return showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Text('Found your existing account!'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
-            Text(
-              'We found an account with this email. Would you like to keep your old settings or update with your latest guest preferences?',
-            ),
-            SizedBox(height: 12),
-            Text(
-              '⚠️ Note: Updating will overwrite your old settings.',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.orange,
-                fontStyle: FontStyle.italic,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          // ✅ เพิ่มปุ่ม Cancel
-          TextButton(
-            onPressed: () => Navigator.pop(context, null),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Keep Old'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Use Guest Data'),
-          ),
-        ],
-      ),
-    );
   }
 
   void _onOtpChanged(int index, String value) {

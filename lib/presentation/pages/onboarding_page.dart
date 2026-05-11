@@ -58,58 +58,97 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
   Future<void> _continueWithGoogle() async {
     try {
       final authService = AuthService();
-      final success = await authService.signInWithGoogle();
+      final success = await authService.signInWithGoogle(
+        forceAccountSelection: true,
+      );
 
-      if (success && mounted) {
-        final client = Supabase.instance.client;
-        final userId = client.auth.currentUser?.id;
+      if (!success || !mounted) return;
 
-        if (userId != null) {
-          // เช็ค isNewUser จาก users table โดยตรง
-          final userData = await client
-              .from('users')
-              .select('id, language_level, onboarding_completed')
-              .eq('id', userId)
-              .maybeSingle();
+      final client = Supabase.instance.client;
+      final userId = client.auth.currentUser?.id;
+      if (userId == null) return;
 
-          final isNewUser = userData == null || userData['onboarding_completed'] != true;
+      final userData = await client
+          .from('users')
+          .select('id, language_level, onboarding_completed')
+          .eq('id', userId)
+          .maybeSingle();
 
-          if (!mounted) return;
+      final isNewUser =
+          userData == null || userData['onboarding_completed'] != true;
 
-          final hiveService = ref.read(onboardingServiceProvider);
+      if (!mounted) return;
 
-          if (isNewUser) {
-            // user ใหม่ → ให้เลือกภาษาและ variant
-            Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(
-                builder: (_) => const LanguageSelectionPage(
-                  isGuest: false,
-                  forceSelection: true,
-                ),
-              ),
-              (route) => false,
-            );
-          } else {
-            // เคย login แล้ว → ไปหน้าหลักเลย
-            await hiveService.setOnboardingCompleted(true);
-            await hiveService.setGuestMode(false);
+      final hiveService = ref.read(onboardingServiceProvider);
 
-            if (mounted) {
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(
-                  builder: (_) =>
-                      const MainNavigationScreen(showDisplayNamePrompt: false),
-                ),
-                (route) => false,
-              );
-            }
-          }
-        }
-      } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Google sign in failed. Please try again.'),
+      if (isNewUser) {
+        // ถาม level/variant ก่อน
+        final result = await Navigator.of(context).push<bool>(
+          MaterialPageRoute(
+            builder: (_) => const LanguageSelectionPage(
+              isGuest: false,
+              forceSelection: true,
+              returnAfterSelection: true,
+            ),
           ),
+        );
+
+        print('🟢 result: $result');
+        print('🟢 mounted: $mounted');
+
+        if (!mounted || result != true) {
+          print('🔴 sign out');
+          await client.auth.signOut();
+          return;
+        }
+
+        print('🟢 continue flow');
+
+        // ดึงค่าจาก Hive แล้ว save ลง Supabase
+        final level = await hiveService.getGuestLanguageLevel();
+        final variant = await hiveService.getGuestEnglishVariant();
+
+        await authService.updateUserPreferences(
+          userId: userId,
+          email: client.auth.currentUser?.email ?? '',
+          languageLevel: level ?? 'B1',
+          englishVariant: variant ?? 'US',
+        );
+
+        await client
+            .from('users')
+            .update({'onboarding_completed': true})
+            .eq('id', userId);
+
+        await hiveService.setOnboardingCompleted(true);
+        await hiveService.setGuestMode(false);
+
+        if (!mounted) return;
+
+        // ถาม display name เพราะเป็น new user
+        final hasDisplayName =
+            client.auth.currentUser?.userMetadata?['display_name'] != null;
+
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (_) =>
+                MainNavigationScreen(showDisplayNamePrompt: !hasDisplayName),
+          ),
+          (route) => false,
+        );
+      } else {
+        // Existing user → ไป main เลย
+        await hiveService.setOnboardingCompleted(true);
+        await hiveService.setGuestMode(false);
+
+        if (!mounted) return;
+
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (_) =>
+                const MainNavigationScreen(showDisplayNamePrompt: false),
+          ),
+          (route) => false,
         );
       }
     } catch (e) {
