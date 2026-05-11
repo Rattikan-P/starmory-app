@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'onboarding_page.dart';
-import 'auth/login_method_page.dart';
 import 'main_navigation.dart';
 
 class EnglishVariantPage extends ConsumerWidget {
@@ -11,7 +10,7 @@ class EnglishVariantPage extends ConsumerWidget {
   final bool isInitialSetup;
   final String? languageLevel;
   final bool forceSelection;
-  final bool returnAfterSelection; // Return to previous screen after selection
+  final bool returnAfterSelection;
 
   const EnglishVariantPage({
     super.key,
@@ -41,11 +40,6 @@ class EnglishVariantPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-
-    // Check existing guest variant and auto-proceed if registering
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkExistingGuestVariant(context, ref);
-    });
 
     return Scaffold(
       appBar: AppBar(
@@ -136,33 +130,8 @@ class EnglishVariantPage extends ConsumerWidget {
     );
   }
 
-  Future<void> _checkExistingGuestVariant(
-    BuildContext context,
-    WidgetRef ref,
-  ) async {
-    // Skip if: editing mode, guest mode, initial onboarding setup, or forcing selection
-    if (isEditing || isGuest || isInitialSetup || forceSelection) return;
-
-    final hiveService = ref.read(onboardingServiceProvider);
-    final existingVariant = await hiveService.getGuestEnglishVariant();
-
-    if (existingVariant != null && context.mounted) {
-      // Skip to register with existing level and variant
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => LoginMethodPage(
-            languageLevel: languageLevel ?? 'B1',
-            englishVariant: existingVariant,
-            isRegistration: true,
-          ),
-        ),
-      );
-    }
-  }
-
   void _skip(BuildContext context, WidgetRef ref) {
-    _selectVariant(context, ref, 'US'); // Default US
+    _selectVariant(context, ref, 'US');
   }
 
   Future<void> _selectVariant(
@@ -174,7 +143,6 @@ class EnglishVariantPage extends ConsumerWidget {
     await hiveService.setGuestEnglishVariant(code);
 
     if (isEditing) {
-      // Update and go back
       if (!isGuest) {
         final client = Supabase.instance.client;
         final userId = client.auth.currentSession?.user.id;
@@ -182,22 +150,21 @@ class EnglishVariantPage extends ConsumerWidget {
           await client.auth.updateUser(
             UserAttributes(data: {'english_variant': code}),
           );
-          await client.from('users').update({'english_variant': code}).eq('id', userId);
+          await client.from('users').update(
+            {'english_variant': code},
+          ).eq('id', userId);
         }
       }
       if (context.mounted) Navigator.pop(context);
       return;
     }
 
-    // Return after selection (for post-OTP level selection)
     if (returnAfterSelection) {
       if (context.mounted) Navigator.pop(context, true);
       return;
     }
 
-    // New selection flow
     if (isGuest) {
-      // Guest: save and go to main
       await hiveService.setGuestMode(true);
       await hiveService.setOnboardingCompleted(true);
       if (context.mounted) {
@@ -207,17 +174,36 @@ class EnglishVariantPage extends ConsumerWidget {
         );
       }
     } else {
-      // Register flow: go to login method selection with level
+      // ✅ ทั้ง Google และ Email
+      final client = Supabase.instance.client;
+      final userId = client.auth.currentSession?.user.id;
+      if (userId != null) {
+        await client.auth.updateUser(
+          UserAttributes(data: {
+            'language_level': languageLevel ?? 'B1',
+            'english_variant': code,
+          }),
+        );
+        await client.from('users').upsert({
+          'id': userId,
+          'language_level': languageLevel ?? 'B1',
+          'english_variant': code,
+          'onboarding_completed': true,
+        });
+      }
+
+      // ✅ บอกว่า onboarding เสร็จแล้ว
+      await hiveService.setOnboardingCompleted(true);
+      await hiveService.setGuestMode(false);
+
       if (context.mounted) {
-        Navigator.push(
-          context,
+        Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(
-            builder: (_) => LoginMethodPage(
-              languageLevel: languageLevel ?? 'B1',
-              englishVariant: code,
-              isRegistration: true,
+            builder: (_) => const MainNavigationScreen(
+              showDisplayNamePrompt: true,
             ),
           ),
+          (route) => false,
         );
       }
     }

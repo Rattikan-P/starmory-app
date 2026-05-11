@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:starmory_app/data/services/auth_service.dart';
 import 'login_page.dart';
 import 'otp_verification_page.dart';
+
+final authServiceProvider = Provider<AuthService>((ref) => AuthService());
 
 class LoginMethodPage extends ConsumerWidget {
   final String? email;
@@ -34,7 +37,6 @@ class LoginMethodPage extends ConsumerWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // Icon
                   Icon(
                     Icons.login_rounded,
                     size: 64,
@@ -42,7 +44,6 @@ class LoginMethodPage extends ConsumerWidget {
                   ),
                   const SizedBox(height: 24),
 
-                  // Title
                   Text(
                     isRegistration ? 'Create your account' : 'Welcome Back',
                     style: theme.textTheme.headlineMedium?.copyWith(
@@ -52,7 +53,6 @@ class LoginMethodPage extends ConsumerWidget {
                   ),
                   const SizedBox(height: 8),
 
-                  // Subtitle
                   Text(
                     isRegistration
                         ? 'Enter your email to get started'
@@ -75,23 +75,38 @@ class LoginMethodPage extends ConsumerWidget {
                   ),
                   const SizedBox(height: 16),
 
-                  // Google Card (Coming Soon)
+                  // Google Card
                   _MethodCard(
                     icon: Icons.g_mobiledata_rounded,
                     title: 'Continue with Google',
                     subtitle: 'Quick & easy sign in',
-                    description: 'Coming Soon',
+                    description: 'Sign in with your Google account',
                     isPrimary: false,
-                    isComingSoon: true,
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Google Sign In coming soon!')),
-                      );
+                    isComingSoon: false,
+                    onTap: () async {
+                      try {
+                        final authService = ref.read(authServiceProvider);
+                        final success = await authService.signInWithGoogle();
+
+                        if (success) {
+                          if (!context.mounted) return;
+                          Navigator.of(context).popUntil((route) => route.isFirst);
+                        } else {
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Google sign in failed. Please try again.')),
+                          );
+                        }
+                      } catch (e) {
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Error: ${e.toString()}')),
+                        );
+                      }
                     },
                   ),
                   const SizedBox(height: 24),
 
-                  // Back button
                   TextButton.icon(
                     onPressed: () => Navigator.pop(context),
                     icon: const Icon(Icons.arrow_back),
@@ -107,7 +122,6 @@ class LoginMethodPage extends ConsumerWidget {
   }
 
   void _goToEmailOtp(BuildContext context) {
-    // If email is already provided, go directly to OTP
     if (email != null && email!.isNotEmpty) {
       Navigator.push(
         context,
@@ -122,7 +136,6 @@ class LoginMethodPage extends ConsumerWidget {
         ),
       );
     } else {
-      // Otherwise go to login page first to get email
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -161,90 +174,91 @@ class _MethodCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return GestureDetector(
-      onTap: isComingSoon ? null : onTap,
-      child: Opacity(
-        opacity: isComingSoon ? 0.6 : 1.0,
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            border: Border.all(
-              color: isPrimary
-                  ? theme.colorScheme.primary
-                  : theme.colorScheme.outline.withValues(alpha: 0.3),
-              width: isPrimary ? 2 : 1,
-            ),
-            borderRadius: BorderRadius.circular(16),
-            color: isPrimary
-                ? theme.colorScheme.primaryContainer.withValues(alpha: 0.3)
-                : null,
-          ),
-          child: Row(
-            children: [
-              // Icon
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: isPrimary
-                      ? theme.colorScheme.primaryContainer
-                      : theme.colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  icon,
-                  size: 28,
-                  color: isPrimary
-                      ? theme.colorScheme.primary
-                      : theme.colorScheme.onSurface.withValues(alpha: 0.7),
-                ),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: isComingSoon ? null : onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Opacity(
+          opacity: isComingSoon ? 0.6 : 1.0,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              border: Border.all(
+                color: isPrimary
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.outline.withValues(alpha: 0.3),
+                width: isPrimary ? 2 : 1,
               ),
-              const SizedBox(width: 16),
+              borderRadius: BorderRadius.circular(16),
+              color: isPrimary
+                  ? theme.colorScheme.primaryContainer.withValues(alpha: 0.3)
+                  : null,
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: isPrimary
+                        ? theme.colorScheme.primaryContainer
+                        : theme.colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    icon,
+                    size: 28,
+                    color: isPrimary
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                  ),
+                ),
+                const SizedBox(width: 16),
 
-              // Text
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                if (isComingSoon)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      style: theme.textTheme.bodySmall?.copyWith(
+                    child: Text(
+                      'Soon',
+                      style: theme.textTheme.labelSmall?.copyWith(
                         color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                       ),
                     ),
-                  ],
-                ),
-              ),
-
-              // Arrow or Badge
-              if (isComingSoon)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(8),
+                  )
+                else
+                  Icon(
+                    Icons.chevron_right,
+                    color: theme.colorScheme.primary,
                   ),
-                  child: Text(
-                    'Soon',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                    ),
-                  ),
-                )
-              else
-                Icon(
-                  Icons.chevron_right,
-                  color: theme.colorScheme.primary,
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

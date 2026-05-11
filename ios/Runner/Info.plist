@@ -66,5 +66,12 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>googlechromes</string>
+		<string>googlechrome</string>
+	</array>
+	<key>GIDClientID</key>
+	<string>756354340664-fotsc0j36gdcm4odmd7b1n5945nj1itr.apps.googleusercontent.com</string>
 </dict>
 </plist>

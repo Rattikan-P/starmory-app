@@ -9,7 +9,6 @@ import '../language_selection_page.dart';
 import '../main_navigation.dart';
 
 final onboardingServiceProvider = Provider<HiveService>((ref) => HiveService());
-
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
 
 class OtpVerificationPage extends ConsumerStatefulWidget {
@@ -29,7 +28,8 @@ class OtpVerificationPage extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<OtpVerificationPage> createState() => _OtpVerificationPageState();
+  ConsumerState<OtpVerificationPage> createState() =>
+      _OtpVerificationPageState();
 }
 
 class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
@@ -37,10 +37,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
     6,
     (index) => TextEditingController(),
   );
-  final List<FocusNode> _focusNodes = List.generate(
-    6,
-    (index) => FocusNode(),
-  );
+  final List<FocusNode> _focusNodes = List.generate(6, (index) => FocusNode());
 
   bool _isLoading = false;
   bool _isResending = false;
@@ -98,9 +95,9 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
       final authService = ref.read(authServiceProvider);
       await authService.sendOtp(widget.email);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('OTP sent successfully!')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('OTP sent successfully!')));
         _startCountdown();
       }
     } catch (e) {
@@ -140,17 +137,15 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
 
       if (!mounted) return;
 
-      // Check if existing user with guest data that might differ
-      // Check both passed data AND Hive storage
       final hiveService = ref.read(onboardingServiceProvider);
       final guestLevel = await hiveService.getGuestLanguageLevel();
       final guestVariant = await hiveService.getGuestEnglishVariant();
 
-      final hasPassedGuestData = widget.languageLevel != null ||
+      final hasPassedGuestData =
+          widget.languageLevel != null ||
           widget.englishVariant != null ||
           widget.displayName != null;
       final hasHiveGuestData = guestLevel != null || guestVariant != null;
-
       final hasGuestData = hasPassedGuestData || hasHiveGuestData;
 
       // Merge guest data: prioritize passed data, fall back to Hive data
@@ -174,7 +169,10 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
       } else if (!isNewUser && hasGuestData && !widget.isGuestCreatingAccount) {
         // Logging in with existing email - keep existing data, don't ask
         // Just continue to main app
-      } else if (isNewUser && hasGuestData && widget.isGuestCreatingAccount && user != null) {
+      } else if (isNewUser &&
+          hasGuestData &&
+          widget.isGuestCreatingAccount &&
+          user != null) {
         // Guest creating account with new email - use existing guest data
         await authService.updateUserPreferences(
           userId: user.id,
@@ -188,7 +186,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
         await hiveService.clearGuestPreferences();
 
         // Go to language selection, then come back to continue
-        final result = await Navigator.of(context).push<bool>(
+        final selectionResult = await Navigator.of(context).push<bool>(
           MaterialPageRoute(
             builder: (_) => const LanguageSelectionPage(
               isInitialSetup: true,
@@ -199,10 +197,9 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
         );
 
         // If user cancelled or went back, exit
-        if (!mounted || result != true) return;
+        if (!mounted || selectionResult != true) return;
 
         // Continue with the flow - user has selected level/variant
-        // Need to update user preferences with the selected values
         final level = await hiveService.getGuestLanguageLevel();
         final variant = await hiveService.getGuestEnglishVariant();
 
@@ -218,41 +215,39 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
 
       if (!mounted) return;
 
+      // Mark onboarding as completed and clear guest mode
+      await hiveService.setOnboardingCompleted(true);
+      await hiveService.setGuestMode(false);
+
+      if (!mounted) return;
+
       // Check if user has display name
       final hasDisplayName = user?.userMetadata?['display_name'] != null;
 
       if (!hasDisplayName) {
-        // Mark onboarding as completed and go to main, then show display name prompt
-        if (mounted) {
-          final hiveService = ref.read(onboardingServiceProvider);
-          await hiveService.setOnboardingCompleted(true);
-
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (_) => const MainNavigationScreen(showDisplayNamePrompt: true)),
-            (route) => false,
-          );
-        }
+        // Go to main, then show display name prompt
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (_) =>
+                const MainNavigationScreen(showDisplayNamePrompt: true),
+          ),
+          (route) => false,
+        );
       } else {
-        // Mark onboarding as completed
-        final hiveService = ref.read(onboardingServiceProvider);
-        await hiveService.setOnboardingCompleted(true);
-
         // Go to main navigation
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Login successful!')),
-          );
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
-            (route) => false,
-          );
-        }
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Login successful!')));
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
+          (route) => false,
+        );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Invalid OTP: ${e.toString()}')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Invalid OTP: ${e.toString()}')));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -274,7 +269,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
             ),
             SizedBox(height: 12),
             Text(
-              '⚠️ Note: If you create a new account instead, your old account data will be lost.',
+              '⚠️ Note: Updating will overwrite your old settings.',
               style: TextStyle(
                 fontSize: 12,
                 color: Colors.orange,
@@ -284,13 +279,18 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
           ],
         ),
         actions: [
+          // ✅ เพิ่มปุ่ม Cancel
+          TextButton(
+            onPressed: () => Navigator.pop(context, null),
+            child: const Text('Cancel'),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(context, false),
             child: const Text('Keep Old'),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Update New'),
+            child: const Text('Use Guest Data'),
           ),
         ],
       ),
@@ -339,130 +339,137 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                    // Icon
-                    Icon(
-                      Icons.email_outlined,
-                      size: 60,
-                      color: theme.colorScheme.primary.withValues(alpha: 0.5),
-                    ),
-                    const SizedBox(height: 24),
-
-                    // Title
-                    Text(
-                      'Check your email',
-                      style: theme.textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-
-                    // Subtitle
-                    Text(
-                      'We sent a 6-digit code to\n${widget.email}',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 32),
-
-                    // OTP Fields
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: List.generate(6, (index) {
-                        return SizedBox(
-                          width: 48,
-                          height: 56,
-                          child: TextField(
-                            controller: _otpControllers[index],
-                            focusNode: _focusNodes[index],
-                            keyboardType: TextInputType.number,
-                            textAlign: TextAlign.center,
-                            style: theme.textTheme.headlineMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly,
-                              LengthLimitingTextInputFormatter(1),
-                            ],
-                            decoration: InputDecoration(
-                              counterText: '',
-                              contentPadding: const EdgeInsets.all(12),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(
-                                  color: theme.colorScheme.primary,
-                                  width: 2,
-                                ),
-                              ),
-                            ),
-                            onChanged: (value) => _onOtpChanged(index, value),
+                        // Icon
+                        Icon(
+                          Icons.email_outlined,
+                          size: 60,
+                          color: theme.colorScheme.primary.withValues(
+                            alpha: 0.5,
                           ),
-                        );
-                      }),
-                    ),
-                    const SizedBox(height: 6),
-
-                    // Paste hint
-                    Text(
-                      'Tap anywhere to paste code',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Resend Section
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          "Didn't receive the code? ",
-                          style: theme.textTheme.bodyMedium,
                         ),
-                        TextButton(
-                          onPressed: _countdown == 0 && !_isResending
-                              ? _resendOtp
-                              : null,
-                          child: _isResending
-                              ? const SizedBox(
-                                  height: 14,
-                                  width: 14,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
-                                )
-                              : Text(
-                                  _countdown > 0
-                                      ? 'Resend in $_countdown s'
-                                      : 'Resend',
+                        const SizedBox(height: 24),
+
+                        // Title
+                        Text(
+                          'Check your email',
+                          style: theme.textTheme.headlineMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+
+                        // Subtitle
+                        Text(
+                          'We sent a 6-digit code to\n${widget.email}',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.6,
+                            ),
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 32),
+
+                        // OTP Fields
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: List.generate(6, (index) {
+                            return SizedBox(
+                              width: 48,
+                              height: 56,
+                              child: TextField(
+                                controller: _otpControllers[index],
+                                focusNode: _focusNodes[index],
+                                keyboardType: TextInputType.number,
+                                textAlign: TextAlign.center,
+                                style: theme.textTheme.headlineMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
                                 ),
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.digitsOnly,
+                                  LengthLimitingTextInputFormatter(1),
+                                ],
+                                decoration: InputDecoration(
+                                  counterText: '',
+                                  contentPadding: const EdgeInsets.all(12),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide(
+                                      color: theme.colorScheme.primary,
+                                      width: 2,
+                                    ),
+                                  ),
+                                ),
+                                onChanged: (value) =>
+                                    _onOtpChanged(index, value),
+                              ),
+                            );
+                          }),
+                        ),
+                        const SizedBox(height: 6),
+
+                        // Paste hint
+                        Text(
+                          'Tap anywhere to paste code',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.5,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Resend Section
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              "Didn't receive the code? ",
+                              style: theme.textTheme.bodyMedium,
+                            ),
+                            TextButton(
+                              onPressed: _countdown == 0 && !_isResending
+                                  ? _resendOtp
+                                  : null,
+                              child: _isResending
+                                  ? const SizedBox(
+                                      height: 14,
+                                      width: 14,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : Text(
+                                      _countdown > 0
+                                          ? 'Resend in $_countdown s'
+                                          : 'Resend',
+                                    ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Change Email
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('Wrong email? Go back'),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
-
-                    // Change Email
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Wrong email? Go back'),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-      ),
-      if (_isLoading)
-        Container(
-          color: theme.colorScheme.surface,
-          child: const Center(
-            child: CircularProgressIndicator(),
-          ),
-        ),
-    ],
+          if (_isLoading)
+            Container(
+              color: theme.colorScheme.surface,
+              child: const Center(child: CircularProgressIndicator()),
+            ),
+        ],
       ),
     );
   }

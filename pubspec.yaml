@@ -40,6 +40,7 @@ dependencies:
 
   # Auth & Backend
   supabase_flutter: ^2.12.4
+  google_sign_in: ^6.2.1
 
   # Image Handling
   image_picker: ^1.1.2

@@ -25,6 +25,13 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
   void initState() {
     super.initState();
     _checkGuestMode();
+
+    // ฟัง auth state เมื่อ logout จะ reload ทันที
+    Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      if (mounted) {
+        _checkGuestMode();
+      }
+    });
   }
 
   Future<void> _checkGuestMode() async {
@@ -43,11 +50,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
     final user = ref.watch(currentUserProvider);
 
     if (_isCheckingGuest) {
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     return Scaffold(
@@ -72,7 +75,8 @@ class _PreferencesSection extends ConsumerWidget {
     this.onPreferenceChanged,
   });
 
-  String get variantName => englishVariant == 'UK' ? 'British English' : 'American English';
+  String get variantName =>
+      englishVariant == 'UK' ? 'British English' : 'American English';
   String get variantFlag => englishVariant == 'UK' ? '🇬🇧' : '🇺🇸';
 
   @override
@@ -267,7 +271,9 @@ class _NotLoggedInViewState extends ConsumerState<_NotLoggedInView> {
                         Text(
                           'Create an account to sync across devices',
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.7,
+                            ),
                           ),
                           textAlign: TextAlign.center,
                         ),
@@ -343,15 +349,22 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
     final theme = Theme.of(context);
 
     // Fallback to metadata if data not loaded yet
-    final displayName = _userData?['display_name'] ?? widget.user.userMetadata?['display_name'] ?? 'User';
+    final displayName =
+        _userData?['display_name'] ??
+        widget.user.userMetadata?['display_name'] ??
+        'User';
     final email = widget.user.email ?? '';
-    final languageLevel = _userData?['language_level'] ?? widget.user.userMetadata?['language_level'] ?? 'B1';
-    final englishVariant = _userData?['english_variant'] ?? widget.user.userMetadata?['english_variant'] ?? 'US';
+    final languageLevel =
+        _userData?['language_level'] ??
+        widget.user.userMetadata?['language_level'] ??
+        'B1';
+    final englishVariant =
+        _userData?['english_variant'] ??
+        widget.user.userMetadata?['english_variant'] ??
+        'US';
 
     if (_isLoading) {
-      return Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     return Column(
@@ -374,7 +387,10 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
               children: [
                 // Top bar with back button
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   child: Row(
                     children: [
                       IconButton(
@@ -383,7 +399,10 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
                       ),
                       const Spacer(),
                       IconButton(
-                        icon: const Icon(Icons.edit_outlined, color: Colors.white),
+                        icon: const Icon(
+                          Icons.edit_outlined,
+                          color: Colors.white,
+                        ),
                         onPressed: () {
                           // TODO: Edit profile
                         },
@@ -419,10 +438,7 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
                 // Email
                 Text(
                   email,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Colors.white70,
-                  ),
+                  style: const TextStyle(fontSize: 14, color: Colors.white70),
                 ),
                 const SizedBox(height: 24),
               ],
@@ -454,8 +470,10 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
                 final variant = _userData?['english_variant'];
 
                 final hiveService = ref.read(onboardingServiceProvider);
-                if (level != null) await hiveService.setGuestLanguageLevel(level);
-                if (variant != null) await hiveService.setGuestEnglishVariant(variant);
+                if (level != null)
+                  await hiveService.setGuestLanguageLevel(level);
+                if (variant != null)
+                  await hiveService.setGuestEnglishVariant(variant);
 
                 // Set guest mode before logout so ProfileTab shows guest view
                 await hiveService.setGuestMode(true);
@@ -492,7 +510,10 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
   }
 }
 
-Future<void> _showDeleteAccountDialog(BuildContext context, WidgetRef ref) async {
+Future<void> _showDeleteAccountDialog(
+  BuildContext context,
+  WidgetRef ref,
+) async {
   final confirmed = await showDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(

@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/services/hive_service.dart';
+import '../../data/services/auth_service.dart';
 import 'auth/email_login_page.dart';
 import 'language_selection_page.dart';
+import 'main_navigation.dart';
 
-final onboardingServiceProvider =
-    Provider<HiveService>((ref) => HiveService());
+final onboardingServiceProvider = Provider<HiveService>((ref) => HiveService());
 
 class OnboardingPage extends ConsumerStatefulWidget {
   const OnboardingPage({super.key});
@@ -43,30 +45,87 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
   }
 
   Future<void> _continueAsGuest() async {
-    // Go to language selection first, then enter as guest
     if (mounted) {
       await Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const LanguageSelectionPage(isGuest: true, forceSelection: true)),
+        MaterialPageRoute(
+          builder: (_) =>
+              const LanguageSelectionPage(isGuest: true, forceSelection: true),
+        ),
       );
-      // After language selection, guest mode will be set and proceed to main
     }
   }
 
   Future<void> _continueWithGoogle() async {
-    // TODO: Implement Google OAuth
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Google sign in coming soon!')),
-      );
+    try {
+      final authService = AuthService();
+      final success = await authService.signInWithGoogle();
+
+      if (success && mounted) {
+        final client = Supabase.instance.client;
+        final userId = client.auth.currentUser?.id;
+
+        if (userId != null) {
+          // เช็ค isNewUser จาก users table โดยตรง
+          final userData = await client
+              .from('users')
+              .select('id, language_level, onboarding_completed')
+              .eq('id', userId)
+              .maybeSingle();
+
+          final isNewUser = userData == null || userData['onboarding_completed'] != true;
+
+          if (!mounted) return;
+
+          final hiveService = ref.read(onboardingServiceProvider);
+
+          if (isNewUser) {
+            // user ใหม่ → ให้เลือกภาษาและ variant
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(
+                builder: (_) => const LanguageSelectionPage(
+                  isGuest: false,
+                  forceSelection: true,
+                ),
+              ),
+              (route) => false,
+            );
+          } else {
+            // เคย login แล้ว → ไปหน้าหลักเลย
+            await hiveService.setOnboardingCompleted(true);
+            await hiveService.setGuestMode(false);
+
+            if (mounted) {
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(
+                  builder: (_) =>
+                      const MainNavigationScreen(showDisplayNamePrompt: false),
+                ),
+                (route) => false,
+              );
+            }
+          }
+        }
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Google sign in failed. Please try again.'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
+      }
     }
   }
 
   Future<void> _continueWithEmail() async {
-    // Go to email input page (checks if email exists first)
     if (mounted) {
-      await Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const EmailLoginPage()),
-      );
+      await Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => const EmailLoginPage()));
     }
   }
 
@@ -78,14 +137,11 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
       body: SafeArea(
         child: Column(
           children: [
-
-            // Content
             Expanded(
               child: Column(
                 children: [
                   const SizedBox(height: 20),
 
-                  // Logo
                   Image.asset(
                     'assets/images/logo.png',
                     width: 80,
@@ -113,7 +169,6 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                   ),
                   const SizedBox(height: 32),
 
-                  // App name + tagline
                   Text(
                     'Starmory',
                     style: theme.textTheme.headlineMedium?.copyWith(
@@ -131,7 +186,6 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                   ),
                   const SizedBox(height: 48),
 
-                  // Slider
                   Expanded(
                     child: PageView.builder(
                       controller: _pageController,
@@ -142,7 +196,10 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                       itemBuilder: (context, index) {
                         final item = _items[index];
                         return Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 32,
+                            vertical: 16,
+                          ),
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
@@ -162,16 +219,18 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                               const SizedBox(height: 24),
                               Text(
                                 item.title,
-                                style: theme.textTheme.titleLarge
-                                    ?.copyWith(fontWeight: FontWeight.bold),
+                                style: theme.textTheme.titleLarge?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
                                 textAlign: TextAlign.center,
                               ),
                               const SizedBox(height: 8),
                               Text(
                                 item.description,
                                 style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: theme.colorScheme.onSurface
-                                      .withValues(alpha: 0.6),
+                                  color: theme.colorScheme.onSurface.withValues(
+                                    alpha: 0.6,
+                                  ),
                                 ),
                                 textAlign: TextAlign.center,
                               ),
@@ -182,7 +241,6 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                     ),
                   ),
 
-                  // Dots indicator
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: List.generate(
@@ -195,8 +253,9 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                         decoration: BoxDecoration(
                           color: _currentPage == index
                               ? theme.colorScheme.primary
-                              : theme.colorScheme.primary
-                                  .withValues(alpha: 0.3),
+                              : theme.colorScheme.primary.withValues(
+                                  alpha: 0.3,
+                                ),
                           borderRadius: BorderRadius.circular(4),
                         ),
                       ),
@@ -206,12 +265,10 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
               ),
             ),
 
-            // Bottom buttons
             Padding(
               padding: const EdgeInsets.all(24),
               child: Column(
                 children: [
-                  // Continue with Google Button
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
@@ -225,7 +282,6 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Continue with Email Button (Primary)
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton(
@@ -238,7 +294,6 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Continue as Guest Button
                   SizedBox(
                     width: double.infinity,
                     child: TextButton(

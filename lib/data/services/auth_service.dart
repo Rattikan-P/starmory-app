@@ -1,9 +1,10 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:starmory_app/data/services/google_auth_service.dart';
 
 class AuthService {
   final SupabaseClient _client = Supabase.instance.client;
+  final GoogleAuthService _googleAuthService = GoogleAuthService();
 
-  // Session auto-persisted by Supabase SDK (no manual storage needed)
   bool get isLoggedIn => _client.auth.currentSession != null;
   String? get currentUserId => _client.auth.currentSession?.user.id;
 
@@ -24,17 +25,19 @@ class AuthService {
       }..removeWhere((key, value) => value == null),
     );
 
-    // Also update the users table with language level and variant
     if (response.user != null) {
-      await _client.from('users').upsert({
-        'id': response.user!.id,
-        'email': email,
-        'display_name': displayName,
-        'language_level': languageLevel,
-        'english_variant': englishVariant,
-      }..removeWhere((key, value) => value == null));
+      await _client
+          .from('users')
+          .upsert(
+            {
+              'id': response.user!.id,
+              'email': email,
+              'display_name': displayName,
+              'language_level': languageLevel,
+              'english_variant': englishVariant,
+            }..removeWhere((key, value) => value == null),
+          );
 
-      // Auto login after registration
       await signIn(email: email, password: password);
     }
 
@@ -60,16 +63,13 @@ class AuthService {
   }
 
   Future<void> updatePassword(String newPassword) async {
-    await _client.auth.updateUser(
-      UserAttributes(password: newPassword),
-    );
+    await _client.auth.updateUser(UserAttributes(password: newPassword));
   }
 
   Future<void> deleteAccount() async {
     final userId = currentUserId;
     if (userId == null) throw Exception('No user logged in');
 
-    // Call Edge Function to delete account completely (PDPA compliant)
     final response = await _client.functions.invoke(
       'delete-account',
       body: {'userId': userId},
@@ -79,16 +79,12 @@ class AuthService {
       throw Exception(response.data['error'] ?? 'Failed to delete account');
     }
 
-    // Sign out from current session
     await signOut();
   }
 
   // Send OTP to email (for both login and signup)
   Future<void> sendOtp(String email) async {
-    await _client.auth.signInWithOtp(
-      email: email,
-      emailRedirectTo: null, // null = use OTP code instead of magic link
-    );
+    await _client.auth.signInWithOtp(email: email, emailRedirectTo: null);
   }
 
   // Verify OTP and complete auth
@@ -106,15 +102,24 @@ class AuthService {
       type: OtpType.email,
     );
 
-    // Check if this is a new user (created within last minute via OTP)
-    final createdAt = response.user?.createdAt;
-    final isNewUser = createdAt != null &&
-        DateTime.now().difference(DateTime.parse(createdAt)) < const Duration(minutes: 1);
+    // เช็ค isNewUser จาก users table โดยตรง
+    final userId = response.user?.id;
+    bool isNewUser = false;
+    if (userId != null) {
+      final userData = await _client
+          .from('users')
+          .select('id, language_level, onboarding_completed')
+          .eq('id', userId)
+          .maybeSingle();
 
-    return {
-      'response': response,
-      'isNewUser': isNewUser,
-    };
+      print('🔵 OTP - userData: $userData');
+      print('🔵 OTP - onboarding_completed: ${userData?['onboarding_completed']}',);
+      print('🔵 OTP - isNewUser: ${userData == null || userData['onboarding_completed'] != true}',);
+
+      isNewUser = userData == null || userData['onboarding_completed'] != true;
+    }
+
+    return {'response': response, 'isNewUser': isNewUser};
   }
 
   // Update user preferences (called after user chooses)
@@ -135,13 +140,14 @@ class AuthService {
 
     await _client.from('users').upsert(data);
 
-    // Also update user metadata in auth
     await _client.auth.updateUser(
-      UserAttributes(data: {
-        'display_name': displayName,
-        'language_level': languageLevel,
-        'english_variant': englishVariant,
-      }..removeWhere((key, value) => value == null)),
+      UserAttributes(
+        data: {
+          'display_name': displayName,
+          'language_level': languageLevel,
+          'english_variant': englishVariant,
+        }..removeWhere((key, value) => value == null),
+      ),
     );
   }
 
@@ -155,4 +161,15 @@ class AuthService {
 
     return response;
   }
+
+  // Google Authentication methods
+  Future<bool> signInWithGoogle() async {
+    return await _googleAuthService.signInWithGoogle();
+  }
+
+  Future<void> signOutFromGoogle() async {
+    await _googleAuthService.signOutFromGoogle();
+  }
+
+  bool get isGoogleLoggedIn => _googleAuthService.isLoggedIn;
 }

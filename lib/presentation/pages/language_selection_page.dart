@@ -240,7 +240,6 @@ class _LanguageSelectionPageState extends ConsumerState<LanguageSelectionPage> {
         MaterialPageRoute(
           builder: (_) => EnglishVariantPage(
             isGuest: widget.isGuest,
-            isInitialSetup: widget.isInitialSetup,
             languageLevel: code,
             forceSelection: widget.forceSelection,
             returnAfterSelection: widget.returnAfterSelection,
