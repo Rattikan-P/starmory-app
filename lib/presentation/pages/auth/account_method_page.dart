@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../data/services/auth_service.dart';
-import '../../../data/services/hive_service.dart';
+import '../../../data/services/preference_service.dart';
 import '../main_navigation.dart';
 import '../onboarding_page.dart';
 import '../language_selection_page.dart';
@@ -25,9 +25,9 @@ class AccountMethodPage extends ConsumerWidget {
       final userId = client.auth.currentUser?.id;
       if (userId == null) return;
 
-      final hiveService = ref.read(onboardingServiceProvider);
-      final guestLevel = await hiveService.getGuestLanguageLevel();
-      final guestVariant = await hiveService.getGuestEnglishVariant();
+      final preferenceService = ref.read(onboardingServiceProvider);
+      final guestLevel = await preferenceService.getGuestLanguageLevel();
+      final guestVariant = await preferenceService.getGuestEnglishVariant();
       final hasGuestData = guestLevel != null || guestVariant != null;
 
       final userData = await client
@@ -59,8 +59,8 @@ class AccountMethodPage extends ConsumerWidget {
             ),
           );
           if (!context.mounted || result != true) return;
-          finalLevel = await hiveService.getGuestLanguageLevel();
-          finalVariant = await hiveService.getGuestEnglishVariant();
+          finalLevel = await preferenceService.getGuestLanguageLevel();
+          finalVariant = await preferenceService.getGuestEnglishVariant();
         }
 
         // บันทึกข้อมูล
@@ -91,8 +91,8 @@ class AccountMethodPage extends ConsumerWidget {
 
       if (!context.mounted) return;
 
-      await hiveService.setOnboardingCompleted(true);
-      await hiveService.setGuestMode(false);
+      await preferenceService.setOnboardingCompleted(true);
+      await preferenceService.setGuestMode(false);
 
       if (!context.mounted) return;
 

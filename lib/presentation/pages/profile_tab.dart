@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:starmory_app/data/services/preference_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers/auth_provider.dart';
 import '../../data/services/auth_service.dart';
@@ -35,8 +36,8 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
   }
 
   Future<void> _checkGuestMode() async {
-    final hiveService = ref.read(onboardingServiceProvider);
-    final isGuest = await hiveService.isGuestMode();
+    final preferenceService = ref.read(onboardingServiceProvider);
+    final isGuest = await preferenceService.isGuestMode();
     if (mounted) {
       setState(() {
         _isGuestMode = isGuest;
@@ -176,9 +177,9 @@ class _NotLoggedInViewState extends ConsumerState<_NotLoggedInView> {
   }
 
   Future<void> _loadGuestPreferences() async {
-    final hiveService = ref.read(onboardingServiceProvider);
-    final level = await hiveService.getGuestLanguageLevel();
-    final variant = await hiveService.getGuestEnglishVariant();
+    final preferenceService = ref.read(onboardingServiceProvider);
+    final level = await preferenceService.getGuestLanguageLevel();
+    final variant = await preferenceService.getGuestEnglishVariant();
     if (mounted) {
       setState(() {
         _guestLanguageLevel = level;
@@ -469,14 +470,14 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
                 final level = _userData?['language_level'];
                 final variant = _userData?['english_variant'];
 
-                final hiveService = ref.read(onboardingServiceProvider);
+                final preferenceService = ref.read(onboardingServiceProvider);
                 if (level != null)
-                  await hiveService.setGuestLanguageLevel(level);
+                  await preferenceService.setGuestLanguageLevel(level);
                 if (variant != null)
-                  await hiveService.setGuestEnglishVariant(variant);
+                  await preferenceService.setGuestEnglishVariant(variant);
 
                 // Set guest mode before logout so ProfileTab shows guest view
-                await hiveService.setGuestMode(true);
+                await preferenceService.setGuestMode(true);
 
                 await client.auth.signOut();
               },
@@ -536,27 +537,29 @@ Future<void> _showDeleteAccountDialog(
   );
 
   if (confirmed == true && context.mounted) {
-    try {
-      final authService = ref.read(authServiceProvider);
-      await authService.deleteAccount();
+  try {
+    final authService = ref.read(authServiceProvider);
+    // อ่านค่าก่อน deleteAccount เพราะหลังจากนั้น ref อาจ dispose แล้ว
+    final preferenceService = ref.read(onboardingServiceProvider);
+    final navigator = Navigator.of(context);
 
-      // Clear guest mode and go to onboarding
-      final hiveService = ref.read(onboardingServiceProvider);
-      await hiveService.setGuestMode(true);
-      await hiveService.setOnboardingCompleted(false);
+    await authService.deleteAccount();
 
-      if (context.mounted) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const OnboardingPage()),
-          (route) => false,
-        );
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to delete account: ${e.toString()}')),
-        );
-      }
+    // Clear guest mode and go to onboarding
+    await preferenceService.clearGuestPreferences();
+    await preferenceService.setGuestMode(false);
+    await preferenceService.setOnboardingCompleted(false);
+
+    navigator.pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const OnboardingPage()),
+      (route) => false,
+    );
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to delete account: ${e.toString()}')),
+      );
     }
   }
+}
 }

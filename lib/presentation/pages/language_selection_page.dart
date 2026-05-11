@@ -40,14 +40,14 @@ class _LanguageSelectionPageState extends ConsumerState<LanguageSelectionPage> {
     // Skip auto-navigation when editing or forcing selection
     if (widget.isEditing || widget.forceSelection) return;
 
-    final hiveService = ref.read(onboardingServiceProvider);
-    final existingLevel = await hiveService.getGuestLanguageLevel();
+    final preferenceService = ref.read(onboardingServiceProvider);
+    final existingLevel = await preferenceService.getGuestLanguageLevel();
 
     if (existingLevel != null && mounted) {
       if (widget.isGuest) {
         // Guest mode: save level and go to main
-        await hiveService.setGuestMode(true);
-        await hiveService.setOnboardingCompleted(true);
+        await preferenceService.setGuestMode(true);
+        await preferenceService.setOnboardingCompleted(true);
         if (mounted) {
           Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
@@ -56,7 +56,7 @@ class _LanguageSelectionPageState extends ConsumerState<LanguageSelectionPage> {
         }
       } else {
         // Register flow: go to register with existing level AND variant
-        final existingVariant = await hiveService.getGuestEnglishVariant();
+        final existingVariant = await preferenceService.getGuestEnglishVariant();
         if (!mounted) return;
         Navigator.pushReplacement(
           context,
@@ -210,8 +210,8 @@ class _LanguageSelectionPageState extends ConsumerState<LanguageSelectionPage> {
   }
 
   void _selectLevel(BuildContext context, String code) async {
-    final hiveService = ref.read(onboardingServiceProvider);
-    await hiveService.setGuestLanguageLevel(code);
+    final preferenceService = ref.read(onboardingServiceProvider);
+    await preferenceService.setGuestLanguageLevel(code);
 
     if (!context.mounted) return;
 

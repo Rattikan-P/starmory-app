@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'data/services/hive_service.dart';
+import 'data/services/preference_service.dart';
 import 'presentation/pages/main_navigation.dart';
 import 'presentation/pages/onboarding_page.dart';
 
@@ -13,9 +14,9 @@ void main() async {
   // Load .env file
   await dotenv.load(fileName: '.env');
 
-  // Initialize Hive
-  final hiveService = HiveService();
-  await hiveService.init();
+  // Initialize Preference Service
+  final preferenceService = PreferenceService();
+  await preferenceService.init();
 
   // Initialize Supabase (auto-handles JWT session persistence)
   await Supabase.initialize(
@@ -26,17 +27,17 @@ void main() async {
   runApp(
     ProviderScope(
       overrides: [
-        onboardingServiceProvider.overrideWithValue(hiveService),
+        onboardingServiceProvider.overrideWithValue(preferenceService),
       ],
-      child: MyApp(hiveService: hiveService),
+      child: MyApp(preferenceService: preferenceService),
     ),
   );
 }
 
 class MyApp extends ConsumerStatefulWidget {
-  final HiveService hiveService;
+  final PreferenceService preferenceService;
 
-  const MyApp({super.key, required this.hiveService});
+  const MyApp({super.key, required this.preferenceService});
 
   @override
   ConsumerState<MyApp> createState() => _MyAppState();
@@ -65,7 +66,7 @@ class _MyAppState extends ConsumerState<MyApp> {
       ),
       themeMode: ThemeMode.system,
       home: FutureBuilder<bool>(
-        future: widget.hiveService.isOnboardingCompleted(),
+        future: widget.preferenceService.isOnboardingCompleted(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Scaffold(

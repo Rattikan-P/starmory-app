@@ -141,8 +141,8 @@ class EnglishVariantPage extends ConsumerWidget {
     WidgetRef ref,
     String code,
   ) async {
-    final hiveService = ref.read(onboardingServiceProvider);
-    await hiveService.setGuestEnglishVariant(code);
+    final preferenceService = ref.read(onboardingServiceProvider);
+    await preferenceService.setGuestEnglishVariant(code);
 
     if (isEditing) {
       if (!isGuest) {
@@ -170,8 +170,8 @@ class EnglishVariantPage extends ConsumerWidget {
     }
 
     if (isGuest) {
-      await hiveService.setGuestMode(true);
-      await hiveService.setOnboardingCompleted(true);
+      await preferenceService.setGuestMode(true);
+      await preferenceService.setOnboardingCompleted(true);
       if (context.mounted) {
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
@@ -179,7 +179,7 @@ class EnglishVariantPage extends ConsumerWidget {
         );
       }
     } else {
-      // ✅ ทั้ง Google และ Email
+      // ทั้ง Google และ Email
       final client = Supabase.instance.client;
       final userId = client.auth.currentSession?.user.id;
       if (userId != null) {
@@ -199,9 +199,9 @@ class EnglishVariantPage extends ConsumerWidget {
         });
       }
 
-      // ✅ บอกว่า onboarding เสร็จแล้ว
-      await hiveService.setOnboardingCompleted(true);
-      await hiveService.setGuestMode(false);
+      // บอกว่า onboarding เสร็จแล้ว
+      await preferenceService.setOnboardingCompleted(true);
+      await preferenceService.setGuestMode(false);
 
       if (context.mounted) {
         Navigator.of(context).pushAndRemoveUntil(

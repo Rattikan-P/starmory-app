@@ -4,11 +4,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../data/services/auth_service.dart';
-import '../../../data/services/hive_service.dart';
+import '../../../data/services/preference_service.dart';
 import '../language_selection_page.dart';
 import '../main_navigation.dart';
 
-final onboardingServiceProvider = Provider<HiveService>((ref) => HiveService());
+final onboardingServiceProvider = Provider<PreferenceService>((ref) => PreferenceService());
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
 
 class OtpVerificationPage extends ConsumerStatefulWidget {
@@ -137,9 +137,9 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
 
       if (!mounted) return;
 
-      final hiveService = ref.read(onboardingServiceProvider);
-      final guestLevel = await hiveService.getGuestLanguageLevel();
-      final guestVariant = await hiveService.getGuestEnglishVariant();
+      final preferenceService = ref.read(onboardingServiceProvider);
+      final guestLevel = await preferenceService.getGuestLanguageLevel();
+      final guestVariant = await preferenceService.getGuestEnglishVariant();
 
       final hasGuestData = widget.languageLevel != null || guestLevel != null;
 
@@ -148,7 +148,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
         // TODO: อาจเพิ่ม merge strategy ในอนาคตเมื่อมี feature คำศัพท์
       } else if (isNewUser && user != null) {
         // New user → มีข้อมูล guest ใช้เลย ไม่มีค่อยถาม
-        await hiveService.clearGuestPreferences();
+        await preferenceService.clearGuestPreferences();
         final finalLevel = widget.languageLevel ?? guestLevel;
         final finalVariant = widget.englishVariant ?? guestVariant;
 
@@ -163,7 +163,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
           );
         } else {
           // ไม่มีข้อมูล guest → ถาม level/variant
-          await hiveService.clearGuestPreferences();
+          await preferenceService.clearGuestPreferences();
 
           final selectionResult = await Navigator.of(context).push<bool>(
             MaterialPageRoute(
@@ -177,8 +177,8 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
 
           if (!mounted || selectionResult != true) return;
 
-          final level = await hiveService.getGuestLanguageLevel();
-          final variant = await hiveService.getGuestEnglishVariant();
+          final level = await preferenceService.getGuestLanguageLevel();
+          final variant = await preferenceService.getGuestEnglishVariant();
 
           await authService.updateUserPreferences(
             userId: user.id,
@@ -192,8 +192,8 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
       if (!mounted) return;
 
       // Mark onboarding as completed and clear guest mode
-      await hiveService.setOnboardingCompleted(true);
-      await hiveService.setGuestMode(false);
+      await preferenceService.setOnboardingCompleted(true);
+      await preferenceService.setGuestMode(false);
 
       if (!mounted) return;
 

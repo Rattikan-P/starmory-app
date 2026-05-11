@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../data/services/hive_service.dart';
+import '../../data/services/preference_service.dart';
 import '../../data/services/auth_service.dart';
 import 'auth/email_login_page.dart';
 import 'language_selection_page.dart';
 import 'main_navigation.dart';
 
-final onboardingServiceProvider = Provider<HiveService>((ref) => HiveService());
+final onboardingServiceProvider = Provider<PreferenceService>((ref) => PreferenceService());
 
 class OnboardingPage extends ConsumerStatefulWidget {
   const OnboardingPage({super.key});
@@ -79,7 +79,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
 
       if (!mounted) return;
 
-      final hiveService = ref.read(onboardingServiceProvider);
+      final preferenceService = ref.read(onboardingServiceProvider);
 
       if (isNewUser) {
         // ถาม level/variant ก่อน
@@ -93,20 +93,14 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
           ),
         );
 
-        print('🟢 result: $result');
-        print('🟢 mounted: $mounted');
-
         if (!mounted || result != true) {
-          print('🔴 sign out');
           await client.auth.signOut();
           return;
         }
 
-        print('🟢 continue flow');
-
-        // ดึงค่าจาก Hive แล้ว save ลง Supabase
-        final level = await hiveService.getGuestLanguageLevel();
-        final variant = await hiveService.getGuestEnglishVariant();
+        // ดึงค่าจาก Preference Service แล้ว save ลง Supabase
+        final level = await preferenceService.getGuestLanguageLevel();
+        final variant = await preferenceService.getGuestEnglishVariant();
 
         await authService.updateUserPreferences(
           userId: userId,
@@ -120,8 +114,8 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
             .update({'onboarding_completed': true})
             .eq('id', userId);
 
-        await hiveService.setOnboardingCompleted(true);
-        await hiveService.setGuestMode(false);
+        await preferenceService.setOnboardingCompleted(true);
+        await preferenceService.setGuestMode(false);
 
         if (!mounted) return;
 
@@ -138,8 +132,8 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
         );
       } else {
         // Existing user → ไป main เลย
-        await hiveService.setOnboardingCompleted(true);
-        await hiveService.setGuestMode(false);
+        await preferenceService.setOnboardingCompleted(true);
+        await preferenceService.setGuestMode(false);
 
         if (!mounted) return;
 
