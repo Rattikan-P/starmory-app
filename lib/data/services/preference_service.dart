@@ -10,8 +10,13 @@ class PreferenceService {
   Box? _box;
 
   Future<void> init() async {
-    await Hive.initFlutter();
-    _box = await Hive.openBox('starmory_box');
+    // เช็คก่อนว่า Hive initialized แล้วหรือยัง
+    if (!Hive.isBoxOpen('starmory_box')) {
+      await Hive.initFlutter();
+      _box = await Hive.openBox('starmory_box');
+    } else {
+      _box = Hive.box('starmory_box');
+    }
   }
 
   // Onboarding
@@ -39,7 +44,7 @@ class PreferenceService {
   // Language Level (for guest mode)
   Future<String?> getGuestLanguageLevel() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_languageLevelKey);
+    return prefs.getString(_languageLevelKey); // null = ยังไม่ได้เลือก
   }
 
   Future<void> setGuestLanguageLevel(String level) async {

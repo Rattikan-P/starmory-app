@@ -44,6 +44,21 @@ class MyApp extends ConsumerStatefulWidget {
 }
 
 class _MyAppState extends ConsumerState<MyApp> {
+  bool? _onboardingCompleted; // เก็บค่าไว้ใน state
+
+  @override
+  void initState() {
+    super.initState();
+    _checkOnboarding();
+  }
+
+  Future<void> _checkOnboarding() async {
+    // เช็คครั้งเดียวตอนเริ่มแอป
+    final completed = await widget.preferenceService.isOnboardingCompleted();
+    if (mounted) {
+      setState(() => _onboardingCompleted = completed);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -65,23 +80,12 @@ class _MyAppState extends ConsumerState<MyApp> {
         useMaterial3: true,
       ),
       themeMode: ThemeMode.system,
-      home: FutureBuilder<bool>(
-        future: widget.preferenceService.isOnboardingCompleted(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Scaffold(
-              body: Center(
-                child: CircularProgressIndicator(),
-              ),
-            );
-          }
-          final showOnboarding = snapshot.data != true;
-          return showOnboarding
-              ? const OnboardingPage()
-              : const MainNavigationScreen();
-        },
-      ),
+      // เช็คจาก state แทน FutureBuilder
+      home: _onboardingCompleted == null
+          ? const Scaffold(body: Center(child: CircularProgressIndicator()))
+          : _onboardingCompleted!
+          ? const MainNavigationScreen()
+          : const OnboardingPage(),
     );
   }
 }
-

@@ -3,7 +3,7 @@ import 'home_tab.dart';
 import 'review_tab.dart';
 import 'scrapbook_tab.dart';
 import 'progress_tab.dart';
-import 'auth/set_display_name_bottom_sheet.dart';
+import 'auth/set_display_name_page.dart';
 
 /// Main Navigation Screen with Bottom Navigation Bar
 /// 4 Tabs: Home, Review, Scrapbook, Progress
@@ -31,22 +31,19 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   void initState() {
     super.initState();
     if (widget.showDisplayNamePrompt) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _showDisplayNameBottomSheet();
-      });
-    }
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    _showDisplayNamePrompt(); 
+  });
+}
   }
 
-  void _showDisplayNameBottomSheet() {
-    if (mounted) {
-      showModalBottomSheet<bool>(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (_) => const SetDisplayNameBottomSheet(),
-      );
-    }
+  void _showDisplayNamePrompt() {
+  if (mounted) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const SetDisplayNamePage()),
+    );
   }
+}
 
   @override
   Widget build(BuildContext context) {
