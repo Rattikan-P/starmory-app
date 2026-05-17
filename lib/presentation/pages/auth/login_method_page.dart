@@ -6,7 +6,7 @@ import 'otp_verification_page.dart';
 
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
 
-class LoginMethodPage extends ConsumerWidget {
+class LoginMethodPage extends ConsumerStatefulWidget {
   final String? email;
   final String? displayName;
   final String? languageLevel;
@@ -23,7 +23,12 @@ class LoginMethodPage extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<LoginMethodPage> createState() => _LoginMethodPageState();
+}
+
+class _LoginMethodPageState extends ConsumerState<LoginMethodPage> {
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -45,7 +50,7 @@ class LoginMethodPage extends ConsumerWidget {
                   const SizedBox(height: 24),
 
                   Text(
-                    isRegistration ? 'Create your account' : 'Welcome Back',
+                    widget.isRegistration ? 'Create your account' : 'Welcome Back',
                     style: theme.textTheme.headlineMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -54,7 +59,7 @@ class LoginMethodPage extends ConsumerWidget {
                   const SizedBox(height: 8),
 
                   Text(
-                    isRegistration
+                    widget.isRegistration
                         ? 'Enter your email to get started'
                         : 'Continue your language journey',
                     style: theme.textTheme.bodyMedium?.copyWith(
@@ -122,16 +127,16 @@ class LoginMethodPage extends ConsumerWidget {
   }
 
   void _goToEmailOtp(BuildContext context) {
-    if (email != null && email!.isNotEmpty) {
+    if (widget.email != null && widget.email!.isNotEmpty) {
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => OtpVerificationPage(
-            email: email!,
-            displayName: displayName,
-            languageLevel: languageLevel,
-            englishVariant: englishVariant,
-            isGuestCreatingAccount: isRegistration,
+            email: widget.email!,
+            displayName: widget.displayName,
+            languageLevel: widget.languageLevel,
+            englishVariant: widget.englishVariant,
+            isGuestCreatingAccount: widget.isRegistration,
           ),
         ),
       );
@@ -140,10 +145,10 @@ class LoginMethodPage extends ConsumerWidget {
         context,
         MaterialPageRoute(
           builder: (_) => LoginPage(
-            displayName: displayName,
-            languageLevel: languageLevel,
-            englishVariant: englishVariant,
-            isRegistration: isRegistration,
+            displayName: widget.displayName,
+            languageLevel: widget.languageLevel,
+            englishVariant: widget.englishVariant,
+            isRegistration: widget.isRegistration,
           ),
         ),
       );

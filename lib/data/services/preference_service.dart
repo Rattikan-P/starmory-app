@@ -81,4 +81,80 @@ class PreferenceService {
     await prefs.remove(_languageLevelKey);
     await prefs.remove(_englishVariantKey);
   }
+
+  // Guest Quota Tracking
+  // Terms Version
+  static const String _termsVersionKey = 'terms_version';
+  static const int _currentTermsVersion = 1;
+
+  // Guest Quota Tracking
+  static const String _guestLifetimeGenKey = 'guest_lifetime_gen_count';
+  static const String _guestDailyPhotoCountKey = 'guest_daily_photo_count';
+  static const String _guestDailyPhotoResetKey = 'guest_daily_photo_reset_date';
+
+  Future<int?> getGuestLifetimeGenCount() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_guestLifetimeGenKey);
+  }
+
+  Future<void> incrementGuestLifetimeGenCount() async {
+    final prefs = await SharedPreferences.getInstance();
+    final current = prefs.getInt(_guestLifetimeGenKey) ?? 0;
+    await prefs.setInt(_guestLifetimeGenKey, current + 1);
+  }
+
+  Future<int?> getGuestDailyPhotoCount() async {
+    final prefs = await SharedPreferences.getInstance();
+    final lastReset = prefs.getString(_guestDailyPhotoResetKey);
+    final today = DateTime.now().toIso8601String().split('T')[0];
+
+    if (lastReset != today) {
+      return 0; // New day, reset implicitly
+    }
+    return prefs.getInt(_guestDailyPhotoCountKey);
+  }
+
+  Future<void> incrementGuestDailyPhotoCount() async {
+    final prefs = await SharedPreferences.getInstance();
+    final today = DateTime.now().toIso8601String().split('T')[0];
+    final lastReset = prefs.getString(_guestDailyPhotoResetKey);
+
+    if (lastReset != today) {
+      await prefs.setString(_guestDailyPhotoResetKey, today);
+      await prefs.setInt(_guestDailyPhotoCountKey, 1);
+    } else {
+      final current = prefs.getInt(_guestDailyPhotoCountKey) ?? 0;
+      await prefs.setInt(_guestDailyPhotoCountKey, current + 1);
+    }
+  }
+
+  Future<String?> getGuestDailyPhotoResetDate() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_guestDailyPhotoResetKey);
+  }
+
+  Future<void> resetGuestDailyPhoto() async {
+    final prefs = await SharedPreferences.getInstance();
+    final today = DateTime.now().toIso8601String().split('T')[0];
+    await prefs.setString(_guestDailyPhotoResetKey, today);
+    await prefs.setInt(_guestDailyPhotoCountKey, 0);
+  }
+
+  // Terms Version
+  Future<int?> getTermsVersion() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_termsVersionKey);
+  }
+
+  Future<void> setTermsVersion(int version) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_termsVersionKey, version);
+  }
+
+  Future<bool> hasAcceptedCurrentTerms() async {
+    final acceptedVersion = await getTermsVersion();
+    return acceptedVersion != null && acceptedVersion >= _currentTermsVersion;
+  }
+
+  int getCurrentTermsVersion() => _currentTermsVersion;
 }

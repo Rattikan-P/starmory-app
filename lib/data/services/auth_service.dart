@@ -125,6 +125,7 @@ class AuthService {
     String? displayName,
     String? languageLevel,
     String? englishVariant,
+    int? termsVersion,
   }) async {
     final data = {
       'id': userId,
@@ -132,6 +133,7 @@ class AuthService {
       'display_name': displayName,
       'language_level': languageLevel,
       'english_variant': englishVariant,
+      if (termsVersion != null) 'terms_version': termsVersion,
     }..removeWhere((key, value) => value == null);
 
     await _client.from('users').upsert(data);
@@ -142,9 +144,21 @@ class AuthService {
           'display_name': displayName,
           'language_level': languageLevel,
           'english_variant': englishVariant,
+          if (termsVersion != null) 'terms_version': termsVersion,
         }..removeWhere((key, value) => value == null),
       ),
     );
+  }
+
+  // Get user's accepted terms version from Supabase
+  Future<int?> getUserTermsVersion(String userId) async {
+    final response = await _client
+        .from('users')
+        .select('terms_version')
+        .eq('id', userId)
+        .maybeSingle();
+
+    return response?['terms_version'] as int?;
   }
 
   // Fetch user data from users table (source of truth)

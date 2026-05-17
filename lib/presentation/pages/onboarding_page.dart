@@ -19,6 +19,7 @@ class OnboardingPage extends ConsumerStatefulWidget {
 class _OnboardingPageState extends ConsumerState<OnboardingPage> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
+  bool _consentAccepted = false;
 
   final List<OnboardingItem> _items = const [
     OnboardingItem(
@@ -39,12 +40,54 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _checkConsent();
+  }
+
+  Future<void> _checkConsent() async {
+    final preferenceService = PreferenceService();
+    await preferenceService.init();
+
+    // เช็คจาก Local ก่อน
+    var hasAccepted = await preferenceService.hasAcceptedCurrentTerms();
+
+    // ถ้ายังไม่มีใน Local แต่ user login อยู่ → ดึงจาก Cloud
+    if (!hasAccepted) {
+      final client = Supabase.instance.client;
+      final userId = client.auth.currentUser?.id;
+      if (userId != null) {
+        final authService = AuthService();
+        final cloudVersion = await authService.getUserTermsVersion(userId);
+        final currentVersion = preferenceService.getCurrentTermsVersion();
+
+        if (cloudVersion != null && cloudVersion >= currentVersion) {
+          // Cloud มี terms version ที่ถูกต้อง → sync กลับ Local
+          await preferenceService.setTermsVersion(cloudVersion);
+          hasAccepted = true;
+        }
+      }
+    }
+
+    if (mounted && hasAccepted) {
+      setState(() => _consentAccepted = true);
+    }
+  }
+
+  @override
   void dispose() {
     _pageController.dispose();
     super.dispose();
   }
 
   Future<void> _continueAsGuest() async {
+    // บันทึก terms version สำหรับ guest
+    if (_consentAccepted) {
+      final preferenceService = PreferenceService();
+      await preferenceService.init();
+      await preferenceService.setTermsVersion(preferenceService.getCurrentTermsVersion());
+    }
+
     if (mounted) {
       await Navigator.of(context).push(
         MaterialPageRoute(
@@ -107,6 +150,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
           email: client.auth.currentUser?.email ?? '',
           languageLevel: level ?? 'B1',
           englishVariant: variant ?? 'US',
+          termsVersion: preferenceService.getCurrentTermsVersion(),
         );
 
         await client
@@ -160,6 +204,24 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
         context,
       ).push(MaterialPageRoute(builder: (_) => const EmailLoginPage()));
     }
+  }
+
+  void _showTerms(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Terms of Service - Coming Soon'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _showPrivacy(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Privacy Policy - Coming Soon'),
+        duration: Duration(seconds: 2),
+      ),
+    );
   }
 
   @override
@@ -302,40 +364,120 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
               padding: const EdgeInsets.all(24),
               child: Column(
                 children: [
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: _continueWithGoogle,
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
+                  // Signup buttons (shown after consent)
+                  if (_consentAccepted) ...[
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: _continueWithGoogle,
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                        ),
+                        icon: const Icon(Icons.g_mobiledata, size: 20),
+                        label: const Text('Continue with Google'),
                       ),
-                      icon: const Icon(Icons.g_mobiledata, size: 20),
-                      label: const Text('Continue with Google'),
                     ),
-                  ),
-                  const SizedBox(height: 12),
+                    const SizedBox(height: 12),
 
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                      onPressed: _continueWithEmail,
-                      style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                        onPressed: _continueWithEmail,
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                        ),
+                        child: const Text('Continue with Email'),
                       ),
-                      child: const Text('Continue with Email'),
                     ),
-                  ),
-                  const SizedBox(height: 12),
+                    const SizedBox(height: 12),
+                  ],
 
+                  // Guest button (always visible)
                   SizedBox(
                     width: double.infinity,
                     child: TextButton(
                       onPressed: _continueAsGuest,
                       style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        disabledForegroundColor: theme.colorScheme.onSurface.withValues(alpha: 0.4),
                       ),
                       child: const Text('Continue as Guest'),
                     ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Consent checkbox
+                  Row(
+                    children: [
+                      Checkbox(
+                        value: _consentAccepted,
+                        onChanged: (value) {
+                          setState(() => _consentAccepted = value ?? false);
+                        },
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () {
+                            setState(() => _consentAccepted = !_consentAccepted);
+                          },
+                          child: Text(
+                            'I accept the Terms & Privacy Policy',
+                            style: theme.textTheme.bodyMedium,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+
+                  // Links
+                  Row(
+                    children: [
+                      TextButton(
+                        onPressed: () => _showTerms(context),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: Text(
+                          'Terms',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.primary,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        ' • ',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () => _showPrivacy(context),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: Text(
+                          'Privacy',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.primary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Consent text
+                  Text(
+                    'We collect photos for AI vocabulary learning',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                    ),
+                    textAlign: TextAlign.center,
                   ),
                 ],
               ),

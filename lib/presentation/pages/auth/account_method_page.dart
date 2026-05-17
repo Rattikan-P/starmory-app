@@ -8,10 +8,39 @@ import '../onboarding_page.dart';
 import '../language_selection_page.dart';
 import 'email_login_page.dart';
 
-class AccountMethodPage extends ConsumerWidget {
+class AccountMethodPage extends ConsumerStatefulWidget {
   const AccountMethodPage({super.key});
 
-  Future<void> _continueWithGoogle(BuildContext context, WidgetRef ref) async {
+  @override
+  ConsumerState<AccountMethodPage> createState() => _AccountMethodPageState();
+}
+
+class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
+  bool _consentAccepted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkConsent();
+  }
+
+  Future<void> _checkConsent() async {
+    final preferenceService = PreferenceService();
+    await preferenceService.init();
+    final hasAccepted = await preferenceService.hasAcceptedCurrentTerms();
+    if (mounted && hasAccepted) {
+      setState(() => _consentAccepted = true);
+    }
+  }
+
+  Future<void> _continueWithGoogle(BuildContext context) async {
+    if (!_consentAccepted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please accept Terms & Privacy Policy')),
+      );
+      return;
+    }
+
     try {
       final authService = AuthService();
       // force ถาม account ใหม่ตอน guest สร้าง account
@@ -69,6 +98,7 @@ class AccountMethodPage extends ConsumerWidget {
           email: client.auth.currentUser?.email ?? '',
           languageLevel: finalLevel ?? 'B1',
           englishVariant: finalVariant ?? 'US',
+          termsVersion: preferenceService.getCurrentTermsVersion(),
         );
 
         // set onboarding_completed
@@ -119,7 +149,7 @@ class AccountMethodPage extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -193,39 +223,128 @@ class AccountMethodPage extends ConsumerWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 24),
 
-                  OutlinedButton.icon(
-                    onPressed: () => _continueWithGoogle(context, ref),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
-                    icon: const Icon(Icons.g_mobiledata, size: 20),
-                    label: const Text('Continue with Google'),
-                  ),
-                  const SizedBox(height: 12),
-
-                  FilledButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const EmailLoginPage(
-                            isGuestCreatingAccount: true,
+                  // Consent checkbox
+                  Row(
+                    children: [
+                      Checkbox(
+                        value: _consentAccepted,
+                        onChanged: (value) {
+                          setState(() => _consentAccepted = value ?? false);
+                        },
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () {
+                            setState(() => _consentAccepted = !_consentAccepted);
+                          },
+                          child: Text(
+                            'I accept the Terms & Privacy Policy',
+                            style: theme.textTheme.bodyMedium,
                           ),
                         ),
-                      );
-                    },
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
-                    child: const Text('Continue with Email'),
+                      ),
+                    ],
                   ),
+                  const SizedBox(height: 4),
+
+                  // Links
+                  Row(
+                    children: [
+                      TextButton(
+                        onPressed: () => _showTerms(context),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: Text(
+                          'Terms',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.primary,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        ' • ',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () => _showPrivacy(context),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: Text(
+                          'Privacy',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.primary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Signup buttons (shown after consent)
+                  if (_consentAccepted) ...[
+                    OutlinedButton.icon(
+                      onPressed: () => _continueWithGoogle(context),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                      icon: const Icon(Icons.g_mobiledata, size: 20),
+                      label: const Text('Continue with Google'),
+                    ),
+                    const SizedBox(height: 12),
+
+                    FilledButton(
+                      onPressed: _consentAccepted
+                          ? () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const EmailLoginPage(
+                                    isGuestCreatingAccount: true,
+                                  ),
+                                ),
+                              );
+                            }
+                          : null,
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                      child: const Text('Continue with Email'),
+                    ),
+                  ],
                 ],
               ),
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  void _showTerms(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Terms of Service - Coming Soon'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _showPrivacy(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Privacy Policy - Coming Soon'),
+        duration: Duration(seconds: 2),
       ),
     );
   }
