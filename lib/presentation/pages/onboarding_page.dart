@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/services/preference_service.dart';
 import '../../data/services/auth_service.dart';
@@ -206,22 +207,44 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
     }
   }
 
-  void _showTerms(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Terms of Service - Coming Soon'),
-        duration: Duration(seconds: 2),
-      ),
-    );
+  Future<void> _showConsentAndContinueGoogle() async {
+    if (_consentAccepted) {
+      await _continueWithGoogle();
+    } else if (mounted) {
+      final result = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => _ConsentModal(
+          onAccept: () => Navigator.of(context).pop(true),
+          onDecline: () => Navigator.of(context).pop(false),
+        ),
+      );
+
+      if (result == true && mounted) {
+        setState(() => _consentAccepted = true);
+        await _continueWithGoogle();
+      }
+    }
   }
 
-  void _showPrivacy(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Privacy Policy - Coming Soon'),
-        duration: Duration(seconds: 2),
-      ),
-    );
+  Future<void> _showConsentAndContinueEmail() async {
+    if (_consentAccepted) {
+      await _continueWithEmail();
+    } else if (mounted) {
+      final result = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => _ConsentModal(
+          onAccept: () => Navigator.of(context).pop(true),
+          onDecline: () => Navigator.of(context).pop(false),
+        ),
+      );
+
+      if (result == true && mounted) {
+        setState(() => _consentAccepted = true);
+        await _continueWithEmail();
+      }
+    }
   }
 
   @override
@@ -235,7 +258,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
             Expanded(
               child: Column(
                 children: [
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 8),
 
                   Image.asset(
                     'assets/images/logo.png',
@@ -262,16 +285,17 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                       );
                     },
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 16),
 
                   Text(
                     'Starmory',
-                    style: theme.textTheme.headlineMedium?.copyWith(
+                    style: GoogleFonts.cormorantUnicase(
+                      fontSize: 35,
                       fontWeight: FontWeight.bold,
                       color: theme.colorScheme.primary,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 4),
                   Text(
                     'Learn languages with spaced repetition',
                     style: theme.textTheme.bodyMedium?.copyWith(
@@ -279,7 +303,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                     ),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 48),
+                  const SizedBox(height: 8),
 
                   Expanded(
                     child: PageView.builder(
@@ -336,150 +360,220 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                     ),
                   ),
 
+                  // Page indicators
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: List.generate(
                       _items.length,
                       (index) => AnimatedContainer(
                         duration: const Duration(milliseconds: 300),
-                        margin: const EdgeInsets.symmetric(horizontal: 4),
-                        width: _currentPage == index ? 24 : 8,
-                        height: 8,
+                        margin: const EdgeInsets.symmetric(horizontal: 3),
+                        width: _currentPage == index ? 16 : 6,
+                        height: 6,
                         decoration: BoxDecoration(
                           color: _currentPage == index
                               ? theme.colorScheme.primary
                               : theme.colorScheme.primary.withValues(
                                   alpha: 0.3,
                                 ),
-                          borderRadius: BorderRadius.circular(4),
+                          borderRadius: BorderRadius.circular(3),
                         ),
                       ),
                     ),
                   ),
+                  const SizedBox(height: 16),
                 ],
               ),
             ),
 
-            Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                children: [
-                  // Signup buttons (shown after consent)
-                  if (_consentAccepted) ...[
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: _continueWithGoogle,
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                        ),
-                        icon: const Icon(Icons.g_mobiledata, size: 20),
-                        label: const Text('Continue with Google'),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton(
-                        onPressed: _continueWithEmail,
-                        style: FilledButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                        ),
-                        child: const Text('Continue with Email'),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
+            // Bottom container with rounded top corners and gradient
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    const Color(0xFFFFB3BA).withValues(alpha: 0.6),
+                    const Color(0xFFFFDFBA).withValues(alpha: 0.6),
+                    const Color(0xFFE2D1F9).withValues(alpha: 0.6),
+                    const Color(0xFFBFEAF5).withValues(alpha: 0.6),
                   ],
+                ),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(32),
+                  topRight: Radius.circular(32),
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(28, 28, 28, 20),
+                child: Column(
+                  children: [
+                    // Signup buttons - show consent modal if not accepted
+                    Column(
+                      children: [
+                        SizedBox(
+                          width: double.infinity,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.08),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: OutlinedButton(
+                              onPressed: _showConsentAndContinueGoogle,
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                side: BorderSide.none,
+                                foregroundColor: const Color(0xFF8B5CF6),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Image.asset(
+                                    'assets/images/google_logo.png',
+                                    width: 22,
+                                    height: 22,
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return const Icon(Icons.g_mobiledata, size: 22);
+                                    },
+                                  ),
+                                  const SizedBox(width: 12),
+                                  const Text(
+                                    'Continue with Google',
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
 
-                  // Guest button (always visible)
-                  SizedBox(
-                    width: double.infinity,
-                    child: TextButton(
-                      onPressed: _continueAsGuest,
-                      style: TextButton.styleFrom(
-                        disabledForegroundColor: theme.colorScheme.onSurface.withValues(alpha: 0.4),
-                      ),
-                      child: const Text('Continue as Guest'),
+                        SizedBox(
+                          width: double.infinity,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.08),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: FilledButton.icon(
+                              onPressed: _showConsentAndContinueEmail,
+                              style: FilledButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                backgroundColor: Colors.white,
+                                foregroundColor: const Color(0xFF8B5CF6),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                              ),
+                              icon: const Icon(Icons.email_outlined, size: 22),
+                              label: const Text(
+                                'Continue with Email',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 16),
+                    const SizedBox(height: 16),
 
-                  // Consent checkbox
-                  Row(
-                    children: [
-                      Checkbox(
-                        value: _consentAccepted,
-                        onChanged: (value) {
-                          setState(() => _consentAccepted = value ?? false);
-                        },
-                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () {
-                            setState(() => _consentAccepted = !_consentAccepted);
-                          },
+                    // Divider
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Divider(
+                            color: const Color(0xFF5E3A8E).withValues(alpha: 0.2),
+                            thickness: 1,
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
                           child: Text(
-                            'I accept the Terms & Privacy Policy',
-                            style: theme.textTheme.bodyMedium,
+                            'OR',
+                            style: TextStyle(
+                              color: const Color(0xFF5E3A8E).withValues(alpha: 0.6),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 1.2,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-
-                  // Links
-                  Row(
-                    children: [
-                      TextButton(
-                        onPressed: () => _showTerms(context),
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                        child: Text(
-                          'Terms',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.primary,
+                        Expanded(
+                          child: Divider(
+                            color: const Color(0xFF5E3A8E).withValues(alpha: 0.2),
+                            thickness: 1,
                           ),
                         ),
-                      ),
-                      Text(
-                        ' • ',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: () => _showPrivacy(context),
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                        child: Text(
-                          'Privacy',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.primary,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Consent text
-                  Text(
-                    'We collect photos for AI vocabulary learning',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                      ],
                     ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
+                    const SizedBox(height: 16),
+
+                    // Guest button
+                    SizedBox(
+                      width: double.infinity,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                            color: const Color(0xFF5E3A8E).withValues(alpha: 0.4),
+                            width: 1.5,
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: TextButton(
+                          onPressed: _continueAsGuest,
+                          style: TextButton.styleFrom(
+                            foregroundColor: const Color(0xFF5E3A8E),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                          child: const Text(
+                            'Continue as Guest',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Consent text
+                    Text(
+                      'We collect photos for AI vocabulary learning',
+                      style: TextStyle(
+                        color: const Color(0xFF5E3A8E).withValues(alpha: 0.7),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -499,4 +593,131 @@ class OnboardingItem {
     required this.title,
     required this.description,
   });
+}
+
+// Consent Modal Dialog
+class _ConsentModal extends StatelessWidget {
+  final VoidCallback onAccept;
+  final VoidCallback onDecline;
+
+  const _ConsentModal({
+    required this.onAccept,
+    required this.onDecline,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Icon
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE2D1F9).withValues(alpha: 0.5),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.privacy_tip_rounded,
+                size: 32,
+                color: Color(0xFF5E3A8E),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Title
+            const Text(
+              'Privacy Consent',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF5E3A8E),
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+
+            // Description
+            Text(
+              'To use Starmory, we need your consent to collect and process your data for AI vocabulary learning. This includes photos you upload and your learning progress.',
+              style: TextStyle(
+                fontSize: 14,
+                color: const Color(0xFF5E3A8E).withValues(alpha: 0.8),
+                height: 1.5,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+
+            // Additional info
+            Text(
+              'You can withdraw your consent at any time in Settings.',
+              style: TextStyle(
+                fontSize: 12,
+                color: const Color(0xFF5E3A8E).withValues(alpha: 0.6),
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+
+            // Accept button
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: onAccept,
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF8B5CF6),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  'I Accept',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Decline button
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: onDecline,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF5E3A8E),
+                  side: BorderSide(
+                    color: const Color(0xFF5E3A8E).withValues(alpha: 0.3),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  'I Decline',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

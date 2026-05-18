@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../data/services/preference_service.dart';
@@ -148,6 +149,62 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
     }
   }
 
+  Future<void> _showConsentAndContinueGoogle(BuildContext context) async {
+    if (_consentAccepted) {
+      await _continueWithGoogle(context);
+    } else if (context.mounted) {
+      final result = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => _ConsentModal(
+          onAccept: () => Navigator.of(context).pop(true),
+          onDecline: () => Navigator.of(context).pop(false),
+        ),
+      );
+
+      if (result == true && context.mounted) {
+        setState(() => _consentAccepted = true);
+        await _continueWithGoogle(context);
+      }
+    }
+  }
+
+  Future<void> _showConsentAndContinueEmail(BuildContext context) async {
+    if (_consentAccepted) {
+      if (context.mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const EmailLoginPage(
+              isGuestCreatingAccount: true,
+            ),
+          ),
+        );
+      }
+    } else if (context.mounted) {
+      final result = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => _ConsentModal(
+          onAccept: () => Navigator.of(context).pop(true),
+          onDecline: () => Navigator.of(context).pop(false),
+        ),
+      );
+
+      if (result == true && context.mounted) {
+        setState(() => _consentAccepted = true);
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const EmailLoginPage(
+              isGuestCreatingAccount: true,
+            ),
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -178,8 +235,10 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
 
                   Text(
                     'Create an account',
-                    style: theme.textTheme.headlineMedium?.copyWith(
+                    style: GoogleFonts.cormorantUnicase(
+                      fontSize: 28,
                       fontWeight: FontWeight.bold,
+                      color: theme.colorScheme.primary,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -223,105 +282,100 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 32),
 
-                  // Consent checkbox
-                  Row(
-                    children: [
-                      Checkbox(
-                        value: _consentAccepted,
-                        onChanged: (value) {
-                          setState(() => _consentAccepted = value ?? false);
-                        },
-                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  // Signup buttons - show consent modal if not accepted
+                  SizedBox(
+                    width: double.infinity,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.08),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                       ),
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () {
-                            setState(() => _consentAccepted = !_consentAccepted);
-                          },
-                          child: Text(
-                            'I accept the Terms & Privacy Policy',
-                            style: theme.textTheme.bodyMedium,
+                      child: OutlinedButton(
+                        onPressed: () => _showConsentAndContinueGoogle(context),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          side: BorderSide.none,
+                          foregroundColor: const Color(0xFF8B5CF6),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-
-                  // Links
-                  Row(
-                    children: [
-                      TextButton(
-                        onPressed: () => _showTerms(context),
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                        child: Text(
-                          'Terms',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.primary,
-                          ),
-                        ),
-                      ),
-                      Text(
-                        ' • ',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Image.asset(
+                              'assets/images/google_logo.png',
+                              width: 22,
+                              height: 22,
+                              errorBuilder: (context, error, stackTrace) {
+                                return const Icon(Icons.g_mobiledata, size: 22);
+                              },
+                            ),
+                            const SizedBox(width: 12),
+                            const Text(
+                              'Continue with Google',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      TextButton(
-                        onPressed: () => _showPrivacy(context),
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                        child: Text(
-                          'Privacy',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.primary,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Signup buttons (shown after consent)
-                  if (_consentAccepted) ...[
-                    OutlinedButton.icon(
-                      onPressed: () => _continueWithGoogle(context),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                      ),
-                      icon: const Icon(Icons.g_mobiledata, size: 20),
-                      label: const Text('Continue with Google'),
                     ),
-                    const SizedBox(height: 12),
+                  ),
+                  const SizedBox(height: 12),
 
-                    FilledButton(
-                      onPressed: _consentAccepted
-                          ? () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => const EmailLoginPage(
-                                    isGuestCreatingAccount: true,
-                                  ),
-                                ),
-                              );
-                            }
-                          : null,
-                      style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.08),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                       ),
-                      child: const Text('Continue with Email'),
+                      child: FilledButton(
+                        onPressed: () => _showConsentAndContinueEmail(context),
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          backgroundColor: Colors.white,
+                          foregroundColor: const Color(0xFF8B5CF6),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.email_outlined, size: 22),
+                            SizedBox(width: 12),
+                            Text(
+                              'Continue with Email',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                  ],
+                  ),
                 ],
               ),
             ),
@@ -330,21 +384,130 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
       ),
     );
   }
+}
 
-  void _showTerms(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Terms of Service - Coming Soon'),
-        duration: Duration(seconds: 2),
+// Consent Modal Dialog
+class _ConsentModal extends StatelessWidget {
+  final VoidCallback onAccept;
+  final VoidCallback onDecline;
+
+  const _ConsentModal({
+    required this.onAccept,
+    required this.onDecline,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(24),
       ),
-    );
-  }
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Icon
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE2D1F9).withValues(alpha: 0.5),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.privacy_tip_rounded,
+                size: 32,
+                color: Color(0xFF5E3A8E),
+              ),
+            ),
+            const SizedBox(height: 20),
 
-  void _showPrivacy(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Privacy Policy - Coming Soon'),
-        duration: Duration(seconds: 2),
+            // Title
+            const Text(
+              'Privacy Consent',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF5E3A8E),
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+
+            // Description
+            Text(
+              'To use Starmory, we need your consent to collect and process your data for AI vocabulary learning. This includes photos you upload and your learning progress.',
+              style: TextStyle(
+                fontSize: 14,
+                color: const Color(0xFF5E3A8E).withValues(alpha: 0.8),
+                height: 1.5,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+
+            // Additional info
+            Text(
+              'You can withdraw your consent at any time in Settings.',
+              style: TextStyle(
+                fontSize: 12,
+                color: const Color(0xFF5E3A8E).withValues(alpha: 0.6),
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+
+            // Accept button
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: onAccept,
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF8B5CF6),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  'I Accept',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Decline button
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: onDecline,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF5E3A8E),
+                  side: BorderSide(
+                    color: const Color(0xFF5E3A8E).withValues(alpha: 0.3),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  'I Decline',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
