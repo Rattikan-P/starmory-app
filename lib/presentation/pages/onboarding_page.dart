@@ -7,6 +7,7 @@ import '../../data/services/auth_service.dart';
 import 'auth/email_login_page.dart';
 import 'language_selection_page.dart';
 import 'main_navigation.dart';
+import '../../constants/app_defaults.dart';
 
 final onboardingServiceProvider = Provider<PreferenceService>((ref) => PreferenceService());
 
@@ -149,8 +150,8 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
         await authService.updateUserPreferences(
           userId: userId,
           email: client.auth.currentUser?.email ?? '',
-          languageLevel: level ?? 'B1',
-          englishVariant: variant ?? 'US',
+          languageLevel: level ?? AppDefaults.defaultLanguageLevel,
+          englishVariant: variant ?? AppDefaults.defaultEnglishVariant,
           termsVersion: preferenceService.getCurrentTermsVersion(),
         );
 

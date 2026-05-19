@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'onboarding_page.dart';
 import 'main_navigation.dart';
+import '../../constants/app_defaults.dart';
 
 class EnglishVariantPage extends ConsumerWidget {
   final bool isGuest;
@@ -133,7 +134,7 @@ class EnglishVariantPage extends ConsumerWidget {
   }
 
   void _skip(BuildContext context, WidgetRef ref) {
-    _selectVariant(context, ref, 'US');
+    _selectVariant(context, ref, AppDefaults.defaultEnglishVariant);
   }
 
   Future<void> _selectVariant(
@@ -186,14 +187,14 @@ class EnglishVariantPage extends ConsumerWidget {
         await client.auth.updateUser(
           UserAttributes(
             data: {
-              'language_level': languageLevel ?? 'B1',
+              'language_level': languageLevel ?? AppDefaults.defaultLanguageLevel,
               'english_variant': code,
             },
           ),
         );
         await client.from('users').upsert({
           'id': userId,
-          'language_level': languageLevel ?? 'B1',
+          'language_level': languageLevel ?? AppDefaults.defaultLanguageLevel,
           'english_variant': code,
           'onboarding_completed': true,
         });

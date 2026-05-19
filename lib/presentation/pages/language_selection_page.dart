@@ -5,6 +5,7 @@ import 'onboarding_page.dart';
 import 'auth/login_method_page.dart';
 import 'main_navigation.dart';
 import 'english_variant_page.dart';
+import '../../constants/app_defaults.dart';
 
 class LanguageSelectionPage extends ConsumerStatefulWidget {
   final bool isGuest;
@@ -63,7 +64,7 @@ class _LanguageSelectionPageState extends ConsumerState<LanguageSelectionPage> {
           MaterialPageRoute(
             builder: (_) => LoginMethodPage(
               languageLevel: existingLevel,
-              englishVariant: existingVariant ?? 'US',
+              englishVariant: existingVariant ?? AppDefaults.defaultEnglishVariant,
               isRegistration: true,
             ),
           ),
@@ -206,7 +207,7 @@ class _LanguageSelectionPageState extends ConsumerState<LanguageSelectionPage> {
   }
 
   void _skip(BuildContext context) {
-    _selectLevel(context, 'B1'); // Default level
+    _selectLevel(context, AppDefaults.defaultLanguageLevel);
   }
 
   void _selectLevel(BuildContext context, String code) async {

@@ -38,12 +38,15 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   }
 
   void _showDisplayNamePrompt() {
-  if (mounted) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const SetDisplayNamePage()),
-    );
+    if (mounted) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => const SetDisplayNamePage(),
+          fullscreenDialog: true,
+        ),
+      );
+    }
   }
-}
 
   @override
   Widget build(BuildContext context) {

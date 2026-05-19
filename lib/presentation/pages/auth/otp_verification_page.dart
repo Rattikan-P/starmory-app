@@ -7,6 +7,7 @@ import '../../../data/services/auth_service.dart';
 import '../../../data/services/preference_service.dart';
 import '../language_selection_page.dart';
 import '../main_navigation.dart';
+import '../../../constants/app_defaults.dart';
 
 final onboardingServiceProvider = Provider<PreferenceService>((ref) => PreferenceService());
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
@@ -158,8 +159,8 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
             userId: user.id,
             email: widget.email,
             displayName: widget.displayName,
-            languageLevel: finalLevel ?? 'B1',
-            englishVariant: finalVariant ?? 'US',
+            languageLevel: finalLevel ?? AppDefaults.defaultLanguageLevel,
+            englishVariant: finalVariant ?? AppDefaults.defaultEnglishVariant,
           );
         } else {
           // ไม่มีข้อมูล guest → ถาม level/variant
@@ -183,8 +184,8 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
           await authService.updateUserPreferences(
             userId: user.id,
             email: widget.email,
-            languageLevel: level ?? 'B1',
-            englishVariant: variant ?? 'US',
+            languageLevel: level ?? AppDefaults.defaultLanguageLevel,
+            englishVariant: variant ?? AppDefaults.defaultEnglishVariant,
           );
         }
       }

@@ -1,6 +1,8 @@
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../constants/app_defaults.dart';
+
 class PreferenceService {
   static const String _onboardingKey = 'onboarding_completed';
   static const String _guestModeKey = 'is_guest_mode';
@@ -55,7 +57,7 @@ class PreferenceService {
   // English Variant (for guest mode)
   Future<String?> getGuestEnglishVariant() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_englishVariantKey) ?? 'US'; // Default US
+    return prefs.getString(_englishVariantKey) ?? AppDefaults.defaultEnglishVariant;
   }
 
   Future<void> setGuestEnglishVariant(String variant) async {

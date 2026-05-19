@@ -8,6 +8,7 @@ import '../main_navigation.dart';
 import '../onboarding_page.dart';
 import '../language_selection_page.dart';
 import 'email_login_page.dart';
+import '../../../constants/app_defaults.dart';
 
 class AccountMethodPage extends ConsumerStatefulWidget {
   const AccountMethodPage({super.key});
@@ -97,8 +98,8 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
         await authService.updateUserPreferences(
           userId: userId,
           email: client.auth.currentUser?.email ?? '',
-          languageLevel: finalLevel ?? 'B1',
-          englishVariant: finalVariant ?? 'US',
+          languageLevel: finalLevel ?? AppDefaults.defaultLanguageLevel,
+          englishVariant: finalVariant ?? AppDefaults.defaultEnglishVariant,
           termsVersion: preferenceService.getCurrentTermsVersion(),
         );
 
