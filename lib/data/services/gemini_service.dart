@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
@@ -10,6 +11,9 @@ class GeminiService {
   final GenerativeModel _visionModel;
   final GenerativeModel _textModel;
 
+  static const int _maxRetries = 3;
+  static const Duration _initialDelay = Duration(seconds: 1);
+
   GeminiService({String? apiKey})
       : _visionModel = GenerativeModel(
           model: 'gemini-3-flash-preview',
@@ -19,6 +23,97 @@ class GeminiService {
           model: 'gemini-3-flash-preview',
           apiKey: apiKey ?? AppConstants.geminiApiKey,
         );
+
+  /// Execute with exponential backoff retry
+  Future<T> _retryWithBackoff<T>(
+    Future<T> Function() operation, {
+    int maxRetries = _maxRetries,
+  }) async {
+    Duration delay = _initialDelay;
+    int attempts = 0;
+
+    while (true) {
+      attempts++;
+      try {
+        return await operation();
+      } catch (e) {
+        // Check if error is retryable (503, 429, network errors)
+        final isRetryable = _isRetryableError(e);
+
+        if (!isRetryable || attempts >= maxRetries) {
+          debugPrint('❌ Max retries ($attempts) reached or non-retryable error: $e');
+          rethrow;
+        }
+
+        debugPrint('⚠️ Retry $attempts/$maxRetries after ${delay.inSeconds}s due to: $e');
+        await Future.delayed(delay);
+        delay *= 2; // Exponential backoff
+      }
+    }
+  }
+
+  /// Check if error is retryable
+  bool _isRetryableError(dynamic error) {
+    final errorStr = error.toString().toLowerCase();
+    return errorStr.contains('503') ||
+        errorStr.contains('429') ||
+        errorStr.contains('unavailable') ||
+        errorStr.contains('timeout') ||
+        errorStr.contains('network') ||
+        errorStr.contains('socket');
+  }
+
+  /// Check if returned words match requested words (case-insensitive)
+  bool _wordsMatch(Set<String> returned, Set<String> requested) {
+    final returnedLower = returned.map((w) => w.toLowerCase()).toSet();
+    final requestedLower = requested.map((w) => w.toLowerCase()).toSet();
+    return returnedLower.containsAll(requestedLower);
+  }
+
+  /// Get tone definition for prompt
+  String _getToneDefinition(String tone) {
+    final defs = {
+      'describe': 'DESCRIBE: factual statement about the scene (e.g., "The sun is bright.")',
+      'command': 'COMMAND: instruction starting with a verb (e.g., "Look at the sun.")',
+      'wish': 'WISH: desire using "I wish" or "I hope" (e.g., "I wish the sun was warmer.")',
+      'conditional': 'CONDITIONAL: if-then statement (e.g., "If the sun shines, we go outside.")',
+    };
+    return defs[tone.toLowerCase()] ?? tone;
+  }
+
+  /// Build normal mode output format
+  String _buildNormalFormat(String level, String category, List<String> words, List<String> tones) {
+    final tonesJson = tones.map((t) => '"$t": {"text": "sentence with word", "thai": "แปลภาษาไทย"}').join(', ');
+    return '''
+Return JSON in this exact format:
+{
+  "mode": "normal",
+  "level": "$level",
+  "category": "$category",
+  "results": [
+${words.map((w) => '    {"word": "$w", "sentences": {$tonesJson}, "sentence_note": ""}').join(',\n')}
+  ]
+}
+
+CRITICAL: Use these exact words: ${words.join(', ')}''';
+  }
+
+  /// Build combined mode output format
+  String _buildCombinedFormat(String level, String category, List<String> words, List<String> tones) {
+    final tonesJson = tones.map((t) => '"$t": {"text": "sentence using all words", "thai": "แปลภาษาไทย"}').join(', ');
+    return '''
+Return JSON in this exact format:
+{
+  "mode": "combined",
+  "level": "$level",
+  "category": "$category",
+  "words": ${jsonEncode(words)},
+  "sentences": {$tonesJson},
+  "sentence_note": ""
+}
+
+CRITICAL: Use these exact words: ${words.join(', ')}''';
+  }
 
   /// Generate vocabulary from image with bounding boxes
   Future<VocabularyExtractionResult> extractVocabulary({
@@ -144,7 +239,7 @@ Return exactly 5 items.
     final mimeType = _detectMimeType(imageData);
     final imagePart = DataPart(mimeType, imageData);
 
-    try {
+    return await _retryWithBackoff(() async {
       final response = await _visionModel.generateContent([
         Content.multi([prompt, imagePart])
       ]);
@@ -157,14 +252,66 @@ Return exactly 5 items.
       debugPrint('✅ Parsed ${result.vocabList.length} vocabulary items');
 
       return result;
-    } catch (e) {
-      debugPrint('❌ Parse error: $e');
-      throw AIServiceFailure('Vocabulary extraction failed: ${e.toString()}');
-    }
+    });
   }
 
   /// Generate sentences for selected vocabulary words
   Future<SentenceGenerationResult> generateSentences({
+    required List<String> words,
+    required String level,
+    required List<String> tones,
+    required String category,
+    required bool combined,
+  }) async {
+    return await _retryWithBackoff(
+      () async {
+        final result = await _generateSentencesInternal(
+          words: words,
+          level: level,
+          tones: tones,
+          category: category,
+          combined: combined,
+        );
+
+        // Validate that returned words match requested words
+        if (!combined) {
+          final returnedWords = result.results.keys.toSet();
+          final requestedWords = words.toSet();
+
+          if (!_wordsMatch(returnedWords, requestedWords)) {
+            debugPrint('⚠️ Word mismatch: requested $requestedWords but got $returnedWords');
+            throw AIServiceFailure(
+              'API returned unexpected words. Requested: $requestedWords, Got: $returnedWords',
+            );
+          }
+
+          // Validate that all requested tones are present
+          final requestedTones = tones.toSet();
+          for (final word in requestedWords) {
+            final wordSentences = result.results[word];
+            if (wordSentences == null || wordSentences.isEmpty) {
+              debugPrint('⚠️ No sentences found for word: $word');
+              throw AIServiceFailure('No sentences found for word: $word');
+            }
+
+            final returnedTones = wordSentences.keys.toSet();
+            if (!returnedTones.containsAll(requestedTones)) {
+              final missingTones = requestedTones.difference(returnedTones);
+              debugPrint('⚠️ Missing tones for $word: $missingTones');
+              throw AIServiceFailure(
+                'API returned incomplete data. Missing tones: $missingTones',
+              );
+            }
+          }
+        }
+
+        return result;
+      },
+    );
+  }
+
+  /// Internal sentence generation without validation
+  Future<SentenceGenerationResult> _generateSentencesInternal({
     required List<String> words,
     required String level,
     required List<String> tones,
@@ -178,13 +325,12 @@ You receive vocabulary words selected by the user and return example sentences f
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 INPUT PARAMETERS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-• words    — list of 1 or more vocabulary words (nouns or base-form verbs)
-• level    — learner's CEFR level: A1 | A2 | B1 | B2
-• tones    — list of selected Tone & Intent (1–4 items):
-             "describe" | "command" | "wish" | "conditional"
+• words    — list of 1 or more vocabulary words (nouns or base-form verbs): ${words.join(', ')}
+• level    — learner's CEFR level: $level
+• tones    — list of selected Tone & Intent (1–4 items): ${tones.join(', ')}
 • category — one of: "Moment" | "Nature" | "Food" | "Study" | "Daily Life"
-             OR a custom text string (overrides category entirely)
-• combined — boolean: true | false
+             OR a custom text string (overrides category entirely): $category
+• combined — boolean: $combined
              false → Normal mode: one sentence per word per tone
              true  → Combined mode: one sentence per tone using ALL words together
 
@@ -305,18 +451,20 @@ FIELD RULES:
 • Include ONLY the tone keys that were selected in "tones"
 • combined: false → "results" array, one object per word
 • combined: true  → flat "sentences" object + "words" array, no "results"
+
+CRITICAL: Use these EXACT words - do not substitute: ${words.join(', ')}
 ''');
 
-    try {
+    return await _retryWithBackoff(() async {
       final response = await _textModel.generateContent([
         Content.text(prompt.text)
       ]);
 
       final text = response.text ?? '';
+      debugPrint('🔍 Sentence Generation Response (first 500 chars): ${text.length > 500 ? text.substring(0, 500) : text}');
+
       return SentenceGenerationResult.fromJson(text, tones);
-    } catch (e) {
-      throw AIServiceFailure('Sentence generation failed: ${e.toString()}');
-    }
+    });
   }
 
   /// Detect MIME type from image bytes
@@ -491,6 +639,9 @@ class SentenceGenerationResult {
   });
 
   factory SentenceGenerationResult.fromJson(String jsonString, List<String> selectedTones) {
+    debugPrint('🔍 SentenceGenerationResult.fromJson - selectedTones: $selectedTones');
+    debugPrint('🔍 Raw response (first 300 chars): ${jsonString.length > 300 ? jsonString.substring(0, 300) : jsonString}');
+
     // Extract JSON from response (handle markdown and extra text)
     String cleanJson = jsonString.trim();
 
@@ -512,8 +663,13 @@ class SentenceGenerationResult {
       cleanJson = cleanJson.substring(start, end + 1);
     }
 
+    debugPrint('🔍 Cleaned JSON: $cleanJson');
+
     final json = jsonDecode(cleanJson) as Map<String, dynamic>;
     final mode = json['mode'] as String? ?? 'normal';
+
+    debugPrint('🔍 Parsed mode: $mode');
+    debugPrint('🔍 JSON keys: ${json.keys}');
 
     if (mode == 'combined') {
       final sentencesJson = json['sentences'] as Map<String, dynamic>?;
@@ -540,11 +696,15 @@ class SentenceGenerationResult {
       final resultsJson = json['results'] as List<dynamic>?;
       final results = <String, Map<String, SentenceData>>{};
 
+      debugPrint('🔍 Results JSON: $resultsJson');
+
       if (resultsJson != null) {
         for (final item in resultsJson) {
           final itemMap = item as Map<String, dynamic>;
           final word = itemMap['word'] as String;
           final sentencesJson = itemMap['sentences'] as Map<String, dynamic>?;
+
+          debugPrint('🔍 Processing word: $word, sentences: $sentencesJson');
 
           if (sentencesJson != null) {
             final sentences = <String, SentenceData>{};
@@ -557,6 +717,8 @@ class SentenceGenerationResult {
           }
         }
       }
+
+      debugPrint('🔍 Final results map: $results');
 
       return SentenceGenerationResult.normal(
         level: json['level'] as String? ?? 'A1',
@@ -573,17 +735,25 @@ class SentenceGenerationResult {
     required Map<String, Map<String, SentenceData>> results,
     List<String> selectedTones = const [],
   }) {
+    debugPrint('🔍 SentenceGenerationResult.normal - selectedTones: $selectedTones');
+    debugPrint('🔍 Input results keys: ${results.keys}');
+
     // Filter results to only include selected tones
     final filteredResults = <String, Map<String, SentenceData>>{};
     for (final entry in results.entries) {
       final word = entry.key;
       final sentences = entry.value;
 
+      debugPrint('🔍 Processing word: $word, available tones: ${sentences.keys}');
+
       // Only include sentences for selected tones
       final filteredSentences = <String, SentenceData>{};
       for (final tone in selectedTones) {
         if (sentences.containsKey(tone)) {
           filteredSentences[tone] = sentences[tone]!;
+          debugPrint('✅ Found sentence for tone: $tone');
+        } else {
+          debugPrint('⚠️ No sentence for tone: $tone');
         }
       }
 
@@ -591,6 +761,8 @@ class SentenceGenerationResult {
         filteredResults[word] = filteredSentences;
       }
     }
+
+    debugPrint('🔍 Filtered results keys: ${filteredResults.keys}');
 
     return SentenceGenerationResult(
       mode: 'normal',
