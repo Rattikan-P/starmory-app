@@ -362,10 +362,7 @@ class _InteractiveVocabularyScreenState
               final displayedImageHeight = imageSize.height * fit.scale;
 
               final remainingHeight = screenHeight - displayedImageHeight;
-              minChildSize = (remainingHeight / screenHeight).clamp(
-                0.05,
-                0.5,
-              );
+              minChildSize = (remainingHeight / screenHeight).clamp(0.05, 0.5);
             }
 
             return DraggableScrollableSheet(
@@ -445,14 +442,14 @@ class _InteractiveVocabularyScreenState
 
     double scale;
     double offsetX = 0;
-    double offsetY = 0;
+    const double offsetY = 0;
 
     // BoxFit.contain: scale to fit within container, then center
     if (imageAspectRatio > containerAspectRatio) {
       // Image is wider than container - scale to width
       scale = containerWidth / imageSize.width;
       // Center vertically
-      offsetY = (containerHeight - imageSize.height * scale) / 2;
+      // offsetY = 0 (ชิดบน)
     } else {
       // Image is taller than container - scale to height
       scale = containerHeight / imageSize.height;
