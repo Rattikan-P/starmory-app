@@ -54,7 +54,9 @@ class _InteractiveVocabularyScreenState
   void _initializeVocabularyData() {
     if (widget.extractionResult != null) {
       // Debug: Print the vocab list count
-      debugPrint('📊 Extraction Result: ${widget.extractionResult!.vocabList.length} items');
+      debugPrint(
+        '📊 Extraction Result: ${widget.extractionResult!.vocabList.length} items',
+      );
 
       // Use default context (Describe + image category) for initial sentences
       final defaultTone = 'Describe';
@@ -64,7 +66,9 @@ class _InteractiveVocabularyScreenState
       _vocabularyDots = widget.extractionResult!.vocabList.map((item) {
         final bbox = item.boundingBox;
         final (x, y) = bbox.center;
-        debugPrint('✅ Word: ${item.word}, Thai: ${item.thai}, Center: ($x, $y)');
+        debugPrint(
+          '✅ Word: ${item.word}, Thai: ${item.thai}, Center: ($x, $y)',
+        );
 
         return _VocabularyDot(
           id: item.word,
@@ -99,7 +103,10 @@ class _InteractiveVocabularyScreenState
       final geminiService = ref.read(geminiServiceProvider);
 
       // Collect all unique tones from current dots
-      final tones = _vocabularyDots.map((d) => _mapToneToApiFormat(d.tone)).toSet().toList();
+      final tones = _vocabularyDots
+          .map((d) => _mapToneToApiFormat(d.tone))
+          .toSet()
+          .toList();
 
       // Get words
       final words = _vocabularyDots.map((d) => d.word).toList();
@@ -127,7 +134,9 @@ class _InteractiveVocabularyScreenState
                 englishSentence: sentenceData.text,
                 thaiSentence: sentenceData.thai,
               );
-              debugPrint('🤖 AI sentence for ${dot.word}: ${sentenceData.text}');
+              debugPrint(
+                '🤖 AI sentence for ${dot.word}: ${sentenceData.text}',
+              );
             }
           }
         }
@@ -178,9 +187,15 @@ class _InteractiveVocabularyScreenState
       } else if (categoryLower == 'food') {
         return ('The $word looks delicious.', '$thai ดูน่าทานมาก');
       } else if (categoryLower == 'study') {
-        return ('This $word is useful for learning.', '$thai มีประโยชน์ต่อการเรียนรู้');
+        return (
+          'This $word is useful for learning.',
+          '$thai มีประโยชน์ต่อการเรียนรู้',
+        );
       } else if (categoryLower == 'moment') {
-        return ('The $word makes this moment special.', '$thai ทำให้ช่วงเวลานี้พิเศษ');
+        return (
+          'The $word makes this moment special.',
+          '$thai ทำให้ช่วงเวลานี้พิเศษ',
+        );
       }
       return ('I see a $word here.', 'ฉันเห็น $thai ที่นี่');
     }
@@ -188,7 +203,10 @@ class _InteractiveVocabularyScreenState
     // Command tone
     if (toneLower == 'command') {
       if (categoryLower == 'nature') {
-        return ('Look at the $word carefully.', 'จงจดจ่อมอง $thai อย่างละเอียด');
+        return (
+          'Look at the $word carefully.',
+          'จงจดจ่อมอง $thai อย่างละเอียด',
+        );
       } else if (categoryLower == 'food') {
         return ('Try the $word now.', 'ลอง $thai ดูสิ');
       }
@@ -202,7 +220,10 @@ class _InteractiveVocabularyScreenState
 
     // Conditional tone
     if (toneLower == 'conditional') {
-      return ('If you have a $word, use it well.', 'หากคุณมี $thai ให้ใช้มันอย่างดี');
+      return (
+        'If you have a $word, use it well.',
+        'หากคุณมี $thai ให้ใช้มันอย่างดี',
+      );
     }
 
     // Fallback
@@ -239,23 +260,13 @@ class _InteractiveVocabularyScreenState
           ),
         ],
       ),
-      body: Column(
+      body: Stack(
         children: [
-          // Image with Dots
-          _buildImageWithDots(),
+          // Image with Dots - takes full height
+          Positioned.fill(child: _buildImageWithDots()),
 
-          // Selected Words Chips
-          _buildSelectedWordsChips(),
-
-          // Combined Sentence Toggle
-          _buildCombinedSentenceToggle(),
-
-          // Word Details / Expanded Content
-          Expanded(
-            child: _selectedWordIds.isEmpty
-                ? _buildEmptyState()
-                : _buildWordDetails(),
-          ),
+          // Draggable Bottom Sheet for word details
+          Positioned.fill(child: _buildBottomSheet()),
         ],
       ),
     );
@@ -276,10 +287,7 @@ class _InteractiveVocabularyScreenState
         children: [
           const Text(
             'Combined Sentence',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
           ),
           Switch(
             value: _useCombinedSentence,
@@ -295,39 +303,127 @@ class _InteractiveVocabularyScreenState
   }
 
   Widget _buildImageWithDots() {
-    return SizedBox(
-      height: 300,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          return FutureBuilder<Size>(
-            future: _getImageDimensions(),
-            builder: (context, snapshot) {
-              if (!snapshot.hasData) {
-                return const Center(child: CircularProgressIndicator());
-              }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return FutureBuilder<Size>(
+          future: _getImageDimensions(),
+          builder: (context, snapshot) {
+            if (!snapshot.hasData) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-              final imageSize = snapshot.data!;
-              return Stack(
+            final imageSize = snapshot.data!;
+            return Container(
+              color: Colors.white,
+              child: Stack(
+                clipBehavior: Clip.none,
                 children: [
-                  // Image
-                  Positioned.fill(
+                  // เปลี่ยนจาก Center เป็น Align ชิดบน
+                  Align(
+                    alignment: Alignment.topCenter,
                     child: Image.file(
                       File(widget.imagePath),
-                      fit: BoxFit.cover,
+                      fit: BoxFit.contain,
                     ),
                   ),
-                  // Dots Overlay with proper coordinate mapping for BoxFit.cover
                   ..._buildVocabularyDots(
                     constraints.maxWidth,
                     constraints.maxHeight,
                     imageSize,
                   ),
                 ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildBottomSheet() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return FutureBuilder<Size>(
+          future: _getImageDimensions(),
+          builder: (context, snapshot) {
+            double minChildSize = 0.15;
+            double maxChildSize = 0.85;
+
+            if (snapshot.hasData) {
+              final imageSize = snapshot.data!;
+              final screenHeight = constraints.maxHeight;
+              final screenWidth = constraints.maxWidth;
+
+              final fit = _calculateBoxFitContain(
+                imageSize,
+                screenWidth,
+                screenHeight,
               );
-            },
-          );
-        },
-      ),
+              final displayedImageHeight = imageSize.height * fit.scale;
+
+              final remainingHeight = screenHeight - displayedImageHeight;
+              minChildSize = (remainingHeight / screenHeight).clamp(
+                0.05,
+                0.5,
+              );
+            }
+
+            return DraggableScrollableSheet(
+              initialChildSize: minChildSize.clamp(0.35, 0.85),
+              minChildSize: minChildSize,
+              maxChildSize: maxChildSize,
+              builder: (context, scrollController) {
+                return Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(20),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.1),
+                        blurRadius: 10,
+                        offset: const Offset(0, -2),
+                      ),
+                    ],
+                  ),
+                  child: CustomScrollView(
+                    controller: scrollController,
+                    slivers: [
+                      // Drag Handle
+                      SliverToBoxAdapter(
+                        child: Center(
+                          child: Container(
+                            margin: const EdgeInsets.only(top: 12, bottom: 8),
+                            width: 40,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: Colors.grey[300],
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      // Selected Words Chips
+                      SliverToBoxAdapter(child: _buildSelectedWordsChips()),
+
+                      // Combined Sentence Toggle
+                      SliverToBoxAdapter(child: _buildCombinedSentenceToggle()),
+
+                      // Word Details / Empty State
+                      if (_selectedWordIds.isEmpty)
+                        _buildEmptyStateSliver(scrollController)
+                      else
+                        _buildWordDetailsSliver(scrollController),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
     );
   }
 
@@ -338,8 +434,8 @@ class _InteractiveVocabularyScreenState
     return Size(decodedImage.width.toDouble(), decodedImage.height.toDouble());
   }
 
-  /// Calculate BoxFit.cover scaling and position
-  ({double scale, double offsetX, double offsetY}) _calculateBoxFitCover(
+  /// Calculate BoxFit.contain scaling and position (centered)
+  ({double scale, double offsetX, double offsetY}) _calculateBoxFitContain(
     Size imageSize,
     double containerWidth,
     double containerHeight,
@@ -351,16 +447,17 @@ class _InteractiveVocabularyScreenState
     double offsetX = 0;
     double offsetY = 0;
 
+    // BoxFit.contain: scale to fit within container, then center
     if (imageAspectRatio > containerAspectRatio) {
-      // Image is wider than container - scale to height
-      scale = containerHeight / imageSize.height;
-      // Center horizontally
-      offsetX = (containerWidth - imageSize.width * scale) / 2;
-    } else {
-      // Image is taller than container - scale to width
+      // Image is wider than container - scale to width
       scale = containerWidth / imageSize.width;
       // Center vertically
       offsetY = (containerHeight - imageSize.height * scale) / 2;
+    } else {
+      // Image is taller than container - scale to height
+      scale = containerHeight / imageSize.height;
+      // Center horizontally
+      offsetX = (containerWidth - imageSize.width * scale) / 2;
     }
 
     return (scale: scale, offsetX: offsetX, offsetY: offsetY);
@@ -371,11 +468,17 @@ class _InteractiveVocabularyScreenState
     double containerHeight,
     Size imageSize,
   ) {
-    final fit = _calculateBoxFitCover(imageSize, containerWidth, containerHeight);
+    final fit = _calculateBoxFitContain(
+      imageSize,
+      containerWidth,
+      containerHeight,
+    );
 
     debugPrint('📐 Container: $containerWidth x $containerHeight');
     debugPrint('🖼️ Image: ${imageSize.width} x ${imageSize.height}');
-    debugPrint('🔧 Fit: scale=${fit.scale.toStringAsFixed(3)}, offsetX=${fit.offsetX.toStringAsFixed(1)}, offsetY=${fit.offsetY.toStringAsFixed(1)}');
+    debugPrint(
+      '🔧 Fit: scale=${fit.scale.toStringAsFixed(3)}, offsetX=${fit.offsetX.toStringAsFixed(1)}, offsetY=${fit.offsetY.toStringAsFixed(1)}',
+    );
 
     return _vocabularyDots.map((dot) {
       final isSelected = _selectedWordIds.contains(dot.id);
@@ -388,47 +491,144 @@ class _InteractiveVocabularyScreenState
       final displayedX = imageX * fit.scale + fit.offsetX;
       final displayedY = imageY * fit.scale + fit.offsetY;
 
-      debugPrint('📍 Dot "${dot.word}": normalized=(${dot.x.toStringAsFixed(2)}, ${dot.y.toStringAsFixed(2)}) → displayed=(${displayedX.toStringAsFixed(1)}, ${displayedY.toStringAsFixed(1)})');
+      debugPrint(
+        '📍 Dot "${dot.word}": normalized=(${dot.x.toStringAsFixed(2)}, ${dot.y.toStringAsFixed(2)}) → displayed=(${displayedX.toStringAsFixed(1)}, ${displayedY.toStringAsFixed(1)})',
+      );
 
-      // Temporarily disable bounds check for debugging
-      // Check if dot is within visible bounds
-      // if (displayedX < -20 || displayedX > containerWidth + 20 ||
-      //     displayedY < -20 || displayedY > containerHeight + 20) {
-      //   return const SizedBox.shrink();
-      // }
+      // Don't hide dots that are out of bounds - let them be clickable even if outside visible area
+      const dotSize = 34.0;
 
       return Positioned(
-        left: displayedX - 20,
-        top: displayedY - 20,
+        left: displayedX - dotSize / 2,
+        top: displayedY - dotSize / 2,
         child: GestureDetector(
           onTap: () => _toggleWordSelection(dot.id),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: isSelected
-                  ? const Color(0xFF6C63FF)
-                  : Colors.white.withOpacity(0.8),
-              border: Border.all(
-                color: const Color(0xFF6C63FF),
-                width: isSelected ? 3 : 2,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
-                  blurRadius: 4,
+          child: Container(
+            width: dotSize,
+            height: dotSize,
+            padding: const EdgeInsets.all(8), // Invisible tap area padding
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isSelected
+                    ? const Color(0xFF6C63FF)
+                    : Colors.white.withOpacity(0.8),
+                border: Border.all(
+                  color: const Color(0xFF6C63FF),
+                  width: isSelected ? 2.5 : 1.5,
                 ),
-              ],
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 3,
+                  ),
+                ],
+              ),
+              child: Center(
+                child: Text(
+                  isSelected ? '${_vocabularyDots.indexOf(dot) + 1}' : '',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
             ),
-            child: Center(
-              child: Text(
-                isSelected ? '${_vocabularyDots.indexOf(dot) + 1}' : '',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
+          ),
+        ),
+      );
+    }).toList();
+  }
+
+  List<Widget> _buildVocabularyDotsWithFittedSize(
+    double containerWidth,
+    double containerHeight,
+    Size imageSize,
+    FittedSizes fittedSizes,
+  ) {
+    debugPrint('📐 Container: $containerWidth x $containerHeight');
+    debugPrint('🖼️ Image: ${imageSize.width} x ${imageSize.height}');
+    debugPrint(
+      '🔧 Fitted: source=${fittedSizes.source.width}x${fittedSizes.source.height}, destination=${fittedSizes.destination.width}x${fittedSizes.destination.height}',
+    );
+
+    // Calculate scale and offsets from fittedSizes for BoxFit.cover
+    final scale = fittedSizes.destination.width / imageSize.width;
+
+    // For BoxFit.cover with top-center alignment:
+    // - If image is wider than container: destination width > container width (cropped horizontally)
+    // - If image is taller than container: destination height > container height (cropped vertically)
+    // Since we use Alignment.topCenter, offsetY is always 0, and we center horizontally if needed
+
+    final double offsetX;
+    final double offsetY = 0; // Always 0 for top alignment
+
+    if (fittedSizes.destination.width >= containerWidth) {
+      // Image fills width (was scaled to fit width)
+      offsetX = 0;
+    } else {
+      // Image is narrower (was scaled to fit height), center it
+      offsetX = (containerWidth - fittedSizes.destination.width) / 2;
+    }
+
+    debugPrint(
+      '🔧 Calculated: scale=${scale.toStringAsFixed(3)}, offsetX=${offsetX.toStringAsFixed(1)}, offsetY=$offsetY',
+    );
+
+    return _vocabularyDots.map((dot) {
+      final isSelected = _selectedWordIds.contains(dot.id);
+
+      // Convert normalized coordinates to actual image position
+      final imageX = dot.x * imageSize.width;
+      final imageY = dot.y * imageSize.height;
+
+      // Apply BoxFit.cover transformation (top-aligned)
+      final displayedX = imageX * scale + offsetX;
+      final displayedY = imageY * scale + offsetY;
+
+      debugPrint(
+        '📍 Dot "${dot.word}": normalized=(${dot.x.toStringAsFixed(2)}, ${dot.y.toStringAsFixed(2)}) → displayed=(${displayedX.toStringAsFixed(1)}, ${displayedY.toStringAsFixed(1)})',
+      );
+
+      const dotSize = 34.0;
+
+      return Positioned(
+        left: displayedX - dotSize / 2,
+        top: displayedY - dotSize / 2,
+        child: GestureDetector(
+          onTap: () => _toggleWordSelection(dot.id),
+          child: Container(
+            width: dotSize,
+            height: dotSize,
+            padding: const EdgeInsets.all(8),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isSelected
+                    ? const Color(0xFF6C63FF)
+                    : Colors.white.withOpacity(0.8),
+                border: Border.all(
+                  color: const Color(0xFF6C63FF),
+                  width: isSelected ? 2.5 : 1.5,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 3,
+                  ),
+                ],
+              ),
+              child: Center(
+                child: Text(
+                  isSelected ? '${_vocabularyDots.indexOf(dot) + 1}' : '',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
                 ),
               ),
             ),
@@ -462,10 +662,7 @@ class _InteractiveVocabularyScreenState
               backgroundColor: const Color(0xFF6C63FF),
               child: Text(
                 '${index + 1}',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                ),
+                style: const TextStyle(color: Colors.white, fontSize: 12),
               ),
             ),
             backgroundColor: const Color(0xFF6C63FF).withOpacity(0.1),
@@ -477,82 +674,72 @@ class _InteractiveVocabularyScreenState
     );
   }
 
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.touch_app,
-            size: 64,
-            color: Colors.grey[400],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Tap the dots on the image',
-            style: TextStyle(
-              fontSize: 18,
-              color: Colors.grey[600],
-              fontWeight: FontWeight.w500,
+  Widget _buildEmptyStateSliver(ScrollController scrollController) {
+    return SliverFillRemaining(
+      hasScrollBody: false,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.touch_app, size: 64, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            Text(
+              'Tap the dots on the image',
+              style: TextStyle(
+                fontSize: 18,
+                color: Colors.grey[600],
+                fontWeight: FontWeight.w500,
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'to select vocabulary words',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[500],
+            const SizedBox(height: 8),
+            Text(
+              'to select vocabulary words',
+              style: TextStyle(fontSize: 14, color: Colors.grey[500]),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildWordDetails() {
+  Widget _buildWordDetailsSliver(ScrollController scrollController) {
     final selectedDots = _vocabularyDots
         .where((dot) => _selectedWordIds.contains(dot.id))
         .toList();
 
-    return Stack(
-      children: [
-        ListView.separated(
+    return SliverList(
+      delegate: SliverChildBuilderDelegate((context, index) {
+        final dot = selectedDots[index];
+        return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          itemCount: selectedDots.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 12),
-          itemBuilder: (context, index) {
-            final dot = selectedDots[index];
-            return _WordDetailCard(
-              dot: dot,
-              index: index + 1,
-              onContextTap: () => _isRegenerating ? null : _showContextSelector(dot),
-              onAudioTap: () => _playAudio(dot),
-              isRegenerating: _isRegenerating,
-            );
-          },
-        ),
-        if (_isRegenerating)
-          Positioned.fill(
-            child: Container(
-              color: Colors.black.withValues(alpha: 0.3),
-              child: const Center(
-                child: Card(
-                  child: Padding(
-                    padding: EdgeInsets.all(20),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        CircularProgressIndicator(),
-                        SizedBox(height: 12),
-                        Text('Updating sentences...'),
-                      ],
-                    ),
+          child: Column(
+            children: [
+              if (index > 0) const SizedBox(height: 12),
+              _WordDetailCard(
+                dot: dot,
+                index: index + 1,
+                onContextTap: () =>
+                    _isRegenerating ? null : _showContextSelector(dot),
+                onAudioTap: () => _playAudio(dot),
+                isRegenerating: _isRegenerating,
+              ),
+              // Show loading indicator at the end if regenerating
+              if (_isRegenerating && index == selectedDots.length - 1)
+                const Padding(
+                  padding: EdgeInsets.all(20),
+                  child: Column(
+                    children: [
+                      SizedBox(height: 12),
+                      CircularProgressIndicator(),
+                      SizedBox(height: 12),
+                      Text('Updating sentences...'),
+                    ],
                   ),
                 ),
-              ),
-            ),
+            ],
           ),
-      ],
+        );
+      }, childCount: selectedDots.length),
     );
   }
 
@@ -589,10 +776,7 @@ class _InteractiveVocabularyScreenState
     setState(() {
       final index = _vocabularyDots.indexWhere((d) => d.id == dot.id);
       if (index != -1) {
-        _vocabularyDots[index] = dot.copyWith(
-          tone: tone,
-          category: category,
-        );
+        _vocabularyDots[index] = dot.copyWith(tone: tone, category: category);
       }
     });
 
@@ -643,7 +827,11 @@ class _InteractiveVocabularyScreenState
     });
 
     // Regenerate sentences for all selected words
-    final success = await _regenerateSentencesForWords(selectedDotIds, tone, category);
+    final success = await _regenerateSentencesForWords(
+      selectedDotIds,
+      tone,
+      category,
+    );
 
     if (!mounted) return;
 
@@ -669,7 +857,11 @@ class _InteractiveVocabularyScreenState
   }
 
   /// Regenerate sentence for a specific word with new context
-  Future<bool> _regenerateSentence(String wordId, String tone, String category) async {
+  Future<bool> _regenerateSentence(
+    String wordId,
+    String tone,
+    String category,
+  ) async {
     // Declare variables outside try block for catch block access
     final geminiService = ref.read(geminiServiceProvider);
     final dotIndex = _vocabularyDots.indexWhere((d) => d.id == wordId);
@@ -679,7 +871,9 @@ class _InteractiveVocabularyScreenState
     final apiTone = _mapToneToApiFormat(tone);
 
     try {
-      debugPrint('🔄 Regenerating sentence for ${dot.word} with tone: $apiTone, category: $category');
+      debugPrint(
+        '🔄 Regenerating sentence for ${dot.word} with tone: $apiTone, category: $category',
+      );
 
       final result = await geminiService.generateSentences(
         words: [dot.word],
@@ -704,10 +898,14 @@ class _InteractiveVocabularyScreenState
             thaiSentence: sentenceData.thai,
           );
         });
-        debugPrint('✅ Regenerated sentence for ${dot.word}: ${sentenceData.text}');
+        debugPrint(
+          '✅ Regenerated sentence for ${dot.word}: ${sentenceData.text}',
+        );
         return true;
       } else {
-        debugPrint('⚠️ No sentence data found for tone: $apiTone, using fallback');
+        debugPrint(
+          '⚠️ No sentence data found for tone: $apiTone, using fallback',
+        );
         // Use fallback sentence
         final (enSentence, thSentence) = _generateFallbackSentence(
           dot.word,
@@ -743,18 +941,26 @@ class _InteractiveVocabularyScreenState
   }
 
   /// Regenerate sentences for multiple words
-  Future<bool> _regenerateSentencesForWords(List<String> wordIds, String tone, String category) async {
+  Future<bool> _regenerateSentencesForWords(
+    List<String> wordIds,
+    String tone,
+    String category,
+  ) async {
     final geminiService = ref.read(geminiServiceProvider);
 
     // Get selected words
-    final selectedDots = _vocabularyDots.where((d) => wordIds.contains(d.id)).toList();
+    final selectedDots = _vocabularyDots
+        .where((d) => wordIds.contains(d.id))
+        .toList();
     if (selectedDots.isEmpty) return false;
 
     final words = selectedDots.map((d) => d.word).toList();
     final apiTone = _mapToneToApiFormat(tone);
 
     try {
-      debugPrint('🔄 Regenerating sentences for ${words.length} words with tone: $apiTone, category: $category');
+      debugPrint(
+        '🔄 Regenerating sentences for ${words.length} words with tone: $apiTone, category: $category',
+      );
 
       final result = await geminiService.generateSentences(
         words: words,
@@ -776,7 +982,9 @@ class _InteractiveVocabularyScreenState
           final dot = _vocabularyDots[i];
           if (wordIds.contains(dot.id)) {
             final sentenceData = result.results[dot.word]?[apiTone];
-            debugPrint('📝 Sentence data for ${dot.word} ($apiTone): ${sentenceData?.text}');
+            debugPrint(
+              '📝 Sentence data for ${dot.word} ($apiTone): ${sentenceData?.text}',
+            );
 
             if (sentenceData != null) {
               _vocabularyDots[i] = dot.copyWith(
@@ -801,7 +1009,9 @@ class _InteractiveVocabularyScreenState
         }
       });
 
-      debugPrint('✅ Regenerated sentences for $successCount/${selectedDots.length} words');
+      debugPrint(
+        '✅ Regenerated sentences for $successCount/${selectedDots.length} words',
+      );
       return successCount > 0;
     } catch (e) {
       debugPrint('❌ Error regenerating sentences: $e, using fallbacks');
@@ -829,9 +1039,9 @@ class _InteractiveVocabularyScreenState
 
   void _playAudio(_VocabularyDot dot) {
     // TODO: Implement text-to-speech
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Playing: ${dot.word}')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Playing: ${dot.word}')));
   }
 
   void _saveAllVocabularies() {
@@ -894,10 +1104,7 @@ class _WordDetailCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.grey[200]!),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 4,
-          ),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4),
         ],
       ),
       child: Column(
@@ -933,10 +1140,7 @@ class _WordDetailCard extends StatelessWidget {
                     ),
                     Text(
                       '${dot.partOfSpeech} • ${dot.thaiTranslation}',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[600],
-                      ),
+                      style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                     ),
                   ],
                 ),
@@ -996,10 +1200,7 @@ class _WordDetailCard extends StatelessWidget {
                       const SizedBox(height: 4),
                       Text(
                         dot.thaiSentence,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.grey[600],
-                        ),
+                        style: TextStyle(fontSize: 13, color: Colors.grey[600]),
                       ),
                     ],
                   ),
@@ -1139,12 +1340,7 @@ class _ContextSelectorScreenState extends State<ContextSelectorScreen> {
   late String _selectedCategory;
   final TextEditingController _customTextController = TextEditingController();
 
-  final List<String> _tones = [
-    'Describe',
-    'Command',
-    'Wish',
-    'Conditional',
-  ];
+  final List<String> _tones = ['Describe', 'Command', 'Wish', 'Conditional'];
 
   final List<String> _categories = [
     'Moment',
@@ -1201,10 +1397,7 @@ class _ContextSelectorScreenState extends State<ContextSelectorScreen> {
                   const SizedBox(width: 12),
                   Text(
                     widget.vocabularyDot.thaiTranslation,
-                    style: TextStyle(
-                      fontSize: 18,
-                      color: Colors.grey[700],
-                    ),
+                    style: TextStyle(fontSize: 18, color: Colors.grey[700]),
                   ),
                 ],
               ),
@@ -1250,10 +1443,7 @@ class _ContextSelectorScreenState extends State<ContextSelectorScreen> {
                 ),
                 child: const Text(
                   'Apply',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ),
             ),
@@ -1272,10 +1462,7 @@ class _ContextSelectorScreenState extends State<ContextSelectorScreen> {
                 ),
                 child: const Text(
                   'Use for All Selected',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ),
             ),
@@ -1339,8 +1526,8 @@ class _ContextSelectorScreenState extends State<ContextSelectorScreen> {
   void _handleApply() {
     final category = _selectedCategory == 'Custom'
         ? (_customTextController.text.isNotEmpty
-            ? _customTextController.text
-            : 'Other')
+              ? _customTextController.text
+              : 'Other')
         : _selectedCategory;
 
     widget.onApply(_selectedTone, category);
@@ -1350,8 +1537,8 @@ class _ContextSelectorScreenState extends State<ContextSelectorScreen> {
   void _handleApplyToAll() {
     final category = _selectedCategory == 'Custom'
         ? (_customTextController.text.isNotEmpty
-            ? _customTextController.text
-            : 'Other')
+              ? _customTextController.text
+              : 'Other')
         : _selectedCategory;
 
     widget.onApplyToAll(_selectedTone, category);
