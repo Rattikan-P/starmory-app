@@ -7,7 +7,7 @@ import '../../../data/services/preference_service.dart';
 import '../main_navigation.dart';
 import '../onboarding_page.dart';
 import '../language_selection_page.dart';
-import 'email_login_page.dart';
+import 'otp_verification_page.dart' show OtpVerificationPage;
 import '../../../constants/app_defaults.dart';
 
 class AccountMethodPage extends ConsumerStatefulWidget {
@@ -18,31 +18,17 @@ class AccountMethodPage extends ConsumerStatefulWidget {
 }
 
 class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
-  bool _consentAccepted = false;
+  final _emailController = TextEditingController();
+  final _emailFormKey = GlobalKey<FormState>();
+  bool _isEmailLoading = false;
 
   @override
-  void initState() {
-    super.initState();
-    _checkConsent();
-  }
-
-  Future<void> _checkConsent() async {
-    final preferenceService = PreferenceService();
-    await preferenceService.init();
-    final hasAccepted = await preferenceService.hasAcceptedCurrentTerms();
-    if (mounted && hasAccepted) {
-      setState(() => _consentAccepted = true);
-    }
+  void dispose() {
+    _emailController.dispose();
+    super.dispose();
   }
 
   Future<void> _continueWithGoogle(BuildContext context) async {
-    if (!_consentAccepted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please accept Terms & Privacy Policy')),
-      );
-      return;
-    }
-
     try {
       final authService = AuthService();
       // force ถาม account ใหม่ตอน guest สร้าง account
@@ -57,6 +43,11 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
       if (userId == null) return;
 
       final preferenceService = ref.read(onboardingServiceProvider);
+      await preferenceService.init();
+
+      // Auto-accept terms
+      await preferenceService.setTermsVersion(preferenceService.getCurrentTermsVersion());
+
       final guestLevel = await preferenceService.getGuestLanguageLevel();
       final guestVariant = await preferenceService.getGuestEnglishVariant();
       final hasGuestData = guestLevel != null || guestVariant != null;
@@ -150,366 +141,373 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
     }
   }
 
-  Future<void> _showConsentAndContinueGoogle(BuildContext context) async {
-    if (_consentAccepted) {
-      await _continueWithGoogle(context);
-    } else if (context.mounted) {
-      final result = await showDialog<bool>(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => _ConsentModal(
-          onAccept: () => Navigator.of(context).pop(true),
-          onDecline: () => Navigator.of(context).pop(false),
+  Future<void> _continueWithEmail(BuildContext context) async {
+    if (!_emailFormKey.currentState!.validate()) return;
+
+    setState(() => _isEmailLoading = true);
+
+    try {
+      final email = _emailController.text.trim();
+
+      if (!context.mounted) return;
+
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => OtpVerificationPage(
+            email: email,
+            isGuestCreatingAccount: true,
+          ),
         ),
       );
-
-      if (result == true && context.mounted) {
-        setState(() => _consentAccepted = true);
-        await _continueWithGoogle(context);
-      }
-    }
-  }
-
-  Future<void> _showConsentAndContinueEmail(BuildContext context) async {
-    if (_consentAccepted) {
+    } catch (e) {
       if (context.mounted) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => const EmailLoginPage(
-              isGuestCreatingAccount: true,
-            ),
-          ),
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: ${e.toString()}')),
         );
       }
-    } else if (context.mounted) {
-      final result = await showDialog<bool>(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => _ConsentModal(
-          onAccept: () => Navigator.of(context).pop(true),
-          onDecline: () => Navigator.of(context).pop(false),
-        ),
-      );
-
-      if (result == true && context.mounted) {
-        setState(() => _consentAccepted = true);
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => const EmailLoginPage(
-              isGuestCreatingAccount: true,
-            ),
-          ),
-        );
+    } finally {
+      if (mounted) {
+        setState(() => _isEmailLoading = false);
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFFf0f4ff), // Very light blue
+              Color(0xFFf8f5ff), // Very light purple
+              Color(0xFFfff5f8), // Very light pink
+            ],
+          ),
         ),
-      ),
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 400),
+        child: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Icon(
-                    Icons.person_add_rounded,
-                    size: 60,
-                    color: theme.colorScheme.primary.withValues(alpha: 0.5),
-                  ),
-                  const SizedBox(height: 24),
-
-                  Text(
-                    'Create an account',
-                    style: GoogleFonts.cormorantUnicase(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: theme.colorScheme.primary,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 8),
-
-                  Text(
-                    'Your guest preferences will be saved',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 8),
-
                   Container(
-                    padding: const EdgeInsets.all(12),
+                    constraints: const BoxConstraints(maxWidth: 400),
+                    padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.primaryContainer.withValues(
-                        alpha: 0.3,
-                      ),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.info_outline,
-                          size: 16,
-                          color: theme.colorScheme.primary,
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 20,
+                          offset: const Offset(0, 4),
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'If you already have an account, your current preferences will be applied.',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurface.withValues(
-                                alpha: 0.7,
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                    // Back button
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.05),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: IconButton(
+                          icon: const Icon(Icons.arrow_back, color: Color(0xFF1f2937)),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+
+                    // Icon
+                    Container(
+                      width: 100,
+                      height: 100,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Color(0xFFf472b6), // Soft pink
+                            Color(0xFF60a5fa), // Soft blue
+                          ],
+                        ),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFf472b6).withValues(alpha: 0.3),
+                            blurRadius: 20,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.person_add_rounded,
+                        size: 50,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+
+                    Text(
+                      'Create an account',
+                      style: GoogleFonts.lexend(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF1f2937),
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 4),
+
+                    Text(
+                      'Your guest data will be saved',
+                      style: GoogleFonts.lexend(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w400,
+                        color: const Color(0xFF9ca3af),
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Email input with continue button
+                    Form(
+                      key: _emailFormKey,
+                      child: Column(
+                        children: [
+                          // Email input field
+                          TextFormField(
+                            controller: _emailController,
+                            keyboardType: TextInputType.emailAddress,
+                            textInputAction: TextInputAction.done,
+                            style: GoogleFonts.lexend(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w400,
+                            ),
+                            decoration: InputDecoration(
+                              hintText: 'your@email.com',
+                              hintStyle: GoogleFonts.lexend(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w400,
+                                color: const Color(0xFF9ca3af),
+                              ),
+                              prefixIcon: const Icon(Icons.email_outlined, size: 20, color: Color(0xFF9ca3af)),
+                              filled: true,
+                              fillColor: const Color(0xFFf3f4f6),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: BorderSide.none,
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: BorderSide.none,
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: const BorderSide(color: Color(0xFFc4b5fd), width: 2),
+                              ),
+                              errorBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: const BorderSide(color: Color(0xFFef4444), width: 1),
+                              ),
+                              focusedErrorBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: const BorderSide(color: Color(0xFFef4444), width: 2),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 18,
+                                vertical: 16,
                               ),
                             ),
+                            onFieldSubmitted: (_) => _continueWithEmail(context),
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Please enter your email';
+                              }
+                              if (!value.trim().contains('@')) {
+                                return 'Please enter a valid email';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 10),
+
+                          // Email Continue button
+                          SizedBox(
+                            width: double.infinity,
+                            height: 52,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    Color(0xFFc4b5fd),
+                                    Color(0xFFa5b4fc),
+                                    Color(0xFF8b8ef5),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(16),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFFc4b5fd).withValues(alpha: 0.35),
+                                    blurRadius: 16,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: _isEmailLoading ? null : () => _continueWithEmail(context),
+                                  borderRadius: BorderRadius.circular(16),
+                                  child: Center(
+                                    child: _isEmailLoading
+                                        ? const SizedBox(
+                                            width: 20,
+                                            height: 20,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                            ),
+                                          )
+                                        : Text(
+                                            'Send OTP',
+                                            style: GoogleFonts.lexend(
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w500,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+
+                    // OR divider
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            height: 1,
+                            color: const Color(0xFFe5e7eb),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                          child: Text(
+                            'OR',
+                            style: GoogleFonts.lexend(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: const Color(0xFF9ca3af),
+                              letterSpacing: 1.2,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Container(
+                            height: 1,
+                            color: const Color(0xFFe5e7eb),
                           ),
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: 32),
+                    const SizedBox(height: 18),
 
-                  // Signup buttons - show consent modal if not accepted
-                  SizedBox(
-                    width: double.infinity,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.08),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: OutlinedButton(
-                        onPressed: () => _showConsentAndContinueGoogle(context),
+                    // Google Button
+                    SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: OutlinedButton.icon(
+                        onPressed: () => _continueWithGoogle(context),
                         style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          side: BorderSide.none,
-                          foregroundColor: const Color(0xFF8B5CF6),
+                          foregroundColor: const Color(0xFF8b5cf6),
+                          side: const BorderSide(color: Color(0xFFe5e7eb), width: 1.5),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
                           ),
+                          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
                         ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Image.asset(
-                              'assets/images/google_logo.png',
-                              width: 22,
-                              height: 22,
-                              errorBuilder: (context, error, stackTrace) {
-                                return const Icon(Icons.g_mobiledata, size: 22);
-                              },
-                            ),
-                            const SizedBox(width: 12),
-                            const Text(
-                              'Continue with Google',
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
+                        icon: Image.asset(
+                          'assets/images/google_logo.png',
+                          width: 20,
+                          height: 20,
+                          errorBuilder: (context, error, stackTrace) {
+                            return const Icon(Icons.g_mobiledata, size: 20, color: Color(0xFF1f2937));
+                          },
+                        ),
+                        label: Text(
+                          'Continue with Google',
+                          style: GoogleFonts.lexend(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xFF8b5cf6),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
+                    const SizedBox(height: 20),
 
-                  SizedBox(
-                    width: double.infinity,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.08),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: FilledButton(
-                        onPressed: () => _showConsentAndContinueEmail(context),
-                        style: FilledButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          backgroundColor: Colors.white,
-                          foregroundColor: const Color(0xFF8B5CF6),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
-                        child: const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.email_outlined, size: 22),
-                            SizedBox(width: 12),
-                            Text(
-                              'Continue with Email',
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
+              // Terms notice
+              Text.rich(
+                TextSpan(
+                  style: GoogleFonts.lexend(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                    color: const Color(0xFF9ca3af),
+                  ),
+                  children: const [
+                    TextSpan(text: 'By signing up, you agree to our '),
+                    TextSpan(
+                      text: 'Terms',
+                      style: TextStyle(
+                        color: Color(0xFFa5b4fc),
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// Consent Modal Dialog
-class _ConsentModal extends StatelessWidget {
-  final VoidCallback onAccept;
-  final VoidCallback onDecline;
-
-  const _ConsentModal({
-    required this.onAccept,
-    required this.onDecline,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Dialog(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Icon
-            Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                color: const Color(0xFFE2D1F9).withValues(alpha: 0.5),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.privacy_tip_rounded,
-                size: 32,
-                color: Color(0xFF5E3A8E),
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            // Title
-            const Text(
-              'Privacy Consent',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF5E3A8E),
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 12),
-
-            // Description
-            Text(
-              'To use Starmory, we need your consent to collect and process your data for AI vocabulary learning. This includes photos you upload and your learning progress.',
-              style: TextStyle(
-                fontSize: 14,
-                color: const Color(0xFF5E3A8E).withValues(alpha: 0.8),
-                height: 1.5,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-
-            // Additional info
-            Text(
-              'You can withdraw your consent at any time in Settings.',
-              style: TextStyle(
-                fontSize: 12,
-                color: const Color(0xFF5E3A8E).withValues(alpha: 0.6),
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-
-            // Accept button
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: onAccept,
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF8B5CF6),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                    TextSpan(text: ' & '),
+                    TextSpan(
+                      text: 'Privacy Policy',
+                      style: TextStyle(
+                        color: Color(0xFFa5b4fc),
+                      ),
+                    ),
+                  ],
                 ),
-                child: const Text(
-                  'I Accept',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                textAlign: TextAlign.center,
               ),
-            ),
-            const SizedBox(height: 12),
-
-            // Decline button
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton(
-                onPressed: onDecline,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFF5E3A8E),
-                  side: BorderSide(
-                    color: const Color(0xFF5E3A8E).withValues(alpha: 0.3),
-                  ),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: const Text(
-                  'I Decline',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+                ], // closes inner Column children
+              ), // closes inner Column
+            ), // closes Container (card)
+          ], // closes outer Column children
+        ), // closes outer Column
+      ), // closes SingleChildScrollView
+    ), // closes Center
+        ), // closes SafeArea
+      ), // closes Container (gradient)
+    ); // closes Scaffold
   }
 }
