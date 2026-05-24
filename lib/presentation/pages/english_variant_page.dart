@@ -207,8 +207,7 @@ class EnglishVariantPage extends ConsumerWidget {
       if (context.mounted) {
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(
-            builder: (_) =>
-                const MainNavigationScreen(showDisplayNamePrompt: true),
+            builder: (_) => const MainNavigationScreen(),
           ),
           (route) => false,
         );

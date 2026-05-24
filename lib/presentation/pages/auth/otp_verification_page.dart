@@ -5,11 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../data/services/preference_service.dart';
-import '../language_selection_page.dart';
+import '../language_and_variant_page.dart';
 import '../main_navigation.dart';
+import '../onboarding_page.dart' show onboardingServiceProvider;
 import '../../../constants/app_defaults.dart';
 
-final onboardingServiceProvider = Provider<PreferenceService>((ref) => PreferenceService());
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
 
 class OtpVerificationPage extends ConsumerStatefulWidget {
@@ -168,10 +168,10 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
 
           final selectionResult = await Navigator.of(context).push<bool>(
             MaterialPageRoute(
-              builder: (_) => const LanguageSelectionPage(
+              builder: (_) => const LanguageAndVariantPage(
+                isGuest: false,
                 isInitialSetup: true,
                 returnAfterSelection: true,
-                forceSelection: true,
               ),
             ),
           );
@@ -196,16 +196,19 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
       await preferenceService.setOnboardingCompleted(true);
       await preferenceService.setGuestMode(false);
 
-      if (!mounted) return;
+      // Update database
+      if (user != null) {
+        await Supabase.instance.client
+            .from('users')
+            .update({'onboarding_completed': true})
+            .eq('id', user.id);
+      }
 
-      // ถาม display name เฉพาะ new user เท่านั้น
-      final hasDisplayName = user?.userMetadata?['display_name'] != null;
+      if (!mounted) return;
 
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(
-          builder: (_) => MainNavigationScreen(
-            showDisplayNamePrompt: isNewUser && !hasDisplayName,
-          ),
+          builder: (_) => const MainNavigationScreen(),
         ),
         (route) => false,
       );

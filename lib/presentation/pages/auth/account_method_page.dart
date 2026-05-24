@@ -6,7 +6,7 @@ import '../../../data/services/auth_service.dart';
 import '../../../data/services/preference_service.dart';
 import '../main_navigation.dart';
 import '../onboarding_page.dart';
-import '../language_selection_page.dart';
+import '../language_and_variant_page.dart';
 import 'otp_verification_page.dart' show OtpVerificationPage;
 import '../../../constants/app_defaults.dart';
 
@@ -70,13 +70,13 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
 
         if (!hasGuestData) {
           // ไม่มีข้อมูล guest → ถาม level/variant
-          // navigate ไป LanguageSelectionPage แล้วรอผล
+          // navigate ไป LanguageAndVariantPage แล้วรอผล
           final result = await Navigator.of(context).push<bool>(
             MaterialPageRoute(
-              builder: (_) => const LanguageSelectionPage(
+              builder: (_) => const LanguageAndVariantPage(
+                isGuest: false,
                 isInitialSetup: true,
                 returnAfterSelection: true,
-                forceSelection: true,
               ),
             ),
           );
@@ -119,16 +119,9 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
 
       if (!context.mounted) return;
 
-      // ถาม display name เฉพาะ new user เท่านั้น
-      final hasDisplayName =
-          client.auth.currentUser?.userMetadata?['display_name'] != null ||
-          userData?['display_name'] != null;
-
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(
-          builder: (_) => MainNavigationScreen(
-            showDisplayNamePrompt: isNewUser && !hasDisplayName,
-          ),
+          builder: (_) => const MainNavigationScreen(),
         ),
         (route) => false,
       );
@@ -360,15 +353,16 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                   colors: [
-                                    Color(0xFFc4b5fd),
-                                    Color(0xFFa5b4fc),
-                                    Color(0xFF8b8ef5),
+                                    Color(0xFF60a5fa), // soft blue
+                                    Color(0xFF818cf8), // soft indigo
+                                    Color(0xFFa78bfa), // soft violet
+                                    Color(0xFFc084fc), // soft purple
                                   ],
                                 ),
                                 borderRadius: BorderRadius.circular(16),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0xFFc4b5fd).withValues(alpha: 0.35),
+                                    color: const Color(0xFFa78bfa).withValues(alpha: 0.4),
                                     blurRadius: 16,
                                     offset: const Offset(0, 4),
                                   ),
@@ -465,7 +459,7 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
                           style: GoogleFonts.lexend(
                             fontSize: 15,
                             fontWeight: FontWeight.w500,
-                            color: const Color(0xFF8b5cf6),
+                            color: const Color(0xFF1f2937),
                           ),
                         ),
                       ),

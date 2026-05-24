@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -5,7 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/services/preference_service.dart';
 import '../../data/services/auth_service.dart';
 import 'auth/otp_verification_page.dart';
-import 'language_selection_page.dart';
+import 'language_and_variant_page.dart';
 import 'main_navigation.dart';
 import '../../constants/app_defaults.dart';
 
@@ -18,12 +19,14 @@ class OnboardingPage extends ConsumerStatefulWidget {
   ConsumerState<OnboardingPage> createState() => _OnboardingPageState();
 }
 
-class _OnboardingPageState extends ConsumerState<OnboardingPage> {
+class _OnboardingPageState extends ConsumerState<OnboardingPage>
+    with TickerProviderStateMixin {
   final PageController _pageController = PageController();
   int _currentPage = 0;
   final _emailController = TextEditingController();
   final _emailFormKey = GlobalKey<FormState>();
   bool _isEmailLoading = false;
+  final List<AnimationController> _starControllers = [];
 
   final List<OnboardingItem> _items = const [
     OnboardingItem(
@@ -34,7 +37,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
     OnboardingItem(
       icon: Icons.camera_alt_rounded,
       title: 'Photo Scrapbook',
-      description: 'Capture moments and learn from real life',
+      description: 'Capture moments from real life',
     ),
     OnboardingItem(
       icon: Icons.trending_up_rounded,
@@ -44,7 +47,24 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    for (int i = 0; i < 3; i++) {
+      _starControllers.add(AnimationController(
+        duration: Duration(milliseconds: 2500 + i * 500),
+        vsync: this,
+      ));
+      Future.delayed(Duration(milliseconds: i * 1200), () {
+        if (mounted) _starControllers[i].repeat();
+      });
+    }
+  }
+
+  @override
   void dispose() {
+    for (var controller in _starControllers) {
+      controller.dispose();
+    }
     _pageController.dispose();
     _emailController.dispose();
     super.dispose();
@@ -54,8 +74,10 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
     if (mounted) {
       await Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) =>
-              const LanguageSelectionPage(isGuest: true, forceSelection: true),
+          builder: (_) => const LanguageAndVariantPage(
+            isGuest: true,
+            isInitialSetup: true,
+          ),
         ),
       );
     }
@@ -96,9 +118,9 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
       if (isNewUser) {
         final result = await Navigator.of(context).push<bool>(
           MaterialPageRoute(
-            builder: (_) => const LanguageSelectionPage(
+            builder: (_) => const LanguageAndVariantPage(
               isGuest: false,
-              forceSelection: true,
+              isInitialSetup: true,
               returnAfterSelection: true,
             ),
           ),
@@ -130,13 +152,9 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
 
         if (!mounted) return;
 
-        final hasDisplayName =
-            client.auth.currentUser?.userMetadata?['display_name'] != null;
-
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(
-            builder: (_) =>
-                MainNavigationScreen(showDisplayNamePrompt: !hasDisplayName),
+            builder: (_) => const MainNavigationScreen(),
           ),
           (route) => false,
         );
@@ -149,7 +167,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(
             builder: (_) =>
-                const MainNavigationScreen(showDisplayNamePrompt: false),
+                const MainNavigationScreen(),
           ),
           (route) => false,
         );
@@ -231,22 +249,102 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFFf0f4ff), // Very light blue
-              Color(0xFFf8f5ff), // Very light purple
-              Color(0xFFfff5f8), // Very light pink
-            ],
+      body: Stack(
+        children: [
+          // Galaxy gradient background
+          Positioned.fill(
+            child: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Color(0xFFE8F4FD),
+                    Color(0xFFF5EEF8),
+                    Color(0xFFFDF4E8),
+                  ],
+                ),
+              ),
+            ),
           ),
-        ),
-        child: SafeArea(
+          // Galaxy blobs
+          Positioned(
+            top: -100,
+            left: -80,
+            child: Container(
+              width: 350,
+              height: 350,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    const Color(0xFFC4B5FD).withValues(alpha: 0.5),
+                    const Color(0x00C4B5FD),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 50,
+            right: -100,
+            child: Container(
+              width: 380,
+              height: 380,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    const Color(0xFF93C5FD).withValues(alpha: 0.5),
+                    const Color(0x0093C5FD),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: 100,
+            left: -60,
+            child: Container(
+              width: 350,
+              height: 350,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    const Color(0xFFF472B6).withValues(alpha: 0.55),
+                    const Color(0x00F472B6),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: -80,
+            right: -60,
+            child: Container(
+              width: 380,
+              height: 380,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    const Color(0xFFFCD34D).withValues(alpha: 0.5),
+                    const Color(0x00FCD34D),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          // Falling stars
+          if (_starControllers.isNotEmpty && _starControllers.length >= 3) ...[
+            _FallingStar(animation: _starControllers[0], index: 0),
+            _FallingStar(animation: _starControllers[1], index: 1),
+            _FallingStar(animation: _starControllers[2], index: 2),
+          ],
+          SafeArea(
           child: Stack(
             children: [
-              // Main content
               Column(
                 children: [
                   // Top bar
@@ -254,7 +352,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
                     child: Row(
                       children: [
-                        // App name + indicators
+                        // App name
                         Row(
                           children: [
                             Image.asset(
@@ -281,7 +379,6 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                             ),
                             const SizedBox(width: 5),
 
-                            // Page indicators
                             Padding(
                               padding: const EdgeInsets.only(top: 8),
                               child: Row(
@@ -300,7 +397,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                                           : null,
                                       color: _currentPage == index
                                           ? null
-                                          : const Color(0xFFd1d5db),
+                                          : const Color(0xFFc4b5fd),
                                       borderRadius: BorderRadius.circular(4),
                                       boxShadow: _currentPage == index
                                           ? [
@@ -321,7 +418,6 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
 
                         const Spacer(),
 
-                        // Skip button
                         Padding(
                           padding: const EdgeInsets.only(top: 8),
                           child: TextButton(
@@ -344,7 +440,6 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                     ),
                   ),
 
-                  // Carousel
                   Expanded(
                     child: PageView.builder(
                       controller: _pageController,
@@ -359,11 +454,11 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              // Gradient Icon with glow effect
+                              // Gradient icon
                               Stack(
                                 alignment: Alignment.center,
                                 children: [
-                                  // Outer glow rings
+                                  // Glow rings
                                   ...List.generate(3, (ringIndex) {
                                     final ringSize = 200.0 + (ringIndex * 30);
                                     return Container(
@@ -373,7 +468,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                                         shape: BoxShape.circle,
                                         border: Border.all(
                                           color: _getGradientColor(index)
-                                              .withOpacity(0.2 - (ringIndex * 0.05)),
+                                              .withValues(alpha:0.2 - (ringIndex * 0.05)),
                                           width: 1.5,
                                         ),
                                       ),
@@ -387,7 +482,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                                       shape: BoxShape.circle,
                                       gradient: RadialGradient(
                                         colors: [
-                                          _getGradientColor(index).withOpacity(0.25),
+                                          _getGradientColor(index).withValues(alpha:0.25),
                                           Colors.transparent,
                                         ],
                                       ),
@@ -403,18 +498,18 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                                         end: Alignment.bottomRight,
                                         colors: [
                                           _getGradientColor(index),
-                                          _getGradientColor(index).withOpacity(0.8),
+                                          _getGradientColor(index).withValues(alpha:0.8),
                                         ],
                                       ),
                                       shape: BoxShape.circle,
                                       boxShadow: [
                                         BoxShadow(
-                                          color: _getGradientColor(index).withOpacity(0.4),
+                                          color: _getGradientColor(index).withValues(alpha:0.4),
                                           blurRadius: 28,
                                           offset: const Offset(0, 8),
                                         ),
                                         BoxShadow(
-                                          color: _getGradientColor(index).withOpacity(0.2),
+                                          color: _getGradientColor(index).withValues(alpha:0.2),
                                           blurRadius: 50,
                                           offset: const Offset(0, 20),
                                         ),
@@ -448,7 +543,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                                 item.description,
                                 style: GoogleFonts.lexend(
                                   fontSize: 15,
-                                  color: const Color(0xFF9ca3af),
+                                  color: const Color(0xFF4b5563),
                                   height: 1.6,
                                   fontWeight: FontWeight.w400,
                                 ),
@@ -461,7 +556,6 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                     ),
                   ),
 
-                  // Bottom buttons
                   Container(
                     padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
                     decoration: const BoxDecoration(
@@ -477,7 +571,6 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                     ),
                     child: Column(
                       children: [
-                        // Next button with gradient
                         SizedBox(
                           width: double.infinity,
                           height: 56,
@@ -497,15 +590,16 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                   colors: [
-                                    Color(0xFFc4b5fd), // Soft purple
-                                    Color(0xFFa5b4fc), // Soft indigo
-                                    Color(0xFF8b8ef5), // Indigo
+                                    Color(0xFF60a5fa), // soft blue
+                                    Color(0xFF818cf8), // soft indigo
+                                    Color(0xFFa78bfa), // soft violet
+                                    Color(0xFFc084fc), // soft purple
                                   ],
                                 ),
                                 borderRadius: BorderRadius.circular(20),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0xFFc4b5fd).withOpacity(0.35),
+                                    color: const Color(0xFFa78bfa).withValues(alpha: 0.4),
                                     blurRadius: 20,
                                     offset: const Offset(0, 8),
                                   ),
@@ -526,7 +620,6 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                         ),
                         const SizedBox(height: 14),
 
-                        // Try without signing up
                         SizedBox(
                           width: double.infinity,
                           height: 54,
@@ -580,7 +673,8 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
             ],
           ),
         ),
-      ),
+      ],
+    ),
     );
   }
 
@@ -591,6 +685,75 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
       const Color(0xFF34d399), // Soft mint
     ];
     return colors[index % colors.length];
+  }
+}
+
+// Simple falling star widget
+class _FallingStar extends StatelessWidget {
+  final Animation<double> animation;
+  final int index;
+
+  const _FallingStar({
+    required this.animation,
+    this.index = 0,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (context, child) {
+        final p = animation.value;
+
+        // Trajectories
+        final paths = [
+          (0.05, 0.05, 0.85, 0.7),   // Star 0
+          (0.3, 0.0, 0.95, 0.6),     // Star 1
+          (0.0, 0.15, 0.6, 0.85),    // Star 2
+        ];
+        final path = paths[index % 3];
+
+        final x = size.width * path.$1 + (size.width * path.$3 - size.width * path.$1) * p;
+        final y = size.height * path.$2 + (size.height * path.$4 - size.height * path.$2) * p;
+        final angle = atan2(size.height * (path.$4 - path.$2), size.width * (path.$3 - path.$1));
+
+        return Positioned(
+          left: x,
+          top: y,
+          child: Transform.rotate(
+            angle: angle,
+            child: Opacity(
+              opacity: p > 0.85 ? (1 - p) * 6.5 : 1.0,
+              child: Container(
+                width: 80,
+                height: 2,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.centerRight,
+                    end: Alignment.centerLeft,
+                    colors: [
+                      Colors.white,
+                      Colors.white.withValues(alpha: 0.5),
+                      Colors.white.withValues(alpha: 0.1),
+                      Colors.transparent,
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(1),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.white.withValues(alpha: 0.5),
+                      blurRadius: 4,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 }
 
@@ -751,15 +914,16 @@ class _AuthOptionsSheet extends StatelessWidget {
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                         colors: [
-                          Color(0xFFc4b5fd),
-                          Color(0xFFa5b4fc),
-                          Color(0xFF8b8ef5),
+                          Color(0xFF60a5fa), // soft blue
+                          Color(0xFF818cf8), // soft indigo
+                          Color(0xFFa78bfa), // soft violet
+                          Color(0xFFc084fc), // soft purple
                         ],
                       ),
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFFc4b5fd).withValues(alpha: 0.35),
+                          color: const Color(0xFFa78bfa).withValues(alpha: 0.4),
                           blurRadius: 16,
                           offset: const Offset(0, 4),
                         ),
@@ -856,7 +1020,7 @@ class _AuthOptionsSheet extends StatelessWidget {
                 style: GoogleFonts.lexend(
                   fontSize: 15,
                   fontWeight: FontWeight.w500,
-                  color: const Color(0xFF8b5cf6),
+                  color: const Color(0xFF1f2937),
                 ),
               ),
             ),
