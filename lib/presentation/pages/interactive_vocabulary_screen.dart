@@ -86,12 +86,41 @@ class _InteractiveVocabularyScreenState
 
       debugPrint('🎯 Final _vocabularyDots count: ${_vocabularyDots.length}');
 
+      // Fix overlapping coordinates
+      _fixOverlappingCoordinates();
+
       // Generate AI sentences
       _generateAllSentences();
     } else {
       // No data available
       debugPrint('⚠️ Extraction result is null');
       _vocabularyDots = [];
+    }
+  }
+
+  /// Fix overlapping coordinates by slightly offsetting dots at the same position
+  void _fixOverlappingCoordinates() {
+    const tolerance = 0.01; // Tolerance for considering coordinates as "same"
+    const offset = 0.03; // Small offset to apply (3% of image size)
+
+    for (var i = 0; i < _vocabularyDots.length; i++) {
+      for (var j = i + 1; j < _vocabularyDots.length; j++) {
+        final dot1 = _vocabularyDots[i];
+        final dot2 = _vocabularyDots[j];
+
+        // Check if coordinates are the same (within tolerance)
+        if ((dot1.x - dot2.x).abs() < tolerance &&
+            (dot1.y - dot2.y).abs() < tolerance) {
+          // Offset dot2 slightly in different directions based on index
+          final offsetX = (j % 3 + 1) * offset * 0.5;
+          final offsetY = (j % 3 + 1) * offset * 0.5;
+
+          _vocabularyDots[j] = dot2.copyWith(
+            x: (dot2.x + offsetX).clamp(0.0, 1.0),
+            y: (dot2.y + offsetY).clamp(0.0, 1.0),
+          );
+        }
+      }
     }
   }
 
@@ -1352,7 +1381,14 @@ class _ContextSelectorScreenState extends State<ContextSelectorScreen> {
   void initState() {
     super.initState();
     _selectedTone = widget.vocabularyDot.tone;
-    _selectedCategory = widget.vocabularyDot.category;
+
+    // Check if the saved category is a custom one (not in predefined list)
+    if (_categories.contains(widget.vocabularyDot.category)) {
+      _selectedCategory = widget.vocabularyDot.category;
+    } else {
+      _selectedCategory = 'Custom';
+      _customTextController.text = widget.vocabularyDot.category;
+    }
   }
 
   @override
