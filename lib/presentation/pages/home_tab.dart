@@ -1,14 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../providers/providers.dart';
-import 'image_picker_screen.dart';
+import 'image_preview_screen.dart';
 
 /// Home Tab - Main screen with AI generation
-class HomeTab extends ConsumerWidget {
+class HomeTab extends ConsumerStatefulWidget {
   const HomeTab({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeTab> createState() => _HomeTabState();
+}
+
+class _HomeTabState extends ConsumerState<HomeTab> {
+  final ImagePicker _imagePicker = ImagePicker();
+
+  @override
+  Widget build(BuildContext context) {
     final userState = ref.watch(userStateProvider);
 
     return Scaffold(
@@ -22,18 +31,9 @@ class HomeTab extends ConsumerWidget {
               _buildHeader(context, userState),
               const SizedBox(height: 24),
 
-              // Welcome Card
-              // _buildWelcomeCard(userState, vocabularyState),
-              // const SizedBox(height: 20),
-
               // Quick Actions
               _buildQuickActions(context),
               const SizedBox(height: 20),
-
-              // Today's Stats
-              // _buildTodayStats(vocabularyState),
-              // const SizedBox(height: 20),
-            
 
               // Recent Scrapbook
               _buildRecentScrapbook(context),
@@ -99,14 +99,7 @@ class HomeTab extends ConsumerWidget {
                 icon: Icons.camera_alt,
                 label: 'Camera',
                 color: const Color(0xFF6C63FF),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const ImagePickerScreen(),
-                    ),
-                  );
-                },
+                onTap: () => _pickImage(ImageSource.camera),
               ),
             ),
             const SizedBox(width: 12),
@@ -115,19 +108,84 @@ class HomeTab extends ConsumerWidget {
                 icon: Icons.photo_library,
                 label: 'Gallery',
                 color: const Color(0xFF4CAF50),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const ImagePickerScreen(),
-                    ),
-                  );
-                },
+                onTap: () => _pickImage(ImageSource.gallery),
               ),
             ),
           ],
         ),
       ],
+    );
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
+    try {
+      // Request permissions
+      if (source == ImageSource.camera) {
+        final cameraStatus = await Permission.camera.request();
+        if (!cameraStatus.isGranted) {
+          _showPermissionDialog('Camera');
+          return;
+        }
+      }
+
+      // Pick image
+      final XFile? image = await _imagePicker.pickImage(
+        source: source,
+        maxWidth: 1920,
+        maxHeight: 1920,
+        imageQuality: 85,
+      );
+
+      if (image != null && mounted) {
+        // Navigate to preview
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ImagePreviewScreen(imagePath: image.path),
+          ),
+        );
+      }
+    } catch (e) {
+      _showErrorDialog('Error', 'Failed to pick image: ${e.toString()}');
+    }
+  }
+
+  void _showPermissionDialog(String type) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('$type Permission Required'),
+        content: Text('Please grant $type permission to continue.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              openAppSettings();
+              Navigator.pop(context);
+            },
+            child: const Text('Settings'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showErrorDialog(String title, String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
     );
   }
 
