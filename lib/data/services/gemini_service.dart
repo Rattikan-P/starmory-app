@@ -130,16 +130,10 @@ CRITICAL: Use these exact words: ${words.join(', ')}''';
       );
     }
 
-    final prompt = TextPart('''
+    // System instruction with all the rules
+    final systemInstruction = '''
 You are a visual vocabulary extraction engine for a language learning app called "Starmory".
 Analyze the image and extract exactly 5 vocabulary items with bounding boxes.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-INPUT PARAMETERS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-• level    — learner's CEFR level: A1 | A2 | B1 | B2
-• category — one of: "Moment" | "Nature" | "Food" | "Study" | "Daily Life"
-             OR a custom text string (overrides category entirely)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 WORD EXTRACTION RULES
@@ -215,8 +209,8 @@ OUTPUT FORMAT
 Return strictly valid JSON only — no markdown, no explanation, no extra text.
 
 {
-  "level": "$level",
-  "category": "$category",
+  "level": "string",
+  "category": "string",
   "vocab_list": [
     {
       "word": "string",
@@ -233,16 +227,34 @@ Return strictly valid JSON only — no markdown, no explanation, no extra text.
   ]
 }
 
-Return exactly 5 items.
-''');
+Return exactly 5 items.''';
+
+    // User prompt with just the parameters
+    final userPrompt = TextPart('''
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+INPUT PARAMETERS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• level    — $level
+• category — $category
+
+Extract exactly 5 vocabulary items from the image.''');
 
     final mimeType = _detectMimeType(imageData);
     final imagePart = DataPart(mimeType, imageData);
 
     return await _retryWithBackoff(() async {
-      final response = await _visionModel.generateContent([
-        Content.multi([prompt, imagePart])
-      ]);
+      final response = await _visionModel.generateContent(
+        [
+          Content.system(systemInstruction),
+          Content.multi([userPrompt, imagePart])
+        ],
+        generationConfig: GenerationConfig(
+          temperature: 1.0, // Match AI Studio setting
+          topP: 0.94,
+          topK: 40,
+          maxOutputTokens: 8192,
+        ),
+      );
 
       final text = response.text ?? '';
       debugPrint('🔍 Raw AI Response length: ${text.length} chars');
@@ -318,21 +330,10 @@ Return exactly 5 items.
     required String category,
     required bool combined,
   }) async {
-    final prompt = TextPart('''
+    // System instruction with all the rules
+    final systemInstruction = '''
 You are a sentence generation engine for a language learning app called "Starmory".
 You receive vocabulary words selected by the user and return example sentences for language practice.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-INPUT PARAMETERS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-• words    — list of 1 or more vocabulary words (nouns or base-form verbs): ${words.join(', ')}
-• level    — learner's CEFR level: $level
-• tones    — list of selected Tone & Intent (1–4 items): ${tones.join(', ')}
-• category — one of: "Moment" | "Nature" | "Food" | "Study" | "Daily Life"
-             OR a custom text string (overrides category entirely): $category
-• combined — boolean: $combined
-             false → Normal mode: one sentence per word per tone
-             true  → Combined mode: one sentence per tone using ALL words together
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 CEFR LEVEL GUIDE
@@ -421,13 +422,16 @@ Return strictly valid JSON only — no markdown, no explanation, no extra text.
 
 {
   "mode": "normal",
-  "level": "$level",
-  "category": "$category",
+  "level": "string",
+  "category": "string",
   "results": [
     {
       "word": "string",
       "sentences": {
-        ${tones.map((t) => '"$t": { "text": "string", "thai": "string" }').join(',\n        ')}
+        "describe":     { "text": "string", "thai": "string" },
+        "command":      { "text": "string", "thai": "string" },
+        "wish":         { "text": "string", "thai": "string" },
+        "conditional":  { "text": "string", "thai": "string" }
       },
       "sentence_note": "string"
     }
@@ -438,11 +442,14 @@ Return strictly valid JSON only — no markdown, no explanation, no extra text.
 
 {
   "mode": "combined",
-  "level": "$level",
-  "category": "$category",
-  "words": ${jsonEncode(words)},
+  "level": "string",
+  "category": "string",
+  "words": ["string", "string"],
   "sentences": {
-    ${tones.map((t) => '"$t": { "text": "string", "thai": "string" }').join(',\n    ')}
+    "describe":     { "text": "string", "thai": "string" },
+    "command":      { "text": "string", "thai": "string" },
+    "wish":         { "text": "string", "thai": "string" },
+    "conditional":  { "text": "string", "thai": "string" }
   },
   "sentence_note": "string"
 }
@@ -450,15 +457,34 @@ Return strictly valid JSON only — no markdown, no explanation, no extra text.
 FIELD RULES:
 • Include ONLY the tone keys that were selected in "tones"
 • combined: false → "results" array, one object per word
-• combined: true  → flat "sentences" object + "words" array, no "results"
+• combined: true  → flat "sentences" object + "words" array, no "results"''';
 
-CRITICAL: Use these EXACT words - do not substitute: ${words.join(', ')}
-''');
+    // User prompt with just the parameters
+    final userPrompt = '''
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+INPUT PARAMETERS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• words    — ${words.join(', ')}
+• level    — $level
+• tones    — ${tones.join(', ')}
+• category — $category
+• combined — $combined
+
+Generate sentences now.''';
 
     return await _retryWithBackoff(() async {
-      final response = await _textModel.generateContent([
-        Content.text(prompt.text)
-      ]);
+      final response = await _textModel.generateContent(
+        [
+          Content.system(systemInstruction),
+          Content.text(userPrompt)
+        ],
+        generationConfig: GenerationConfig(
+          temperature: 1.0, // Match AI Studio setting
+          topP: 0.94,
+          topK: 40,
+          maxOutputTokens: 8192,
+        ),
+      );
 
       final text = response.text ?? '';
       debugPrint('🔍 Sentence Generation Response (first 500 chars): ${text.length > 500 ? text.substring(0, 500) : text}');

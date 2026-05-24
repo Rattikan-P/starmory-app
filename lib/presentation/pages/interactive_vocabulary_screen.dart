@@ -124,55 +124,92 @@ class _InteractiveVocabularyScreenState
     }
   }
 
-  /// Generate sentences for all vocabulary words with current context
+  /// Generate sentences for selected vocabulary words with current context
   Future<void> _generateAllSentences() async {
     if (_vocabularyDots.isEmpty) return;
+
+    // Get selected dots (or all dots if nothing selected - initial state)
+    final selectedDots = _selectedWordIds.isEmpty
+        ? _vocabularyDots
+        : _vocabularyDots.where((d) => _selectedWordIds.contains(d.id)).toList();
+
+    if (selectedDots.isEmpty) return;
 
     try {
       final geminiService = ref.read(geminiServiceProvider);
 
-      // Collect all unique tones from current dots
-      final tones = _vocabularyDots
+      // Collect all unique tones from selected dots
+      final tones = selectedDots
           .map((d) => _mapToneToApiFormat(d.tone))
           .toSet()
           .toList();
 
-      // Get words
-      final words = _vocabularyDots.map((d) => d.word).toList();
+      // Get selected words only
+      final words = selectedDots.map((d) => d.word).toList();
 
       // Generate sentences
       final result = await geminiService.generateSentences(
         words: words,
         level: widget.cefrLevel,
         tones: tones,
-        category: _vocabularyDots.first.category,
-        combined: false,
+        category: selectedDots.first.category,
+        combined: _useCombinedSentence,
       );
 
-      // Update each dot with generated sentences
+      // Update each selected dot with generated sentences
       setState(() {
-        for (var i = 0; i < _vocabularyDots.length; i++) {
-          final dot = _vocabularyDots[i];
-          final wordResult = result.results[dot.word];
-          if (wordResult != null && wordResult.isNotEmpty) {
-            // Get the tone sentence for this dot
-            final toneKey = _mapToneToApiFormat(dot.tone);
-            final sentenceData = wordResult[toneKey];
-            if (sentenceData != null) {
-              _vocabularyDots[i] = dot.copyWith(
-                englishSentence: sentenceData.text,
-                thaiSentence: sentenceData.thai,
-              );
-              debugPrint(
-                '🤖 AI sentence for ${dot.word}: ${sentenceData.text}',
-              );
+        _isRegenerating = false; // Clear loading state
+        if (_useCombinedSentence && result.mode == 'combined') {
+          // Combined mode: all selected dots share the same sentences
+          final combinedSentences = result.combinedSentences;
+          if (combinedSentences != null) {
+            for (var i = 0; i < _vocabularyDots.length; i++) {
+              final dot = _vocabularyDots[i];
+              // Only update selected dots
+              if (_selectedWordIds.contains(dot.id)) {
+                final toneKey = _mapToneToApiFormat(dot.tone);
+                final sentenceData = combinedSentences[toneKey];
+                if (sentenceData != null) {
+                  _vocabularyDots[i] = dot.copyWith(
+                    englishSentence: sentenceData.text,
+                    thaiSentence: sentenceData.thai,
+                  );
+                }
+              }
+            }
+            debugPrint(
+              '✅ Combined sentences generated for ${result.combinedWords?.join(', ')}',
+            );
+          }
+        } else {
+          // Normal mode: each dot has its own sentence
+          for (var i = 0; i < _vocabularyDots.length; i++) {
+            final dot = _vocabularyDots[i];
+            // Only update selected dots
+            if (_selectedWordIds.contains(dot.id) || _selectedWordIds.isEmpty) {
+              final wordResult = result.results[dot.word];
+              if (wordResult != null && wordResult.isNotEmpty) {
+                // Get the tone sentence for this dot
+                final toneKey = _mapToneToApiFormat(dot.tone);
+                final sentenceData = wordResult[toneKey];
+                if (sentenceData != null) {
+                  _vocabularyDots[i] = dot.copyWith(
+                    englishSentence: sentenceData.text,
+                    thaiSentence: sentenceData.thai,
+                  );
+                  debugPrint(
+                    '🤖 AI sentence for ${dot.word}: ${sentenceData.text}',
+                  );
+                }
+              }
             }
           }
         }
       });
 
-      debugPrint('✅ Generated sentences for ${_vocabularyDots.length} words');
+      debugPrint('✅ Generated sentences for ${words.length} words');
     } catch (e) {
+      setState(() => _isRegenerating = false); // Clear loading state on error
       debugPrint('❌ Error generating sentences: $e');
       debugPrint('📝 Using fallback sentences instead');
       // Use fallback sentences on error
@@ -320,8 +357,15 @@ class _InteractiveVocabularyScreenState
           ),
           Switch(
             value: _useCombinedSentence,
-            onChanged: (value) {
-              setState(() => _useCombinedSentence = value);
+            onChanged: (value) async {
+              // Clear old sentences first to show loading
+              setState(() {
+                _useCombinedSentence = value;
+                _clearSelectedSentences();
+                _isRegenerating = true;
+              });
+              // Regenerate sentences with the new mode
+              await _generateAllSentences();
             },
             activeTrackColor: const Color(0xFF6C63FF).withOpacity(0.5),
             activeThumbColor: const Color(0xFF6C63FF),
@@ -329,6 +373,18 @@ class _InteractiveVocabularyScreenState
         ],
       ),
     );
+  }
+
+  /// Clear sentences for selected dots (to trigger loading state)
+  void _clearSelectedSentences() {
+    for (var i = 0; i < _vocabularyDots.length; i++) {
+      if (_selectedWordIds.contains(_vocabularyDots[i].id)) {
+        _vocabularyDots[i] = _vocabularyDots[i].copyWith(
+          englishSentence: '',
+          thaiSentence: '',
+        );
+      }
+    }
   }
 
   Widget _buildImageWithDots() {
@@ -436,6 +492,9 @@ class _InteractiveVocabularyScreenState
 
                       // Combined Sentence Toggle
                       SliverToBoxAdapter(child: _buildCombinedSentenceToggle()),
+
+                      // Combined Sentence Display
+                      SliverToBoxAdapter(child: _buildCombinedSentenceDisplay()),
 
                       // Word Details / Empty State
                       if (_selectedWordIds.isEmpty)
@@ -696,6 +755,129 @@ class _InteractiveVocabularyScreenState
             onDeleted: () => _toggleWordSelection(dot.id),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildCombinedSentenceDisplay() {
+    if (!_useCombinedSentence || _selectedWordIds.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    // Get the first selected dot to extract the combined sentence
+    final firstSelectedDot = _vocabularyDots.firstWhere(
+      (dot) => _selectedWordIds.contains(dot.id),
+      orElse: () => _vocabularyDots.first,
+    );
+
+    // Get all selected words
+    final selectedWords = _vocabularyDots
+        .where((dot) => _selectedWordIds.contains(dot.id))
+        .map((dot) => dot.word)
+        .toList();
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF6C63FF).withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF6C63FF).withValues(alpha: 0.3)),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF6C63FF),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Text(
+                  'COMBINED',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Sentence using: ${selectedWords.join(", ")}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[700],
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Sentence
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: _isRegenerating || firstSelectedDot.englishSentence.isEmpty
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: const AlwaysStoppedAnimation<Color>(
+                            Color(0xFF6C63FF),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Generating combined sentence...',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey[500],
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ],
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        firstSelectedDot.englishSentence,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          color: Colors.black87,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        firstSelectedDot.thaiSentence,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[700],
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
+        ],
       ),
     );
   }
@@ -993,10 +1175,10 @@ class _InteractiveVocabularyScreenState
         level: widget.cefrLevel,
         tones: [apiTone],
         category: category,
-        combined: false,
+        combined: _useCombinedSentence,
       );
 
-      debugPrint('📦 Result keys: ${result.results.keys}');
+      debugPrint('📦 Result mode: ${result.mode}');
 
       if (!mounted) return false;
 
@@ -1004,32 +1186,57 @@ class _InteractiveVocabularyScreenState
 
       // Update all dots with new sentences or fallbacks
       setState(() {
-        for (var i = 0; i < _vocabularyDots.length; i++) {
-          final dot = _vocabularyDots[i];
-          if (wordIds.contains(dot.id)) {
-            final sentenceData = result.results[dot.word]?[apiTone];
-            debugPrint(
-              '📝 Sentence data for ${dot.word} ($apiTone): ${sentenceData?.text}',
-            );
-
+        if (_useCombinedSentence && result.mode == 'combined') {
+          // Combined mode: all selected dots get the same combined sentence
+          final combinedSentences = result.combinedSentences;
+          if (combinedSentences != null) {
+            final sentenceData = combinedSentences[apiTone];
             if (sentenceData != null) {
-              _vocabularyDots[i] = dot.copyWith(
-                englishSentence: sentenceData.text,
-                thaiSentence: sentenceData.thai,
+              for (var i = 0; i < _vocabularyDots.length; i++) {
+                final dot = _vocabularyDots[i];
+                if (wordIds.contains(dot.id)) {
+                  _vocabularyDots[i] = dot.copyWith(
+                    englishSentence: sentenceData.text,
+                    thaiSentence: sentenceData.thai,
+                  );
+                  successCount++;
+                }
+              }
+              debugPrint(
+                '✅ Combined sentence: ${sentenceData.text}',
               );
-              successCount++;
-            } else {
-              // Use fallback sentence for this word
-              final (enSentence, thSentence) = _generateFallbackSentence(
-                dot.word,
-                dot.thaiTranslation,
-                tone,
-                category,
+            }
+          }
+        } else {
+          // Normal mode: each dot gets its own sentence
+          debugPrint('📦 Result keys: ${result.results.keys}');
+          for (var i = 0; i < _vocabularyDots.length; i++) {
+            final dot = _vocabularyDots[i];
+            if (wordIds.contains(dot.id)) {
+              final sentenceData = result.results[dot.word]?[apiTone];
+              debugPrint(
+                '📝 Sentence data for ${dot.word} ($apiTone): ${sentenceData?.text}',
               );
-              _vocabularyDots[i] = dot.copyWith(
-                englishSentence: enSentence,
-                thaiSentence: thSentence,
-              );
+
+              if (sentenceData != null) {
+                _vocabularyDots[i] = dot.copyWith(
+                  englishSentence: sentenceData.text,
+                  thaiSentence: sentenceData.thai,
+                );
+                successCount++;
+              } else {
+                // Use fallback sentence for this word
+                final (enSentence, thSentence) = _generateFallbackSentence(
+                  dot.word,
+                  dot.thaiTranslation,
+                  tone,
+                  category,
+                );
+                _vocabularyDots[i] = dot.copyWith(
+                  englishSentence: enSentence,
+                  thaiSentence: thSentence,
+                );
+              }
             }
           }
         }
