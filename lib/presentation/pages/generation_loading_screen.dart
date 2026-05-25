@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/providers.dart';
-import '../../data/models/vocabulary_model.dart';
 import 'interactive_vocabulary_screen.dart';
 
 /// Generation Loading Screen - Shows AI processing progress
@@ -19,36 +18,38 @@ class GenerationLoadingScreen extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<GenerationLoadingScreen> createState() => _GenerationLoadingScreenState();
+  ConsumerState<GenerationLoadingScreen> createState() =>
+      _GenerationLoadingScreenState();
 }
 
-class _GenerationLoadingScreenState extends ConsumerState<GenerationLoadingScreen>
+class _GenerationLoadingScreenState
+    extends ConsumerState<GenerationLoadingScreen>
     with TickerProviderStateMixin {
   int _currentPhase = 1;
   String? _errorMessage;
   bool _isProcessing = true;
 
-  // Phase descriptions
+  // Phase descriptions - updated to reflect actual process
   final List<String> _phaseDescriptions = [
     'Analyzing your photo...',
-    'Mapping vocabulary to your level...',
-    'Generating contextual sentences...',
+    'Detecting vocabulary words...',
+    'Finalizing...',
   ];
 
-  late AnimationController _pulseController;
-  late Animation<double> _pulseAnimation;
+  late AnimationController _scanController;
+  late Animation<double> _scanAnimation;
 
   @override
   void initState() {
     super.initState();
-    _pulseController = AnimationController(
+    _scanController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 2),
+      duration: const Duration(milliseconds: 2000),
     );
-    _pulseAnimation = Tween<double>(begin: 0.5, end: 1.0).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    _scanAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _scanController, curve: Curves.easeInOut),
     );
-    _pulseController.repeat();
+    _scanController.repeat(reverse: true);
 
     // Start generation
     _startGeneration();
@@ -56,7 +57,7 @@ class _GenerationLoadingScreenState extends ConsumerState<GenerationLoadingScree
 
   @override
   void dispose() {
-    _pulseController.dispose();
+    _scanController.dispose();
     super.dispose();
   }
 
@@ -71,26 +72,30 @@ class _GenerationLoadingScreenState extends ConsumerState<GenerationLoadingScree
       }
 
       if (imageData.length < 1024) {
-        throw _ImageAnalysisException('Image resolution too low for AI analysis', 'A1');
+        throw _ImageAnalysisException(
+          'Image resolution too low for AI analysis',
+          'A1',
+        );
       }
 
-      // Phase 1: Scene Analysis
+      // Phase 1: Scene Analysis (mock delay)
       setState(() => _currentPhase = 1);
-      await Future.delayed(const Duration(milliseconds: 800)); // Visual feedback
+      await Future.delayed(const Duration(seconds: 5));
 
       final geminiService = ref.read(geminiServiceProvider);
 
-      // Phase 2: Functional Mapping
+      // Phase 2: Detect vocabulary (mock delay)
       setState(() => _currentPhase = 2);
-      await Future.delayed(const Duration(milliseconds: 800)); // Visual feedback
+      await Future.delayed(const Duration(seconds: 5));
 
-      // Phase 3: Complete Generation
+      // Phase 3: Complete Generation - set to phase 3 but NOT complete yet
       setState(() => _currentPhase = 3);
 
+      // Actual API call happens here
       final result = await geminiService.extractVocabulary(
         imageData: imageData,
         level: widget.cefrLevel,
-        category: 'Daily Life', // Default for now
+        category: 'Daily Life',
       );
 
       if (mounted) {
@@ -107,10 +112,10 @@ class _GenerationLoadingScreenState extends ConsumerState<GenerationLoadingScree
       }
     } catch (e) {
       if (mounted) {
-        // Get readable error message
         String errorMessage;
         if (e.toString().contains('Instance of')) {
-          errorMessage = 'AI service initialization failed. Please check your API key.';
+          errorMessage =
+              'AI service initialization failed. Please check your API key.';
         } else if (e.toString().contains('NotInitializedError')) {
           errorMessage = 'AI service is not ready. Please try again.';
         } else {
@@ -122,14 +127,12 @@ class _GenerationLoadingScreenState extends ConsumerState<GenerationLoadingScree
           _isProcessing = false;
         });
 
-        // Check if it's a network/API error (E2)
         if (errorMessage.toLowerCase().contains('network') ||
             errorMessage.toLowerCase().contains('connection') ||
             errorMessage.toLowerCase().contains('timeout') ||
             errorMessage.toLowerCase().contains('api key')) {
           _handleNetworkError(errorMessage);
         } else {
-          // Otherwise treat as image analysis error (A1)
           _handleImageError('A1', errorMessage);
         }
       }
@@ -137,7 +140,6 @@ class _GenerationLoadingScreenState extends ConsumerState<GenerationLoadingScree
   }
 
   void _showResult(dynamic result) {
-    // Navigate to Interactive Vocabulary Screen with extraction result
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
@@ -152,7 +154,7 @@ class _GenerationLoadingScreenState extends ConsumerState<GenerationLoadingScree
   }
 
   void _handleImageError(String errorCode, String message) {
-    // A1: Image clarity/parsing error
+    if (!mounted) return;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -163,55 +165,49 @@ class _GenerationLoadingScreenState extends ConsumerState<GenerationLoadingScree
             const Text('Image Analysis Failed'),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(message),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.orange[50],
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Tips for better results:',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.orange[900],
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(message),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange[50],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Tips for better results:',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.orange[900],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text('• Use clear, well-lit photos'),
-                  const Text('• Ensure main objects are visible'),
-                  const Text('• Avoid blurry or low-resolution images'),
-                  const Text('• Try different angles if needed'),
-                ],
+                    const SizedBox(height: 8),
+                    const Text('• Use clear, well-lit photos'),
+                    const Text('• Ensure main objects are visible'),
+                    const Text('• Avoid blurry or low-resolution images'),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () {
-              // Close dialog and go back to image picker
               Navigator.pop(context); // Close dialog
-              Navigator.pop(context); // Go back to image preview
-              // Then navigate to image picker
-              Navigator.pop(context); // Go back to image picker
+              Navigator.popUntil(
+                context,
+                (route) => route.isFirst,
+              ); // Go to home
             },
-            child: const Text('Try Different Photo'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              Navigator.pop(context); // Go back to image preview
-            },
-            child: const Text('Go Back'),
+            child: const Text('OK'),
           ),
         ],
       ),
@@ -219,7 +215,7 @@ class _GenerationLoadingScreenState extends ConsumerState<GenerationLoadingScree
   }
 
   void _handleNetworkError(String error) {
-    // E2: Network error
+    if (!mounted) return;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -230,51 +226,48 @@ class _GenerationLoadingScreenState extends ConsumerState<GenerationLoadingScree
             const Text('Connection Error'),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Unable to connect to AI service: $error'),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.red[50],
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Possible solutions:',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.red[900],
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Unable to connect to AI service: $error'),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red[50],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Possible solutions:',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.red[900],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text('• Check your internet connection'),
-                  const Text('• Try again in a moment'),
-                  const Text('• Server might be busy - please wait'),
-                ],
+                    const SizedBox(height: 8),
+                    const Text('• Check your internet connection'),
+                    const Text('• Try again in a moment'),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.pop(context);
-              _startGeneration(); // Retry
+              Navigator.pop(context); // Close dialog
+              Navigator.popUntil(
+                context,
+                (route) => route.isFirst,
+              ); // Go to home
             },
-            child: const Text('Retry'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              Navigator.pop(context);
-            },
-            child: const Text('Cancel'),
+            child: const Text('OK'),
           ),
         ],
       ),
@@ -284,104 +277,207 @@ class _GenerationLoadingScreenState extends ConsumerState<GenerationLoadingScree
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF6C63FF),
-      body: SafeArea(
-        child: Center(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFF0F0F14), Color(0xFF171721), Color(0xFF1F1F2B)],
+          ),
+        ),
+        child: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Animated Logo
-                AnimatedBuilder(
-                  animation: _pulseAnimation,
-                  builder: (context, child) {
-                    return Transform.scale(
-                      scale: _pulseAnimation.value,
-                      child: Container(
-                        width: 120,
-                        height: 120,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.auto_awesome,
-                          size: 60,
-                          color: Colors.white.withOpacity(0.8),
-                        ),
+                const SizedBox(height: 30),
+
+                // TOP TEXT
+                Column(
+                  children: [
+                    const Text(
+                      'Creating Magic ✨',
+                      style: TextStyle(
+                        fontSize: 30,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                        letterSpacing: -1,
                       ),
-                    );
-                  },
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    Text(
+                      _phaseDescriptions[_currentPhase - 1],
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 15,
+                        height: 1.5,
+                        color: Colors.white.withValues(alpha: 0.65),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 32),
 
-                // Title
-                if (_isProcessing) ...[
-                  const Text(
-                    'Creating Your Vocabulary',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                const Spacer(),
+
+                // IMAGE CARD
+                Container(
+                  width: double.infinity,
+                  constraints: const BoxConstraints(maxWidth: 340),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(32),
+                    color: Colors.white.withValues(alpha: 0.06),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.08),
                     ),
-                    textAlign: TextAlign.center,
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF6C63FF).withValues(alpha: 0.15),
+                        blurRadius: 40,
+                        spreadRadius: 2,
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 16),
-
-                  Text(
-                    _phaseDescriptions[_currentPhase - 1],
-                    style: const TextStyle(
-                      fontSize: 16,
-                      color: Colors.white70,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 32),
-
-                  // Progress Indicators
-                  _buildPhaseIndicator(1, 'Scene Analysis', _currentPhase >= 1),
-                  const SizedBox(height: 16),
-                  _buildPhaseIndicator(2, 'Functional Mapping', _currentPhase >= 2),
-                  const SizedBox(height: 16),
-                  _buildPhaseIndicator(3, 'Sentence Synthesis', _currentPhase >= 3),
-                ] else if (_errorMessage != null) ...[
-                  // Error State
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Column(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(24),
+                    child: Stack(
                       children: [
-                        Icon(
-                          Icons.error_outline,
-                          size: 48,
-                          color: Colors.white,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Generation Failed',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                        // IMAGE
+                        AspectRatio(
+                          aspectRatio: 0.8,
+                          child: Image.file(
+                            File(widget.imagePath),
+                            fit: BoxFit.cover,
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          _errorMessage!,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: Colors.white70,
+
+                        // DARK OVERLAY
+                        Positioned.fill(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Colors.black.withValues(alpha: 0.15),
+                                  Colors.black.withValues(alpha: 0.35),
+                                ],
+                              ),
+                            ),
                           ),
-                          textAlign: TextAlign.center,
                         ),
+
+                        // SCAN EFFECT
+                        if (_isProcessing)
+                          Positioned.fill(
+                            child: AnimatedBuilder(
+                              animation: _scanAnimation,
+                              builder: (context, child) {
+                                return Align(
+                                  alignment: Alignment(
+                                    0,
+                                    -1 + (_scanAnimation.value * 2),
+                                  ),
+                                  child: Container(
+                                    height: 80,
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        colors: [
+                                          Colors.transparent,
+                                          const Color(
+                                            0xFF8B7CFF,
+                                          ).withValues(alpha: 0.5),
+                                          Colors.transparent,
+                                        ],
+                                        begin: Alignment.topCenter,
+                                        end: Alignment.bottomCenter,
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+
+                        // CENTER LOADER
+                        if (_isProcessing)
+                          Positioned.fill(
+                            child: Center(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 18,
+                                  vertical: 10,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withValues(alpha: 0.45),
+                                  borderRadius: BorderRadius.circular(999),
+                                  border: Border.all(color: Colors.white12),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Color(0xFF9D97FF),
+                                      ),
+                                    ),
+                                    SizedBox(width: 10),
+                                    Text(
+                                      'AI Processing',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
                       ],
                     ),
                   ),
-                ],
+                ),
+
+                const Spacer(),
+
+                // STEP INDICATOR
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(3, (index) {
+                    final isActive = index + 1 == _currentPhase;
+
+                    return AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      margin: const EdgeInsets.symmetric(horizontal: 6),
+                      width: isActive ? 36 : 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(999),
+                        color: isActive
+                            ? const Color(0xFF8B7CFF)
+                            : Colors.white.withValues(alpha: 0.15),
+                      ),
+                    );
+                  }),
+                ),
+
+                const SizedBox(height: 20),
+
+                Text(
+                  'This may take a few seconds',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.45),
+                    fontSize: 13,
+                  ),
+                ),
+
+                const SizedBox(height: 40),
               ],
             ),
           ),
@@ -390,41 +486,40 @@ class _GenerationLoadingScreenState extends ConsumerState<GenerationLoadingScree
     );
   }
 
-  Widget _buildPhaseIndicator(int phaseNumber, String label, bool isActive) {
+  Widget _buildCurrentPhaseIndicator() {
+    String label;
+    switch (_currentPhase) {
+      case 1:
+        label = 'Scene Analysis...';
+        break;
+      case 2:
+        label = 'Detect Words...';
+        break;
+      case 3:
+        label = 'Finalizing...';
+        break;
+      default:
+        label = 'Processing...';
+    }
+
     return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Container(
-          width: 32,
-          height: 32,
-          decoration: BoxDecoration(
-            color: isActive ? Colors.white : Colors.white.withOpacity(0.3),
-            shape: BoxShape.circle,
-          ),
-          child: Center(
-            child: isActive
-                ? Icon(
-                    phaseNumber < _currentPhase ? Icons.check : Icons.hourglass_empty,
-                    size: 18,
-                    color: const Color(0xFF6C63FF),
-                  )
-                : Text(
-                    '$phaseNumber',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.7),
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+        SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF6C63FF)),
           ),
         ),
         const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 16,
-              color: isActive ? Colors.white : Colors.white.withOpacity(0.6),
-              fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-            ),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 16,
+            color: Colors.white,
+            fontWeight: FontWeight.w500,
           ),
         ),
       ],
