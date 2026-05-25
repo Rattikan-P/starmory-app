@@ -8,10 +8,7 @@ import 'generation_loading_screen.dart';
 class ImagePreviewScreen extends ConsumerStatefulWidget {
   final String imagePath;
 
-  const ImagePreviewScreen({
-    super.key,
-    required this.imagePath,
-  });
+  const ImagePreviewScreen({super.key, required this.imagePath});
 
   @override
   ConsumerState<ImagePreviewScreen> createState() => _ImagePreviewScreenState();
@@ -23,106 +20,151 @@ class _ImagePreviewScreenState extends ConsumerState<ImagePreviewScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Review Photo'),
-        backgroundColor: const Color(0xFF6C63FF),
-        foregroundColor: Colors.white,
-        actions: [
-          TextButton.icon(
-            onPressed: _isProcessing ? null : _retakePhoto,
-            icon: const Icon(Icons.refresh),
-            label: const Text('Retake'),
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.white,
-            ),
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
+      backgroundColor: const Color(0xFFF6F7FB),
+      body: SafeArea(
         child: Column(
           children: [
-            // Image Preview
-            Container(
-              width: double.infinity,
-              margin: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 10,
+            // TOP BAR
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+              child: Row(
+                children: [
+                  _glassButton(
+                    icon: Icons.arrow_back_ios_new,
+                    onTap: () => Navigator.pop(context),
+                  ),
+
+                  const Spacer(),
+
+                  const Text(
+                    'Preview',
+                    style: TextStyle(
+                      color: Color(0xFF151515),
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+
+                  const Spacer(),
+
+                  _glassButton(
+                    icon: Icons.refresh,
+                    onTap: _isProcessing ? null : _retakePhoto,
                   ),
                 ],
               ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: Image.file(
-                  File(widget.imagePath),
-                  fit: BoxFit.cover,
+            ),
+
+            const SizedBox(height: 24),
+
+            // IMAGE CARD
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Container(
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(32),
+                    border: Border.all(color: const Color(0xFFECECF3)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF8B7CFF).withValues(alpha: 0.08),
+                        blurRadius: 40,
+                        offset: const Offset(0, 20),
+                      ),
+                    ],
+                  ),
+                  padding: const EdgeInsets.all(12),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(24),
+                    child: Image.file(
+                      File(widget.imagePath),
+                      fit: BoxFit.cover,
+                    ),
+                  ),
                 ),
               ),
             ),
 
-            // Info Section
+            // TEXT + INFO
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(24, 28, 24, 0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Ready to Generate Vocabulary?',
+                  const Text(
+                    'Ready to Generate ✨',
                     style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.grey[800],
+                      fontSize: 28,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF151515),
+                      letterSpacing: -1,
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'This will analyze your photo and generate contextual vocabulary with AI.',
+
+                  const SizedBox(height: 10),
+
+                  const Text(
+                    'AI will analyze your image and create contextual vocabulary cards instantly.',
                     style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[600],
+                      fontSize: 15,
+                      height: 1.6,
+                      color: Color(0xFF6E6E7A),
                     ),
                   ),
-                  const SizedBox(height: 8),
+
+                  const SizedBox(height: 18),
+
                   _buildInfoCard(),
                 ],
               ),
             ),
 
-            // Use Photo Button
+            // BUTTON
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(24),
               child: SizedBox(
                 width: double.infinity,
-                height: 56,
-                child: ElevatedButton.icon(
+                height: 62,
+                child: ElevatedButton(
                   onPressed: _isProcessing ? null : _usePhoto,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF6C63FF),
+                    elevation: 0,
+                    backgroundColor: const Color(0xFF8B7CFF),
+                    disabledBackgroundColor: Colors.grey.shade300,
                     foregroundColor: Colors.white,
-                    disabledBackgroundColor: Colors.grey,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(999),
                     ),
                   ),
-                  icon: _isProcessing
-                      ? const SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 250),
+                    child: _isProcessing
+                        ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.auto_awesome_rounded),
+                              SizedBox(width: 10),
+                              Text(
+                                'Generate Vocabulary',
+                                style: TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: -0.3,
+                                ),
+                              ),
+                            ],
                           ),
-                        )
-                      : const Icon(Icons.auto_awesome),
-                  label: Text(
-                    _isProcessing ? 'Processing...' : 'Use Photo',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
                   ),
                 ),
               ),
@@ -137,50 +179,92 @@ class _ImagePreviewScreenState extends ConsumerState<ImagePreviewScreen> {
     final canGenerate = ref.watch(canGenerateProvider);
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: canGenerate
-            ? const Color(0xFF6C63FF).withOpacity(0.1)
-            : Colors.orange.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: canGenerate
-              ? const Color(0xFF6C63FF).withOpacity(0.3)
-              : Colors.orange.withOpacity(0.3),
-        ),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFECECF3)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Row(
         children: [
-          Icon(
-            canGenerate ? Icons.check_circle : Icons.warning,
-            color: canGenerate ? const Color(0xFF6C63FF) : Colors.orange,
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: canGenerate
+                  ? const Color(0xFF8B7CFF).withValues(alpha: 0.12)
+                  : Colors.orange.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(
+              canGenerate
+                  ? Icons.auto_awesome_rounded
+                  : Icons.warning_amber_rounded,
+              color: canGenerate ? const Color(0xFF8B7CFF) : Colors.orange,
+            ),
           ),
-          const SizedBox(width: 12),
+
+          const SizedBox(width: 14),
+
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  canGenerate ? 'Ready to generate!' : 'Quota Limit Reached',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: canGenerate ? const Color(0xFF6C63FF) : Colors.orange,
+                  canGenerate ? 'Ready to generate' : 'Quota limit reached',
+                  style: const TextStyle(
+                    color: Color(0xFF151515),
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
                   ),
                 ),
+
                 const SizedBox(height: 4),
+
                 Text(
                   canGenerate
-                      ? 'This will use 1 generation from your allowance'
-                      : 'Upgrade to Pro for unlimited generations',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[700],
+                      ? 'This will use 1 generation'
+                      : 'Upgrade to Pro for unlimited access',
+                  style: const TextStyle(
+                    color: Color(0xFF6E6E7A),
+                    fontSize: 13,
+                    height: 1.5,
                   ),
                 ),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _glassButton({required IconData icon, VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 46,
+        height: 46,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFECECF3)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Icon(icon, color: const Color(0xFF151515), size: 18),
       ),
     );
   }
@@ -212,7 +296,8 @@ class _ImagePreviewScreenState extends ConsumerState<ImagePreviewScreen> {
 
       // Get user's default CEFR level and communicative function
       final user = ref.read(currentUserProvider);
-      final defaultCefrLevel = user?.preferences['defaultCefrLevel'] as String? ?? 'A1';
+      final defaultCefrLevel =
+          user?.preferences['defaultCefrLevel'] as String? ?? 'A1';
       final defaultCommunicativeFunction = 'Indicative'; // Default for now
 
       // Navigate directly to Generation Loading Screen
