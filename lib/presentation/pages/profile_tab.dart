@@ -65,7 +65,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
 }
 
 // Shared Preferences Widget
-class _PreferencesSection extends ConsumerWidget {
+class _PreferencesSection extends ConsumerStatefulWidget {
   final String languageLevel;
   final String englishVariant;
   final bool isGuest;
@@ -78,12 +78,54 @@ class _PreferencesSection extends ConsumerWidget {
     this.onPreferenceChanged,
   });
 
-  String get variantName =>
-      englishVariant == 'UK' ? 'British English' : 'American English';
-  String get variantFlag => englishVariant == 'UK' ? '🇬🇧' : '🇺🇸';
+  @override
+  ConsumerState<_PreferencesSection> createState() => _PreferencesSectionState();
+}
+
+class _PreferencesSectionState extends ConsumerState<_PreferencesSection> {
+  late String _currentLevel;
+  late String _currentVariant;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  void initState() {
+    super.initState();
+    _currentLevel = widget.languageLevel;
+    _currentVariant = widget.englishVariant;
+    _reloadFromSource();
+  }
+
+  @override
+  void didUpdateWidget(_PreferencesSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.languageLevel != widget.languageLevel ||
+        oldWidget.englishVariant != widget.englishVariant) {
+      setState(() {
+        _currentLevel = widget.languageLevel;
+        _currentVariant = widget.englishVariant;
+      });
+    }
+  }
+
+  Future<void> _reloadFromSource() async {
+    if (widget.isGuest) {
+      final preferenceService = ref.read(onboardingServiceProvider);
+      final level = await preferenceService.getGuestLanguageLevel();
+      final variant = await preferenceService.getGuestEnglishVariant();
+      if (mounted) {
+        setState(() {
+          _currentLevel = level ?? AppDefaults.defaultLanguageLevel;
+          _currentVariant = variant ?? AppDefaults.defaultEnglishVariant;
+        });
+      }
+    }
+  }
+
+  String get variantName =>
+      _currentVariant == 'UK' ? 'British English' : 'American English';
+  String get variantFlag => _currentVariant == 'UK' ? '🇬🇧' : '🇺🇸';
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
     return SingleChildScrollView(
@@ -126,13 +168,13 @@ class _PreferencesSection extends ConsumerWidget {
                     context,
                     MaterialPageRoute(
                       builder: (_) => LanguageSelectionPage(
-                        isGuest: isGuest,
+                        isGuest: widget.isGuest,
                         isEditing: true,
                         isInitialSetup: false,
                       ),
                     ),
                   );
-                  onPreferenceChanged?.call();
+                  widget.onPreferenceChanged?.call();
                 },
                 child: Padding(
                   padding: const EdgeInsets.all(16),
@@ -164,7 +206,7 @@ class _PreferencesSection extends ConsumerWidget {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              languageLevel,
+                              _currentLevel,
                               style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
@@ -208,13 +250,13 @@ class _PreferencesSection extends ConsumerWidget {
                     context,
                     MaterialPageRoute(
                       builder: (_) => EnglishVariantPage(
-                        isGuest: isGuest,
+                        isGuest: widget.isGuest,
                         isEditing: true,
                         isInitialSetup: false,
                       ),
                     ),
                   );
-                  onPreferenceChanged?.call();
+                  widget.onPreferenceChanged?.call();
                 },
                 child: Padding(
                   padding: const EdgeInsets.all(16),
@@ -311,10 +353,6 @@ class _NotLoggedInViewState extends ConsumerState<_NotLoggedInView> {
 
   @override
   Widget build(BuildContext context) {
-    // Default to guest mode if not set (safety net)
-    final languageLevel = _guestLanguageLevel ?? AppDefaults.defaultLanguageLevel;
-    final englishVariant = _guestEnglishVariant ?? AppDefaults.defaultEnglishVariant;
-
     return Column(
       children: [
         // Guest Header with onboarding-style gradient
@@ -456,8 +494,8 @@ class _NotLoggedInViewState extends ConsumerState<_NotLoggedInView> {
         // Preferences Section (using shared widget)
         Expanded(
           child: _PreferencesSection(
-            languageLevel: languageLevel,
-            englishVariant: englishVariant,
+            languageLevel: _guestLanguageLevel ?? AppDefaults.defaultLanguageLevel,
+            englishVariant: _guestEnglishVariant ?? AppDefaults.defaultEnglishVariant,
             isGuest: true,
             onPreferenceChanged: _loadGuestPreferences,
           ),

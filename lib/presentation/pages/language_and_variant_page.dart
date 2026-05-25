@@ -92,6 +92,10 @@ class _LanguageAndVariantPageState
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isTablet = screenWidth > 600;
+    final contentPadding = isTablet ? screenWidth * 0.15 : 16.0;
+
     return Scaffold(
       body: Stack(
         children: [
@@ -169,7 +173,7 @@ class _LanguageAndVariantPageState
               children: [
                 // Header
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                  padding: EdgeInsets.fromLTRB(contentPadding, 12, contentPadding, 8),
                   child: Row(
                     children: [
                       if (widget.isGuest)
@@ -192,18 +196,6 @@ class _LanguageAndVariantPageState
                           ),
                         ),
                       const Spacer(),
-                      if (widget.isInitialSetup)
-                        TextButton(
-                          onPressed: () => _skip(),
-                          child: Text(
-                            'Skip',
-                            style: GoogleFonts.lexend(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w500,
-                              color: const Color(0xFF8b5cf6),
-                            ),
-                          ),
-                        ),
                     ],
                   ),
                 ),
@@ -211,7 +203,7 @@ class _LanguageAndVariantPageState
                 // Content
                 Expanded(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: EdgeInsets.symmetric(horizontal: contentPadding),
                     child: Column(
                       children: [
                         const SizedBox(height: 8),
@@ -228,7 +220,7 @@ class _LanguageAndVariantPageState
                           ),
                           textAlign: TextAlign.center,
                         ),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 4),
 
                         // Subtitle
                         Text(
@@ -242,30 +234,37 @@ class _LanguageAndVariantPageState
                           ),
                           textAlign: TextAlign.center,
                         ),
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 12),
 
                         // Language Level Section
                         _buildSectionHeader('How\'s your English?'),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 12),
                         _buildLevelsGrid(),
-                        const SizedBox(height: 28),
+                        const SizedBox(height: 32),
 
                         // English Variant Section
                         _buildSectionHeader('Which English sounds good?'),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 12),
                         _buildVariantsGrid(),
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 12),
                       ],
                     ),
                   ),
                 ),
 
-                // Bottom section
+                // Bottom section (match onboarding style)
                 Container(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.8),
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 20),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Color(0x08000000),
+                        blurRadius: 20,
+                        offset: Offset(0, -4),
+                      ),
+                    ],
                   ),
                   child: Column(
                     children: [
@@ -273,7 +272,7 @@ class _LanguageAndVariantPageState
                       Text(
                         'No worries, you can always change this later',
                         style: GoogleFonts.lexend(
-                          fontSize: 12,
+                          fontSize: 13,
                           fontWeight: FontWeight.w400,
                           color: const Color(0xFF9ca3af),
                         ),
@@ -284,41 +283,45 @@ class _LanguageAndVariantPageState
                       // Continue button
                       SizedBox(
                         width: double.infinity,
-                        height: 52,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                Color(0xFF60a5fa),
-                                Color(0xFF818cf8),
-                                Color(0xFFa78bfa),
-                                Color(0xFFc084fc),
+                        height: 56,
+                        child: FilledButton(
+                          onPressed: _continue,
+                          style: FilledButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            shadowColor: Colors.transparent,
+                            padding: EdgeInsets.zero,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                          ),
+                          child: Ink(
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  Color(0xFF60a5fa),
+                                  Color(0xFF818cf8),
+                                  Color(0xFFa78bfa),
+                                  Color(0xFFc084fc),
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFFa78bfa).withValues(alpha: 0.4),
+                                  blurRadius: 20,
+                                  offset: const Offset(0, 8),
+                                ),
                               ],
                             ),
-                            borderRadius: BorderRadius.circular(18),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFFa78bfa).withValues(alpha: 0.4),
-                                blurRadius: 16,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              onTap: _continue,
-                              borderRadius: BorderRadius.circular(18),
-                              child: Center(
-                                child: Text(
-                                  widget.isInitialSetup ? 'Let\'s go!' : 'Save',
-                                  style: GoogleFonts.lexend(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.white,
-                                  ),
+                            child: Center(
+                              child: Text(
+                                widget.isInitialSetup ? 'Let\'s go!' : 'Save',
+                                style: GoogleFonts.lexend(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w400,
+                                  color: Colors.white,
                                 ),
                               ),
                             ),
@@ -342,23 +345,27 @@ class _LanguageAndVariantPageState
       child: Text(
         title,
         style: GoogleFonts.lexend(
-          fontSize: 16,
+          fontSize: 18,
           fontWeight: FontWeight.w600,
-          color: const Color(0xFF374151),
+          color: const Color(0xFF4b5563),
         ),
       ),
     );
   }
 
   Widget _buildLevelsGrid() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isTablet = screenWidth > 600;
+    final crossAxisCount = isTablet ? 4 : 2;
+
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: 1.55,
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: crossAxisCount,
+        crossAxisSpacing: isTablet ? 16 : 12,
+        mainAxisSpacing: isTablet ? 16 : 12,
+        childAspectRatio: isTablet ? 1.58 : 1.52,
       ),
       itemCount: _levels.length,
       itemBuilder: (context, index) {
@@ -370,14 +377,18 @@ class _LanguageAndVariantPageState
   }
 
   Widget _buildVariantsGrid() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isTablet = screenWidth > 600;
+    final crossAxisCount = isTablet ? 4 : 2;
+
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: 1.55,
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: crossAxisCount,
+        crossAxisSpacing: isTablet ? 16 : 12,
+        mainAxisSpacing: isTablet ? 16 : 12,
+        childAspectRatio: isTablet ? 1.58 : 1.52,
       ),
       itemCount: _variants.length,
       itemBuilder: (context, index) {
@@ -394,16 +405,16 @@ class _LanguageAndVariantPageState
       decoration: BoxDecoration(
         color: isSelected
             ? Colors.white.withValues(alpha: 0.95)
-            : Colors.white.withValues(alpha: 0.7),
+            : Colors.white.withValues(alpha: 0.85),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: isSelected ? const Color(0xFFc4b5fd) : Colors.white,
-          width: isSelected ? 2.5 : 1,
+          color: isSelected ? const Color(0xFFd8b4fe) : Colors.transparent,
+          width: 2,
         ),
         boxShadow: [
           BoxShadow(
             color: isSelected
-                ? const Color(0xFFc4b5fd).withValues(alpha: 0.3)
+                ? const Color(0xFFd8b4fe).withValues(alpha: 0.25)
                 : Colors.black.withValues(alpha: 0.04),
             blurRadius: isSelected ? 16 : 8,
             offset: const Offset(0, 4),
@@ -417,65 +428,72 @@ class _LanguageAndVariantPageState
           borderRadius: BorderRadius.circular(18),
           child: Padding(
             padding: const EdgeInsets.all(8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
+            child: Stack(
               children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? const Color(0xFFc4b5fd).withValues(alpha: 0.15)
-                        : const Color(0xFFf3f4f6),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Icon(
-                    level.icon,
-                    size: 24,
-                    color: isSelected ? const Color(0xFF8b5cf6) : const Color(0xFF6b7280),
+                SizedBox(
+                  width: double.infinity,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? const Color(0xFFd8b4fe).withValues(alpha: 0.15)
+                              : const Color(0xFFf3f4f6),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Icon(
+                          level.icon,
+                          size: 26,
+                          color: isSelected ? const Color(0xFF8b5cf6) : const Color(0xFF6b7280),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        level.title,
+                        style: GoogleFonts.lexend(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF1f2937),
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        level.description,
+                        style: GoogleFonts.lexend(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w400,
+                          color: const Color(0xFF9ca3af),
+                        ),
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  level.title,
-                  style: GoogleFonts.lexend(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFF1f2937),
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  level.description,
-                  style: GoogleFonts.lexend(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w400,
-                    color: const Color(0xFF9ca3af),
-                  ),
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                if (isSelected) ...[
-                  const SizedBox(height: 4),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFc4b5fd).withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      'Picked',
-                      style: GoogleFonts.lexend(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF8b5cf6),
+                if (isSelected)
+                  Positioned(
+                    top: 4,
+                    right: 4,
+                    child: Container(
+                      width: 22,
+                      height: 22,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFa78bfa),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.check,
+                        size: 13,
+                        color: Colors.white,
                       ),
                     ),
                   ),
-                ],
               ],
             ),
           ),
@@ -490,16 +508,16 @@ class _LanguageAndVariantPageState
       decoration: BoxDecoration(
         color: isSelected
             ? Colors.white.withValues(alpha: 0.95)
-            : Colors.white.withValues(alpha: 0.7),
+            : Colors.white.withValues(alpha: 0.85),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: isSelected ? const Color(0xFFc4b5fd) : Colors.white,
-          width: isSelected ? 2.5 : 1,
+          color: isSelected ? const Color(0xFFd8b4fe) : Colors.transparent,
+          width: 2,
         ),
         boxShadow: [
           BoxShadow(
             color: isSelected
-                ? const Color(0xFFc4b5fd).withValues(alpha: 0.3)
+                ? const Color(0xFFd8b4fe).withValues(alpha: 0.25)
                 : Colors.black.withValues(alpha: 0.04),
             blurRadius: isSelected ? 16 : 8,
             offset: const Offset(0, 4),
@@ -513,78 +531,79 @@ class _LanguageAndVariantPageState
           borderRadius: BorderRadius.circular(18),
           child: Padding(
             padding: const EdgeInsets.all(8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
+            child: Stack(
               children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? const Color(0xFFc4b5fd).withValues(alpha: 0.15)
-                        : const Color(0xFFf3f4f6),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Center(
-                    child: Text(
-                      variant.flag,
-                      style: const TextStyle(fontSize: 24),
-                    ),
+                SizedBox(
+                  width: double.infinity,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? const Color(0xFFd8b4fe).withValues(alpha: 0.15)
+                              : const Color(0xFFf3f4f6),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Center(
+                          child: Text(
+                            variant.flag,
+                            style: const TextStyle(fontSize: 26),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        variant.name,
+                        style: GoogleFonts.lexend(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF1f2937),
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        variant.description,
+                        style: GoogleFonts.lexend(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w400,
+                          color: const Color(0xFF9ca3af),
+                        ),
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  variant.name,
-                  style: GoogleFonts.lexend(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFF1f2937),
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  variant.description,
-                  style: GoogleFonts.lexend(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w400,
-                    color: const Color(0xFF9ca3af),
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                if (isSelected) ...[
-                  const SizedBox(height: 4),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFc4b5fd).withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      'Picked',
-                      style: GoogleFonts.lexend(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF8b5cf6),
+                if (isSelected)
+                  Positioned(
+                    top: 4,
+                    right: 4,
+                    child: Container(
+                      width: 22,
+                      height: 22,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFa78bfa),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.check,
+                        size: 13,
+                        color: Colors.white,
                       ),
                     ),
                   ),
-                ],
               ],
             ),
           ),
         ),
       ),
     );
-  }
-
-  void _skip() {
-    setState(() {
-      _selectedLevel = AppDefaults.defaultLanguageLevel;
-      _selectedVariant = AppDefaults.defaultEnglishVariant;
-    });
-    _continue();
   }
 
   Future<void> _continue() async {

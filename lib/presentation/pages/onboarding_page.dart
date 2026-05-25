@@ -336,6 +336,26 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
               ),
             ),
           ),
+          // Static stars
+          ...List.generate(40, (i) {
+            final r = Random(i * 42);
+            final s = 1.5 + r.nextDouble() * 3.5;
+            return Positioned(
+              top: r.nextDouble() * MediaQuery.of(context).size.height,
+              left: r.nextDouble() * MediaQuery.of(context).size.width,
+              child: Opacity(
+                opacity: 0.2 + r.nextDouble() * 0.6,
+                child: Container(
+                  width: s, height: s,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white,
+                    boxShadow: [BoxShadow(color: Colors.white54, blurRadius: 2)],
+                  ),
+                ),
+              ),
+            );
+          }),
           // Falling stars
           if (_starControllers.isNotEmpty && _starControllers.length >= 3) ...[
             _FallingStar(animation: _starControllers[0], index: 0),
@@ -349,7 +369,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
                 children: [
                   // Top bar
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                     child: Row(
                       children: [
                         // App name
@@ -557,7 +577,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
                   ),
 
                   Container(
-                    padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
+                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
                     decoration: const BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
@@ -597,13 +617,6 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
                                   ],
                                 ),
                                 borderRadius: BorderRadius.circular(20),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: const Color(0xFFa78bfa).withValues(alpha: 0.4),
-                                    blurRadius: 20,
-                                    offset: const Offset(0, 8),
-                                  ),
-                                ],
                               ),
                               child: Center(
                                 child: Text(

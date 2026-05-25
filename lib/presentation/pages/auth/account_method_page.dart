@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -175,59 +176,137 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Color(0xFFf0f4ff), // Very light blue
-              Color(0xFFf8f5ff), // Very light purple
-              Color(0xFFfff5f8), // Very light pink
+              Color(0xFFE8F4FD),
+              Color(0xFFF5EEF8),
+              Color(0xFFFDF4E8),
             ],
           ),
         ),
-        child: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    constraints: const BoxConstraints(maxWidth: 400),
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
+        child: Stack(
+          children: [
+            // Galaxy blobs
+            Positioned(
+              top: -80,
+              left: -60,
+              child: Container(
+                width: 280,
+                height: 280,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      const Color(0xFFC4B5FD).withValues(alpha: 0.4),
+                      const Color(0x00C4B5FD),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 80,
+              right: -80,
+              child: Container(
+                width: 300,
+                height: 300,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      const Color(0xFF93C5FD).withValues(alpha: 0.4),
+                      const Color(0x0093C5FD),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              bottom: -60,
+              left: 100,
+              child: Container(
+                width: 280,
+                height: 280,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      const Color(0xFFF472B6).withValues(alpha: 0.4),
+                      const Color(0x00F472B6),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            // Static stars
+            ...List.generate(40, (i) {
+              final r = Random(i * 42);
+              final s = 1.5 + r.nextDouble() * 3.5;
+              return Positioned(
+                top: r.nextDouble() * MediaQuery.of(context).size.height,
+                left: r.nextDouble() * MediaQuery.of(context).size.width,
+                child: Opacity(
+                  opacity: 0.2 + r.nextDouble() * 0.6,
+                  child: Container(
+                    width: s, height: s,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(24),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
-                          blurRadius: 20,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
+                      boxShadow: [BoxShadow(color: Colors.white54, blurRadius: 2)],
                     ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                    // Back button
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.05),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: IconButton(
-                          icon: const Icon(Icons.arrow_back, color: Color(0xFF1f2937)),
-                          onPressed: () => Navigator.pop(context),
-                        ),
+                  ),
+                ),
+              );
+            }),
+            // Content
+            SafeArea(
+              child: Stack(
+                children: [
+                  // Back button - outside card
+                  Positioned(
+                    top: 16,
+                    left: 16,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.9),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.08),
+                            blurRadius: 12,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: IconButton(
+                        icon: const Icon(Icons.arrow_back, color: Color(0xFF1f2937)),
+                        onPressed: () => Navigator.pop(context),
                       ),
                     ),
-                    const SizedBox(height: 32),
+                  ),
+                  // Card content
+                  Center(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.only(top: 80, bottom: 24, left: 24, right: 24),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            constraints: const BoxConstraints(maxWidth: 400),
+                            padding: const EdgeInsets.all(24),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(24),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.05),
+                                  blurRadius: 20,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
 
                     // Icon
                     Container(
@@ -493,15 +572,19 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
                 ),
                 textAlign: TextAlign.center,
               ),
-                ], // closes inner Column children
-              ), // closes inner Column
-            ), // closes Container (card)
-          ], // closes outer Column children
-        ), // closes outer Column
-      ), // closes SingleChildScrollView
-    ), // closes Center
-        ), // closes SafeArea
-      ), // closes Container (gradient)
-    ); // closes Scaffold
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+      ),
+        ),
+      ],
+      ),
+        ),
+      );
+    }
   }
-}
