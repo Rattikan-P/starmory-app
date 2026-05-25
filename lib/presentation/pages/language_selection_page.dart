@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'onboarding_page.dart';
 import 'auth/login_method_page.dart';
 import 'main_navigation.dart';
@@ -12,7 +13,7 @@ class LanguageSelectionPage extends ConsumerStatefulWidget {
   final bool isEditing;
   final bool isInitialSetup;
   final bool forceSelection;
-  final bool returnAfterSelection; // Return to previous screen after selection
+  final bool returnAfterSelection;
 
   const LanguageSelectionPage({
     super.key,
@@ -38,169 +39,390 @@ class _LanguageSelectionPageState extends ConsumerState<LanguageSelectionPage> {
   }
 
   Future<void> _checkExistingGuestLevel() async {
-    // Skip auto-navigation when editing or forcing selection
-    if (widget.isEditing || widget.forceSelection) return;
+    if (widget.isEditing || widget.forceSelection || widget.isInitialSetup) return;
 
     final preferenceService = ref.read(onboardingServiceProvider);
     final existingLevel = await preferenceService.getGuestLanguageLevel();
+    final existingVariant = await preferenceService.getGuestEnglishVariant();
 
-    if (existingLevel != null && mounted) {
+    // ถ้ามีทั้ง level และ variant แล้ว → ไปหน้าถัดไป (guest ไป home, register ไป login)
+    // ถ้ามีแค่ level แต่ไม่มี variant → ให้เลือก variant ต่อ (ไม่ skip)
+    if (existingLevel != null && existingVariant != null && mounted) {
       if (widget.isGuest) {
-        // Guest mode: save level and go to main
         await preferenceService.setGuestMode(true);
         await preferenceService.setOnboardingCompleted(true);
         if (mounted) {
-          Navigator.of(context).pushAndRemoveUntil(
+          Navigator.of(context).popUntil((route) => route.isFirst);
+          Navigator.of(context).pushReplacement(
             MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
-            (route) => false,
           );
         }
       } else {
-        // Register flow: go to register with existing level AND variant
-        final existingVariant = await preferenceService.getGuestEnglishVariant();
         if (!mounted) return;
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
             builder: (_) => LoginMethodPage(
               languageLevel: existingLevel,
-              englishVariant: existingVariant ?? AppDefaults.defaultEnglishVariant,
+              englishVariant: existingVariant,
               isRegistration: true,
             ),
           ),
         );
       }
     }
+    // ถ้ามี level แต่ไม่มี variant หรือไม่มีเลย → แสดงหน้า selection ให้เลือก
   }
 
   static const List<LanguageLevel> levels = [
     LanguageLevel(
       code: 'A1',
-      title: 'A1 - Beginner',
-      description: 'Can understand and use basic phrases',
-      icon: Icons.looks_one,
+      title: 'Just starting',
+      description: 'I\'m new to English',
+      icon: Icons.sentiment_satisfied,
+      color: Color(0xFF34d399), // Mint
     ),
     LanguageLevel(
       code: 'A2',
-      title: 'A2 - Elementary',
-      description: 'Can communicate in simple tasks',
-      icon: Icons.looks_two,
+      title: 'Beginner',
+      description: 'I know basic phrases',
+      icon: Icons.sentiment_satisfied_alt,
+      color: Color(0xFF60a5fa), // Blue
     ),
     LanguageLevel(
       code: 'B1',
-      title: 'B1 - Intermediate',
-      description: 'Can handle most situations while traveling',
-      icon: Icons.looks_3,
+      title: 'Intermediate',
+      description: 'I can handle daily conversations',
+      icon: Icons.sentiment_very_satisfied,
+      color: Color(0xFFa78bfa), // Purple
     ),
     LanguageLevel(
       code: 'B2',
-      title: 'B2 - Upper Intermediate',
-      description: 'Can interact with native speakers fluently',
-      icon: Icons.looks_4,
+      title: 'Advanced',
+      description: 'I\'m comfortable with most conversations',
+      icon: Icons.emoji_events,
+      color: Color(0xFFf472b6), // Pink
     ),
   ];
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-        ),
-        actions: widget.isEditing
-            ? null
-            : [
-                TextButton(
-                  onPressed: () => _skip(context),
-                  child: const Text('Skip'),
+      body: Stack(
+        children: [
+          // Gradient background
+          Positioned.fill(
+            child: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Color(0xFFE8F4FD),
+                    Color(0xFFF5EEF8),
+                    Color(0xFFFDF4E8),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // Galaxy blobs
+          Positioned(
+            top: -100,
+            left: -80,
+            child: Container(
+              width: 350,
+              height: 350,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    const Color(0xFFC4B5FD).withValues(alpha: 0.5),
+                    const Color(0x00C4B5FD),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 50,
+            right: -100,
+            child: Container(
+              width: 380,
+              height: 380,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    const Color(0xFF93C5FD).withValues(alpha: 0.5),
+                    const Color(0x0093C5FD),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          SafeArea(
+            child: Column(
+              children: [
+                // Custom header
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+                  child: Row(
+                    children: [
+                      // Back button - only show for guest or editing
+                      if (widget.isGuest || widget.isEditing)
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.9),
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.08),
+                                blurRadius: 10,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: IconButton(
+                            icon: const Icon(Icons.arrow_back_ios_rounded,
+                              color: Color(0xFF1f2937), size: 20),
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                        )
+                      else
+                        // Invisible placeholder with same visual size as back button
+                        const Opacity(
+                          opacity: 0,
+                          child: SizedBox(
+                            width: 48,
+                            height: 48,
+                          ),
+                        ),
+                      const Spacer(),
+                      // Progress bar - hide when editing
+                      if (!widget.isEditing)
+                      Flexible(
+                        child: SizedBox(
+                          width: 200,
+                          height: 6,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(3),
+                            child: Stack(
+                              children: [
+                                Container(
+                                  color: const Color(0xFFc4b5fd).withValues(alpha: 0.3),
+                                ),
+                                FractionallySizedBox(
+                                  widthFactor: 0.5, // 50% for step 1 of 2
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      gradient: const LinearGradient(
+                                        colors: [Color(0xFF8b7cf6), Color(0xFF7c6ff5)],
+                                      ),
+                                      borderRadius: BorderRadius.circular(3),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: const Color(0xFF8b7cf6).withValues(alpha: 0.4),
+                                          blurRadius: 6,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      const Spacer(),
+                      // Skip button
+                      if (!widget.isEditing)
+                        TextButton(
+                          onPressed: () => _skip(context),
+                          style: TextButton.styleFrom(
+                            foregroundColor: const Color(0xFF8b5cf6),
+                          ),
+                          child: Text(
+                            'Skip',
+                            style: GoogleFonts.lexend(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        )
+                      else
+                        const SizedBox(width: 48, height: 48),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // Content
+                Expanded(
+                  child: Stack(
+                    children: [
+                      SingleChildScrollView(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Column(
+                          children: [
+                            const SizedBox(height: 12),
+
+                            // Title
+                            Text(
+                              widget.isEditing
+                                  ? 'Change your level'
+                                  : 'What\'s your English level?',
+                              style: GoogleFonts.lexend(
+                                fontSize: 26,
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xFF1f2937),
+                                height: 1.2,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 8),
+
+                            // Subtitle
+                            Text(
+                              widget.isEditing
+                                  ? 'Select your new proficiency level'
+                                  : 'This helps us create your learning experience',
+                              style: GoogleFonts.lexend(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w400,
+                                color: const Color(0xFF6b7280),
+                                height: 1.5,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 24),
+
+                            // Level cards
+                            ...levels.map((level) {
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: _buildLevelCard(level),
+                              );
+                            }),
+
+                            const SizedBox(height: 80), // Extra space for bottom note
+                          ],
+                        ),
+                      ),
+                      // Bottom note - fixed at bottom
+                      Positioned(
+                        bottom: 20,
+                        left: 0,
+                        right: 0,
+                        child: !widget.isEditing
+                            ? Text(
+                                "Don't worry, you can change this anytime",
+                                style: GoogleFonts.lexend(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w400,
+                                  color: const Color(0xFF9ca3af),
+                                ),
+                                textAlign: TextAlign.center,
+                              )
+                            : const SizedBox.shrink(),
+                      ),
+                    ],
+                  ),
                 ),
               ],
+            ),
+          ),
+        ],
       ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    widget.isEditing
-                        ? 'Change your level'
-                        : 'What\'s your level?',
-                    style: theme.textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    widget.isEditing
-                        ? 'Select your new proficiency level'
-                        : (widget.isGuest
-                              ? 'This helps personalize your experience'
-                              : 'This helps us personalize your learning experience'),
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+    );
+  }
 
-            Expanded(
-              child: ListView.separated(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                itemCount: levels.length,
-                separatorBuilder: (_, index) => const SizedBox(height: 12),
-                itemBuilder: (context, index) {
-                  final level = levels[index];
-                  return Card(
-                    elevation: 0,
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      leading: Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.primaryContainer,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Icon(
-                          level.icon,
-                          color: theme.colorScheme.primary,
-                        ),
-                      ),
-                      title: Text(
-                        level.title,
-                        style: const TextStyle(fontWeight: FontWeight.w500),
-                      ),
-                      subtitle: Text(level.description),
-                      onTap: () => _selectLevel(context, level.code),
-                    ),
-                  );
-                },
-              ),
-            ),
-
-            // Bottom note - only show during initial selection
-            if (!widget.isEditing)
-              Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text(
-                  'You can change this later in settings',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+  Widget _buildLevelCard(LanguageLevel level) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _selectLevel(context, level.code),
+          borderRadius: BorderRadius.circular(20),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                // Icon with colored background
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: level.color.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                  textAlign: TextAlign.center,
+                  child: Icon(
+                    level.icon,
+                    size: 30,
+                    color: level.color,
+                  ),
                 ),
-              ),
-          ],
+                const SizedBox(width: 16),
+
+                // Text content
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        level.title,
+                        style: GoogleFonts.lexend(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF1f2937),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        level.description,
+                        style: GoogleFonts.lexend(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                          color: const Color(0xFF6b7280),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Arrow icon
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFf3f4f6),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    size: 16,
+                    color: Color(0xFF9ca3af),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -217,19 +439,15 @@ class _LanguageSelectionPageState extends ConsumerState<LanguageSelectionPage> {
     if (!context.mounted) return;
 
     if (widget.isEditing) {
-      // Editing mode: update and go back
       if (widget.isGuest) {
-        // Guest: already saved to Hive above
+        // Already saved above
       } else {
-        // Logged in: update Supabase user metadata AND users table
         final client = Supabase.instance.client;
         final userId = client.auth.currentSession?.user.id;
         if (userId != null) {
-          // Update user metadata
           await client.auth.updateUser(
             UserAttributes(data: {'language_level': code}),
           );
-          // Update users table
           await client
               .from('users')
               .update({'language_level': code})
@@ -256,9 +474,8 @@ class _LanguageSelectionPageState extends ConsumerState<LanguageSelectionPage> {
 
       if (widget.returnAfterSelection && context.mounted) {
         if (result == true) {
-          Navigator.pop(context, true); // ส่ง true กลับไป onboarding_page
+          Navigator.pop(context, true);
         }
-        // ถ้า null (กด back จาก variant) → ไม่ pop อยู่หน้า language ต่อ
       }
     }
   }
@@ -269,11 +486,13 @@ class LanguageLevel {
   final String title;
   final String description;
   final IconData icon;
+  final Color color;
 
   const LanguageLevel({
     required this.code,
     required this.title,
     required this.description,
     required this.icon,
+    required this.color,
   });
 }

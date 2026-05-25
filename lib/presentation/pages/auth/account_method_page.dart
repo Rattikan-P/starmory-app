@@ -7,7 +7,7 @@ import '../../../data/services/auth_service.dart';
 import '../../../data/services/preference_service.dart';
 import '../main_navigation.dart';
 import '../onboarding_page.dart';
-import '../language_and_variant_page.dart';
+import '../language_selection_page.dart';
 import 'otp_verification_page.dart' show OtpVerificationPage;
 import '../../../constants/app_defaults.dart';
 
@@ -71,10 +71,10 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
 
         if (!hasGuestData) {
           // ไม่มีข้อมูล guest → ถาม level/variant
-          // navigate ไป LanguageAndVariantPage แล้วรอผล
+          // navigate ไป LanguageSelectionPage แล้วรอผล
           final result = await Navigator.of(context).push<bool>(
             MaterialPageRoute(
-              builder: (_) => const LanguageAndVariantPage(
+              builder: (_) => const LanguageSelectionPage(
                 isGuest: false,
                 isInitialSetup: true,
                 returnAfterSelection: true,

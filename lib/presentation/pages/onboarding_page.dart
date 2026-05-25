@@ -6,7 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/services/preference_service.dart';
 import '../../data/services/auth_service.dart';
 import 'auth/otp_verification_page.dart';
-import 'language_and_variant_page.dart';
+import 'language_selection_page.dart';
 import 'main_navigation.dart';
 import '../../constants/app_defaults.dart';
 
@@ -30,19 +30,19 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
 
   final List<OnboardingItem> _items = const [
     OnboardingItem(
-      icon: Icons.auto_stories_rounded,
-      title: 'Learn Vocabulary',
-      description: 'Master new words with spaced repetition',
-    ),
-    OnboardingItem(
       icon: Icons.camera_alt_rounded,
-      title: 'Photo Scrapbook',
-      description: 'Capture moments from real life',
+      title: 'Learn from Photos',
+      description: 'Snap a photo, learn a word.\nYour world is your language lesson.',
     ),
     OnboardingItem(
-      icon: Icons.trending_up_rounded,
-      title: 'Track Progress',
-      description: 'Watch your language skills grow',
+      icon: Icons.schedule_rounded,
+      title: '2 Minutes a Day',
+      description: 'One word a day is enough.\nNo guilt, no pressure, just progress.',
+    ),
+    OnboardingItem(
+      icon: Icons.auto_awesome_rounded,
+      title: 'Collect Your Stars',
+      description: 'Coffee, cats, views.\nEvery little moment is a new star.',
     ),
   ];
 
@@ -74,7 +74,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
     if (mounted) {
       await Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) => const LanguageAndVariantPage(
+          builder: (_) => const LanguageSelectionPage(
             isGuest: true,
             isInitialSetup: true,
           ),
@@ -118,7 +118,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
       if (isNewUser) {
         final result = await Navigator.of(context).push<bool>(
           MaterialPageRoute(
-            builder: (_) => const LanguageAndVariantPage(
+            builder: (_) => const LanguageSelectionPage(
               isGuest: false,
               isInitialSetup: true,
               returnAfterSelection: true,
@@ -240,10 +240,6 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
         isEmailLoading: _isEmailLoading,
       ),
     );
-  }
-
-  void _skip() {
-    _showAuthBottomSheet();
   }
 
   @override
@@ -437,25 +433,6 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
                         ),
 
                         const Spacer(),
-
-                        Padding(
-                          padding: const EdgeInsets.only(top: 8),
-                          child: TextButton(
-                            onPressed: _skip,
-                            style: TextButton.styleFrom(
-                              foregroundColor: const Color(0xFF8b5cf6),
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            ),
-                            child: Text(
-                              'Skip',
-                              style: GoogleFonts.lexend(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w400,
-                                color: const Color(0xFF8b5cf6),
-                              ),
-                            ),
-                          ),
-                        ),
                       ],
                     ),
                   ),
@@ -627,9 +604,9 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
                                     color: Colors.white,
                                   ),
                                 ),
-                              ),
                             ),
                           ),
+                        ),
                         ),
                         const SizedBox(height: 14),
 
@@ -668,7 +645,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
                           child: Padding(
                             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
                             child: Text(
-                              'Already have an account?',
+                              'Already have an account? Sign in',
                               style: GoogleFonts.lexend(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w400,

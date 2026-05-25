@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import 'data/services/hive_service.dart';
 import 'data/services/preference_service.dart';
@@ -70,7 +71,9 @@ class _MyAppState extends ConsumerState<MyApp> {
           brightness: Brightness.light,
         ),
         useMaterial3: true,
-        fontFamily: 'Poppins',
+        textTheme: GoogleFonts.notoSansThaiTextTheme(
+          GoogleFonts.poppinsTextTheme(ThemeData.light().textTheme),
+        ),
       ),
       darkTheme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
@@ -78,6 +81,9 @@ class _MyAppState extends ConsumerState<MyApp> {
           brightness: Brightness.dark,
         ),
         useMaterial3: true,
+        textTheme: GoogleFonts.notoSansThaiTextTheme(
+          GoogleFonts.poppinsTextTheme(ThemeData.dark().textTheme),
+        ),
       ),
       themeMode: ThemeMode.system,
       // เช็คจาก state แทน FutureBuilder

@@ -7,7 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../data/services/preference_service.dart';
-import '../language_and_variant_page.dart';
+import '../language_selection_page.dart';
 import '../main_navigation.dart';
 import '../onboarding_page.dart' show onboardingServiceProvider;
 import '../../../constants/app_defaults.dart';
@@ -144,33 +144,31 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
       final guestLevel = await preferenceService.getGuestLanguageLevel();
       final guestVariant = await preferenceService.getGuestEnglishVariant();
 
-      final hasGuestData = widget.languageLevel != null || guestLevel != null;
-
       if (!isNewUser) {
         // Existing user → ใช้ข้อมูลเดิมไว้เลย ไม่ overwrite
         // TODO: อาจเพิ่ม merge strategy ในอนาคตเมื่อมี feature คำศัพท์
       } else if (isNewUser && user != null) {
-        // New user → มีข้อมูล guest ใช้เลย ไม่มีค่อยถาม
-        await preferenceService.clearGuestPreferences();
-        final finalLevel = widget.languageLevel ?? guestLevel;
-        final finalVariant = widget.englishVariant ?? guestVariant;
+        // New user flow
+        final hasExplicitData = widget.languageLevel != null || widget.englishVariant != null;
+        final hasGuestData = guestLevel != null || guestVariant != null;
 
-        if (hasGuestData) {
-          // มีข้อมูล guest → บันทึกเลย
+        if (hasExplicitData) {
+          // มีข้อมูลจาก guest creating account → ใช้เลย
+          await preferenceService.clearGuestPreferences();
           await authService.updateUserPreferences(
             userId: user.id,
             email: widget.email,
             displayName: widget.displayName,
-            languageLevel: finalLevel ?? AppDefaults.defaultLanguageLevel,
-            englishVariant: finalVariant ?? AppDefaults.defaultEnglishVariant,
+            languageLevel: widget.languageLevel ?? AppDefaults.defaultLanguageLevel,
+            englishVariant: widget.englishVariant ?? AppDefaults.defaultEnglishVariant,
           );
         } else {
-          // ไม่มีข้อมูล guest → ถาม level/variant
+          // Login จาก onboarding หรือไม่มีข้อมูล → ถาม level/variant
           await preferenceService.clearGuestPreferences();
 
           final selectionResult = await Navigator.of(context).push<bool>(
             MaterialPageRoute(
-              builder: (_) => const LanguageAndVariantPage(
+              builder: (_) => const LanguageSelectionPage(
                 isGuest: false,
                 isInitialSetup: true,
                 returnAfterSelection: true,
