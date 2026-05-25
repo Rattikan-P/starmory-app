@@ -33,6 +33,9 @@ class _InteractiveVocabularyScreenState
   final Set<String> _selectedWordIds = {};
   bool _isRegenerating = false;
 
+  // Store individual sentences before switching to combined mode
+  final Map<String, ({String english, String thai})> _savedIndividualSentences = {};
+
   /// Map UI tone to API tone format
   String _mapToneToApiFormat(String uiTone) {
     final toneMap = {
@@ -197,6 +200,11 @@ class _InteractiveVocabularyScreenState
                     englishSentence: sentenceData.text,
                     thaiSentence: sentenceData.thai,
                   );
+                  // Save to cache for later restoration
+                  _savedIndividualSentences[dot.id] = (
+                    english: sentenceData.text,
+                    thai: sentenceData.thai,
+                  );
                   debugPrint(
                     '🤖 AI sentence for ${dot.word}: ${sentenceData.text}',
                   );
@@ -231,6 +239,11 @@ class _InteractiveVocabularyScreenState
         _vocabularyDots[i] = dot.copyWith(
           englishSentence: enSentence,
           thaiSentence: thSentence,
+        );
+        // Save fallback sentences to cache as well
+        _savedIndividualSentences[dot.id] = (
+          english: enSentence,
+          thai: thSentence,
         );
       }
     });
@@ -358,14 +371,29 @@ class _InteractiveVocabularyScreenState
           Switch(
             value: _useCombinedSentence,
             onChanged: (value) async {
-              // Clear old sentences first to show loading
-              setState(() {
-                _useCombinedSentence = value;
-                _clearSelectedSentences();
-                _isRegenerating = true;
-              });
-              // Regenerate sentences with the new mode
-              await _generateAllSentences();
+              if (value) {
+                // Switching TO combined mode: save individual sentences first
+                _saveIndividualSentences();
+                setState(() {
+                  _useCombinedSentence = true;
+                  _clearSelectedSentences();
+                  _isRegenerating = true;
+                });
+                debugPrint('🔄 Toggle: combined=$value, selected=${_selectedWordIds.length} words');
+                await _generateAllSentences();
+              } else {
+                // Switching FROM combined mode: restore saved individual sentences
+                setState(() => _useCombinedSentence = false);
+                final restored = _restoreIndividualSentences();
+                if (!restored) {
+                  // No saved sentences - need to generate
+                  setState(() {
+                    _isRegenerating = true;
+                  });
+                  await _generateAllSentences();
+                }
+              }
+              debugPrint('✅ Toggle: complete');
             },
             activeTrackColor: const Color(0xFF6C63FF).withOpacity(0.5),
             activeThumbColor: const Color(0xFF6C63FF),
@@ -384,6 +412,53 @@ class _InteractiveVocabularyScreenState
           thaiSentence: '',
         );
       }
+    }
+  }
+
+  /// Save individual sentences before switching to combined mode
+  void _saveIndividualSentences() {
+    _savedIndividualSentences.clear();
+    for (final dot in _vocabularyDots) {
+      if (_selectedWordIds.contains(dot.id) && dot.englishSentence.isNotEmpty) {
+        _savedIndividualSentences[dot.id] = (
+          english: dot.englishSentence,
+          thai: dot.thaiSentence,
+        );
+      }
+    }
+    debugPrint('💾 Saved ${_savedIndividualSentences.length} individual sentences');
+  }
+
+  /// Restore individual sentences when switching back from combined mode
+  /// Returns true if sentences were restored, false if need to regenerate
+  bool _restoreIndividualSentences() {
+    if (_savedIndividualSentences.isEmpty) {
+      debugPrint('📭 No saved sentences, will regenerate');
+      return false;
+    }
+
+    // Check if all selected words have saved sentences
+    final hasAllSaved = _selectedWordIds.every((id) => _savedIndividualSentences.containsKey(id));
+
+    setState(() {
+      for (var i = 0; i < _vocabularyDots.length; i++) {
+        final dot = _vocabularyDots[i];
+        final saved = _savedIndividualSentences[dot.id];
+        if (saved != null) {
+          _vocabularyDots[i] = dot.copyWith(
+            englishSentence: saved.english,
+            thaiSentence: saved.thai,
+          );
+        }
+      }
+    });
+
+    if (hasAllSaved) {
+      debugPrint('♻️ Restored ${_savedIndividualSentences.length} individual sentences');
+      return true;
+    } else {
+      debugPrint('⚠️ Some words missing saved sentences, will regenerate');
+      return false;
     }
   }
 
@@ -497,9 +572,10 @@ class _InteractiveVocabularyScreenState
                       SliverToBoxAdapter(child: _buildCombinedSentenceDisplay()),
 
                       // Word Details / Empty State
+                      // Hide individual word cards when combined mode is ON
                       if (_selectedWordIds.isEmpty)
                         _buildEmptyStateSliver(scrollController)
-                      else
+                      else if (!_useCombinedSentence)
                         _buildWordDetailsSliver(scrollController),
                     ],
                   ),
@@ -830,7 +906,7 @@ class _InteractiveVocabularyScreenState
               color: Colors.white,
               borderRadius: BorderRadius.circular(8),
             ),
-            child: _isRegenerating || firstSelectedDot.englishSentence.isEmpty
+            child: _isRegenerating
                 ? Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -855,7 +931,21 @@ class _InteractiveVocabularyScreenState
                       ),
                     ],
                   )
-                : Column(
+                : firstSelectedDot.englishSentence.isEmpty
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'No sentence generated. Try selecting words first.',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey[500],
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                        ],
+                      )
+                    : Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
@@ -951,14 +1041,26 @@ class _InteractiveVocabularyScreenState
     );
   }
 
-  void _toggleWordSelection(String wordId) {
+  void _toggleWordSelection(String wordId) async {
+    final wasSelected = _selectedWordIds.contains(wordId);
+
     setState(() {
-      if (_selectedWordIds.contains(wordId)) {
+      if (wasSelected) {
         _selectedWordIds.remove(wordId);
       } else {
         _selectedWordIds.add(wordId);
       }
     });
+
+    // If combined mode is ON and there are selected words, regenerate
+    if (_useCombinedSentence && _selectedWordIds.isNotEmpty) {
+      debugPrint('🔄 Word toggled, regenerating combined sentence');
+      setState(() {
+        _clearSelectedSentences();
+        _isRegenerating = true;
+      });
+      await _generateAllSentences();
+    }
   }
 
   void _showContextSelector(_VocabularyDot dot) {

@@ -395,15 +395,20 @@ Every sentence must satisfy ALL of the following:
    ✅ "She smiled at the adorable pastry sitting on the wooden tray."
    ❌ "Something adorable can make people happy." (too generic)
 4. Word usage        — sentence must use the exact vocab word naturally
+5. Sentence coherence — when generating multiple sentences, they must form ONE coherent scene
+   ✅ "The cart has groceries." + "The juice is in the cart." + "The bread is in bags."
+   ❌ "The cart has groceries." + "I like running." + "Birds fly high." (unrelated)
 
 If any constraint cannot be satisfied, explain in sentence_note.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 MODE A — NORMAL MODE  (combined: false)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-• Process each word independently
-• For each word → one sentence per selected tone
-• Each sentence uses only that single word as the target vocabulary
+• All sentences must share the SAME visual scene and context
+• Treat multiple words as telling ONE coherent story about the image
+• Sentences should reference each other when natural (e.g., "The cart has groceries" → "The juice is in the cart")
+• For each word → one sentence per selected tone using that word as the focus
+• The collection of sentences should flow together as describing one unified scene
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 MODE B — COMBINED SENTENCE MODE  (combined: true)
@@ -469,6 +474,8 @@ INPUT PARAMETERS
 • tones    — ${tones.join(', ')}
 • category — $category
 • combined — $combined
+
+REMINDER: All sentences must describe ONE coherent scene. When multiple words are provided, their sentences should reference each other naturally (e.g., items in a cart, objects on a table).
 
 Generate sentences now.''';
 
