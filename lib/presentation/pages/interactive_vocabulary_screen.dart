@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/providers.dart';
 import '../../data/models/vocabulary_model.dart';
 import '../../data/services/gemini_service.dart';
+import 'generation_loading_screen.dart';
 
 /// Interactive Vocabulary Result Screen
 /// Shows image with clickable dots, word chips, and context customization
@@ -321,12 +322,10 @@ class _InteractiveVocabularyScreenState
         backgroundColor: const Color(0xFF6C63FF),
         foregroundColor: Colors.white,
         actions: [
-          // Rescan button
+          // Rescan button - rescan same image
           IconButton(
             icon: const Icon(Icons.camera_alt),
-            onPressed: () {
-              // TODO: Navigate to image picker
-            },
+            onPressed: () => _showRescanConfirmation(),
             tooltip: 'Rescan',
           ),
           // Save button
@@ -1411,6 +1410,49 @@ class _InteractiveVocabularyScreenState
     );
 
     Navigator.popUntil(context, (route) => route.isFirst);
+  }
+
+  void _showRescanConfirmation() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.camera_alt, color: Colors.blue[700]),
+            const SizedBox(width: 8),
+            const Text('Rescan Image'),
+          ],
+        ),
+        content: const Text('Do you want to scan this same image again to generate new vocabulary?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context); // Close dialog
+              // Navigate to GenerationLoadingScreen with same image
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => GenerationLoadingScreen(
+                    imagePath: widget.imagePath,
+                    cefrLevel: widget.cefrLevel,
+                    communicativeFunction: widget.communicativeFunction,
+                  ),
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF6C63FF),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Rescan'),
+          ),
+        ],
+      ),
+    );
   }
 }
 
