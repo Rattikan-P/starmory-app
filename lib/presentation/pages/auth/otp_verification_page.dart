@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../data/services/preference_service.dart';
+import '../../../utils/snackbar_helper.dart';
 import '../language_selection_page.dart';
 import '../main_navigation.dart';
 import '../onboarding_page.dart' show onboardingServiceProvider;
@@ -61,8 +62,13 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
     try {
       final authService = ref.read(authServiceProvider);
       await authService.sendOtp(widget.email);
+      if (mounted) {
+        SnackBarHelper.success(context, AlertMessages.otpSent, showAboveKeyboard: true);
+      }
     } catch (e) {
-      // Silently fail, user can retry with resend button
+      if (mounted) {
+        SnackBarHelper.error(context, AlertMessages.otpSendFailed, showAboveKeyboard: true);
+      }
     }
   }
 
@@ -98,16 +104,12 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
       final authService = ref.read(authServiceProvider);
       await authService.sendOtp(widget.email);
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('OTP sent successfully!')));
+        SnackBarHelper.success(context, AlertMessages.otpSent, showAboveKeyboard: true);
         _startCountdown();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to send OTP: ${e.toString()}')),
-        );
+        SnackBarHelper.error(context, AlertMessages.otpSendFailed, showAboveKeyboard: true);
       }
     } finally {
       if (mounted) setState(() => _isResending = false);
@@ -117,9 +119,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
   Future<void> _verifyOtp() async {
     final otp = _otpControllers.map((c) => c.text).join();
     if (otp.length != 6) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter all 6 digits')),
-      );
+      SnackBarHelper.warning(context, AlertMessages.otpIncomplete, showAboveKeyboard: true);
       return;
     }
 
@@ -164,29 +164,19 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
           );
         } else {
           // Login จาก onboarding หรือไม่มีข้อมูล → ถาม level/variant
-          await preferenceService.clearGuestPreferences();
-
-          final selectionResult = await Navigator.of(context).push<bool>(
+          // EnglishVariantPage จะจัดการทุกอย่างเมื่อ isInitialSetup
+          if (!mounted) return;
+          await Navigator.of(context).push(
             MaterialPageRoute(
               builder: (_) => const LanguageSelectionPage(
                 isGuest: false,
                 isInitialSetup: true,
-                returnAfterSelection: true,
+                returnAfterSelection: false,
               ),
             ),
           );
-
-          if (!mounted || selectionResult != true) return;
-
-          final level = await preferenceService.getGuestLanguageLevel();
-          final variant = await preferenceService.getGuestEnglishVariant();
-
-          await authService.updateUserPreferences(
-            userId: user.id,
-            email: widget.email,
-            languageLevel: level ?? AppDefaults.defaultLanguageLevel,
-            englishVariant: variant ?? AppDefaults.defaultEnglishVariant,
-          );
+          // Context will be unmounted here since EnglishVariantPage handles full navigation
+          return;
         }
       }
 
@@ -206,6 +196,8 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
 
       if (!mounted) return;
 
+      SnackBarHelper.success(context, AlertMessages.loginSuccess, showAboveKeyboard: true);
+
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(
           builder: (_) => const MainNavigationScreen(),
@@ -214,9 +206,8 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Invalid OTP: ${e.toString()}')));
+        SnackBarHelper.error(context, AlertMessages.otpInvalid, showAboveKeyboard: true);
+        _clearOtp();
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -226,6 +217,9 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
   void _onOtpChanged(int index, String value) {
     if (value.isNotEmpty && index < 5) {
       _focusNodes[index + 1].requestFocus();
+    } else if (value.isEmpty && index > 0) {
+      // When deleting, move focus back to previous field
+      _focusNodes[index - 1].requestFocus();
     }
 
     // Auto verify when all 6 digits are entered
@@ -246,9 +240,17 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
     }
   }
 
+  void _clearOtp() {
+    for (var controller in _otpControllers) {
+      controller.clear();
+    }
+    _focusNodes[0].requestFocus();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -337,54 +339,31 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
             }),
             // Content
             SafeArea(
-              child: Stack(
-                children: [
-                  // Back button - outside card
-                  Positioned(
-                    top: 16,
-                    left: 16,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.9),
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.08),
-                            blurRadius: 12,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: IconButton(
-                        icon: const Icon(Icons.arrow_back, color: Color(0xFF1f2937)),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                    ),
-                  ),
-                  // Card content
-                  Center(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.only(top: 80, bottom: 24, left: 24, right: 24),
-                      child: Container(
-                        constraints: const BoxConstraints(maxWidth: 400),
-                        padding: const EdgeInsets.all(28),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(24),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.05),
-                              blurRadius: 20,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
+              child: Padding(
+                padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+                child: Center(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.only(top: 80, bottom: 24, left: 24, right: 24),
+                  child: Container(
+                    constraints: const BoxConstraints(maxWidth: 400),
+                    padding: const EdgeInsets.all(28),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 20,
+                          offset: const Offset(0, 4),
                         ),
-                        child: GestureDetector(
-                          onTap: _onPaste,
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
+                      ],
+                    ),
+                    child: GestureDetector(
+                      onTap: _onPaste,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
 
                           // Icon
                           Center(
@@ -560,12 +539,11 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
                             ],
                           ),
                         ],
-                        ),
                       ),
                     ),
                   ),
-                  ),
-                ],
+                ),
+              ),
               ),
             ),
             if (_isLoading)
@@ -577,6 +555,31 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
                   ),
                 ),
               ),
+            // Back button - positioned at the end for highest z-index
+            Positioned(
+              top: 16,
+              left: 16,
+              child: SafeArea(
+                bottom: false,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.9),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.08),
+                        blurRadius: 12,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.arrow_back, color: Color(0xFF1f2937)),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),

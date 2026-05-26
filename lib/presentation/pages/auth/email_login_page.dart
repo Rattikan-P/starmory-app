@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/services/auth_service.dart';
+import '../../../utils/snackbar_helper.dart';
 import 'otp_verification_page.dart';
 
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
@@ -53,9 +54,7 @@ class _EmailLoginPageState extends ConsumerState<EmailLoginPage> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.toString()}')),
-        );
+        SnackBarHelper.error(context, AlertMessages.loginFailed);
       }
     }
   }
@@ -125,10 +124,10 @@ class _EmailLoginPageState extends ConsumerState<EmailLoginPage> {
                       onFieldSubmitted: (_) => _checkEmail(),
                       validator: (value) {
                         if (value == null || value.trim().isEmpty) {
-                          return 'Please enter your email';
+                          return AlertMessages.emailRequired;
                         }
                         if (!value.trim().contains('@')) {
-                          return 'Please enter a valid email';
+                          return AlertMessages.invalidEmail;
                         }
                         return null;
                       },

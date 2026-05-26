@@ -5,6 +5,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'onboarding_page.dart';
 import 'main_navigation.dart';
 import '../../constants/app_defaults.dart';
+import '../../data/services/auth_service.dart';
+import '../../utils/snackbar_helper.dart';
 
 class EnglishVariantPage extends ConsumerWidget {
   final bool isGuest;
@@ -385,6 +387,41 @@ class EnglishVariantPage extends ConsumerWidget {
       return;
     }
 
+    // For initial setup (from OTP/Google flow), navigate directly to home to prevent flashing
+    if (isInitialSetup) {
+      final client = Supabase.instance.client;
+      final userId = client.auth.currentSession?.user.id;
+      final userEmail = client.auth.currentSession?.user.email;
+
+      if (userId != null) {
+        final authService = AuthService();
+        await authService.updateUserPreferences(
+          userId: userId,
+          email: userEmail ?? '',
+          languageLevel: languageLevel ?? AppDefaults.defaultLanguageLevel,
+          englishVariant: code,
+          termsVersion: preferenceService.getCurrentTermsVersion(),
+        );
+      }
+
+      await preferenceService.clearGuestPreferences();
+      await preferenceService.setOnboardingCompleted(true);
+      await preferenceService.setGuestMode(false);
+
+      if (context.mounted) {
+        SnackBarHelper.success(context, AlertMessages.loginSuccess);
+        await Future.delayed(const Duration(milliseconds: 400));
+        if (!context.mounted) return;
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (_) => const MainNavigationScreen(),
+          ),
+          (route) => false,
+        );
+      }
+      return;
+    }
+
     if (returnAfterSelection) {
       if (context.mounted) {
         Navigator.of(context).pop(true);
@@ -396,9 +433,9 @@ class EnglishVariantPage extends ConsumerWidget {
       await preferenceService.setGuestMode(true);
       await preferenceService.setOnboardingCompleted(true);
       if (context.mounted) {
-        Navigator.of(context).popUntil((route) => route.isFirst);
-        Navigator.of(context).pushReplacement(
+        Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
+          (route) => false,
         );
       }
     } else {
@@ -425,12 +462,11 @@ class EnglishVariantPage extends ConsumerWidget {
       await preferenceService.setGuestMode(false);
 
       if (context.mounted) {
-        // Pop back to root and then push home screen to prevent flashing
-        Navigator.of(context).popUntil((route) => route.isFirst);
-        Navigator.of(context).pushReplacement(
+        Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(
             builder: (_) => const MainNavigationScreen(),
           ),
+          (route) => false,
         );
       }
     }

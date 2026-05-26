@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:starmory_app/data/services/auth_service.dart';
+import 'package:starmory_app/utils/snackbar_helper.dart';
 import 'login_page.dart';
 import 'otp_verification_page.dart';
 
@@ -95,18 +96,18 @@ class _LoginMethodPageState extends ConsumerState<LoginMethodPage> {
 
                         if (success) {
                           if (!context.mounted) return;
+                          SnackBarHelper.success(context, AlertMessages.loginSuccess);
+                          // Wait a bit so user can see the success message
+                          await Future.delayed(const Duration(milliseconds: 500));
+                          if (!context.mounted) return;
                           Navigator.of(context).popUntil((route) => route.isFirst);
                         } else {
                           if (!context.mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Google sign in failed. Please try again.')),
-                          );
+                          SnackBarHelper.error(context, AlertMessages.loginFailed);
                         }
                       } catch (e) {
                         if (!context.mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Error: ${e.toString()}')),
-                        );
+                        SnackBarHelper.error(context, AlertMessages.loginFailed);
                       }
                     },
                   ),

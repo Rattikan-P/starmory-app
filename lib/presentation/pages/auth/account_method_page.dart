@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../data/services/preference_service.dart';
+import '../../../utils/snackbar_helper.dart';
 import '../main_navigation.dart';
 import '../onboarding_page.dart';
 import '../language_selection_page.dart';
@@ -37,11 +38,23 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
         forceAccountSelection: true,
       );
 
-      if (!success || !context.mounted) return;
+      if (!success) {
+        if (context.mounted) {
+          SnackBarHelper.error(context, AlertMessages.loginFailed);
+        }
+        return;
+      }
+
+      if (!context.mounted) return;
 
       final client = Supabase.instance.client;
       final userId = client.auth.currentUser?.id;
-      if (userId == null) return;
+      if (userId == null) {
+        if (context.mounted) {
+          SnackBarHelper.error(context, AlertMessages.loginFailed);
+        }
+        return;
+      }
 
       final preferenceService = ref.read(onboardingServiceProvider);
       await preferenceService.init();
@@ -71,19 +84,18 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
 
         if (!hasGuestData) {
           // ไม่มีข้อมูล guest → ถาม level/variant
-          // navigate ไป LanguageSelectionPage แล้วรอผล
-          final result = await Navigator.of(context).push<bool>(
+          // EnglishVariantPage จะจัดการทุกอย่าง (บันทึกข้อมูล, navigate) เมื่อ isInitialSetup
+          await Navigator.of(context).push(
             MaterialPageRoute(
               builder: (_) => const LanguageSelectionPage(
                 isGuest: false,
                 isInitialSetup: true,
-                returnAfterSelection: true,
+                returnAfterSelection: false,
               ),
             ),
           );
-          if (!context.mounted || result != true) return;
-          finalLevel = await preferenceService.getGuestLanguageLevel();
-          finalVariant = await preferenceService.getGuestEnglishVariant();
+          // Context will be unmounted here since EnglishVariantPage handles full navigation
+          return;
         }
 
         // บันทึกข้อมูล
@@ -120,6 +132,18 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
 
       if (!context.mounted) return;
 
+      // Show different message for existing vs new users
+      if (!isNewUser) {
+        SnackBarHelper.success(context, AlertMessages.welcomeBack);
+      } else {
+        SnackBarHelper.success(context, AlertMessages.loginSuccess);
+      }
+
+      // Wait a bit so user can see the success message
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      if (!context.mounted) return;
+
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(
           builder: (_) => const MainNavigationScreen(),
@@ -128,9 +152,7 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
       );
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
+        SnackBarHelper.error(context, AlertMessages.loginFailed);
       }
     }
   }
@@ -156,9 +178,7 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
       );
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.toString()}')),
-        );
+        SnackBarHelper.error(context, AlertMessages.loginFailed);
       }
     } finally {
       if (mounted) {
@@ -412,10 +432,10 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
                             onFieldSubmitted: (_) => _continueWithEmail(context),
                             validator: (value) {
                               if (value == null || value.trim().isEmpty) {
-                                return 'Please enter your email';
+                                return AlertMessages.emailRequired;
                               }
                               if (!value.trim().contains('@')) {
-                                return 'Please enter a valid email';
+                                return AlertMessages.invalidEmail;
                               }
                               return null;
                             },

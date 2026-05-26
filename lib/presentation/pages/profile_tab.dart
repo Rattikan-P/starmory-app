@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:starmory_app/data/services/preference_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../constants/app_defaults.dart';
+import '../../utils/snackbar_helper.dart';
 import '../providers/auth_provider.dart';
 import '../../data/services/auth_service.dart';
 import 'onboarding_page.dart';
@@ -703,23 +704,31 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
               ),
               child: FilledButton.tonalIcon(
                 onPressed: () async {
-                  // Sync preferences to guest before logout
-                  final client = Supabase.instance.client;
-                  final level = _userData?['language_level'];
-                  final variant = _userData?['english_variant'];
+                  // Store context before async gap
+                  final ctx = context;
+                  try {
+                    // Sync preferences to guest before logout
+                    final client = Supabase.instance.client;
+                    final level = _userData?['language_level'];
+                    final variant = _userData?['english_variant'];
 
-                  final preferenceService = ref.read(onboardingServiceProvider);
-                  if (level != null) {
-                    await preferenceService.setGuestLanguageLevel(level);
+                    final preferenceService = ref.read(onboardingServiceProvider);
+                    if (level != null) {
+                      await preferenceService.setGuestLanguageLevel(level);
+                    }
+                    if (variant != null) {
+                      await preferenceService.setGuestEnglishVariant(variant);
+                    }
+
+                    // Set guest mode before logout so ProfileTab shows guest view
+                    await preferenceService.setGuestMode(true);
+
+                    await client.auth.signOut();
+                  } catch (e) {
+                    if (ctx.mounted) {
+                      SnackBarHelper.error(ctx, 'Logout failed. Please try again.');
+                    }
                   }
-                  if (variant != null) {
-                    await preferenceService.setGuestEnglishVariant(variant);
-                  }
-
-                  // Set guest mode before logout so ProfileTab shows guest view
-                  await preferenceService.setGuestMode(true);
-
-                  await client.auth.signOut();
                 },
                 icon: const Icon(Icons.login, color: Color(0xFF5E3A8E)),
                 label: const Text('Logout', style: TextStyle(color: Color(0xFF5E3A8E))),
@@ -776,18 +785,28 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
     if (result == true && formKey.currentState?.validate() == true) {
       final newName = controller.text.trim();
       if (newName.isNotEmpty && newName != currentDisplayName) {
-        final client = Supabase.instance.client;
-        final userId = widget.user.id;
+        try {
+          final client = Supabase.instance.client;
+          final userId = widget.user.id;
 
-        await client.auth.updateUser(
-          UserAttributes(data: {'display_name': newName}),
-        );
-        await client
-            .from('users')
-            .update({'display_name': newName})
-            .eq('id', userId);
+          await client.auth.updateUser(
+            UserAttributes(data: {'display_name': newName}),
+          );
+          await client
+              .from('users')
+              .update({'display_name': newName})
+              .eq('id', userId);
 
-        _fetchUserData();
+          if (context.mounted) {
+            SnackBarHelper.success(context, AlertMessages.changesSaved);
+          }
+
+          _fetchUserData();
+        } catch (e) {
+          if (context.mounted) {
+            SnackBarHelper.error(context, AlertMessages.saveFailed);
+          }
+        }
       }
     }
   }
@@ -995,9 +1014,7 @@ Future<void> _showDeleteAccountDialog(
     );
   } catch (e) {
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to delete account: ${e.toString()}')),
-      );
+      SnackBarHelper.error(context, AlertMessages.deleteAccountFailed);
     }
   }
 }

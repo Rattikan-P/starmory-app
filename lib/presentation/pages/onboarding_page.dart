@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/services/preference_service.dart';
 import '../../data/services/auth_service.dart';
+import '../../utils/snackbar_helper.dart';
 import 'auth/otp_verification_page.dart';
 import 'language_selection_page.dart';
 import 'main_navigation.dart';
@@ -93,11 +94,23 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
         forceAccountSelection: true,
       );
 
-      if (!success || !mounted) return;
+      if (!success) {
+        if (mounted) {
+          SnackBarHelper.error(context, AlertMessages.loginFailed);
+        }
+        return;
+      }
+
+      if (!mounted) return;
 
       final client = Supabase.instance.client;
       final userId = client.auth.currentUser?.id;
-      if (userId == null) return;
+      if (userId == null) {
+        if (mounted) {
+          SnackBarHelper.error(context, AlertMessages.loginFailed);
+        }
+        return;
+      }
 
       // Auto-accept terms on signup
       await preferenceService.setTermsVersion(preferenceService.getCurrentTermsVersion());
@@ -116,51 +129,28 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
       final prefService = ref.read(onboardingServiceProvider);
 
       if (isNewUser) {
-        final result = await Navigator.of(context).push<bool>(
+        // EnglishVariantPage จะจัดการทุกอย่างเมื่อ isInitialSetup
+        await Navigator.of(context).push(
           MaterialPageRoute(
             builder: (_) => const LanguageSelectionPage(
               isGuest: false,
               isInitialSetup: true,
-              returnAfterSelection: true,
+              returnAfterSelection: false,
             ),
           ),
         );
-
-        if (!mounted || result != true) {
-          await client.auth.signOut();
-          return;
-        }
-
-        final level = await prefService.getGuestLanguageLevel();
-        final variant = await prefService.getGuestEnglishVariant();
-
-        await authService.updateUserPreferences(
-          userId: userId,
-          email: client.auth.currentUser?.email ?? '',
-          languageLevel: level ?? AppDefaults.defaultLanguageLevel,
-          englishVariant: variant ?? AppDefaults.defaultEnglishVariant,
-          termsVersion: preferenceService.getCurrentTermsVersion(),
-        );
-
-        await client
-            .from('users')
-            .update({'onboarding_completed': true})
-            .eq('id', userId);
-
+        // Context will be unmounted here since EnglishVariantPage handles full navigation
+        return;
+      } else {
         await prefService.setOnboardingCompleted(true);
         await prefService.setGuestMode(false);
 
         if (!mounted) return;
 
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(
-            builder: (_) => const MainNavigationScreen(),
-          ),
-          (route) => false,
-        );
-      } else {
-        await prefService.setOnboardingCompleted(true);
-        await prefService.setGuestMode(false);
+        SnackBarHelper.success(context, AlertMessages.welcomeBack);
+
+        // Wait a bit so user can see the success message
+        await Future.delayed(const Duration(milliseconds: 500));
 
         if (!mounted) return;
 
@@ -174,9 +164,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
+        SnackBarHelper.error(context, AlertMessages.loginFailed);
       }
     }
   }
@@ -201,9 +189,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.toString()}')),
-        );
+        SnackBarHelper.error(context, AlertMessages.loginFailed);
       }
     } finally {
       if (mounted) {
@@ -245,6 +231,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       body: Stack(
         children: [
           // Galaxy gradient background
@@ -792,9 +779,10 @@ class _AuthOptionsSheet extends StatelessWidget {
         top: 28,
         bottom: 28 + keyboardHeight,
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
           // Handle bar
           Container(
             width: 48,
@@ -1045,7 +1033,8 @@ class _AuthOptionsSheet extends StatelessWidget {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),
-        ],
+          ],
+        ),
       ),
     );
   }

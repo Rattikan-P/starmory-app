@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/services/auth_service.dart';
+import '../../../utils/snackbar_helper.dart';
 import 'otp_verification_page.dart';
 
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
@@ -39,6 +40,14 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       await authService.sendOtp(_emailController.text.trim());
 
       if (mounted) {
+        // Show success message before navigation
+        SnackBarHelper.success(context, AlertMessages.otpSent);
+
+        // Wait a bit so user can see the success message
+        await Future.delayed(const Duration(milliseconds: 500));
+
+        if (!mounted) return;
+
         // Navigate to OTP verification with metadata
         Navigator.push(
           context,
@@ -55,9 +64,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to send OTP: ${e.toString()}')),
-        );
+        SnackBarHelper.error(context, AlertMessages.otpSendFailed);
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -119,10 +126,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       textInputAction: TextInputAction.next,
                       validator: (value) {
                         if (value == null || value.isEmpty) {
-                          return 'Please enter your email';
+                          return AlertMessages.emailRequired;
                         }
                         if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
-                          return 'Please enter a valid email';
+                          return AlertMessages.invalidEmail;
                         }
                         return null;
                       },

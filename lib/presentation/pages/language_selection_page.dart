@@ -52,9 +52,9 @@ class _LanguageSelectionPageState extends ConsumerState<LanguageSelectionPage> {
         await preferenceService.setGuestMode(true);
         await preferenceService.setOnboardingCompleted(true);
         if (mounted) {
-          Navigator.of(context).popUntil((route) => route.isFirst);
-          Navigator.of(context).pushReplacement(
+          Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
+            (route) => false,
           );
         }
       } else {
@@ -465,6 +465,7 @@ class _LanguageSelectionPageState extends ConsumerState<LanguageSelectionPage> {
         MaterialPageRoute(
           builder: (_) => EnglishVariantPage(
             isGuest: widget.isGuest,
+            isInitialSetup: widget.isInitialSetup,
             languageLevel: code,
             forceSelection: widget.forceSelection,
             returnAfterSelection: widget.returnAfterSelection,
