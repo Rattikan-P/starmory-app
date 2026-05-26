@@ -5,6 +5,7 @@ import '../providers/providers.dart';
 import '../../data/models/vocabulary_model.dart';
 import '../../data/services/gemini_service.dart';
 import 'generation_loading_screen.dart';
+import 'dart:ui';
 
 /// Interactive Vocabulary Result Screen
 /// Shows image with clickable dots, word chips, and context customization
@@ -35,7 +36,8 @@ class _InteractiveVocabularyScreenState
   bool _isRegenerating = false;
 
   // Store individual sentences before switching to combined mode
-  final Map<String, ({String english, String thai})> _savedIndividualSentences = {};
+  final Map<String, ({String english, String thai})> _savedIndividualSentences =
+      {};
 
   /// Map UI tone to API tone format
   String _mapToneToApiFormat(String uiTone) {
@@ -135,7 +137,9 @@ class _InteractiveVocabularyScreenState
     // Get selected dots (or all dots if nothing selected - initial state)
     final selectedDots = _selectedWordIds.isEmpty
         ? _vocabularyDots
-        : _vocabularyDots.where((d) => _selectedWordIds.contains(d.id)).toList();
+        : _vocabularyDots
+              .where((d) => _selectedWordIds.contains(d.id))
+              .toList();
 
     if (selectedDots.isEmpty) return;
 
@@ -314,88 +318,158 @@ class _InteractiveVocabularyScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text('Vocabulary Result'),
-        backgroundColor: const Color(0xFF6C63FF),
-        foregroundColor: Colors.white,
-        actions: [
-          // Rescan button - rescan same image
-          IconButton(
-            icon: const Icon(Icons.camera_alt),
-            onPressed: () => _showRescanConfirmation(),
-            tooltip: 'Rescan',
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        backgroundColor: Colors.transparent,
+        foregroundColor: const Color(0xFF2D2A4A),
+        leading: Padding(
+          padding: const EdgeInsets.all(8),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.9),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.arrow_back_rounded),
+              onPressed: () => Navigator.pop(context),
+            ),
           ),
-          // Save button
-          TextButton(
-            onPressed: _selectedWordIds.isEmpty ? null : _saveAllVocabularies,
-            child: Text(
-              'Save (${_selectedWordIds.length})',
-              style: const TextStyle(color: Colors.white),
+        ),
+        title: const Text(
+          'Vocabulary Result',
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: 20,
+            color: Color(0xFF2D2A4A),
+          ),
+        ),
+        actions: [
+          Container(
+            margin: const EdgeInsets.only(right: 16),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.9),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.refresh_rounded),
+              onPressed: () => _showRescanConfirmation(),
             ),
           ),
         ],
       ),
-      body: Stack(
-        children: [
-          // Image with Dots - takes full height
-          Positioned.fill(child: _buildImageWithDots()),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFF8F7FF), Color(0xFFF1EEFF)],
+          ),
+        ),
+        child: Stack(
+          children: [
+            // Image with Dots
+            Positioned.fill(child: _buildImageWithDots()),
 
-          // Draggable Bottom Sheet for word details
-          Positioned.fill(child: _buildBottomSheet()),
-        ],
+            // Bottom Sheet
+            Positioned.fill(child: _buildBottomSheet()),
+          ],
+        ),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      floatingActionButton: FilledButton(
+        onPressed: _selectedWordIds.isEmpty ? null : _saveAllVocabularies,
+        style: FilledButton.styleFrom(
+          backgroundColor: const Color(0xFF7B6EF6),
+          foregroundColor: Colors.white,
+          disabledBackgroundColor: Colors.grey[300],
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(30),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+          elevation: 8,
+        ),
+        child: Text(
+          'Create Scrapbook',
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        ),
       ),
     );
   }
 
   Widget _buildCombinedSentenceToggle() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.grey[50],
-        border: Border(
-          top: BorderSide(color: Colors.grey[200]!),
-          bottom: BorderSide(color: Colors.grey[200]!),
-        ),
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Text(
-            'Combined Sentence',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-          ),
-          Switch(
-            value: _useCombinedSentence,
-            onChanged: (value) async {
+          GestureDetector(
+            onTap: () async {
+              final value = !_useCombinedSentence;
+
               if (value) {
-                // Switching TO combined mode: save individual sentences first
                 _saveIndividualSentences();
+
                 setState(() {
                   _useCombinedSentence = true;
                   _clearSelectedSentences();
                   _isRegenerating = true;
                 });
-                debugPrint('🔄 Toggle: combined=$value, selected=${_selectedWordIds.length} words');
+
                 await _generateAllSentences();
               } else {
-                // Switching FROM combined mode: restore saved individual sentences
                 setState(() => _useCombinedSentence = false);
+
                 final restored = _restoreIndividualSentences();
+
                 if (!restored) {
-                  // No saved sentences - need to generate
                   setState(() {
                     _isRegenerating = true;
                   });
+
                   await _generateAllSentences();
                 }
               }
-              debugPrint('✅ Toggle: complete');
             },
-            activeTrackColor: const Color(0xFF6C63FF).withOpacity(0.5),
-            activeThumbColor: const Color(0xFF6C63FF),
+
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+
+              width: 22,
+              height: 22,
+
+              decoration: BoxDecoration(
+                color: _useCombinedSentence
+                    ? const Color(0xFF7B6EF6)
+                    : Colors.transparent,
+
+                borderRadius: BorderRadius.circular(6),
+
+                border: Border.all(
+                  color: _useCombinedSentence
+                      ? const Color(0xFF7B6EF6)
+                      : const Color.fromARGB(255, 77, 74, 98),
+                  width: 1.5,
+                ),
+              ),
+
+              child: _useCombinedSentence
+                  ? const Icon(
+                      Icons.check_rounded,
+                      size: 15,
+                      color: Colors.white,
+                    )
+                  : null,
+            ),
+          ),
+
+          const SizedBox(width: 12),
+
+          const Text(
+            'Combined Sentence',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF2D2A4A),
+            ),
           ),
         ],
       ),
@@ -425,7 +499,9 @@ class _InteractiveVocabularyScreenState
         );
       }
     }
-    debugPrint('💾 Saved ${_savedIndividualSentences.length} individual sentences');
+    debugPrint(
+      '💾 Saved ${_savedIndividualSentences.length} individual sentences',
+    );
   }
 
   /// Restore individual sentences when switching back from combined mode
@@ -437,7 +513,9 @@ class _InteractiveVocabularyScreenState
     }
 
     // Check if all selected words have saved sentences
-    final hasAllSaved = _selectedWordIds.every((id) => _savedIndividualSentences.containsKey(id));
+    final hasAllSaved = _selectedWordIds.every(
+      (id) => _savedIndividualSentences.containsKey(id),
+    );
 
     setState(() {
       for (var i = 0; i < _vocabularyDots.length; i++) {
@@ -453,7 +531,9 @@ class _InteractiveVocabularyScreenState
     });
 
     if (hasAllSaved) {
-      debugPrint('♻️ Restored ${_savedIndividualSentences.length} individual sentences');
+      debugPrint(
+        '♻️ Restored ${_savedIndividualSentences.length} individual sentences',
+      );
       return true;
     } else {
       debugPrint('⚠️ Some words missing saved sentences, will regenerate');
@@ -529,54 +609,68 @@ class _InteractiveVocabularyScreenState
               minChildSize: minChildSize,
               maxChildSize: maxChildSize,
               builder: (context, scrollController) {
-                return Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(20),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.1),
-                        blurRadius: 10,
-                        offset: const Offset(0, -2),
-                      ),
-                    ],
+                return ClipRRect(
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(32),
                   ),
-                  child: CustomScrollView(
-                    controller: scrollController,
-                    slivers: [
-                      // Drag Handle
-                      SliverToBoxAdapter(
-                        child: Center(
-                          child: Container(
-                            margin: const EdgeInsets.only(top: 12, bottom: 8),
-                            width: 40,
-                            height: 4,
-                            decoration: BoxDecoration(
-                              color: Colors.grey[300],
-                              borderRadius: BorderRadius.circular(2),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(
+                      sigmaX: 18,
+                      sigmaY: 18,
+                    ),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.82),
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(32),
+                        ),
+                        border: Border.all(color: Colors.white.withOpacity(0.6)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF7B6EF6).withValues(alpha: 0.08),
+                            blurRadius: 30,
+                            offset: const Offset(0, -10),
+                          ),
+                        ],
+                      ),
+                      child: CustomScrollView(
+                        controller: scrollController,
+                        slivers: [
+                          // Drag Handle
+                          SliverToBoxAdapter(
+                            child: Center(
+                              child: Container(
+                                margin: const EdgeInsets.only(top: 12, bottom: 8),
+                                width: 40,
+                                height: 4,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFD4CCFF),
+                                  borderRadius: BorderRadius.circular(99),
+                                ),
+                              ),
                             ),
                           ),
-                        ),
+
+                          // Selected Words Chips
+                          SliverToBoxAdapter(child: _buildSelectedWordsChips()),
+
+                          // Combined Sentence Toggle
+                          SliverToBoxAdapter(child: _buildCombinedSentenceToggle()),
+
+                          // Combined Sentence Display
+                          SliverToBoxAdapter(
+                            child: _buildCombinedSentenceDisplay(),
+                          ),
+
+                          // Word Details / Empty State
+                          // Hide individual word cards when combined mode is ON
+                          if (_selectedWordIds.isEmpty)
+                            _buildEmptyStateSliver(scrollController)
+                          else if (!_useCombinedSentence)
+                            _buildWordDetailsSliver(scrollController),
+                        ],
                       ),
-
-                      // Selected Words Chips
-                      SliverToBoxAdapter(child: _buildSelectedWordsChips()),
-
-                      // Combined Sentence Toggle
-                      SliverToBoxAdapter(child: _buildCombinedSentenceToggle()),
-
-                      // Combined Sentence Display
-                      SliverToBoxAdapter(child: _buildCombinedSentenceDisplay()),
-
-                      // Word Details / Empty State
-                      // Hide individual word cards when combined mode is ON
-                      if (_selectedWordIds.isEmpty)
-                        _buildEmptyStateSliver(scrollController)
-                      else if (!_useCombinedSentence)
-                        _buildWordDetailsSliver(scrollController),
-                    ],
+                    ),
                   ),
                 );
               },
@@ -668,26 +762,39 @@ class _InteractiveVocabularyScreenState
             height: dotSize,
             padding: const EdgeInsets.all(8), // Invisible tap area padding
             child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
+              duration: const Duration(milliseconds: 280),
+              curve: Curves.easeOutCubic,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: isSelected
-                    ? const Color(0xFF6C63FF)
-                    : Colors.white.withOpacity(0.8),
+                    ? const Color(0xFF7B6EF6).withValues(alpha: 0.7)
+                    : Colors.white.withValues(alpha: 0.6),
                 border: Border.all(
-                  color: const Color(0xFF6C63FF),
-                  width: isSelected ? 2.5 : 1.5,
+                  color: isSelected
+                      ? const Color(0xFF7B6EF6)
+                      : Colors.white,
+                  width: 3,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.2),
-                    blurRadius: 3,
+                    color: const Color(
+                      0xFF7B6EF6,
+                    ).withOpacity(isSelected ? 0.35 : 0.15),
+                    blurRadius: isSelected ? 16 : 8,
+                    spreadRadius: 1,
+                  ),
+                  BoxShadow(
+                    color: isSelected
+                        ? const Color(0xFF7B6EF6).withValues(alpha: 0.3)
+                        : Colors.white.withValues(alpha: 0.6),
+                    blurRadius: 0,
+                    spreadRadius: 2,
                   ),
                 ],
               ),
               child: Center(
                 child: Text(
-                  isSelected ? '${_vocabularyDots.indexOf(dot) + 1}' : '',
+                  '',
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
@@ -783,7 +890,7 @@ class _InteractiveVocabularyScreenState
               ),
               child: Center(
                 child: Text(
-                  isSelected ? '${_vocabularyDots.indexOf(dot) + 1}' : '',
+                  '',
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
@@ -817,15 +924,23 @@ class _InteractiveVocabularyScreenState
         itemBuilder: (context, index) {
           final dot = selectedDots[index];
           return Chip(
-            label: Text(dot.word),
-            avatar: CircleAvatar(
-              backgroundColor: const Color(0xFF6C63FF),
-              child: Text(
-                '${index + 1}',
-                style: const TextStyle(color: Colors.white, fontSize: 12),
-              ),
+            backgroundColor: const Color(0xFFF1EEFF),
+
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
             ),
-            backgroundColor: const Color(0xFF6C63FF).withOpacity(0.1),
+
+            side: BorderSide.none,
+
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+
+            labelStyle: const TextStyle(
+              color: Color(0xFF2D2A4A),
+              fontWeight: FontWeight.w600,
+            ),
+
+            label: Text(dot.word),
+
             deleteIcon: const Icon(Icons.close, size: 18),
             onDeleted: () => _toggleWordSelection(dot.id),
           );
@@ -855,11 +970,17 @@ class _InteractiveVocabularyScreenState
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF6C63FF).withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF6C63FF).withValues(alpha: 0.3)),
+        color: const Color(0xFFE7E1FF),
+        borderRadius: BorderRadius.circular(24),
+
+        border: Border.all(color: const Color(0xFFD2C7FF), width: 1.2),
+
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4),
+          BoxShadow(
+            color: const Color(0xFF7B6EF6).withOpacity(0.08),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
         ],
       ),
       child: Column(
@@ -872,7 +993,7 @@ class _InteractiveVocabularyScreenState
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: const Color(0xFF6C63FF),
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Text(
                   'COMBINED',
@@ -902,8 +1023,10 @@ class _InteractiveVocabularyScreenState
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
+              color: const Color(0xFFF8F6FF),
+              borderRadius: BorderRadius.circular(18),
+
+              border: Border.all(color: const Color(0xFFE0D8FF)),
             ),
             child: _isRegenerating
                 ? Column(
@@ -931,20 +1054,20 @@ class _InteractiveVocabularyScreenState
                     ],
                   )
                 : firstSelectedDot.englishSentence.isEmpty
-                    ? Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'No sentence generated. Try selecting words first.',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.grey[500],
-                              fontStyle: FontStyle.italic,
-                            ),
-                          ),
-                        ],
-                      )
-                    : Column(
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'No sentence generated. Try selecting words first.',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey[500],
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ],
+                  )
+                : Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
@@ -958,10 +1081,7 @@ class _InteractiveVocabularyScreenState
                       const SizedBox(height: 6),
                       Text(
                         firstSelectedDot.thaiSentence,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[700],
-                        ),
+                        style: TextStyle(fontSize: 14, color: Colors.grey[700]),
                       ),
                     ],
                   ),
@@ -978,20 +1098,24 @@ class _InteractiveVocabularyScreenState
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.touch_app, size: 64, color: Colors.grey[400]),
+            const Icon(
+              Icons.touch_app_rounded,
+              size: 70,
+              color: Color(0xFFC5BCFF),
+            ),
             const SizedBox(height: 16),
             Text(
               'Tap the dots on the image',
               style: TextStyle(
                 fontSize: 18,
-                color: Colors.grey[600],
+                color: const Color(0xFF2D2A4A),
                 fontWeight: FontWeight.w500,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               'to select vocabulary words',
-              style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+              style: TextStyle(fontSize: 14, color: const Color(0xFF8B87A6)),
             ),
           ],
         ),
@@ -1020,19 +1144,6 @@ class _InteractiveVocabularyScreenState
                 onAudioTap: () => _playAudio(dot),
                 isRegenerating: _isRegenerating,
               ),
-              // Show loading indicator at the end if regenerating
-              if (_isRegenerating && index == selectedDots.length - 1)
-                const Padding(
-                  padding: EdgeInsets.all(20),
-                  child: Column(
-                    children: [
-                      SizedBox(height: 12),
-                      CircularProgressIndicator(),
-                      SizedBox(height: 12),
-                      Text('Updating sentences...'),
-                    ],
-                  ),
-                ),
             ],
           ),
         );
@@ -1303,9 +1414,7 @@ class _InteractiveVocabularyScreenState
                   successCount++;
                 }
               }
-              debugPrint(
-                '✅ Combined sentence: ${sentenceData.text}',
-              );
+              debugPrint('✅ Combined sentence: ${sentenceData.text}');
             }
           }
         } else {
@@ -1416,14 +1525,10 @@ class _InteractiveVocabularyScreenState
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Row(
-          children: [
-            Icon(Icons.camera_alt, color: Colors.blue[700]),
-            const SizedBox(width: 8),
-            const Text('Rescan Image'),
-          ],
+        title: Row(children: [const Text('Rescan Image')]),
+        content: const Text(
+          'Do you want to scan this same image again to generate new vocabulary?',
         ),
-        content: const Text('Do you want to scan this same image again to generate new vocabulary?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -1477,32 +1582,23 @@ class _WordDetailCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[200]!),
+        color: Colors.white.withOpacity(0.9),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.white.withOpacity(0.7)),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header with word and index
+          // Header with word
           Row(
             children: [
-              CircleAvatar(
-                radius: 14,
-                backgroundColor: const Color(0xFF6C63FF),
-                child: Text(
-                  '$index',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1525,8 +1621,8 @@ class _WordDetailCard extends StatelessWidget {
               // Audio Button
               IconButton(
                 icon: const Icon(Icons.volume_up),
-                color: const Color(0xFF6C63FF),
-                onPressed: onAudioTap,
+                color: isRegenerating ? Colors.grey : const Color(0xFF6C63FF),
+                onPressed: isRegenerating ? null : onAudioTap,
               ),
             ],
           ),
@@ -1536,10 +1632,10 @@ class _WordDetailCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.grey[100],
-              borderRadius: BorderRadius.circular(8),
+              color: const Color(0xFFF6F4FF),
+              borderRadius: BorderRadius.circular(18),
             ),
-            child: dot.englishSentence.isEmpty
+            child: dot.englishSentence.isEmpty || isRegenerating
                 ? Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -1555,7 +1651,7 @@ class _WordDetailCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Generating sentence...',
+                        'Updating sentence...',
                         style: TextStyle(
                           fontSize: 13,
                           color: Colors.grey[500],
@@ -1620,19 +1716,19 @@ class _ContextChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: const Color(0xFF6C63FF).withOpacity(0.1),
+        color: const Color(0xFFF1EEFF),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: const Color(0xFF6C63FF)),
+          Icon(icon, size: 14, color: const Color(0xFF7B6EF6)),
           const SizedBox(width: 4),
           Text(
             label,
             style: const TextStyle(
               fontSize: 12,
-              color: Color(0xFF6C63FF),
+              color: Color(0xFF7B6EF6),
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -1751,10 +1847,19 @@ class _ContextSelectorScreenState extends State<ContextSelectorScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF8F7FF),
       appBar: AppBar(
-        title: const Text('Customize Context'),
-        backgroundColor: const Color(0xFF6C63FF),
-        foregroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        backgroundColor: Colors.transparent,
+        foregroundColor: const Color(0xFF2D2A4A),
+        title: const Text(
+          'Customize Context',
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF2D2A4A),
+          ),
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -1765,8 +1870,16 @@ class _ContextSelectorScreenState extends State<ContextSelectorScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFF6C63FF).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
+                color: Colors.white.withOpacity(0.9),
+                borderRadius: BorderRadius.circular(24),
+
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.04),
+                    blurRadius: 18,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
               ),
               child: Row(
                 children: [
@@ -1775,7 +1888,7 @@ class _ContextSelectorScreenState extends State<ContextSelectorScreen> {
                     style: const TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF6C63FF),
+                      color: Color(0xFF7B6EF6),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -1822,7 +1935,7 @@ class _ContextSelectorScreenState extends State<ContextSelectorScreen> {
                   backgroundColor: const Color(0xFF6C63FF),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(20),
                   ),
                 ),
                 child: const Text(
@@ -1841,7 +1954,7 @@ class _ContextSelectorScreenState extends State<ContextSelectorScreen> {
                   foregroundColor: const Color(0xFF6C63FF),
                   side: const BorderSide(color: Color(0xFF6C63FF)),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(20),
                   ),
                 ),
                 child: const Text(
@@ -1879,9 +1992,14 @@ class _ContextSelectorScreenState extends State<ContextSelectorScreen> {
           onSelected: (_) {
             setState(() => _selectedTone = tone);
           },
-          selectedColor: const Color(0xFF6C63FF).withOpacity(0.3),
-          checkmarkColor: const Color(0xFF6C63FF),
-          backgroundColor: Colors.grey[100],
+          selectedColor: const Color(0xFFDCD4FF),
+          backgroundColor: Colors.white,
+
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+
+          side: BorderSide(color: const Color(0xFFD8D1FF), width: 1.2),
         );
       }).toList(),
     );
@@ -1899,9 +2017,14 @@ class _ContextSelectorScreenState extends State<ContextSelectorScreen> {
           onSelected: (_) {
             setState(() => _selectedCategory = category);
           },
-          selectedColor: const Color(0xFF6C63FF).withOpacity(0.3),
-          checkmarkColor: const Color(0xFF6C63FF),
-          backgroundColor: Colors.grey[100],
+          selectedColor: const Color(0xFFDCD4FF),
+          backgroundColor: Colors.white,
+
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+
+          side: BorderSide(color: const Color(0xFFD8D1FF), width: 1.2),
         );
       }).toList(),
     );
