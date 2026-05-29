@@ -71,3 +71,4 @@ supabase.exe
 .supabase/
 supabase/.branches/
 supabase/.temp/
+*.hprof
