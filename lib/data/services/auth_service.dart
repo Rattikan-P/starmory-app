@@ -84,7 +84,11 @@ class AuthService {
 
   // Send OTP to email (for both login and signup)
   Future<void> sendOtp(String email) async {
-    await _client.auth.signInWithOtp(email: email, emailRedirectTo: null);
+    try {
+      await _client.auth.signInWithOtp(email: email, emailRedirectTo: null);
+    } catch (e) {
+      throw Exception('Failed to send OTP: $e');
+    }
   }
 
   // Verify OTP and complete auth

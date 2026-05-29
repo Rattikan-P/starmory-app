@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../utils/snackbar_helper.dart';
+import '../../../presentation/widgets/otp_keypad.dart';
 import '../language_selection_page.dart';
 import '../main_navigation.dart';
 import '../onboarding_page.dart' show onboardingServiceProvider;
@@ -46,11 +47,18 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
   bool _isResending = false;
   int _countdown = 60;
   Timer? _countdownTimer;
+  int _failedAttempts = 0; // Track failed OTP attempts
 
   @override
   void initState() {
     super.initState();
     _startCountdown();
+    // Focus first OTP field after build completes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _focusNodes.isNotEmpty) {
+        _focusNodes[0].requestFocus();
+      }
+    });
   }
 
   @override
@@ -87,6 +95,8 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
       if (mounted) {
         SnackBarHelper.success(context, AlertMessages.otpSent, showAboveKeyboard: true);
         _startCountdown();
+        // Reset failed attempts when requesting new OTP
+        setState(() => _failedAttempts = 0);
       }
     } catch (e) {
       if (mounted) {
@@ -196,6 +206,9 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
         SnackBarHelper.success(context, AlertMessages.loginSuccess, showAboveKeyboard: true);
       }
 
+      // Reset failed attempts on success
+      setState(() => _failedAttempts = 0);
+
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(
           builder: (_) => const MainNavigationScreen(),
@@ -204,13 +217,189 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
       );
     } catch (e) {
       if (mounted) {
-        // Supabase returns 403 for both invalid and expired OTP - use combined message
-        SnackBarHelper.error(context, AlertMessages.otpInvalid, showAboveKeyboard: true);
-        _clearOtp();
+        // Increment failed attempts
+        setState(() => _failedAttempts++);
+
+        // Supabase returns 403 for both invalid and expired OTP
+        if (_failedAttempts >= 3) {
+          // Show dialog suggesting new OTP after 3 failed attempts
+          _showAttemptLimitDialog(context);
+        } else {
+          // Show normal error message for first 2 attempts
+          SnackBarHelper.error(context, AlertMessages.otpInvalid, showAboveKeyboard: true);
+          _clearOtp();
+        }
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  /// Show dialog when user reaches 3 failed OTP attempts
+  void _showAttemptLimitDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.white,
+                const Color(0xFFf8f9ff),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF8b5cf6).withValues(alpha: 0.15),
+                blurRadius: 30,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Warning icon
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Color(0xFFfbbf24),
+                      Color(0xFFf59e0b),
+                    ],
+                  ),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.warning_rounded,
+                  color: Colors.white,
+                  size: 32,
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Title
+              Text(
+                'Too many attempts',
+                style: GoogleFonts.lexend(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF1f2937),
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+
+              // Subtitle
+              Text(
+                'You\'ve tried 3 times. Would you like a new code?',
+                style: GoogleFonts.lexend(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w400,
+                  color: const Color(0xFF6b7280),
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+
+              // Buttons
+              Row(
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: 48,
+                      child: OutlinedButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          // Reset attempts and let user try again
+                          setState(() => _failedAttempts = 0);
+                          _clearOtp();
+                        },
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF9ca3af),
+                          side: BorderSide(
+                            color: const Color(0xFF9ca3af).withValues(alpha: 0.3),
+                            width: 1.5,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: Text(
+                          'Try again',
+                          style: GoogleFonts.lexend(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: SizedBox(
+                      height: 48,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Color(0xFF60a5fa),
+                              Color(0xFFa78bfa),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFFa78bfa).withValues(alpha: 0.4),
+                              blurRadius: 15,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () async {
+                              Navigator.pop(context);
+                              // Reset attempts and request new OTP
+                              setState(() => _failedAttempts = 0);
+                              await _resendOtp();
+                            },
+                            borderRadius: BorderRadius.circular(12),
+                            child: const Center(
+                              child: Text(
+                                'New code',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   void _onOtpChanged(int index, String value) {
@@ -234,143 +423,353 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
     _focusNodes[0].requestFocus();
   }
 
+  /// Handle number press from custom keypad
+  void _onNumberPressed(int number) {
+    // Find first empty field
+    for (int i = 0; i < 6; i++) {
+      if (_otpControllers[i].text.isEmpty) {
+        _otpControllers[i].text = number.toString();
+        // Move to next field
+        if (i < 5) {
+          _focusNodes[i + 1].requestFocus();
+        }
+        // Trigger OTP changed logic
+        _onOtpChanged(i, number.toString());
+        return;
+      }
+    }
+    // All fields are filled, ignore (or could vibrate to indicate full)
+  }
+
+  /// Handle backspace press from custom keypad
+  void _onBackspacePressed() {
+    // Find which field is currently focused
+    int focusedIndex = -1;
+    for (int i = 0; i < 6; i++) {
+      if (_focusNodes[i].hasFocus) {
+        focusedIndex = i;
+        break;
+      }
+    }
+
+    // If no field is focused, find the last filled field
+    if (focusedIndex == -1) {
+      for (int i = 5; i >= 0; i--) {
+        if (_otpControllers[i].text.isNotEmpty) {
+          focusedIndex = i;
+          break;
+        }
+      }
+    }
+
+    // If still nothing, do nothing
+    if (focusedIndex == -1) {
+      // Focus first field as default
+      _focusNodes[0].requestFocus();
+      return;
+    }
+
+    // If current focused field has text, clear it
+    if (_otpControllers[focusedIndex].text.isNotEmpty) {
+      _otpControllers[focusedIndex].clear();
+      // Don't move focus, stay on same field
+    } else {
+      // Current field is empty, find previous filled field
+      int previousFilled = -1;
+      for (int i = focusedIndex - 1; i >= 0; i--) {
+        if (_otpControllers[i].text.isNotEmpty) {
+          previousFilled = i;
+          break;
+        }
+      }
+
+      if (previousFilled != -1) {
+        // Found previous filled field, clear it and move focus there
+        _otpControllers[previousFilled].clear();
+        _focusNodes[previousFilled].requestFocus();
+      } else {
+        // No previous filled field, just move focus to first empty
+        for (int i = 0; i < 6; i++) {
+          if (_otpControllers[i].text.isEmpty) {
+            _focusNodes[i].requestFocus();
+            break;
+          }
+        }
+      }
+    }
+  }
+
   Future<bool?> _showMergeDialog(BuildContext context) async {
     return showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      barrierDismissible: false,
+      builder: (context) => Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF60a5fa), Color(0xFFa78bfa)],
-                ),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.merge_rounded, color: Colors.white, size: 22),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.white,
+                const Color(0xFFf8f9ff),
+              ],
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF8b5cf6).withValues(alpha: 0.15),
+                blurRadius: 30,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Merge icon
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Color(0xFF60a5fa),
+                      Color(0xFFa78bfa),
+                    ],
+                  ),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.merge_rounded,
+                  color: Colors.white,
+                  size: 32,
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Title
+              Text(
                 'Account already exists',
                 style: GoogleFonts.lexend(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
                   color: const Color(0xFF1f2937),
                 ),
+                textAlign: TextAlign.center,
               ),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'This email already has an account.',
-              style: GoogleFonts.lexend(
-                fontSize: 14,
-                fontWeight: FontWeight.w400,
-                color: const Color(0xFF6b7280),
+              const SizedBox(height: 8),
+
+              // Subtitle
+              Text(
+                'This email already has an account.',
+                style: GoogleFonts.lexend(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w400,
+                  color: const Color(0xFF6b7280),
+                ),
+                textAlign: TextAlign.center,
               ),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFf3f4f6),
-                borderRadius: BorderRadius.circular(12),
+              const SizedBox(height: 16),
+
+              // Guest preferences card
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      const Color(0xFFf3f4f6),
+                      const Color(0xFFe8f0ff).withValues(alpha: 0.5),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: const Color(0xFF8b5cf6).withValues(alpha: 0.1),
+                    width: 1,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF8b5cf6).withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.person_outline,
+                            color: Color(0xFF8b5cf6),
+                            size: 18,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          'Your guest preferences',
+                          style: GoogleFonts.lexend(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF8b5cf6),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    if (widget.languageLevel != null)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 8, bottom: 6),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 6,
+                              height: 6,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFF8b5cf6),
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Language Level: ${widget.languageLevel}',
+                                style: GoogleFonts.lexend(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w400,
+                                  color: const Color(0xFF4b5563),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    if (widget.englishVariant != null)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 8),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 6,
+                              height: 6,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFF8b5cf6),
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'English Variant: ${widget.englishVariant}',
+                                style: GoogleFonts.lexend(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w400,
+                                  color: const Color(0xFF4b5563),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              const SizedBox(height: 20),
+
+              // Question
+              Text(
+                'Would you like to add your guest data to this account?',
+                style: GoogleFonts.lexend(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: const Color(0xFF6b7280),
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+
+              // Buttons
+              Row(
                 children: [
-                  Text(
-                    'Your guest preferences:',
-                    style: GoogleFonts.lexend(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: const Color(0xFF8b5cf6),
+                  Expanded(
+                    child: SizedBox(
+                      height: 48,
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF9ca3af),
+                          side: BorderSide(
+                            color: const Color(0xFF9ca3af).withValues(alpha: 0.3),
+                            width: 1.5,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: Text(
+                          'Keep old',
+                          style: GoogleFonts.lexend(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  if (widget.languageLevel != null)
-                    Padding(
-                      padding: const EdgeInsets.only(left: 8, bottom: 4),
-                      child: Text(
-                        '• Language Level: ${widget.languageLevel}',
-                        style: GoogleFonts.lexend(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
-                          color: const Color(0xFF4b5563),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: SizedBox(
+                      height: 48,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Color(0xFF60a5fa),
+                              Color(0xFFa78bfa),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFFa78bfa).withValues(alpha: 0.4),
+                              blurRadius: 15,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () => Navigator.pop(context, true),
+                            borderRadius: BorderRadius.circular(12),
+                            child: const Center(
+                              child: Text(
+                                'Add guest data',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ),
-                  if (widget.englishVariant != null)
-                    Padding(
-                      padding: const EdgeInsets.only(left: 8),
-                      child: Text(
-                        '• English Variant: ${widget.englishVariant}',
-                        style: GoogleFonts.lexend(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
-                          color: const Color(0xFF4b5563),
-                        ),
-                      ),
-                    ),
+                  ),
                 ],
               ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Would you like to add your guest data to this account?',
-              style: GoogleFonts.lexend(
-                fontSize: 14,
-                fontWeight: FontWeight.w400,
-                color: const Color(0xFF6b7280),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFF9ca3af),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: Text(
-              'Use my account only',
-              style: GoogleFonts.lexend(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFF8b5cf6),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: Text(
-              'Add guest data',
-              style: GoogleFonts.lexend(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -467,35 +866,38 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
             }),
             // Content
             SafeArea(
-              child: Padding(
-                padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-                child: Center(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.only(top: 80, bottom: 24, left: 24, right: 24),
-                  child: Container(
-                    constraints: const BoxConstraints(maxWidth: 400),
-                    padding: const EdgeInsets.all(28),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(24),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
-                          blurRadius: 20,
-                          offset: const Offset(0, 4),
+              child: Column(
+                children: [
+                  // Fixed card content - not scrollable
+                  Expanded(
+                    child: Center(
+                      child: SingleChildScrollView(
+                        physics: const NeverScrollableScrollPhysics(),
+                        padding: const EdgeInsets.only(top: 60, bottom: 16, left: 24, right: 24),
+                      child: Container(
+                        constraints: const BoxConstraints(maxWidth: 400),
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(24),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.05),
+                              blurRadius: 20,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                    child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
+                        child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
 
                           // Icon
                           Center(
                             child: Container(
-                              width: 90,
-                              height: 90,
+                              width: 70,
+                              height: 70,
                               decoration: BoxDecoration(
                                 gradient: const LinearGradient(
                                   begin: Alignment.topLeft,
@@ -516,46 +918,46 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
                               ),
                               child: const Icon(
                                 Icons.email_outlined,
-                                size: 45,
+                                size: 36,
                                 color: Colors.white,
                               ),
                             ),
                           ),
-                          const SizedBox(height: 24),
+                          const SizedBox(height: 20),
 
                           // Title
                           Text(
                             'Check your email',
                             style: GoogleFonts.lexend(
-                              fontSize: 26,
+                              fontSize: 24,
                               fontWeight: FontWeight.w600,
                               color: const Color(0xFF1f2937),
                             ),
                             textAlign: TextAlign.center,
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 6),
 
                           // Subtitle
                           Text(
                             'We sent a 6-digit code to',
                             style: GoogleFonts.lexend(
-                              fontSize: 14,
+                              fontSize: 13,
                               fontWeight: FontWeight.w400,
                               color: const Color(0xFF6b7280),
                             ),
                             textAlign: TextAlign.center,
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 3),
                           Text(
                             widget.email,
                             style: GoogleFonts.lexend(
-                              fontSize: 14,
+                              fontSize: 13,
                               fontWeight: FontWeight.w500,
                               color: const Color(0xFF8b5cf6),
                             ),
                             textAlign: TextAlign.center,
                           ),
-                          const SizedBox(height: 28),
+                          const SizedBox(height: 20),
 
                           // OTP Fields
                           Row(
@@ -566,44 +968,48 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
                                 child: SizedBox(
                                   width: 40,
                                   height: 52,
-                                  child: TextField(
-                                    controller: _otpControllers[index],
-                                    focusNode: _focusNodes[index],
-                                    keyboardType: TextInputType.number,
-                                    textAlign: TextAlign.center,
-                                    style: GoogleFonts.lexend(
-                                      fontSize: 22,
-                                      fontWeight: FontWeight.w600,
-                                      color: const Color(0xFF1f2937),
-                                      height: 1.0,
-                                    ),
-                                    inputFormatters: [
-                                      FilteringTextInputFormatter.digitsOnly,
-                                      LengthLimitingTextInputFormatter(1),
-                                    ],
-                                    decoration: InputDecoration(
-                                      counterText: '',
-                                      contentPadding: const EdgeInsets.symmetric(vertical: 14),
-                                      filled: true,
-                                      fillColor: const Color(0xFFF3F4F6),
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                        borderSide: BorderSide.none,
+                                  child: IgnorePointer(
+                                    child: TextField(
+                                      controller: _otpControllers[index],
+                                      focusNode: _focusNodes[index],
+                                      keyboardType: TextInputType.number,
+                                      readOnly: true,
+                                      showCursor: true,
+                                      textAlign: TextAlign.center,
+                                      style: GoogleFonts.lexend(
+                                        fontSize: 22,
+                                        fontWeight: FontWeight.w600,
+                                        color: const Color(0xFF1f2937),
+                                        height: 1.0,
                                       ),
-                                      enabledBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                        borderSide: BorderSide.none,
-                                      ),
-                                      focusedBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                        borderSide: const BorderSide(
-                                          color: Color(0xFFa78bfa),
-                                          width: 2,
+                                      inputFormatters: [
+                                        FilteringTextInputFormatter.digitsOnly,
+                                        LengthLimitingTextInputFormatter(1),
+                                      ],
+                                      decoration: InputDecoration(
+                                        counterText: '',
+                                        contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                                        filled: true,
+                                        fillColor: const Color(0xFFF3F4F6),
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                          borderSide: BorderSide.none,
+                                        ),
+                                        enabledBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                          borderSide: BorderSide.none,
+                                        ),
+                                        focusedBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                          borderSide: const BorderSide(
+                                            color: Color(0xFFa78bfa),
+                                            width: 2,
+                                          ),
                                         ),
                                       ),
+                                      onChanged: (value) =>
+                                          _onOtpChanged(index, value),
                                     ),
-                                    onChanged: (value) =>
-                                        _onOtpChanged(index, value),
                                   ),
                                 ),
                               );
@@ -658,7 +1064,15 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
                   ),
                 ),
               ),
+              // Custom Numeric Keypad - Inside card
+              OtpKeypad(
+                enabled: !_isLoading,
+                onNumberPressed: _onNumberPressed,
+                onBackspacePressed: _onBackspacePressed,
               ),
+            ],
+          ),
+        ),
             if (_isLoading)
               Container(
                 color: Colors.white.withValues(alpha: 0.8),

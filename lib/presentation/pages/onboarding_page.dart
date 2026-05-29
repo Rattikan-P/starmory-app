@@ -180,11 +180,19 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
       final authService = ref.read(authServiceProvider);
       await authService.sendOtp(email);
 
+      // Close bottom sheet first
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+
       if (!mounted) return;
       SnackBarHelper.success(context, 'OTP sent to $email');
 
       // Navigate to OTP page after successful send
-      await Navigator.of(context).push(
+      await Future.delayed(const Duration(milliseconds: 100));
+      if (!mounted) return;
+
+      Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => OtpVerificationPage(
             email: email,
@@ -193,6 +201,11 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
         ),
       );
     } catch (e) {
+      // Close bottom sheet on error too
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+
       if (mounted) {
         SnackBarHelper.error(context, AlertMessages.otpSendFailed);
       }
@@ -879,7 +892,7 @@ class _AuthOptionsSheet extends StatelessWidget {
                     if (value == null || value.trim().isEmpty) {
                       return AlertMessages.emailRequired;
                     }
-                    if (!value.trim().contains('@')) {
+                    if (!SnackBarHelper.isValidEmail(value)) {
                       return AlertMessages.invalidEmail;
                     }
                     return null;

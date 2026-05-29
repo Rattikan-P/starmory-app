@@ -12,6 +12,34 @@ enum SnackBarType {
 class SnackBarHelper {
   SnackBarHelper._();
 
+  /// Validate email format
+  /// Returns true if email is valid, false otherwise
+  static bool isValidEmail(String email) {
+    if (email.trim().isEmpty) return false;
+
+    // Basic email regex pattern
+    // - Must have non-empty username before @
+    // - Must have exactly one @
+    // - Must have non-empty domain name
+    // - Must have at least one dot in domain
+    // - Must have non-empty TLD (2+ characters)
+    final pattern = RegExp(
+      r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+    );
+
+    // Additional checks
+    final trimmed = email.trim();
+
+    // No spaces allowed
+    if (trimmed.contains(' ')) return false;
+
+    // Must have exactly one @
+    if ('@'.allMatches(trimmed).length != 1) return false;
+
+    // Check against regex
+    return pattern.hasMatch(trimmed);
+  }
+
   /// Show a SnackBar with the specified type and message
   static void show(
     BuildContext context,
@@ -32,13 +60,24 @@ class SnackBarHelper {
 
     // Calculate margin for keyboard avoidance
     EdgeInsets margin = const EdgeInsets.symmetric(horizontal: 16, vertical: 12);
+    SnackBarBehavior behavior = SnackBarBehavior.floating;
+
     if (showAboveKeyboard) {
       final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
       if (keyboardHeight > 0) {
+        // Keyboard is up - show above keyboard with bottom margin
         margin = EdgeInsets.only(
           left: 16,
           right: 16,
           bottom: keyboardHeight + keyboardSpacing,
+        );
+      } else {
+        // Keyboard is down - show at top to avoid middle of screen
+        margin = const EdgeInsets.only(
+          left: 16,
+          right: 16,
+          top: 12,
+          bottom: 12,
         );
       }
     }
@@ -61,7 +100,7 @@ class SnackBarHelper {
         ),
         backgroundColor: backgroundColor,
         duration: duration,
-        behavior: SnackBarBehavior.floating,
+        behavior: behavior,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: margin,
         action: action,
