@@ -172,6 +172,58 @@ class AuthService {
     return response;
   }
 
+  // Check if email already exists in the system
+  Future<bool> checkEmailExists(String email) async {
+    try {
+      final response = await _client
+          .from('users')
+          .select('id')
+          .eq('email', email)
+          .maybeSingle();
+      return response != null;
+    } catch (e) {
+      // If error occurs, assume email doesn't exist to allow signup
+      return false;
+    }
+  }
+
+  // Merge guest preferences into existing user account
+  // Preferences: overwrite with guest values
+  // Vocab/future data: will be combined
+  Future<void> mergeGuestPreferences({
+    required String userId,
+    required String email,
+    String? displayName,
+    String? languageLevel,
+    String? englishVariant,
+    int? termsVersion,
+  }) async {
+    final data = {
+      'id': userId,
+      'email': email,
+      // Overwrite with guest preferences
+      if (displayName != null) 'display_name': displayName,
+      if (languageLevel != null) 'language_level': languageLevel,
+      if (englishVariant != null) 'english_variant': englishVariant,
+      if (termsVersion != null) 'terms_version': termsVersion,
+    };
+
+    // Update users table
+    await _client.from('users').update(data).eq('id', userId);
+
+    // Update auth user metadata
+    await _client.auth.updateUser(
+      UserAttributes(
+        data: {
+          if (displayName != null) 'display_name': displayName,
+          if (languageLevel != null) 'language_level': languageLevel,
+          if (englishVariant != null) 'english_variant': englishVariant,
+          if (termsVersion != null) 'terms_version': termsVersion,
+        },
+      ),
+    );
+  }
+
   // Google Authentication methods
   Future<bool> signInWithGoogle({bool forceAccountSelection = false}) async {
   return await _googleAuthService.signInWithGoogle(

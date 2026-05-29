@@ -9,7 +9,6 @@ import '../../utils/snackbar_helper.dart';
 import 'auth/otp_verification_page.dart';
 import 'language_selection_page.dart';
 import 'main_navigation.dart';
-import '../../constants/app_defaults.dart';
 
 final onboardingServiceProvider = Provider<PreferenceService>((ref) => PreferenceService());
 
@@ -177,8 +176,14 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
     try {
       final email = _emailController.text.trim();
 
-      if (!mounted) return;
+      // Send OTP first, then navigate
+      final authService = ref.read(authServiceProvider);
+      await authService.sendOtp(email);
 
+      if (!mounted) return;
+      SnackBarHelper.success(context, 'OTP sent to $email');
+
+      // Navigate to OTP page after successful send
       await Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => OtpVerificationPage(
@@ -189,7 +194,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
       );
     } catch (e) {
       if (mounted) {
-        SnackBarHelper.error(context, AlertMessages.loginFailed);
+        SnackBarHelper.error(context, AlertMessages.otpSendFailed);
       }
     } finally {
       if (mounted) {
@@ -632,7 +637,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
                           child: Padding(
                             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
                             child: Text(
-                              'Already have an account? Sign in',
+                              'Sign in or create account',
                               style: GoogleFonts.lexend(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w400,
@@ -872,10 +877,10 @@ class _AuthOptionsSheet extends StatelessWidget {
                   onFieldSubmitted: (_) => onEmailTap(),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
-                      return 'Please enter your email';
+                      return AlertMessages.emailRequired;
                     }
                     if (!value.trim().contains('@')) {
-                      return 'Please enter a valid email';
+                      return AlertMessages.invalidEmail;
                     }
                     return null;
                   },
@@ -923,7 +928,7 @@ class _AuthOptionsSheet extends StatelessWidget {
                                   ),
                                 )
                               : Text(
-                                  'Send OTP',
+                                  'Continue with Email',
                                   style: GoogleFonts.lexend(
                                     fontSize: 15,
                                     fontWeight: FontWeight.w500,

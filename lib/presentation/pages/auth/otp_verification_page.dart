@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../data/services/auth_service.dart';
-import '../../../data/services/preference_service.dart';
 import '../../../utils/snackbar_helper.dart';
 import '../language_selection_page.dart';
 import '../main_navigation.dart';
@@ -52,24 +51,6 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
   void initState() {
     super.initState();
     _startCountdown();
-    // Auto-send OTP on page load
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _sendOtpAutomatically();
-    });
-  }
-
-  Future<void> _sendOtpAutomatically() async {
-    try {
-      final authService = ref.read(authServiceProvider);
-      await authService.sendOtp(widget.email);
-      if (mounted) {
-        SnackBarHelper.success(context, AlertMessages.otpSent, showAboveKeyboard: true);
-      }
-    } catch (e) {
-      if (mounted) {
-        SnackBarHelper.error(context, AlertMessages.otpSendFailed, showAboveKeyboard: true);
-      }
-    }
   }
 
   @override
@@ -118,10 +99,6 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
 
   Future<void> _verifyOtp() async {
     final otp = _otpControllers.map((c) => c.text).join();
-    if (otp.length != 6) {
-      SnackBarHelper.warning(context, AlertMessages.otpIncomplete, showAboveKeyboard: true);
-      return;
-    }
 
     setState(() => _isLoading = true);
     try {
@@ -141,16 +118,31 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
       if (!mounted) return;
 
       final preferenceService = ref.read(onboardingServiceProvider);
-      final guestLevel = await preferenceService.getGuestLanguageLevel();
-      final guestVariant = await preferenceService.getGuestEnglishVariant();
 
       if (!isNewUser) {
-        // Existing user → ใช้ข้อมูลเดิมไว้เลย ไม่ overwrite
-        // TODO: อาจเพิ่ม merge strategy ในอนาคตเมื่อมี feature คำศัพท์
+        // Existing user → เช็คว่ามี guest data ไหม
+        final hasGuestData = widget.languageLevel != null || widget.englishVariant != null;
+
+        if (hasGuestData && widget.isGuestCreatingAccount) {
+          // แสดง dialog ถามว่าต้องการ merge ไหม
+          if (!mounted) return;
+          final shouldMerge = await _showMergeDialog(context);
+
+          if (shouldMerge == true) {
+            // User เลือก merge → อัปเดต preferences เป็นของ guest
+            await authService.mergeGuestPreferences(
+              userId: user!.id,
+              email: widget.email,
+              displayName: widget.displayName,
+              languageLevel: widget.languageLevel,
+              englishVariant: widget.englishVariant,
+            );
+          }
+          // ถ้า shouldMerge == false → ใช้ข้อมูลเดิม (ไม่ทำอะไร)
+        }
       } else if (isNewUser && user != null) {
         // New user flow
         final hasExplicitData = widget.languageLevel != null || widget.englishVariant != null;
-        final hasGuestData = guestLevel != null || guestVariant != null;
 
         if (hasExplicitData) {
           // มีข้อมูลจาก guest creating account → ใช้เลย
@@ -161,6 +153,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
             displayName: widget.displayName,
             languageLevel: widget.languageLevel ?? AppDefaults.defaultLanguageLevel,
             englishVariant: widget.englishVariant ?? AppDefaults.defaultEnglishVariant,
+            termsVersion: preferenceService.getCurrentTermsVersion(),
           );
         } else {
           // Login จาก onboarding หรือไม่มีข้อมูล → ถาม level/variant
@@ -196,7 +189,12 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
 
       if (!mounted) return;
 
-      SnackBarHelper.success(context, AlertMessages.loginSuccess, showAboveKeyboard: true);
+      // Show different message for existing vs new users
+      if (!isNewUser) {
+        SnackBarHelper.success(context, AlertMessages.welcomeBack, showAboveKeyboard: true);
+      } else {
+        SnackBarHelper.success(context, AlertMessages.loginSuccess, showAboveKeyboard: true);
+      }
 
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(
@@ -206,6 +204,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
       );
     } catch (e) {
       if (mounted) {
+        // Supabase returns 403 for both invalid and expired OTP - use combined message
         SnackBarHelper.error(context, AlertMessages.otpInvalid, showAboveKeyboard: true);
         _clearOtp();
       }
@@ -217,10 +216,9 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
   void _onOtpChanged(int index, String value) {
     if (value.isNotEmpty && index < 5) {
       _focusNodes[index + 1].requestFocus();
-    } else if (value.isEmpty && index > 0) {
-      // When deleting, move focus back to previous field
-      _focusNodes[index - 1].requestFocus();
     }
+    // Removed: auto-move to previous field on delete
+    // Let user navigate manually to avoid accidental replacement
 
     // Auto verify when all 6 digits are entered
     final otp = _otpControllers.map((c) => c.text).join();
@@ -229,22 +227,152 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
     }
   }
 
-  void _onPaste() async {
-    final clipboardData = await Clipboard.getData('text/plain');
-    final pastedText = clipboardData?.text ?? '';
-    if (pastedText.length == 6 && int.tryParse(pastedText) != null) {
-      for (int i = 0; i < 6; i++) {
-        _otpControllers[i].text = pastedText[i];
-      }
-      _focusNodes[5].requestFocus();
-    }
-  }
-
   void _clearOtp() {
     for (var controller in _otpControllers) {
       controller.clear();
     }
     _focusNodes[0].requestFocus();
+  }
+
+  Future<bool?> _showMergeDialog(BuildContext context) async {
+    return showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF60a5fa), Color(0xFFa78bfa)],
+                ),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.merge_rounded, color: Colors.white, size: 22),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Account already exists',
+                style: GoogleFonts.lexend(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF1f2937),
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'This email already has an account.',
+              style: GoogleFonts.lexend(
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+                color: const Color(0xFF6b7280),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFf3f4f6),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Your guest preferences:',
+                    style: GoogleFonts.lexend(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: const Color(0xFF8b5cf6),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  if (widget.languageLevel != null)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 8, bottom: 4),
+                      child: Text(
+                        '• Language Level: ${widget.languageLevel}',
+                        style: GoogleFonts.lexend(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                          color: const Color(0xFF4b5563),
+                        ),
+                      ),
+                    ),
+                  if (widget.englishVariant != null)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 8),
+                      child: Text(
+                        '• English Variant: ${widget.englishVariant}',
+                        style: GoogleFonts.lexend(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                          color: const Color(0xFF4b5563),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Would you like to add your guest data to this account?',
+              style: GoogleFonts.lexend(
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+                color: const Color(0xFF6b7280),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFF9ca3af),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: Text(
+              'Use my account only',
+              style: GoogleFonts.lexend(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF8b5cf6),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: Text(
+              'Add guest data',
+              style: GoogleFonts.lexend(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -358,9 +486,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
                         ),
                       ],
                     ),
-                    child: GestureDetector(
-                      onTap: _onPaste,
-                      child: Column(
+                    child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
@@ -483,18 +609,6 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
                               );
                             }),
                           ),
-                          const SizedBox(height: 16),
-
-                          // Paste hint
-                          Text(
-                            'Tap anywhere to paste code',
-                            style: GoogleFonts.lexend(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w400,
-                              color: const Color(0xFF9ca3af),
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
                           const SizedBox(height: 24),
 
                           // Resend Section
@@ -545,7 +659,6 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
                 ),
               ),
               ),
-            ),
             if (_isLoading)
               Container(
                 color: Colors.white.withValues(alpha: 0.8),

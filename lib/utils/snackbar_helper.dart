@@ -203,22 +203,24 @@ class AlertMessages {
   // Auth / Login
   static const String loginSuccess = 'Login successful!';
   static const String loginFailed = 'Login failed. Please try again.';
+  static const String logoutFailed = 'Logout failed. Please try again.';
   static const String welcomeBack = 'Welcome back!';
   static const String loggingIn = 'Logging in...';
   static const String noAccountFound = 'No account found with this email.';
+  static const String guestWelcome = 'Welcome to Starmory!';
 
   // OTP
   static const String otpSent = 'OTP sent to your email.';
   static const String otpSendFailed = 'Failed to send OTP. Please try again.';
-  static const String otpInvalid = 'Invalid OTP. Please try again.';
-  static const String otpExpired = 'OTP has expired. Please request a new one.';
-  static const String otpIncomplete = 'Please enter all 6 digits.';
+  /// Covers: wrong digits, expired, already used, malformed
+  static const String otpInvalid = 'Invalid OTP. Please try again or request a new one.';
   static const String otpResent = 'New OTP sent!';
   static const String verifyingOtp = 'Verifying...';
 
   // Network
   static const String noInternet = 'No internet connection. Please check your network.';
   static const String requestTimeout = 'Request timed out. Please try again.';
+  static const String serviceUnavailable = 'Service unavailable. Please try again later.';
   static const String loading = 'Loading...';
   static const String pleaseWait = 'Please wait...';
 
@@ -231,11 +233,11 @@ class AlertMessages {
   // Account
   static const String passwordResetSent = 'Password reset email sent.';
   static const String accountDeleted = 'Account deleted successfully.';
-  static const String deleteAccountFailed = 'Failed to delete account.';
+  static const String deleteAccountFailed = 'Failed to delete account. Please try again.';
 
   // Validation
   static const String invalidEmail = 'Please enter a valid email address.';
-  static const String emailRequired = 'Please enter your email.';
+  static const String emailRequired = 'Please enter your email address.';
   static const String passwordRequired = 'Please enter your password.';
   static const String passwordTooShort = 'Password must be at least 8 characters.';
 }

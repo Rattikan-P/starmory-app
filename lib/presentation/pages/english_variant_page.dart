@@ -8,13 +8,14 @@ import '../../constants/app_defaults.dart';
 import '../../data/services/auth_service.dart';
 import '../../utils/snackbar_helper.dart';
 
-class EnglishVariantPage extends ConsumerWidget {
+class EnglishVariantPage extends ConsumerStatefulWidget {
   final bool isGuest;
   final bool isEditing;
   final bool isInitialSetup;
   final String? languageLevel;
   final bool forceSelection;
   final bool returnAfterSelection;
+  final String? currentVariant;
 
   const EnglishVariantPage({
     super.key,
@@ -24,7 +25,46 @@ class EnglishVariantPage extends ConsumerWidget {
     this.languageLevel,
     this.forceSelection = false,
     this.returnAfterSelection = false,
+    this.currentVariant,
   });
+
+  @override
+  ConsumerState<EnglishVariantPage> createState() => _EnglishVariantPageState();
+}
+
+class _EnglishVariantPageState extends ConsumerState<EnglishVariantPage> {
+  String? _selectedVariant;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkExistingGuestVariant();
+    });
+  }
+
+  Future<void> _checkExistingGuestVariant() async {
+    // For editing mode, use currentVariant if provided
+    if (widget.isEditing) {
+      if (widget.currentVariant != null && mounted) {
+        setState(() {
+          _selectedVariant = widget.currentVariant;
+        });
+      }
+      return;
+    }
+
+    if (widget.forceSelection || widget.isInitialSetup) return;
+
+    final preferenceService = ref.read(onboardingServiceProvider);
+    final existingVariant = await preferenceService.getGuestEnglishVariant();
+
+    if (existingVariant != null && mounted) {
+      setState(() {
+        _selectedVariant = existingVariant;
+      });
+    }
+  }
 
   static const List<EnglishVariant> variants = [
     EnglishVariant(
@@ -44,7 +84,7 @@ class EnglishVariantPage extends ConsumerWidget {
   ];
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     return Scaffold(
       body: Stack(
         children: [
@@ -130,7 +170,7 @@ class EnglishVariantPage extends ConsumerWidget {
                       ),
                       const Spacer(),
                       // Progress bar - hide when editing
-                      if (!isEditing)
+                      if (!widget.isEditing)
                       Flexible(
                         child: SizedBox(
                           width: 200,
@@ -167,7 +207,7 @@ class EnglishVariantPage extends ConsumerWidget {
                       ),
                       const Spacer(),
                       // Skip button
-                      if (!isEditing)
+                      if (!widget.isEditing)
                         TextButton(
                           onPressed: () => _skip(context, ref),
                           style: TextButton.styleFrom(
@@ -201,7 +241,7 @@ class EnglishVariantPage extends ConsumerWidget {
 
                             // Title
                             Text(
-                              isEditing
+                              widget.isEditing
                                   ? 'Change your preference'
                                   : 'Which English do you prefer?',
                               style: GoogleFonts.lexend(
@@ -216,7 +256,7 @@ class EnglishVariantPage extends ConsumerWidget {
 
                             // Subtitle
                             Text(
-                              isEditing
+                              widget.isEditing
                                   ? 'Choose English variant'
                                   : 'This helps us create your learning experience',
                               style: GoogleFonts.lexend(
@@ -246,7 +286,7 @@ class EnglishVariantPage extends ConsumerWidget {
                         bottom: 20,
                         left: 0,
                         right: 0,
-                        child: !isEditing
+                        child: !widget.isEditing
                             ? Text(
                                 "Don't worry, you can change this anytime",
                                 style: GoogleFonts.lexend(
@@ -270,11 +310,16 @@ class EnglishVariantPage extends ConsumerWidget {
   }
 
   Widget _buildVariantCard(BuildContext context, WidgetRef ref, EnglishVariant variant) {
+    final bool isSelected = _selectedVariant == variant.code;
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(20),
+        border: isSelected
+            ? Border.all(color: variant.color, width: 2)
+            : null,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.06),
@@ -297,7 +342,7 @@ class EnglishVariantPage extends ConsumerWidget {
                   width: 56,
                   height: 56,
                   decoration: BoxDecoration(
-                    color: variant.color.withValues(alpha: 0.15),
+                    color: variant.color.withValues(alpha: isSelected ? 0.3 : 0.15),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Center(
@@ -335,18 +380,24 @@ class EnglishVariantPage extends ConsumerWidget {
                   ),
                 ),
 
-                // Arrow icon - consistent
+                // Arrow icon or Checkmark - consistent with language page
                 Container(
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFf3f4f6),
+                    color: isSelected
+                        ? variant.color.withValues(alpha: 0.15)
+                        : const Color(0xFFf3f4f6),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(
-                    Icons.arrow_forward_ios_rounded,
-                    size: 16,
-                    color: Color(0xFF9ca3af),
+                  child: Icon(
+                    isSelected
+                        ? Icons.check_rounded
+                        : Icons.arrow_forward_ios_rounded,
+                    size: isSelected ? 20 : 16,
+                    color: isSelected
+                        ? variant.color
+                        : const Color(0xFF9ca3af),
                   ),
                 ),
               ],
@@ -366,11 +417,15 @@ class EnglishVariantPage extends ConsumerWidget {
     WidgetRef ref,
     String code,
   ) async {
+    setState(() {
+      _selectedVariant = code;
+    });
+
     final preferenceService = ref.read(onboardingServiceProvider);
     await preferenceService.setGuestEnglishVariant(code);
 
-    if (isEditing) {
-      if (!isGuest) {
+    if (widget.isEditing) {
+      if (!widget.isGuest) {
         final client = Supabase.instance.client;
         final userId = client.auth.currentSession?.user.id;
         if (userId != null) {
@@ -387,8 +442,24 @@ class EnglishVariantPage extends ConsumerWidget {
       return;
     }
 
+    // Guest flow: save preferences locally and navigate to home
+    if (widget.isGuest) {
+      await preferenceService.setGuestMode(true);
+      await preferenceService.setOnboardingCompleted(true);
+      if (context.mounted) {
+        SnackBarHelper.success(context, AlertMessages.guestWelcome);
+        await Future.delayed(const Duration(milliseconds: 400));
+        if (!context.mounted) return;
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
+          (route) => false,
+        );
+      }
+      return;
+    }
+
     // For initial setup (from OTP/Google flow), navigate directly to home to prevent flashing
-    if (isInitialSetup) {
+    if (widget.isInitialSetup) {
       final client = Supabase.instance.client;
       final userId = client.auth.currentSession?.user.id;
       final userEmail = client.auth.currentSession?.user.email;
@@ -398,10 +469,16 @@ class EnglishVariantPage extends ConsumerWidget {
         await authService.updateUserPreferences(
           userId: userId,
           email: userEmail ?? '',
-          languageLevel: languageLevel ?? AppDefaults.defaultLanguageLevel,
+          languageLevel: widget.languageLevel ?? AppDefaults.defaultLanguageLevel,
           englishVariant: code,
           termsVersion: preferenceService.getCurrentTermsVersion(),
         );
+
+        // Also mark onboarding as completed in database
+        await Supabase.instance.client
+            .from('users')
+            .update({'onboarding_completed': true})
+            .eq('id', userId);
       }
 
       await preferenceService.clearGuestPreferences();
@@ -409,7 +486,7 @@ class EnglishVariantPage extends ConsumerWidget {
       await preferenceService.setGuestMode(false);
 
       if (context.mounted) {
-        SnackBarHelper.success(context, AlertMessages.loginSuccess);
+        SnackBarHelper.success(context, 'Welcome to Starmory!');
         await Future.delayed(const Duration(milliseconds: 400));
         if (!context.mounted) return;
         Navigator.of(context).pushAndRemoveUntil(
@@ -422,37 +499,29 @@ class EnglishVariantPage extends ConsumerWidget {
       return;
     }
 
-    if (returnAfterSelection) {
+    if (widget.returnAfterSelection) {
       if (context.mounted) {
         Navigator.of(context).pop(true);
       }
       return;
     }
 
-    if (isGuest) {
-      await preferenceService.setGuestMode(true);
-      await preferenceService.setOnboardingCompleted(true);
-      if (context.mounted) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
-          (route) => false,
-        );
-      }
-    } else {
+    // Editing flow: update preferences for logged-in user
+    else {
       final client = Supabase.instance.client;
       final userId = client.auth.currentSession?.user.id;
       if (userId != null) {
         await client.auth.updateUser(
           UserAttributes(
             data: {
-              'language_level': languageLevel ?? AppDefaults.defaultLanguageLevel,
+              'language_level': widget.languageLevel ?? AppDefaults.defaultLanguageLevel,
               'english_variant': code,
             },
           ),
         );
         await client.from('users').upsert({
           'id': userId,
-          'language_level': languageLevel ?? AppDefaults.defaultLanguageLevel,
+          'language_level': widget.languageLevel ?? AppDefaults.defaultLanguageLevel,
           'english_variant': code,
           'onboarding_completed': true,
         });

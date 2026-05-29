@@ -4,13 +4,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../data/services/auth_service.dart';
-import '../../../data/services/preference_service.dart';
 import '../../../utils/snackbar_helper.dart';
 import '../main_navigation.dart';
 import '../onboarding_page.dart';
 import '../language_selection_page.dart';
 import 'otp_verification_page.dart' show OtpVerificationPage;
 import '../../../constants/app_defaults.dart';
+
+final authServiceProvider = Provider<AuthService>((ref) => AuthService());
 
 class AccountMethodPage extends ConsumerStatefulWidget {
   const AccountMethodPage({super.key});
@@ -113,16 +114,23 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
             .update({'onboarding_completed': true})
             .eq('id', userId);
       } else {
-        // Existing user → ใช้ข้อมูลเดิมไว้เลย ไม่ overwrite
-        // TODO: อาจเพิ่ม merge strategy ในอนาคตเมื่อมี feature คำศัพท์
-        // if (hasGuestData) {
-        //   await authService.updateUserPreferences(
-        //     userId: userId,
-        //     email: client.auth.currentUser?.email ?? '',
-        //     languageLevel: guestLevel,
-        //     englishVariant: guestVariant ?? 'US',
-        //   );
-        // }
+        // Existing user → เช็คว่ามี guest data ไหม
+        if (hasGuestData) {
+          // แสดง dialog ถามว่าต้องการ merge ไหม
+          if (!context.mounted) return;
+          final shouldMerge = await _showMergeDialog(context, guestLevel, guestVariant);
+
+          if (shouldMerge == true) {
+            // User เลือก merge → อัปเดต preferences เป็นของ guest
+            await authService.mergeGuestPreferences(
+              userId: userId,
+              email: client.auth.currentUser?.email ?? '',
+              languageLevel: guestLevel,
+              englishVariant: guestVariant,
+            );
+          }
+          // ถ้า shouldMerge == false → ใช้ข้อมูลเดิม (ไม่ทำอะไร)
+        }
       }
 
       if (!context.mounted) return;
@@ -165,26 +173,185 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
     try {
       final email = _emailController.text.trim();
 
-      if (!context.mounted) return;
+      // Get guest preferences to carry over
+      final preferenceService = ref.read(onboardingServiceProvider);
+      final guestLevel = await preferenceService.getGuestLanguageLevel();
+      final guestVariant = await preferenceService.getGuestEnglishVariant();
 
+      // Send OTP first, then navigate
+      final authService = ref.read(authServiceProvider);
+      await authService.sendOtp(email);
+
+      if (!context.mounted) return;
+      SnackBarHelper.success(context, 'OTP sent to $email');
+
+      // Navigate to OTP page after successful send (with guest preferences)
       await Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => OtpVerificationPage(
             email: email,
+            displayName: null,
+            languageLevel: guestLevel,
+            englishVariant: guestVariant,
             isGuestCreatingAccount: true,
           ),
         ),
       );
     } catch (e) {
       if (context.mounted) {
-        SnackBarHelper.error(context, AlertMessages.loginFailed);
+        SnackBarHelper.error(context, AlertMessages.otpSendFailed);
       }
     } finally {
       if (mounted) {
         setState(() => _isEmailLoading = false);
       }
     }
+  }
+
+  Future<bool?> _showMergeDialog(
+    BuildContext context,
+    String? guestLevel,
+    String? guestVariant,
+  ) async {
+    return showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF60a5fa), Color(0xFFa78bfa)],
+                ),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.merge_rounded, color: Colors.white, size: 22),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Account already exists',
+                style: GoogleFonts.lexend(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF1f2937),
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'This email already has an account.',
+              style: GoogleFonts.lexend(
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+                color: const Color(0xFF6b7280),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFf3f4f6),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Your guest preferences:',
+                    style: GoogleFonts.lexend(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: const Color(0xFF8b5cf6),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  if (guestLevel != null)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 8, bottom: 4),
+                      child: Text(
+                        '• Language Level: $guestLevel',
+                        style: GoogleFonts.lexend(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                          color: const Color(0xFF4b5563),
+                        ),
+                      ),
+                    ),
+                  if (guestVariant != null)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 8),
+                      child: Text(
+                        '• English Variant: $guestVariant',
+                        style: GoogleFonts.lexend(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                          color: const Color(0xFF4b5563),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Would you like to add your guest data to this account?',
+              style: GoogleFonts.lexend(
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+                color: const Color(0xFF6b7280),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFF9ca3af),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: Text(
+              'Use my account only',
+              style: GoogleFonts.lexend(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF8b5cf6),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: Text(
+              'Add guest data',
+              style: GoogleFonts.lexend(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -483,7 +650,7 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
                                             ),
                                           )
                                         : Text(
-                                            'Send OTP',
+                                            'Continue with Email',
                                             style: GoogleFonts.lexend(
                                               fontSize: 15,
                                               fontWeight: FontWeight.w500,

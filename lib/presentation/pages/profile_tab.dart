@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:starmory_app/data/services/preference_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../constants/app_defaults.dart';
 import '../../utils/snackbar_helper.dart';
@@ -172,6 +171,7 @@ class _PreferencesSectionState extends ConsumerState<_PreferencesSection> {
                         isGuest: widget.isGuest,
                         isEditing: true,
                         isInitialSetup: false,
+                        currentLevel: _currentLevel,
                       ),
                     ),
                   );
@@ -254,6 +254,7 @@ class _PreferencesSectionState extends ConsumerState<_PreferencesSection> {
                         isGuest: widget.isGuest,
                         isEditing: true,
                         isInitialSetup: false,
+                        currentVariant: _currentVariant,
                       ),
                     ),
                   );
@@ -706,27 +707,27 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
                 onPressed: () async {
                   // Store context before async gap
                   final ctx = context;
+                  final navigator = Navigator.of(context);
                   try {
-                    // Sync preferences to guest before logout
                     final client = Supabase.instance.client;
-                    final level = _userData?['language_level'];
-                    final variant = _userData?['english_variant'];
-
                     final preferenceService = ref.read(onboardingServiceProvider);
-                    if (level != null) {
-                      await preferenceService.setGuestLanguageLevel(level);
-                    }
-                    if (variant != null) {
-                      await preferenceService.setGuestEnglishVariant(variant);
-                    }
 
-                    // Set guest mode before logout so ProfileTab shows guest view
-                    await preferenceService.setGuestMode(true);
+                    // Clear guest state completely on logout
+                    await preferenceService.clearGuestPreferences();
+                    await preferenceService.setGuestMode(false);
+                    await preferenceService.setOnboardingCompleted(false);
 
+                    // Sign out from auth
                     await client.auth.signOut();
+
+                    // Navigate to onboarding for clean state
+                    navigator.pushAndRemoveUntil(
+                      MaterialPageRoute(builder: (_) => const OnboardingPage()),
+                      (route) => false,
+                    );
                   } catch (e) {
                     if (ctx.mounted) {
-                      SnackBarHelper.error(ctx, 'Logout failed. Please try again.');
+                      SnackBarHelper.error(ctx, AlertMessages.logoutFailed);
                     }
                   }
                 },

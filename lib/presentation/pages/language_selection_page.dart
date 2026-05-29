@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'onboarding_page.dart';
-import 'auth/login_method_page.dart';
 import 'main_navigation.dart';
 import 'english_variant_page.dart';
 import '../../constants/app_defaults.dart';
@@ -14,6 +13,7 @@ class LanguageSelectionPage extends ConsumerStatefulWidget {
   final bool isInitialSetup;
   final bool forceSelection;
   final bool returnAfterSelection;
+  final String? currentLevel;
 
   const LanguageSelectionPage({
     super.key,
@@ -22,6 +22,7 @@ class LanguageSelectionPage extends ConsumerStatefulWidget {
     this.isInitialSetup = false,
     this.forceSelection = false,
     this.returnAfterSelection = false,
+    this.currentLevel,
   });
 
   @override
@@ -30,6 +31,8 @@ class LanguageSelectionPage extends ConsumerStatefulWidget {
 }
 
 class _LanguageSelectionPageState extends ConsumerState<LanguageSelectionPage> {
+  String? _selectedLevel;
+
   @override
   void initState() {
     super.initState();
@@ -39,11 +42,28 @@ class _LanguageSelectionPageState extends ConsumerState<LanguageSelectionPage> {
   }
 
   Future<void> _checkExistingGuestLevel() async {
-    if (widget.isEditing || widget.forceSelection || widget.isInitialSetup) return;
+    // For editing mode, use currentLevel if provided
+    if (widget.isEditing) {
+      if (widget.currentLevel != null && mounted) {
+        setState(() {
+          _selectedLevel = widget.currentLevel;
+        });
+      }
+      return;
+    }
+
+    if (widget.forceSelection || widget.isInitialSetup) return;
 
     final preferenceService = ref.read(onboardingServiceProvider);
     final existingLevel = await preferenceService.getGuestLanguageLevel();
     final existingVariant = await preferenceService.getGuestEnglishVariant();
+
+    // Store existing level for highlighting
+    if (existingLevel != null && mounted) {
+      setState(() {
+        _selectedLevel = existingLevel;
+      });
+    }
 
     // ถ้ามีทั้ง level และ variant แล้ว → ไปหน้าถัดไป (guest ไป home, register ไป login)
     // ถ้ามีแค่ level แต่ไม่มี variant → ให้เลือก variant ต่อ (ไม่ skip)
@@ -57,18 +77,6 @@ class _LanguageSelectionPageState extends ConsumerState<LanguageSelectionPage> {
             (route) => false,
           );
         }
-      } else {
-        if (!mounted) return;
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => LoginMethodPage(
-              languageLevel: existingLevel,
-              englishVariant: existingVariant,
-              isRegistration: true,
-            ),
-          ),
-        );
       }
     }
     // ถ้ามี level แต่ไม่มี variant หรือไม่มีเลย → แสดงหน้า selection ให้เลือก
@@ -342,11 +350,16 @@ class _LanguageSelectionPageState extends ConsumerState<LanguageSelectionPage> {
   }
 
   Widget _buildLevelCard(LanguageLevel level) {
+    final bool isSelected = _selectedLevel == level.code;
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(20),
+        border: isSelected
+            ? Border.all(color: level.color, width: 2)
+            : null,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.06),
@@ -369,7 +382,7 @@ class _LanguageSelectionPageState extends ConsumerState<LanguageSelectionPage> {
                   width: 56,
                   height: 56,
                   decoration: BoxDecoration(
-                    color: level.color.withValues(alpha: 0.15),
+                    color: level.color.withValues(alpha: isSelected ? 0.3 : 0.15),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Icon(
@@ -406,18 +419,24 @@ class _LanguageSelectionPageState extends ConsumerState<LanguageSelectionPage> {
                   ),
                 ),
 
-                // Arrow icon
+                // Arrow icon or Checkmark
                 Container(
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFf3f4f6),
+                    color: isSelected
+                        ? level.color.withValues(alpha: 0.15)
+                        : const Color(0xFFf3f4f6),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(
-                    Icons.arrow_forward_ios_rounded,
-                    size: 16,
-                    color: Color(0xFF9ca3af),
+                  child: Icon(
+                    isSelected
+                        ? Icons.check_rounded
+                        : Icons.arrow_forward_ios_rounded,
+                    size: isSelected ? 20 : 16,
+                    color: isSelected
+                        ? level.color
+                        : const Color(0xFF9ca3af),
                   ),
                 ),
               ],
@@ -433,6 +452,10 @@ class _LanguageSelectionPageState extends ConsumerState<LanguageSelectionPage> {
   }
 
   void _selectLevel(BuildContext context, String code) async {
+    setState(() {
+      _selectedLevel = code;
+    });
+
     final preferenceService = ref.read(onboardingServiceProvider);
     await preferenceService.setGuestLanguageLevel(code);
 
