@@ -447,7 +447,7 @@ class _EnglishVariantPageState extends ConsumerState<EnglishVariantPage> {
       await preferenceService.setGuestMode(true);
       await preferenceService.setOnboardingCompleted(true);
       if (context.mounted) {
-        SnackBarHelper.success(context, AlertMessages.guestWelcome);
+        SnackBarHelper.success(context, AlertMessages.welcomeToApp);
         await Future.delayed(const Duration(milliseconds: 400));
         if (!context.mounted) return;
         Navigator.of(context).pushAndRemoveUntil(

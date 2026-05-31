@@ -144,7 +144,7 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
       if (!isNewUser) {
         SnackBarHelper.success(context, AlertMessages.welcomeBack);
       } else {
-        SnackBarHelper.success(context, AlertMessages.loginSuccess);
+        SnackBarHelper.success(context, AlertMessages.welcomeToApp);
       }
 
       // Wait a bit so user can see the success message

@@ -244,9 +244,9 @@ class AlertMessages {
   static const String loginFailed = 'Login failed. Please try again.';
   static const String logoutFailed = 'Logout failed. Please try again.';
   static const String welcomeBack = 'Welcome back!';
+  static const String welcomeToApp = 'Welcome to Starmory!';
   static const String loggingIn = 'Logging in...';
   static const String noAccountFound = 'No account found with this email.';
-  static const String guestWelcome = 'Welcome to Starmory!';
 
   // OTP
   static const String otpSent = 'OTP sent to your email.';

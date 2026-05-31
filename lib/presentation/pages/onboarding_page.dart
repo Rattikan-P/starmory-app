@@ -13,7 +13,8 @@ import 'main_navigation.dart';
 final onboardingServiceProvider = Provider<PreferenceService>((ref) => PreferenceService());
 
 class OnboardingPage extends ConsumerStatefulWidget {
-  const OnboardingPage({super.key});
+  final bool skipToAuth;
+  const OnboardingPage({super.key, this.skipToAuth = false});
 
   @override
   ConsumerState<OnboardingPage> createState() => _OnboardingPageState();
@@ -49,6 +50,14 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
   @override
   void initState() {
     super.initState();
+
+    // Skip to auth bottom sheet immediately if requested (for logout)
+    if (widget.skipToAuth) {
+      Future.microtask(() => _showAuthBottomSheet());
+      return;
+    }
+
+    // Normal onboarding animations
     for (int i = 0; i < 3; i++) {
       _starControllers.add(AnimationController(
         duration: Duration(milliseconds: 2500 + i * 500),
