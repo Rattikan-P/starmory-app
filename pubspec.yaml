@@ -45,6 +45,7 @@ dependencies:
   image_picker: ^1.1.2
   camera: ^0.11.0
   permission_handler: ^11.3.1
+  image: ^4.0.17
 
   # Local Storage (Guest Mode)
   hive: ^2.2.3

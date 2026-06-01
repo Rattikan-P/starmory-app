@@ -33,6 +33,10 @@ class _HomeTabState extends ConsumerState<HomeTab> {
 
               // Quick Actions
               _buildQuickActions(context),
+
+              // Quota Status
+              _buildQuotaStatus(context),
+
               const SizedBox(height: 20),
 
               // Recent Scrapbook
@@ -117,6 +121,104 @@ class _HomeTabState extends ConsumerState<HomeTab> {
     );
   }
 
+  Widget _buildQuotaStatus(BuildContext context) {
+    final userState = ref.watch(userStateProvider);
+    final user = userState.user;
+
+    if (user == null) return const SizedBox.shrink();
+
+    final quotaManager = user.quotaManager;
+    final canGenerate = user.canGenerate;
+    final isGuest = user.isGuest;
+
+    final todayUsage = quotaManager.getTodayUsage();
+    final dailyLimit = quotaManager.dailyLimit;
+    final totalUsage = quotaManager.usageHistory.length;
+    final totalLimit = quotaManager.totalLimit;
+
+    return Container(
+      margin: const EdgeInsets.only(top: 20),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: canGenerate
+              ? [const Color(0xFF6C63FF).withValues(alpha: 0.1), const Color(0xFF8B7CFF).withValues(alpha: 0.05)]
+              : [Colors.orange.withValues(alpha: 0.1), Colors.orange.withValues(alpha: 0.05)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: canGenerate ? const Color(0xFF6C63FF).withValues(alpha: 0.3) : Colors.orange.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: canGenerate
+                  ? const Color(0xFF6C63FF).withValues(alpha: 0.15)
+                  : Colors.orange.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              canGenerate ? Icons.auto_awesome_rounded : Icons.warning_amber_rounded,
+              color: canGenerate ? const Color(0xFF6C63FF) : Colors.orange,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  canGenerate ? 'Generations available' : 'Quota limit reached',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: canGenerate ? const Color(0xFF6C63FF) : Colors.orange,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  isGuest
+                      ? 'Guest: $todayUsage/$dailyLimit today • $totalUsage/$totalLimit total'
+                      : '$todayUsage/$dailyLimit today',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF6E6E7A),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (isGuest && !canGenerate)
+            ElevatedButton(
+              onPressed: () {
+                // TODO: Navigate to sign up screen
+              },
+              style: ElevatedButton.styleFrom(
+                elevation: 0,
+                backgroundColor: const Color(0xFF6C63FF),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text(
+                'Sign Up',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _pickImage(ImageSource source) async {
     try {
       // Request permissions
@@ -124,6 +226,13 @@ class _HomeTabState extends ConsumerState<HomeTab> {
         final cameraStatus = await Permission.camera.request();
         if (!cameraStatus.isGranted) {
           _showPermissionDialog('Camera');
+          return;
+        }
+      } else if (source == ImageSource.gallery) {
+        // Request photo library permission
+        final photoStatus = await Permission.photos.request();
+        if (!photoStatus.isGranted) {
+          _showPermissionDialog('Photo Library');
           return;
         }
       }
@@ -137,6 +246,19 @@ class _HomeTabState extends ConsumerState<HomeTab> {
       );
 
       if (image != null && mounted) {
+        // Check file format - only allow JPEG and PNG
+        final pathLower = image.path.toLowerCase();
+        if (pathLower.endsWith('.gif') ||
+            pathLower.endsWith('.webp') ||
+            image.mimeType == 'image/gif' ||
+            image.mimeType == 'image/webp') {
+          _showErrorDialog(
+            'Unsupported Format',
+            'Only JPEG and PNG images are supported. Please select a different photo.',
+          );
+          return;
+        }
+
         // Navigate to preview
         Navigator.push(
           context,

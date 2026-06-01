@@ -2,6 +2,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/providers.dart';
+import '../../core/utils/image_clarity_checker.dart';
+import '../../core/utils/quota_manager.dart';
 import 'generation_loading_screen.dart';
 
 /// Image Preview Screen - Preview and confirm photo selection
@@ -114,10 +116,6 @@ class _ImagePreviewScreenState extends ConsumerState<ImagePreviewScreen> {
                       color: Color(0xFF6E6E7A),
                     ),
                   ),
-
-                  const SizedBox(height: 18),
-
-                  _buildInfoCard(),
                 ],
               ),
             ),
@@ -175,77 +173,6 @@ class _ImagePreviewScreenState extends ConsumerState<ImagePreviewScreen> {
     );
   }
 
-  Widget _buildInfoCard() {
-    final canGenerate = ref.watch(canGenerateProvider);
-
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFECECF3)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              color: canGenerate
-                  ? const Color(0xFF8B7CFF).withValues(alpha: 0.12)
-                  : Colors.orange.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Icon(
-              canGenerate
-                  ? Icons.auto_awesome_rounded
-                  : Icons.warning_amber_rounded,
-              color: canGenerate ? const Color(0xFF8B7CFF) : Colors.orange,
-            ),
-          ),
-
-          const SizedBox(width: 14),
-
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  canGenerate ? 'Ready to generate' : 'Quota limit reached',
-                  style: const TextStyle(
-                    color: Color(0xFF151515),
-                    fontWeight: FontWeight.w700,
-                    fontSize: 15,
-                  ),
-                ),
-
-                const SizedBox(height: 4),
-
-                Text(
-                  canGenerate
-                      ? 'This will use 1 generation'
-                      : 'Upgrade to Pro for unlimited access',
-                  style: const TextStyle(
-                    color: Color(0xFF6E6E7A),
-                    fontSize: 13,
-                    height: 1.5,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _glassButton({required IconData icon, VoidCallback? onTap}) {
     return GestureDetector(
       onTap: onTap,
@@ -277,7 +204,7 @@ class _ImagePreviewScreenState extends ConsumerState<ImagePreviewScreen> {
     setState(() => _isProcessing = true);
 
     try {
-      // Check quota and deduct
+      // Step 1: Check quota
       final notifier = ref.read(userStateProvider.notifier);
       final success = await notifier.recordQuotaUsage(
         imageId: widget.imagePath,
@@ -286,21 +213,34 @@ class _ImagePreviewScreenState extends ConsumerState<ImagePreviewScreen> {
       if (!success) {
         if (mounted) {
           setState(() => _isProcessing = false);
-          _showErrorDialog(
-            'Quota Limit Reached',
-            'You have reached your generation limit. Please upgrade to Pro for unlimited vocabulary generation.',
-          );
+          // Show appropriate dialog based on user type
+          final user = ref.read(currentUserProvider);
+          _showQuotaLimitDialog(user?.isGuest ?? true);
         }
         return;
       }
 
-      // Get user's default CEFR level and communicative function
+      // Step 2: Check image clarity
+      final clarityResult =
+          await ImageClarityChecker.checkFromFile(widget.imagePath);
+
+      if (!clarityResult.isClear) {
+        if (mounted) {
+          // Refund quota since image was rejected
+          await _refundQuota();
+          setState(() => _isProcessing = false);
+          _showImageClarityDialog(clarityResult);
+        }
+        return;
+      }
+
+      // Step 3: Get user's default CEFR level and communicative function
       final user = ref.read(currentUserProvider);
       final defaultCefrLevel =
           user?.preferences['defaultCefrLevel'] as String? ?? 'A1';
       final defaultCommunicativeFunction = 'Indicative'; // Default for now
 
-      // Navigate directly to Generation Loading Screen
+      // Step 4: Navigate directly to Generation Loading Screen
       if (mounted) {
         Navigator.pushReplacement(
           context,
@@ -321,6 +261,27 @@ class _ImagePreviewScreenState extends ConsumerState<ImagePreviewScreen> {
     }
   }
 
+  /// Refund quota when image is rejected
+  Future<void> _refundQuota() async {
+    // Remove the last usage entry that was just added
+    final notifier = ref.read(userStateProvider.notifier);
+    final user = ref.read(currentUserProvider);
+
+    if (user != null && user.quotaManager.usageHistory.isNotEmpty) {
+      // Create a new quota manager with the last entry removed
+      final updatedHistory =
+          List<QuotaEntry>.from(user.quotaManager.usageHistory)..removeLast();
+      final updatedQuotaManager = QuotaManager(
+        totalLimit: user.quotaManager.totalLimit,
+        dailyLimit: user.quotaManager.dailyLimit,
+        usageHistory: updatedHistory,
+      );
+
+      final updatedUser = user.copyWith(quotaManager: updatedQuotaManager);
+      await notifier.updateUser(updatedUser);
+    }
+  }
+
   void _showErrorDialog(String title, String message) {
     showDialog(
       context: context,
@@ -334,6 +295,146 @@ class _ImagePreviewScreenState extends ConsumerState<ImagePreviewScreen> {
               setState(() => _isProcessing = false);
             },
             child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showQuotaLimitDialog(bool isGuest) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                isGuest ? 'Guest Limit Reached' : 'Daily Limit Reached',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF151515),
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          isGuest
+              ? "You've used all your guest generations. Create an account to get more generations!"
+              : "You've reached your 15 daily generations. Come back tomorrow for more!",
+          style: const TextStyle(
+            fontSize: 15,
+            height: 1.5,
+            color: Color(0xFF6E6E7A),
+          ),
+        ),
+        actions: [
+          if (isGuest)
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                setState(() => _isProcessing = false);
+                // TODO: Navigate to sign up screen
+              },
+              child: const Text(
+                'Later',
+                style: TextStyle(color: Color(0xFF6E6E7A), fontSize: 15),
+              ),
+            ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              setState(() => _isProcessing = false);
+            },
+            style: ElevatedButton.styleFrom(
+              elevation: 0,
+              backgroundColor: const Color(0xFF8B7CFF),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: Text(isGuest ? 'Create Account' : 'Got it'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showImageClarityDialog(ImageClarityResult result) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(
+              Icons.blur_on_rounded,
+              color: Colors.orange,
+              size: 28,
+            ),
+            SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Image Quality Issue',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF151515),
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              result.message,
+              style: const TextStyle(
+                fontSize: 15,
+                height: 1.5,
+                color: Color(0xFF6E6E7A),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Please try with a clearer, well-lit photo for best results.',
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.5,
+                color: Colors.grey.shade500,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+            },
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Color(0xFF6E6E7A), fontSize: 15),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _retakePhoto();
+            },
+            style: ElevatedButton.styleFrom(
+              elevation: 0,
+              backgroundColor: const Color(0xFF8B7CFF),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Text('Try Again'),
           ),
         ],
       ),
