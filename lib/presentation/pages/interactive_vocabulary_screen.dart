@@ -34,6 +34,12 @@ class _InteractiveVocabularyScreenState
   bool _useCombinedSentence = false;
   final Set<String> _selectedWordIds = {};
   bool _isRegenerating = false;
+  _VocabularyDot? _selectedDotForOverlay;
+
+  // Store container and image dimensions for overlay positioning
+  Size? _containerSize;
+  Size? _imageSize;
+  ({double scale, double offsetX, double offsetY})? _imageFit;
 
   // Store individual sentences before switching to combined mode
   final Map<String, ({String english, String thai})> _savedIndividualSentences =
@@ -368,9 +374,19 @@ class _InteractiveVocabularyScreenState
         child: Stack(
           children: [
             // Image with Dots
-            Positioned.fill(child: _buildImageWithDots()),
+            Positioned.fill(
+              child: GestureDetector(
+                onTap: _selectedDotForOverlay != null ? _hideWordOverlay : null,
+                behavior: HitTestBehavior.translucent,
+                child: _buildImageWithDots(),
+              ),
+            ),
 
-            // Bottom Sheet
+            // Word Overlay (before bottom sheet so bottom sheet can cover it)
+            if (_selectedDotForOverlay != null)
+              _buildWordOverlay(_selectedDotForOverlay!),
+
+            // Bottom Sheet (on top of overlay)
             Positioned.fill(child: _buildBottomSheet()),
           ],
         ),
@@ -552,6 +568,16 @@ class _InteractiveVocabularyScreenState
             }
 
             final imageSize = snapshot.data!;
+
+            // Store dimensions for overlay use
+            _containerSize = Size(constraints.maxWidth, constraints.maxHeight);
+            _imageSize = imageSize;
+            _imageFit = _calculateBoxFitContain(
+              imageSize,
+              constraints.maxWidth,
+              constraints.maxHeight,
+            );
+
             return Container(
               color: Colors.white,
               child: Stack(
@@ -618,22 +644,24 @@ class _InteractiveVocabularyScreenState
                       sigmaX: 18,
                       sigmaY: 18,
                     ),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.82),
-                        borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(32),
-                        ),
-                        border: Border.all(color: Colors.white.withOpacity(0.6)),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFF7B6EF6).withValues(alpha: 0.08),
-                            blurRadius: 30,
-                            offset: const Offset(0, -10),
+                    child: GestureDetector(
+                      onTap: _selectedDotForOverlay != null ? _hideWordOverlay : null,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.82),
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(32),
                           ),
-                        ],
-                      ),
-                      child: CustomScrollView(
+                          border: Border.all(color: Colors.white.withOpacity(0.6)),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF7B6EF6).withValues(alpha: 0.08),
+                              blurRadius: 30,
+                              offset: const Offset(0, -10),
+                            ),
+                          ],
+                        ),
+                        child: CustomScrollView(
                         controller: scrollController,
                         slivers: [
                           // Drag Handle
@@ -672,12 +700,128 @@ class _InteractiveVocabularyScreenState
                       ),
                     ),
                   ),
+                ),
                 );
               },
             );
           },
         );
       },
+    );
+  }
+
+  /// Build word overlay popup near the dot
+  Widget _buildWordOverlay(_VocabularyDot dot) {
+    // Use stored dimensions
+    if (_containerSize == null || _imageSize == null || _imageFit == null) {
+      return const SizedBox.shrink();
+    }
+
+    final containerWidth = _containerSize!.width;
+    final containerHeight = _containerSize!.height;
+    final imageSize = _imageSize!;
+    final fit = _imageFit!;
+
+    // Calculate dot position
+    final imageX = dot.x * imageSize.width;
+    final imageY = dot.y * imageSize.height;
+    final displayedX = imageX * fit.scale + fit.offsetX;
+    final displayedY = imageY * fit.scale + fit.offsetY;
+
+    // Calculate overlay position (show below the dot)
+    const dotSize = 34.0;
+    const overlayWidth = 140.0;
+    const overlayHeight = 120.0;
+
+    double overlayX = displayedX - overlayWidth / 2;
+    double overlayY = displayedY + dotSize / 2 + 8;
+
+    // Keep overlay within screen bounds
+    overlayX = overlayX.clamp(8.0, containerWidth - overlayWidth - 8);
+    overlayY = overlayY.clamp(8.0, containerHeight - overlayHeight - 8);
+
+    return Positioned(
+      left: overlayX,
+      top: overlayY,
+      child: GestureDetector(
+        onTap: () {}, // Prevent closing when tapping on the card
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Triangle arrow pointing to dot
+            CustomPaint(
+              size: const Size(16, 8),
+              painter: _TrianglePainter(
+                color: Colors.white.withValues(alpha: 0.9),
+              ),
+            ),
+            Material(
+              elevation: 8,
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                width: overlayWidth,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.9),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Top row: word and listen button
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        dot.word,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF7B6EF6),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    // Listen button (icon only)
+                    InkWell(
+                      onTap: () => _playAudio(dot),
+                      borderRadius: BorderRadius.circular(20),
+                      child: const Padding(
+                        padding: EdgeInsets.all(4),
+                        child: Icon(
+                          Icons.volume_up_rounded,
+                          size: 20,
+                          color: Color(0xFF7B6EF6),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+
+                // Thai Translation
+                Text(
+                  dot.thaiTranslation,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.grey[700],
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -756,7 +900,7 @@ class _InteractiveVocabularyScreenState
         left: displayedX - dotSize / 2,
         top: displayedY - dotSize / 2,
         child: GestureDetector(
-          onTap: () => _toggleWordSelection(dot.id),
+          onTap: () => _showWordOverlay(dot),
           child: Container(
             width: dotSize,
             height: dotSize,
@@ -865,7 +1009,7 @@ class _InteractiveVocabularyScreenState
         left: displayedX - dotSize / 2,
         top: displayedY - dotSize / 2,
         child: GestureDetector(
-          onTap: () => _toggleWordSelection(dot.id),
+          onTap: () => _showWordOverlay(dot),
           child: Container(
             width: dotSize,
             height: dotSize,
@@ -1151,12 +1295,38 @@ class _InteractiveVocabularyScreenState
     );
   }
 
+  void _showWordOverlay(_VocabularyDot dot) {
+    setState(() {
+      // If clicking the same dot, deselect it
+      if (_selectedDotForOverlay?.id == dot.id) {
+        _selectedWordIds.remove(dot.id);
+        _selectedDotForOverlay = null;
+      } else {
+        _selectedDotForOverlay = dot;
+        // Also select the word when showing overlay
+        if (!_selectedWordIds.contains(dot.id)) {
+          _selectedWordIds.add(dot.id);
+        }
+      }
+    });
+  }
+
+  void _hideWordOverlay() {
+    setState(() {
+      _selectedDotForOverlay = null;
+    });
+  }
+
   void _toggleWordSelection(String wordId) async {
     final wasSelected = _selectedWordIds.contains(wordId);
 
     setState(() {
       if (wasSelected) {
         _selectedWordIds.remove(wordId);
+        // Close overlay if removing the currently shown word
+        if (_selectedDotForOverlay?.id == wordId) {
+          _selectedDotForOverlay = null;
+        }
       } else {
         _selectedWordIds.add(wordId);
       }
@@ -2051,4 +2221,29 @@ class _ContextSelectorScreenState extends State<ContextSelectorScreen> {
     widget.onApplyToAll(_selectedTone, category);
     Navigator.pop(context);
   }
+}
+
+/// Triangle painter for overlay arrow
+class _TrianglePainter extends CustomPainter {
+  final Color color;
+
+  _TrianglePainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+
+    final path = Path()
+      ..moveTo(size.width / 2, 0) // Top center
+      ..lineTo(size.width, size.height) // Bottom right
+      ..lineTo(0, size.height) // Bottom left
+      ..close();
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

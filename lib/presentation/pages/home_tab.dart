@@ -111,7 +111,7 @@ class _HomeTabState extends ConsumerState<HomeTab> {
               child: _QuickActionCard(
                 icon: Icons.photo_library,
                 label: 'Gallery',
-                color: const Color(0xFF4CAF50),
+                color: const Color.fromARGB(255, 95, 158, 221),
                 onTap: () => _pickImage(ImageSource.gallery),
               ),
             ),
@@ -142,14 +142,14 @@ class _HomeTabState extends ConsumerState<HomeTab> {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: canGenerate
-              ? [const Color(0xFF6C63FF).withValues(alpha: 0.1), const Color(0xFF8B7CFF).withValues(alpha: 0.05)]
+              ? [const Color(0xFFB39DDB).withValues(alpha: 0.15), const Color(0xFFB39DDB).withValues(alpha: 0.08)]
               : [Colors.orange.withValues(alpha: 0.1), Colors.orange.withValues(alpha: 0.05)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: canGenerate ? const Color(0xFF6C63FF).withValues(alpha: 0.3) : Colors.orange.withValues(alpha: 0.3),
+          color: canGenerate ? const Color(0xFFB39DDB).withValues(alpha: 0.4) : Colors.orange.withValues(alpha: 0.3),
         ),
       ),
       child: Row(
@@ -159,13 +159,13 @@ class _HomeTabState extends ConsumerState<HomeTab> {
             height: 48,
             decoration: BoxDecoration(
               color: canGenerate
-                  ? const Color(0xFF6C63FF).withValues(alpha: 0.15)
+                  ? const Color(0xFFB39DDB).withValues(alpha: 0.2)
                   : Colors.orange.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
               canGenerate ? Icons.auto_awesome_rounded : Icons.warning_amber_rounded,
-              color: canGenerate ? const Color(0xFF6C63FF) : Colors.orange,
+              color: canGenerate ? const Color(0xFF7E57C2) : Colors.orange,
               size: 24,
             ),
           ),
@@ -179,7 +179,7 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
-                    color: canGenerate ? const Color(0xFF6C63FF) : Colors.orange,
+                    color: canGenerate ? const Color(0xFF7E57C2) : Colors.orange,
                   ),
                 ),
                 const SizedBox(height: 4),
