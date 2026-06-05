@@ -12,17 +12,18 @@ class GeminiService {
   final GenerativeModel _textModel;
 
   static const int _maxRetries = 3;
-  static const Duration _initialDelay = Duration(seconds: 1);
+  static const Duration _initialDelay = Duration(seconds: 2);
+  static const Duration _requestTimeout = Duration(seconds: 60);
 
   GeminiService({String? apiKey})
-      : _visionModel = GenerativeModel(
-          model: 'gemini-3-flash-preview',
-          apiKey: apiKey ?? AppConstants.geminiApiKey,
-        ),
-        _textModel = GenerativeModel(
-          model: 'gemini-3-flash-preview',
-          apiKey: apiKey ?? AppConstants.geminiApiKey,
-        );
+    : _visionModel = GenerativeModel(
+        model: 'gemini-3-flash-preview',
+        apiKey: apiKey ?? AppConstants.geminiApiKey,
+      ),
+      _textModel = GenerativeModel(
+        model: 'gemini-3-flash-preview',
+        apiKey: apiKey ?? AppConstants.geminiApiKey,
+      );
 
   /// Execute with exponential backoff retry
   Future<T> _retryWithBackoff<T>(
@@ -35,17 +36,25 @@ class GeminiService {
     while (true) {
       attempts++;
       try {
-        return await operation();
+        return await operation().timeout(
+          _requestTimeout,
+          onTimeout: () =>
+              throw TimeoutException('Request timed out after ${_requestTimeout.inSeconds}s'),
+        );
       } catch (e) {
         // Check if error is retryable (503, 429, network errors)
         final isRetryable = _isRetryableError(e);
 
         if (!isRetryable || attempts >= maxRetries) {
-          debugPrint('❌ Max retries ($attempts) reached or non-retryable error: $e');
+          debugPrint(
+            '❌ Max retries ($attempts) reached or non-retryable error: $e',
+          );
           rethrow;
         }
 
-        debugPrint('⚠️ Retry $attempts/$maxRetries after ${delay.inSeconds}s due to: $e');
+        debugPrint(
+          '⚠️ Retry $attempts/$maxRetries after ${delay.inSeconds}s due to: $e',
+        );
         await Future.delayed(delay);
         delay *= 2; // Exponential backoff
       }
@@ -54,6 +63,7 @@ class GeminiService {
 
   /// Check if error is retryable
   bool _isRetryableError(dynamic error) {
+    if (error is TimeoutException) return true;
     final errorStr = error.toString().toLowerCase();
     return errorStr.contains('503') ||
         errorStr.contains('429') ||
@@ -73,17 +83,30 @@ class GeminiService {
   /// Get tone definition for prompt
   String _getToneDefinition(String tone) {
     final defs = {
-      'describe': 'DESCRIBE: factual statement about the scene (e.g., "The sun is bright.")',
-      'command': 'COMMAND: instruction starting with a verb (e.g., "Look at the sun.")',
-      'wish': 'WISH: desire using "I wish" or "I hope" (e.g., "I wish the sun was warmer.")',
-      'conditional': 'CONDITIONAL: if-then statement (e.g., "If the sun shines, we go outside.")',
+      'describe':
+          'DESCRIBE: factual statement about the scene (e.g., "The sun is bright.")',
+      'command':
+          'COMMAND: instruction starting with a verb (e.g., "Look at the sun.")',
+      'wish':
+          'WISH: desire using "I wish" or "I hope" (e.g., "I wish the sun was warmer.")',
+      'conditional':
+          'CONDITIONAL: if-then statement (e.g., "If the sun shines, we go outside.")',
     };
     return defs[tone.toLowerCase()] ?? tone;
   }
 
   /// Build normal mode output format
-  String _buildNormalFormat(String level, String category, List<String> words, List<String> tones) {
-    final tonesJson = tones.map((t) => '"$t": {"text": "sentence with word", "thai": "แปลภาษาไทย"}').join(', ');
+  String _buildNormalFormat(
+    String level,
+    String category,
+    List<String> words,
+    List<String> tones,
+  ) {
+    final tonesJson = tones
+        .map(
+          (t) => '"$t": {"text": "sentence with word", "thai": "แปลภาษาไทย"}',
+        )
+        .join(', ');
     return '''
 Return JSON in this exact format:
 {
@@ -99,8 +122,18 @@ CRITICAL: Use these exact words: ${words.join(', ')}''';
   }
 
   /// Build combined mode output format
-  String _buildCombinedFormat(String level, String category, List<String> words, List<String> tones) {
-    final tonesJson = tones.map((t) => '"$t": {"text": "sentence using all words", "thai": "แปลภาษาไทย"}').join(', ');
+  String _buildCombinedFormat(
+    String level,
+    String category,
+    List<String> words,
+    List<String> tones,
+  ) {
+    final tonesJson = tones
+        .map(
+          (t) =>
+              '"$t": {"text": "sentence using all words", "thai": "แปลภาษาไทย"}',
+        )
+        .join(', ');
     return '''
 Return JSON in this exact format:
 {
@@ -126,7 +159,7 @@ CRITICAL: Use these exact words: ${words.join(', ')}''';
     if (!isValidApiKey(apiKey)) {
       throw AIServiceFailure(
         'Invalid API key. Please set a valid GEMINI_API_KEY in your .env file. '
-        'Get your key from: https://ai.google.dev/'
+        'Get your key from: https://ai.google.dev/',
       );
     }
 
@@ -216,7 +249,6 @@ Return strictly valid JSON only — no markdown, no explanation, no extra text.
       "word": "string",
       "type": "noun" | "verb",
       "thai": "string",
-      "tone_note": "explain which context/level drove the word choice",
       "bounding_box": {
         "x_min": 0.0,
         "y_min": 0.0,
@@ -246,7 +278,7 @@ Extract exactly 5 vocabulary items from the image.''');
       final response = await _visionModel.generateContent(
         [
           Content.system(systemInstruction),
-          Content.multi([userPrompt, imagePart])
+          Content.multi([userPrompt, imagePart]),
         ],
         generationConfig: GenerationConfig(
           temperature: 1.0, // Match AI Studio setting
@@ -258,7 +290,9 @@ Extract exactly 5 vocabulary items from the image.''');
 
       final text = response.text ?? '';
       debugPrint('🔍 Raw AI Response length: ${text.length} chars');
-      debugPrint('📄 Raw AI Response (first 500 chars): ${text.substring(0, text.length > 500 ? 500 : text.length)}');
+      debugPrint(
+        '📄 Raw AI Response (first 500 chars): ${text.substring(0, text.length > 500 ? 500 : text.length)}',
+      );
 
       final result = VocabularyExtractionResult.fromJson(text);
       debugPrint('✅ Parsed ${result.vocabList.length} vocabulary items');
@@ -275,51 +309,51 @@ Extract exactly 5 vocabulary items from the image.''');
     required String category,
     required bool combined,
   }) async {
-    return await _retryWithBackoff(
-      () async {
-        final result = await _generateSentencesInternal(
-          words: words,
-          level: level,
-          tones: tones,
-          category: category,
-          combined: combined,
-        );
+    return await _retryWithBackoff(() async {
+      final result = await _generateSentencesInternal(
+        words: words,
+        level: level,
+        tones: tones,
+        category: category,
+        combined: combined,
+      );
 
-        // Validate that returned words match requested words
-        if (!combined) {
-          final returnedWords = result.results.keys.toSet();
-          final requestedWords = words.toSet();
+      // Validate that returned words match requested words
+      if (!combined) {
+        final returnedWords = result.results.keys.toSet();
+        final requestedWords = words.toSet();
 
-          if (!_wordsMatch(returnedWords, requestedWords)) {
-            debugPrint('⚠️ Word mismatch: requested $requestedWords but got $returnedWords');
-            throw AIServiceFailure(
-              'API returned unexpected words. Requested: $requestedWords, Got: $returnedWords',
-            );
-          }
-
-          // Validate that all requested tones are present
-          final requestedTones = tones.toSet();
-          for (final word in requestedWords) {
-            final wordSentences = result.results[word];
-            if (wordSentences == null || wordSentences.isEmpty) {
-              debugPrint('⚠️ No sentences found for word: $word');
-              throw AIServiceFailure('No sentences found for word: $word');
-            }
-
-            final returnedTones = wordSentences.keys.toSet();
-            if (!returnedTones.containsAll(requestedTones)) {
-              final missingTones = requestedTones.difference(returnedTones);
-              debugPrint('⚠️ Missing tones for $word: $missingTones');
-              throw AIServiceFailure(
-                'API returned incomplete data. Missing tones: $missingTones',
-              );
-            }
-          }
+        if (!_wordsMatch(returnedWords, requestedWords)) {
+          debugPrint(
+            '⚠️ Word mismatch: requested $requestedWords but got $returnedWords',
+          );
+          throw AIServiceFailure(
+            'API returned unexpected words. Requested: $requestedWords, Got: $returnedWords',
+          );
         }
 
-        return result;
-      },
-    );
+        // Validate that all requested tones are present
+        final requestedTones = tones.toSet();
+        for (final word in requestedWords) {
+          final wordSentences = result.results[word];
+          if (wordSentences == null || wordSentences.isEmpty) {
+            debugPrint('⚠️ No sentences found for word: $word');
+            throw AIServiceFailure('No sentences found for word: $word');
+          }
+
+          final returnedTones = wordSentences.keys.toSet();
+          if (!returnedTones.containsAll(requestedTones)) {
+            final missingTones = requestedTones.difference(returnedTones);
+            debugPrint('⚠️ Missing tones for $word: $missingTones');
+            throw AIServiceFailure(
+              'API returned incomplete data. Missing tones: $missingTones',
+            );
+          }
+        }
+      }
+
+      return result;
+    });
   }
 
   /// Internal sentence generation without validation
@@ -465,7 +499,8 @@ FIELD RULES:
 • combined: true  → flat "sentences" object + "words" array, no "results"''';
 
     // User prompt with just the parameters
-    final userPrompt = '''
+    final userPrompt =
+        '''
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 INPUT PARAMETERS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -481,10 +516,7 @@ Generate sentences now.''';
 
     return await _retryWithBackoff(() async {
       final response = await _textModel.generateContent(
-        [
-          Content.system(systemInstruction),
-          Content.text(userPrompt)
-        ],
+        [Content.system(systemInstruction), Content.text(userPrompt)],
         generationConfig: GenerationConfig(
           temperature: 1.0, // Match AI Studio setting
           topP: 0.94,
@@ -494,7 +526,9 @@ Generate sentences now.''';
       );
 
       final text = response.text ?? '';
-      debugPrint('🔍 Sentence Generation Response (first 500 chars): ${text.length > 500 ? text.substring(0, 500) : text}');
+      debugPrint(
+        '🔍 Sentence Generation Response (first 500 chars): ${text.length > 500 ? text.substring(0, 500) : text}',
+      );
 
       return SentenceGenerationResult.fromJson(text, tones);
     });
@@ -585,8 +619,11 @@ class VocabularyExtractionResult {
     return VocabularyExtractionResult(
       level: json['level'] as String? ?? 'A1',
       category: json['category'] as String? ?? 'Daily Life',
-      vocabList: (json['vocab_list'] as List<dynamic>?)
-              ?.map((item) => VocabularyItem.fromJson(item as Map<String, dynamic>))
+      vocabList:
+          (json['vocab_list'] as List<dynamic>?)
+              ?.map(
+                (item) => VocabularyItem.fromJson(item as Map<String, dynamic>),
+              )
               .toList() ??
           [],
     );
@@ -598,14 +635,12 @@ class VocabularyItem {
   final String word;
   final String type; // 'noun' or 'verb'
   final String thai;
-  final String toneNote;
   final BoundingBox boundingBox;
 
   VocabularyItem({
     required this.word,
     required this.type,
     required this.thai,
-    required this.toneNote,
     required this.boundingBox,
   });
 
@@ -614,7 +649,6 @@ class VocabularyItem {
       word: json['word'] as String,
       type: json['type'] as String? ?? 'noun',
       thai: json['thai'] as String,
-      toneNote: json['tone_note'] as String? ?? '',
       boundingBox: BoundingBox.fromJson(
         json['bounding_box'] as Map<String, dynamic>? ?? {},
       ),
@@ -671,9 +705,16 @@ class SentenceGenerationResult {
     this.sentenceNote,
   });
 
-  factory SentenceGenerationResult.fromJson(String jsonString, List<String> selectedTones) {
-    debugPrint('🔍 SentenceGenerationResult.fromJson - selectedTones: $selectedTones');
-    debugPrint('🔍 Raw response (first 300 chars): ${jsonString.length > 300 ? jsonString.substring(0, 300) : jsonString}');
+  factory SentenceGenerationResult.fromJson(
+    String jsonString,
+    List<String> selectedTones,
+  ) {
+    debugPrint(
+      '🔍 SentenceGenerationResult.fromJson - selectedTones: $selectedTones',
+    );
+    debugPrint(
+      '🔍 Raw response (first 300 chars): ${jsonString.length > 300 ? jsonString.substring(0, 300) : jsonString}',
+    );
 
     // Extract JSON from response (handle markdown and extra text)
     String cleanJson = jsonString.trim();
@@ -718,7 +759,8 @@ class SentenceGenerationResult {
       return SentenceGenerationResult.combined(
         level: json['level'] as String? ?? 'A1',
         category: json['category'] as String? ?? 'Daily Life',
-        words: (json['words'] as List<dynamic>?)
+        words:
+            (json['words'] as List<dynamic>?)
                 ?.map((w) => w as String)
                 .toList() ??
             [],
@@ -768,7 +810,9 @@ class SentenceGenerationResult {
     required Map<String, Map<String, SentenceData>> results,
     List<String> selectedTones = const [],
   }) {
-    debugPrint('🔍 SentenceGenerationResult.normal - selectedTones: $selectedTones');
+    debugPrint(
+      '🔍 SentenceGenerationResult.normal - selectedTones: $selectedTones',
+    );
     debugPrint('🔍 Input results keys: ${results.keys}');
 
     // Filter results to only include selected tones
@@ -777,7 +821,9 @@ class SentenceGenerationResult {
       final word = entry.key;
       final sentences = entry.value;
 
-      debugPrint('🔍 Processing word: $word, available tones: ${sentences.keys}');
+      debugPrint(
+        '🔍 Processing word: $word, available tones: ${sentences.keys}',
+      );
 
       // Only include sentences for selected tones
       final filteredSentences = <String, SentenceData>{};
@@ -829,10 +875,7 @@ class SentenceData {
   final String text;
   final String thai;
 
-  SentenceData({
-    required this.text,
-    required this.thai,
-  });
+  SentenceData({required this.text, required this.thai});
 
   factory SentenceData.fromJson(Map<String, dynamic> json) {
     return SentenceData(

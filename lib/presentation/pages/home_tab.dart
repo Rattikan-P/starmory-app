@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../providers/providers.dart';
 import 'image_preview_screen.dart';
 
@@ -21,29 +22,86 @@ class _HomeTabState extends ConsumerState<HomeTab> {
     final userState = ref.watch(userStateProvider);
 
     return Scaffold(
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header
-              _buildHeader(context, userState),
-              const SizedBox(height: 24),
-
-              // Quick Actions
-              _buildQuickActions(context),
-
-              // Quota Status
-              _buildQuotaStatus(context),
-
-              const SizedBox(height: 20),
-
-              // Recent Scrapbook
-              _buildRecentScrapbook(context),
-            ],
+      body: Stack(
+        children: [
+          // Gradient background
+          Positioned.fill(
+            child: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Color(0xFFE8F4FD),
+                    Color(0xFFF5EEF8),
+                    Color(0xFFFDF4E8),
+                  ],
+                ),
+              ),
+            ),
           ),
-        ),
+
+          // Galaxy blobs
+          Positioned(
+            top: -100,
+            left: -80,
+            child: Container(
+              width: 350,
+              height: 350,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    const Color(0xFFC4B5FD).withValues(alpha: 0.5),
+                    const Color(0x00C4B5FD),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 50,
+            right: -100,
+            child: Container(
+              width: 380,
+              height: 380,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    const Color(0xFF93C5FD).withValues(alpha: 0.5),
+                    const Color(0x0093C5FD),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header
+                  _buildHeader(context, userState),
+                  const SizedBox(height: 24),
+
+                  // Quick Actions
+                  _buildQuickActions(context),
+
+                  // Quota Status
+                  _buildQuotaStatus(context),
+
+                  const SizedBox(height: 20),
+
+                  // Recent Scrapbook
+                  _buildRecentScrapbook(context),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -57,16 +115,20 @@ class _HomeTabState extends ConsumerState<HomeTab> {
           children: [
             Text(
               '✨ Starmory',
-              style: TextStyle(
+              style: GoogleFonts.lexend(
                 fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey[800],
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF1f2937),
               ),
             ),
             const SizedBox(height: 4),
             Text(
               'Hi, ${userState.user?.displayNameOrEmail.split('@')[0] ?? 'Guest'}! 👋',
-              style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+              style: GoogleFonts.lexend(
+                fontSize: 15,
+                fontWeight: FontWeight.w400,
+                color: const Color(0xFF6b7280),
+              ),
             ),
           ],
         ),
@@ -74,15 +136,28 @@ class _HomeTabState extends ConsumerState<HomeTab> {
           onTap: () {
             // TODO: Open profile
           },
-          child: CircleAvatar(
-            radius: 28,
-            backgroundColor: const Color(0xFF6C63FF).withOpacity(0.1),
-            child: Text(
-              userState.user?.displayNameOrEmail[0].toUpperCase() ?? 'G',
-              style: const TextStyle(
-                color: Color(0xFF6C63FF),
-                fontWeight: FontWeight.bold,
-                fontSize: 24,
+          child: Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.9),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Center(
+              child: Text(
+                userState.user?.displayNameOrEmail[0].toUpperCase() ?? 'G',
+                style: GoogleFonts.lexend(
+                  color: const Color(0xFF8b5cf6),
+                  fontWeight: FontWeight.w600,
+                  fontSize: 22,
+                ),
               ),
             ),
           ),
@@ -100,18 +175,18 @@ class _HomeTabState extends ConsumerState<HomeTab> {
           children: [
             Expanded(
               child: _QuickActionCard(
-                icon: Icons.camera_alt,
+                icon: Icons.camera_alt_rounded,
                 label: 'Camera',
-                color: const Color(0xFF6C63FF),
+                color: const Color(0xFF60a5fa),
                 onTap: () => _pickImage(ImageSource.camera),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: _QuickActionCard(
-                icon: Icons.photo_library,
+                icon: Icons.photo_library_rounded,
                 label: 'Gallery',
-                color: const Color.fromARGB(255, 95, 158, 221),
+                color: const Color(0xFFa78bfa),
                 onTap: () => _pickImage(ImageSource.gallery),
               ),
             ),
@@ -140,17 +215,15 @@ class _HomeTabState extends ConsumerState<HomeTab> {
       margin: const EdgeInsets.only(top: 20),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: canGenerate
-              ? [const Color(0xFFB39DDB).withValues(alpha: 0.15), const Color(0xFFB39DDB).withValues(alpha: 0.08)]
-              : [Colors.orange.withValues(alpha: 0.1), Colors.orange.withValues(alpha: 0.05)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: canGenerate ? const Color(0xFFB39DDB).withValues(alpha: 0.4) : Colors.orange.withValues(alpha: 0.3),
-        ),
+        color: Colors.white.withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         children: [
@@ -159,13 +232,13 @@ class _HomeTabState extends ConsumerState<HomeTab> {
             height: 48,
             decoration: BoxDecoration(
               color: canGenerate
-                  ? const Color(0xFFB39DDB).withValues(alpha: 0.2)
+                  ? const Color(0xFF8b7cf6).withValues(alpha: 0.15)
                   : Colors.orange.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
             ),
             child: Icon(
               canGenerate ? Icons.auto_awesome_rounded : Icons.warning_amber_rounded,
-              color: canGenerate ? const Color(0xFF7E57C2) : Colors.orange,
+              color: canGenerate ? const Color(0xFF8b5cf6) : Colors.orange,
               size: 24,
             ),
           ),
@@ -176,10 +249,10 @@ class _HomeTabState extends ConsumerState<HomeTab> {
               children: [
                 Text(
                   canGenerate ? 'Generations available' : 'Quota limit reached',
-                  style: TextStyle(
+                  style: GoogleFonts.lexend(
                     fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: canGenerate ? const Color(0xFF7E57C2) : Colors.orange,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF1f2937),
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -187,31 +260,50 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                   isGuest
                       ? 'Guest: $todayUsage/$dailyLimit today • $totalUsage/$totalLimit total'
                       : '$todayUsage/$dailyLimit today',
-                  style: const TextStyle(
+                  style: GoogleFonts.lexend(
                     fontSize: 13,
-                    color: Color(0xFF6E6E7A),
+                    fontWeight: FontWeight.w400,
+                    color: const Color(0xFF6b7280),
                   ),
                 ),
               ],
             ),
           ),
           if (isGuest && !canGenerate)
-            ElevatedButton(
-              onPressed: () {
-                // TODO: Navigate to sign up screen
-              },
-              style: ElevatedButton.styleFrom(
-                elevation: 0,
-                backgroundColor: const Color(0xFF6C63FF),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+            Container(
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF8b7cf6), Color(0xFF7c6ff5)],
                 ),
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF8b7cf6).withValues(alpha: 0.4),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
-              child: const Text(
-                'Sign Up',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+              child: ElevatedButton(
+                onPressed: () {
+                  // TODO: Navigate to sign up screen
+                },
+                style: ElevatedButton.styleFrom(
+                  elevation: 0,
+                  backgroundColor: Colors.transparent,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: Text(
+                  'Sign Up',
+                  style: GoogleFonts.lexend(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
             ),
         ],
@@ -240,9 +332,9 @@ class _HomeTabState extends ConsumerState<HomeTab> {
       // Pick image
       final XFile? image = await _imagePicker.pickImage(
         source: source,
-        maxWidth: 1920,
-        maxHeight: 1920,
-        imageQuality: 85,
+        maxWidth: 800,
+        maxHeight: 800,
+        imageQuality: 70,
       );
 
       if (image != null && mounted) {
@@ -276,19 +368,52 @@ class _HomeTabState extends ConsumerState<HomeTab> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('$type Permission Required'),
-        content: Text('Please grant $type permission to continue.'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          '$type Permission Required',
+          style: GoogleFonts.lexend(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            color: const Color(0xFF1f2937),
+          ),
+        ),
+        content: Text(
+          'Please grant $type permission to continue.',
+          style: GoogleFonts.lexend(
+            fontSize: 14,
+            fontWeight: FontWeight.w400,
+            color: const Color(0xFF6b7280),
+          ),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFF9ca3af),
+            ),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.lexend(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ),
           TextButton(
             onPressed: () {
               openAppSettings();
               Navigator.pop(context);
             },
-            child: const Text('Settings'),
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFF8b5cf6),
+            ),
+            child: Text(
+              'Settings',
+              style: GoogleFonts.lexend(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ),
         ],
       ),
@@ -299,12 +424,36 @@ class _HomeTabState extends ConsumerState<HomeTab> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(title),
-        content: Text(message),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          title,
+          style: GoogleFonts.lexend(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            color: const Color(0xFF1f2937),
+          ),
+        ),
+        content: Text(
+          message,
+          style: GoogleFonts.lexend(
+            fontSize: 14,
+            fontWeight: FontWeight.w400,
+            color: const Color(0xFF6b7280),
+          ),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFF8b5cf6),
+            ),
+            child: Text(
+              'OK',
+              style: GoogleFonts.lexend(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ),
         ],
       ),
@@ -320,10 +469,10 @@ class _HomeTabState extends ConsumerState<HomeTab> {
           children: [
             Text(
               'Recent Scrapbook',
-              style: TextStyle(
+              style: GoogleFonts.lexend(
                 fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey[800],
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF1f2937),
               ),
             ),
             GestureDetector(
@@ -332,9 +481,9 @@ class _HomeTabState extends ConsumerState<HomeTab> {
               },
               child: Text(
                 'See All',
-                style: TextStyle(
+                style: GoogleFonts.lexend(
                   fontSize: 14,
-                  color: const Color(0xFF6C63FF),
+                  color: const Color(0xFF8b5cf6),
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -345,67 +494,46 @@ class _HomeTabState extends ConsumerState<HomeTab> {
         Container(
           height: 120,
           decoration: BoxDecoration(
-            color: Colors.grey[100],
-            borderRadius: BorderRadius.circular(16),
+            color: Colors.white.withValues(alpha: 0.9),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
           child: Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.photo_library_outlined, size: 32, color: Colors.grey[400]),
+                Icon(
+                  Icons.photo_library_outlined,
+                  size: 32,
+                  color: const Color(0xFF9ca3af),
+                ),
                 const SizedBox(height: 8),
                 Text(
                   'No memories yet',
-                  style: TextStyle(
+                  style: GoogleFonts.lexend(
                     fontSize: 14,
-                    color: Colors.grey[600],
+                    fontWeight: FontWeight.w400,
+                    color: const Color(0xFF6b7280),
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   'Start capturing moments!',
-                  style: TextStyle(
+                  style: GoogleFonts.lexend(
                     fontSize: 12,
-                    color: Colors.grey[500],
+                    fontWeight: FontWeight.w400,
+                    color: const Color(0xFF9ca3af),
                   ),
                 ),
               ],
             ),
           ),
-        ),
-      ],
-    );
-  }
-}
-
-class _StatItem extends StatelessWidget {
-  final String label;
-  final String value;
-  final IconData icon;
-
-  const _StatItem({
-    required this.label,
-    required this.value,
-    required this.icon,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Icon(icon, color: Colors.white, size: 24),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        Text(
-          label,
-          style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 12),
         ),
       ],
     );
@@ -430,22 +558,36 @@ class _QuickActionCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withOpacity(0.3)),
+          color: Colors.white.withValues(alpha: 0.9),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.06),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Column(
           children: [
-            Icon(icon, color: color, size: 32),
-            const SizedBox(height: 8),
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Icon(icon, color: color, size: 28),
+            ),
+            const SizedBox(height: 12),
             Text(
               label,
-              style: TextStyle(
-                color: color,
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
+              style: GoogleFonts.lexend(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+                color: const Color(0xFF1f2937),
               ),
             ),
           ],

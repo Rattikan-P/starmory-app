@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../providers/providers.dart';
 import '../../data/models/vocabulary_model.dart';
 import '../../data/services/gemini_service.dart';
@@ -349,6 +350,11 @@ class _InteractiveVocabularyScreenState
             color: Color(0xFF2D2A4A),
           ),
         ),
+        titleTextStyle: GoogleFonts.lexend(
+          fontSize: 20,
+          fontWeight: FontWeight.w600,
+          color: const Color(0xFF2D2A4A),
+        ),
         actions: [
           Container(
             margin: const EdgeInsets.only(right: 16),
@@ -406,7 +412,10 @@ class _InteractiveVocabularyScreenState
         ),
         child: Text(
           'Create Scrapbook',
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          style: GoogleFonts.lexend(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ),
     );
@@ -479,12 +488,12 @@ class _InteractiveVocabularyScreenState
 
           const SizedBox(width: 12),
 
-          const Text(
+          Text(
             'Combined Sentence',
-            style: TextStyle(
+            style: GoogleFonts.lexend(
               fontSize: 14,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF2D2A4A),
+              color: const Color(0xFF2D2A4A),
             ),
           ),
         ],
@@ -1250,7 +1259,7 @@ class _InteractiveVocabularyScreenState
             const SizedBox(height: 16),
             Text(
               'Tap the dots on the image',
-              style: TextStyle(
+              style: GoogleFonts.lexend(
                 fontSize: 18,
                 color: const Color(0xFF2D2A4A),
                 fontWeight: FontWeight.w500,
@@ -1259,7 +1268,7 @@ class _InteractiveVocabularyScreenState
             const SizedBox(height: 8),
             Text(
               'to select vocabulary words',
-              style: TextStyle(fontSize: 14, color: const Color(0xFF8B87A6)),
+              style: GoogleFonts.lexend(fontSize: 14, color: const Color(0xFF8B87A6)),
             ),
           ],
         ),
@@ -1775,15 +1784,18 @@ class _WordDetailCard extends StatelessWidget {
                   children: [
                     Text(
                       dot.word,
-                      style: const TextStyle(
+                      style: GoogleFonts.lexend(
                         fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF6C63FF),
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF6C63FF),
                       ),
                     ),
                     Text(
                       '${dot.partOfSpeech} • ${dot.thaiTranslation}',
-                      style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                      style: GoogleFonts.lexend(
+                        fontSize: 14,
+                        color: Colors.grey[600],
+                      ),
                     ),
                   ],
                 ),
@@ -2023,11 +2035,11 @@ class _ContextSelectorScreenState extends State<ContextSelectorScreen> {
         scrolledUnderElevation: 0,
         backgroundColor: Colors.transparent,
         foregroundColor: const Color(0xFF2D2A4A),
-        title: const Text(
+        title: Text(
           'Customize Context',
-          style: TextStyle(
-            fontWeight: FontWeight.w700,
-            color: Color(0xFF2D2A4A),
+          style: GoogleFonts.lexend(
+            fontWeight: FontWeight.w600,
+            color: const Color(0xFF2D2A4A),
           ),
         ),
       ),
@@ -2055,16 +2067,19 @@ class _ContextSelectorScreenState extends State<ContextSelectorScreen> {
                 children: [
                   Text(
                     widget.vocabularyDot.word,
-                    style: const TextStyle(
+                    style: GoogleFonts.lexend(
                       fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF7B6EF6),
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF7B6EF6),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Text(
                     widget.vocabularyDot.thaiTranslation,
-                    style: TextStyle(fontSize: 18, color: Colors.grey[700]),
+                    style: GoogleFonts.lexend(
+                      fontSize: 18,
+                      color: Colors.grey[700],
+                    ),
                   ),
                 ],
               ),
@@ -2127,9 +2142,12 @@ class _ContextSelectorScreenState extends State<ContextSelectorScreen> {
                     borderRadius: BorderRadius.circular(20),
                   ),
                 ),
-                child: const Text(
+                child: Text(
                   'Use for All Selected',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  style: GoogleFonts.lexend(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ),
@@ -2142,9 +2160,9 @@ class _ContextSelectorScreenState extends State<ContextSelectorScreen> {
   Widget _buildSectionTitle(String title) {
     return Text(
       title,
-      style: TextStyle(
+      style: GoogleFonts.lexend(
         fontSize: 18,
-        fontWeight: FontWeight.bold,
+        fontWeight: FontWeight.w600,
         color: Colors.grey[800],
       ),
     );

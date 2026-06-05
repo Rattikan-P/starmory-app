@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../providers/providers.dart';
 import '../../core/utils/image_clarity_checker.dart';
 import '../../core/utils/quota_manager.dart';
@@ -22,153 +23,198 @@ class _ImagePreviewScreenState extends ConsumerState<ImagePreviewScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F7FB),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // TOP BAR
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-              child: Row(
-                children: [
-                  _glassButton(
-                    icon: Icons.arrow_back_ios_new,
-                    onTap: () => Navigator.pop(context),
-                  ),
-
-                  const Spacer(),
-
-                  const Text(
-                    'Preview',
-                    style: TextStyle(
-                      color: Color(0xFF151515),
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-
-                  const Spacer(),
-
-                  _glassButton(
-                    icon: Icons.refresh,
-                    onTap: _isProcessing ? null : _retakePhoto,
-                  ),
-                ],
+      body: Stack(
+        children: [
+          // Gradient background
+          Positioned.fill(
+            child: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Color(0xFFE8F4FD),
+                    Color(0xFFF5EEF8),
+                    Color(0xFFFDF4E8),
+                  ],
+                ),
               ),
             ),
+          ),
 
-            const SizedBox(height: 24),
+          // Galaxy blobs
+          Positioned(
+            top: -100,
+            left: -80,
+            child: Container(
+              width: 350,
+              height: 350,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    const Color(0xFFC4B5FD).withValues(alpha: 0.5),
+                    const Color(0x00C4B5FD),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: -50,
+            right: -80,
+            child: Container(
+              width: 300,
+              height: 300,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    const Color(0xFF93C5FD).withValues(alpha: 0.4),
+                    const Color(0x0093C5FD),
+                  ],
+                ),
+              ),
+            ),
+          ),
 
-            // IMAGE CARD
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(32),
-                    border: Border.all(color: const Color(0xFFECECF3)),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF8B7CFF).withValues(alpha: 0.08),
-                        blurRadius: 40,
-                        offset: const Offset(0, 20),
+          SafeArea(
+            child: Column(
+              children: [
+                // TOP BAR
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                  child: Row(
+                    children: [
+                      _glassButton(
+                        icon: Icons.arrow_back_ios_rounded,
+                        onTap: () => Navigator.pop(context),
+                      ),
+                      const Spacer(),
+                      Text(
+                        'Preview',
+                        style: GoogleFonts.lexend(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF1f2937),
+                        ),
+                      ),
+                      const Spacer(),
+                      // Empty space to balance the layout
+                      const SizedBox(width: 46),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                // IMAGE CARD
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.9),
+                        borderRadius: BorderRadius.circular(32),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF8B7CFF).withValues(alpha: 0.08),
+                            blurRadius: 40,
+                            offset: const Offset(0, 20),
+                          ),
+                        ],
+                      ),
+                      padding: const EdgeInsets.all(12),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(24),
+                        child: Image.file(
+                          File(widget.imagePath),
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
+                // TEXT + INFO
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 28, 24, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Ready to Generate',
+                        style: GoogleFonts.lexend(
+                          fontSize: 26,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF1f2937),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        'AI will analyze your image and create contextual vocabulary cards.',
+                        style: GoogleFonts.lexend(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w400,
+                          color: const Color(0xFF6b7280),
+                          height: 1.5,
+                        ),
                       ),
                     ],
                   ),
-                  padding: const EdgeInsets.all(12),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(24),
-                    child: Image.file(
-                      File(widget.imagePath),
-                      fit: BoxFit.cover,
-                    ),
-                  ),
                 ),
-              ),
-            ),
 
-            // TEXT + INFO
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 28, 24, 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Ready to Generate ✨',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF151515),
-                      letterSpacing: -1,
-                    ),
-                  ),
-
-                  const SizedBox(height: 10),
-
-                  const Text(
-                    'AI will analyze your image and create contextual vocabulary cards instantly.',
-                    style: TextStyle(
-                      fontSize: 15,
-                      height: 1.6,
-                      color: Color(0xFF6E6E7A),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // BUTTON
-            Padding(
-              padding: const EdgeInsets.all(24),
-              child: SizedBox(
-                width: double.infinity,
-                height: 62,
-                child: ElevatedButton(
-                  onPressed: _isProcessing ? null : _usePhoto,
-                  style: ElevatedButton.styleFrom(
-                    elevation: 0,
-                    backgroundColor: const Color(0xFF8B7CFF),
-                    disabledBackgroundColor: Colors.grey.shade300,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                  ),
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 250),
-                    child: _isProcessing
-                        ? const SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.auto_awesome_rounded),
-                              SizedBox(width: 10),
-                              Text(
-                                'Generate Vocabulary',
-                                style: TextStyle(
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: -0.3,
+                // BUTTON
+                Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: 62,
+                    child: ElevatedButton(
+                      onPressed: _isProcessing ? null : _usePhoto,
+                      style: ElevatedButton.styleFrom(
+                        elevation: 0,
+                        backgroundColor: const Color(0xFF8b7cf6),
+                        disabledBackgroundColor: Colors.grey.shade300,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                      ),
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 250),
+                        child: _isProcessing
+                            ? const SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
                                 ),
+                              )
+                            : Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(Icons.auto_awesome_rounded),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    'Generate Vocabulary',
+                                    style: GoogleFonts.lexend(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
+                      ),
+                    ),
                   ),
                 ),
-              ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -180,18 +226,21 @@ class _ImagePreviewScreenState extends ConsumerState<ImagePreviewScreen> {
         width: 46,
         height: 46,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Colors.white.withValues(alpha: 0.9),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFECECF3)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
+              color: Colors.black.withValues(alpha: 0.08),
               blurRadius: 10,
-              offset: const Offset(0, 4),
+              offset: const Offset(0, 2),
             ),
           ],
         ),
-        child: Icon(icon, color: const Color(0xFF151515), size: 18),
+        child: Icon(
+          icon,
+          color: const Color(0xFF1f2937),
+          size: 18,
+        ),
       ),
     );
   }
@@ -286,15 +335,39 @@ class _ImagePreviewScreenState extends ConsumerState<ImagePreviewScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(title),
-        content: Text(message),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          title,
+          style: GoogleFonts.lexend(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            color: const Color(0xFF1f2937),
+          ),
+        ),
+        content: Text(
+          message,
+          style: GoogleFonts.lexend(
+            fontSize: 14,
+            fontWeight: FontWeight.w400,
+            color: const Color(0xFF6b7280),
+          ),
+        ),
         actions: [
           TextButton(
             onPressed: () {
               Navigator.pop(context);
               setState(() => _isProcessing = false);
             },
-            child: const Text('OK'),
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFF8b5cf6),
+            ),
+            child: Text(
+              'OK',
+              style: GoogleFonts.lexend(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ),
         ],
       ),
@@ -311,10 +384,10 @@ class _ImagePreviewScreenState extends ConsumerState<ImagePreviewScreen> {
             Expanded(
               child: Text(
                 isGuest ? 'Guest Limit Reached' : 'Daily Limit Reached',
-                style: const TextStyle(
+                style: GoogleFonts.lexend(
                   fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF151515),
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF1f2937),
                 ),
               ),
             ),
@@ -324,10 +397,11 @@ class _ImagePreviewScreenState extends ConsumerState<ImagePreviewScreen> {
           isGuest
               ? "You've used all your guest generations. Create an account to get more generations!"
               : "You've reached your 15 daily generations. Come back tomorrow for more!",
-          style: const TextStyle(
-            fontSize: 15,
+          style: GoogleFonts.lexend(
+            fontSize: 14,
+            fontWeight: FontWeight.w400,
+            color: const Color(0xFF6b7280),
             height: 1.5,
-            color: Color(0xFF6E6E7A),
           ),
         ),
         actions: [
@@ -338,9 +412,15 @@ class _ImagePreviewScreenState extends ConsumerState<ImagePreviewScreen> {
                 setState(() => _isProcessing = false);
                 // TODO: Navigate to sign up screen
               },
-              child: const Text(
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFF9ca3af),
+              ),
+              child: Text(
                 'Later',
-                style: TextStyle(color: Color(0xFF6E6E7A), fontSize: 15),
+                style: GoogleFonts.lexend(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
           ElevatedButton(
@@ -350,13 +430,19 @@ class _ImagePreviewScreenState extends ConsumerState<ImagePreviewScreen> {
             },
             style: ElevatedButton.styleFrom(
               elevation: 0,
-              backgroundColor: const Color(0xFF8B7CFF),
+              backgroundColor: const Color(0xFF8b7cf6),
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
-            child: Text(isGuest ? 'Create Account' : 'Got it'),
+            child: Text(
+              isGuest ? 'Create Account' : 'Got it',
+              style: GoogleFonts.lexend(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
         ],
       ),
@@ -368,21 +454,29 @@ class _ImagePreviewScreenState extends ConsumerState<ImagePreviewScreen> {
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Row(
+        title: Row(
           children: [
-            Icon(
-              Icons.blur_on_rounded,
-              color: Colors.orange,
-              size: 28,
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: Colors.orange.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.blur_on_rounded,
+                color: Colors.orange,
+                size: 20,
+              ),
             ),
-            SizedBox(width: 12),
+            const SizedBox(width: 12),
             Expanded(
               child: Text(
                 'Image Quality Issue',
-                style: TextStyle(
+                style: GoogleFonts.lexend(
                   fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF151515),
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF1f2937),
                 ),
               ),
             ),
@@ -394,19 +488,21 @@ class _ImagePreviewScreenState extends ConsumerState<ImagePreviewScreen> {
           children: [
             Text(
               result.message,
-              style: const TextStyle(
-                fontSize: 15,
+              style: GoogleFonts.lexend(
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+                color: const Color(0xFF6b7280),
                 height: 1.5,
-                color: Color(0xFF6E6E7A),
               ),
             ),
             const SizedBox(height: 12),
             Text(
               'Please try with a clearer, well-lit photo for best results.',
-              style: TextStyle(
+              style: GoogleFonts.lexend(
                 fontSize: 13,
+                fontWeight: FontWeight.w400,
+                color: const Color(0xFF9ca3af),
                 height: 1.5,
-                color: Colors.grey.shade500,
               ),
             ),
           ],
@@ -416,9 +512,15 @@ class _ImagePreviewScreenState extends ConsumerState<ImagePreviewScreen> {
             onPressed: () {
               Navigator.pop(context);
             },
-            child: const Text(
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFF9ca3af),
+            ),
+            child: Text(
               'Cancel',
-              style: TextStyle(color: Color(0xFF6E6E7A), fontSize: 15),
+              style: GoogleFonts.lexend(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
           ElevatedButton(
@@ -428,13 +530,19 @@ class _ImagePreviewScreenState extends ConsumerState<ImagePreviewScreen> {
             },
             style: ElevatedButton.styleFrom(
               elevation: 0,
-              backgroundColor: const Color(0xFF8B7CFF),
+              backgroundColor: const Color(0xFF8b7cf6),
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
-            child: const Text('Try Again'),
+            child: Text(
+              'Try Again',
+              style: GoogleFonts.lexend(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
         ],
       ),
