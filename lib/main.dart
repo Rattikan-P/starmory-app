@@ -4,8 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'core/config/app_constants.dart';
 import 'data/services/hive_service.dart';
 import 'data/services/preference_service.dart';
+import 'presentation/providers/providers.dart';
 import 'presentation/pages/main_navigation.dart';
 import 'presentation/pages/onboarding_page.dart';
 
@@ -50,7 +52,27 @@ class _MyAppState extends ConsumerState<MyApp> {
   @override
   void initState() {
     super.initState();
-    _checkOnboarding();
+    _initializeApp();
+  }
+
+  Future<void> _initializeApp() async {
+    try {
+      // Load environment variables first
+      await AppConstants.initialize();
+
+      // Initialize Hive
+      final hiveService = ref.read(hiveServiceProvider);
+      await hiveService.initialize();
+
+      // Check onboarding status
+      _checkOnboarding();
+
+      ref.read(appInitializationProvider.notifier).state = AppInitialization.initialized;
+    } catch (e) {
+      ref.read(appInitializationProvider.notifier).state =
+          AppInitialization(isInitialized: false, error: e.toString());
+      debugPrint('Failed to initialize app: $e');
+    }
   }
 
   Future<void> _checkOnboarding() async {
@@ -63,8 +85,10 @@ class _MyAppState extends ConsumerState<MyApp> {
 
   @override
   Widget build(BuildContext context) {
+    final initializationState = ref.watch(appInitializationProvider);
+
     return MaterialApp(
-      title: 'Starmory',
+      title: 'Starmory - Personalized Vocabulary Learning',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF6C63FF),
@@ -86,12 +110,66 @@ class _MyAppState extends ConsumerState<MyApp> {
         ),
       ),
       themeMode: ThemeMode.system,
-      // เช็คจาก state แทน FutureBuilder
-      home: _onboardingCompleted == null
-          ? const Scaffold(body: Center(child: CircularProgressIndicator()))
-          : _onboardingCompleted!
-          ? const MainNavigationScreen()
-          : const OnboardingPage(),
+      home: _buildHome(initializationState),
+    );
+  }
+
+  Widget _buildHome(AppInitialization initializationState) {
+    // Show error screen if initialization failed
+    if (initializationState.error != null) {
+      return InitializationErrorScreen(error: initializationState.error!);
+    }
+
+    // Show loading while checking onboarding
+    if (_onboardingCompleted == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    // Show onboarding or main navigation
+    return _onboardingCompleted!
+        ? const MainNavigationScreen()
+        : const OnboardingPage();
+  }
+}
+
+/// Initialization Error Screen
+class InitializationErrorScreen extends StatelessWidget {
+  final String error;
+
+  const InitializationErrorScreen({super.key, required this.error});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                Icons.error_outline,
+                size: 64,
+                color: Colors.red,
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Initialization Failed',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                error,
+                style: TextStyle(color: Colors.grey[600]),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

@@ -73,5 +73,11 @@
 	</array>
 	<key>GIDClientID</key>
 	<string>756354340664-fotsc0j36gdcm4odmd7b1n5945nj1itr.apps.googleusercontent.com</string>
+	<key>NSCameraUsageDescription</key>
+	<string>This app needs camera access to capture photos for vocabulary learning.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>This app needs photo library access to select images for vocabulary learning.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>This app needs permission to save generated vocabulary images to your photos.</string>
 </dict>
 </plist>
