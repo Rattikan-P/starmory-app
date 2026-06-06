@@ -57,7 +57,7 @@ class _EnglishVariantPageState extends ConsumerState<EnglishVariantPage> {
     if (widget.forceSelection || widget.isInitialSetup) return;
 
     final preferenceService = ref.read(onboardingServiceProvider);
-    final existingVariant = await preferenceService.getGuestEnglishVariant();
+    final existingVariant = await preferenceService.getEnglishVariant();
 
     if (existingVariant != null && mounted) {
       setState(() {
@@ -422,7 +422,7 @@ class _EnglishVariantPageState extends ConsumerState<EnglishVariantPage> {
     });
 
     final preferenceService = ref.read(onboardingServiceProvider);
-    await preferenceService.setGuestEnglishVariant(code);
+    await preferenceService.setEnglishVariant(code);
 
     if (widget.isEditing) {
       if (!widget.isGuest) {
@@ -481,7 +481,7 @@ class _EnglishVariantPageState extends ConsumerState<EnglishVariantPage> {
             .eq('id', userId);
       }
 
-      await preferenceService.clearGuestPreferences();
+      await preferenceService.clearLocalPreferences();
       await preferenceService.setOnboardingCompleted(true);
       await preferenceService.setGuestMode(false);
 

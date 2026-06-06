@@ -55,8 +55,8 @@ class _LanguageSelectionPageState extends ConsumerState<LanguageSelectionPage> {
     if (widget.forceSelection || widget.isInitialSetup) return;
 
     final preferenceService = ref.read(onboardingServiceProvider);
-    final existingLevel = await preferenceService.getGuestLanguageLevel();
-    final existingVariant = await preferenceService.getGuestEnglishVariant();
+    final existingLevel = await preferenceService.getLanguageLevel();
+    final existingVariant = await preferenceService.getEnglishVariant();
 
     // Store existing level for highlighting
     if (existingLevel != null && mounted) {
@@ -457,7 +457,7 @@ class _LanguageSelectionPageState extends ConsumerState<LanguageSelectionPage> {
     });
 
     final preferenceService = ref.read(onboardingServiceProvider);
-    await preferenceService.setGuestLanguageLevel(code);
+    await preferenceService.setLanguageLevel(code);
 
     if (!context.mounted) return;
 

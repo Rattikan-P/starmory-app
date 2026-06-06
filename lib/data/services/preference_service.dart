@@ -6,8 +6,8 @@ import '../../constants/app_defaults.dart';
 class PreferenceService {
   static const String _onboardingKey = 'onboarding_completed';
   static const String _guestModeKey = 'is_guest_mode';
-  static const String _languageLevelKey = 'guest_language_level';
-  static const String _englishVariantKey = 'guest_english_variant';
+  static const String _languageLevelKey = 'language_level';
+  static const String _englishVariantKey = 'english_variant';
 
   Box? _box;
 
@@ -43,24 +43,24 @@ class PreferenceService {
     await prefs.setBool(_guestModeKey, isGuest);
   }
 
-  // Language Level (for guest mode)
-  Future<String?> getGuestLanguageLevel() async {
+  // Language Level (local preferences for both guest and registered users)
+  Future<String?> getLanguageLevel() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_languageLevelKey); // null = ยังไม่ได้เลือก
   }
 
-  Future<void> setGuestLanguageLevel(String level) async {
+  Future<void> setLanguageLevel(String level) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_languageLevelKey, level);
   }
 
-  // English Variant (for guest mode)
-  Future<String?> getGuestEnglishVariant() async {
+  // English Variant (local preferences for both guest and registered users)
+  Future<String?> getEnglishVariant() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_englishVariantKey) ?? AppDefaults.defaultEnglishVariant;
   }
 
-  Future<void> setGuestEnglishVariant(String variant) async {
+  Future<void> setEnglishVariant(String variant) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_englishVariantKey, variant);
   }
@@ -78,7 +78,7 @@ class PreferenceService {
     await _box?.clear();
   }
 
-  Future<void> clearGuestPreferences() async {
+  Future<void> clearLocalPreferences() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_languageLevelKey);
     await prefs.remove(_englishVariantKey);

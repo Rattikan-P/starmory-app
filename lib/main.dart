@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import 'data/services/hive_service.dart';
 import 'data/services/preference_service.dart';
 import 'presentation/pages/main_navigation.dart';
 import 'presentation/pages/onboarding_page.dart';
@@ -90,8 +89,8 @@ class _MyAppState extends ConsumerState<MyApp> {
       home: _onboardingCompleted == null
           ? const Scaffold(body: Center(child: CircularProgressIndicator()))
           : _onboardingCompleted!
-          ? const MainNavigationScreen()
-          : const OnboardingPage(),
+              ? const MainNavigationScreen()
+              : const OnboardingPage(),
     );
   }
 }

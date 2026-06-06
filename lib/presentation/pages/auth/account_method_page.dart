@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../data/services/auth_service.dart';
@@ -8,6 +9,8 @@ import '../../../utils/snackbar_helper.dart';
 import '../main_navigation.dart';
 import '../onboarding_page.dart';
 import '../language_selection_page.dart';
+import '../privacy_policy_page.dart';
+import '../terms_of_service_page.dart';
 import 'otp_verification_page.dart' show OtpVerificationPage;
 import '../../../constants/app_defaults.dart';
 
@@ -63,8 +66,8 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
       // Auto-accept terms
       await preferenceService.setTermsVersion(preferenceService.getCurrentTermsVersion());
 
-      final guestLevel = await preferenceService.getGuestLanguageLevel();
-      final guestVariant = await preferenceService.getGuestEnglishVariant();
+      final guestLevel = await preferenceService.getLanguageLevel();
+      final guestVariant = await preferenceService.getEnglishVariant();
       final hasGuestData = guestLevel != null || guestVariant != null;
 
       final userData = await client
@@ -175,8 +178,8 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
 
       // Get guest preferences to carry over
       final preferenceService = ref.read(onboardingServiceProvider);
-      final guestLevel = await preferenceService.getGuestLanguageLevel();
-      final guestVariant = await preferenceService.getGuestEnglishVariant();
+      final guestLevel = await preferenceService.getLanguageLevel();
+      final guestVariant = await preferenceService.getEnglishVariant();
 
       // Send OTP first, then navigate
       final authService = ref.read(authServiceProvider);
@@ -855,13 +858,10 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
                           ),
                           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
                         ),
-                        icon: Image.asset(
-                          'assets/images/google_logo.png',
+                        icon: SvgPicture.network(
+                          'https://thesvg.org/icons/google/default.svg',
                           width: 20,
                           height: 20,
-                          errorBuilder: (context, error, stackTrace) {
-                            return const Icon(Icons.g_mobiledata, size: 20, color: Color(0xFF1f2937));
-                          },
                         ),
                         label: Text(
                           'Continue with Google',
@@ -883,19 +883,47 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
                     fontWeight: FontWeight.w400,
                     color: const Color(0xFF9ca3af),
                   ),
-                  children: const [
-                    TextSpan(text: 'By signing up, you agree to our '),
-                    TextSpan(
-                      text: 'Terms',
-                      style: TextStyle(
-                        color: Color(0xFFa5b4fc),
+                  children: [
+                    const TextSpan(text: 'By signing up, you agree to our '),
+                    WidgetSpan(
+                      alignment: PlaceholderAlignment.middle,
+                      child: GestureDetector(
+                        onTap: () {
+                          if (context.mounted) {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const TermsOfServicePage()),
+                            );
+                          }
+                        },
+                        child: Text(
+                          'Terms',
+                          style: GoogleFonts.lexend(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w400,
+                            color: Color(0xFFa5b4fc),
+                          ),
+                        ),
                       ),
                     ),
-                    TextSpan(text: ' & '),
-                    TextSpan(
-                      text: 'Privacy Policy',
-                      style: TextStyle(
-                        color: Color(0xFFa5b4fc),
+                    const TextSpan(text: ' & '),
+                    WidgetSpan(
+                      alignment: PlaceholderAlignment.middle,
+                      child: GestureDetector(
+                        onTap: () {
+                          if (context.mounted) {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const PrivacyPolicyPage()),
+                            );
+                          }
+                        },
+                        child: Text(
+                          'Privacy Policy',
+                          style: GoogleFonts.lexend(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w400,
+                            color: Color(0xFFa5b4fc),
+                          ),
+                        ),
                       ),
                     ),
                   ],

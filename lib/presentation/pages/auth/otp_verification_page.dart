@@ -156,7 +156,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
 
         if (hasExplicitData) {
           // มีข้อมูลจาก guest creating account → ใช้เลย
-          await preferenceService.clearGuestPreferences();
+          await preferenceService.clearLocalPreferences();
           await authService.updateUserPreferences(
             userId: user.id,
             email: widget.email,
@@ -373,8 +373,9 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
                           child: InkWell(
                             onTap: () async {
                               Navigator.pop(context);
-                              // Reset attempts and request new OTP
+                              // Reset attempts, clear input, and request new OTP
                               setState(() => _failedAttempts = 0);
+                              _clearOtp();
                               await _resendOtp();
                             },
                             borderRadius: BorderRadius.circular(12),

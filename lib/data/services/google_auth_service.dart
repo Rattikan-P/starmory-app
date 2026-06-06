@@ -15,12 +15,24 @@ class GoogleAuthService {
 
   Future<bool> signInWithGoogle({bool forceAccountSelection = false}) async {
     try {
+      print('🔍 [DEBUG] Google Sign In Started');
+      print('🔍 [DEBUG] Platform: ${Platform.isIOS ? "iOS" : "Android"}');
+      print('🔍 [DEBUG] Client ID: ${Platform.isIOS ? dotenv.env['IOS_CLIENT'] : dotenv.env['ANDROID_CLIENT']}');
+
       if (forceAccountSelection) {
+        print('🔍 [DEBUG] Force account selection - signing out first');
         await _googleSignIn.signOut(); // force ถาม account ใหม่
       }
 
+      print('🔍 [DEBUG] Calling GoogleSignIn.signIn()...');
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-      if (googleUser == null) return false;
+      if (googleUser == null) {
+        print('❌ [DEBUG] User cancelled Google Sign In');
+        return false;
+      }
+
+      print('✅ [DEBUG] Got Google user: ${googleUser.email}');
+      print('🔍 [DEBUG] Getting authentication tokens...');
 
       final GoogleSignInAuthentication googleAuth =
           await googleUser.authentication;
@@ -28,17 +40,26 @@ class GoogleAuthService {
       final idToken = googleAuth.idToken;
       final accessToken = googleAuth.accessToken;
 
-      if (idToken == null) throw Exception('No ID token found');
+      print('🔍 [DEBUG] ID Token length: ${idToken?.length ?? "NULL"}');
+      print('🔍 [DEBUG] Access Token length: ${accessToken?.length ?? "NULL"}');
 
+      if (idToken == null) {
+        print('❌ [DEBUG] No ID token found');
+        throw Exception('No ID token found');
+      }
+
+      print('🔍 [DEBUG] Calling Supabase signInWithIdToken...');
       await _client.auth.signInWithIdToken(
         provider: OAuthProvider.google,
         idToken: idToken,
         accessToken: accessToken,
       );
 
+      print('✅ [DEBUG] Google Sign In SUCCESS!');
       return true;
-    } catch (e) {
-      print('Error during Google sign in: $e');
+    } catch (e, st) {
+      print('❌ [DEBUG] Error during Google sign in: $e');
+      print('❌ [DEBUG] Stack trace: $st');
       rethrow;
     }
   }
