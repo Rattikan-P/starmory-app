@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../providers/providers.dart';
 import '../../core/utils/image_clarity_checker.dart';
 import '../../core/utils/quota_manager.dart';
+import '../../core/utils/internet_connection_checker.dart';
 import 'generation_loading_screen.dart';
 import 'auth/account_method_page.dart';
 
@@ -266,6 +267,17 @@ class _ImagePreviewScreenState extends ConsumerState<ImagePreviewScreen> {
           // Show appropriate dialog based on user type
           final user = ref.read(currentUserProvider);
           _showQuotaLimitDialog(user?.isGuest ?? true);
+        }
+        return;
+      }
+
+      // Step 1.5: Check internet connection
+      final hasConnection = await InternetConnectionChecker.hasInternetConnection();
+      if (!hasConnection) {
+        if (mounted) {
+          setState(() => _isProcessing = false);
+          await _refundQuota(); // Refund quota since we won't proceed
+          _showNoInternetDialog();
         }
         return;
       }
@@ -536,6 +548,96 @@ class _ImagePreviewScreenState extends ConsumerState<ImagePreviewScreen> {
             onPressed: () {
               Navigator.pop(context);
               _retakePhoto();
+            },
+            style: ElevatedButton.styleFrom(
+              elevation: 0,
+              backgroundColor: const Color(0xFF8b7cf6),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: Text(
+              'Try Again',
+              style: GoogleFonts.lexend(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showNoInternetDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: Colors.orange.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.wifi_off_rounded,
+                color: Colors.orange,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'No Internet Connection',
+                style: GoogleFonts.lexend(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF1f2937),
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Please check your internet connection and try again.',
+              style: GoogleFonts.lexend(
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+                color: const Color(0xFF6b7280),
+                height: 1.5,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+            },
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFF9ca3af),
+            ),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.lexend(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _usePhoto(); // Retry
             },
             style: ElevatedButton.styleFrom(
               elevation: 0,

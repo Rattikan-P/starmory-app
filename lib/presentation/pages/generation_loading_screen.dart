@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../providers/providers.dart';
 import '../providers/auth_quota_provider.dart';
+import '../../core/utils/quota_manager.dart';
 import 'interactive_vocabulary_screen.dart';
 import 'auth/account_method_page.dart';
 
@@ -272,14 +273,37 @@ class _GenerationLoadingScreenState
       }
     } catch (e) {
       if (mounted) {
+        final errorStr = e.toString();
+        final errorStrLower = errorStr.toLowerCase();
+
+        debugPrint('🔍 Generation loading caught error: "$errorStr"');
+
+        // Handle QuotaExceededFailure with a friendly message (don't mention quota/backend limit)
+        if (errorStr.contains('QuotaExceededFailure') ||
+            errorStr.contains('Starmory needs a rest') ||
+            errorStrLower.contains('quota exceeded') ||
+            errorStrLower.contains('please check your plan and billing')) {
+          debugPrint('✅ Showing friendly quota message to user');
+
+          // Refund quota since generation failed due to API quota exceeded
+          await _refundQuota();
+
+          setState(() {
+            _errorMessage = 'Starmory needs a rest today 😴\nNew lessons will be ready again tomorrow!';
+            _isProcessing = false;
+          });
+          _handleNetworkError('Starmory needs a rest today 😴\nNew lessons will be ready again tomorrow!');
+          return;
+        }
+
         String errorMessage;
-        if (e.toString().contains('Instance of')) {
+        if (errorStr.contains('Instance of')) {
           errorMessage =
               'AI service initialization failed. Please check your API key.';
-        } else if (e.toString().contains('NotInitializedError')) {
+        } else if (errorStr.contains('NotInitializedError')) {
           errorMessage = 'AI service is not ready. Please try again.';
         } else {
-          errorMessage = e.toString().replaceAll('Exception: ', '');
+          errorMessage = errorStr.replaceAll('Exception: ', '');
         }
 
         setState(() {
@@ -351,63 +375,12 @@ class _GenerationLoadingScreenState
             ),
           ],
         ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                message,
-                style: GoogleFonts.lexend(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w400,
-                  color: const Color(0xFF6b7280),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.orange.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Tips for better results:',
-                      style: GoogleFonts.lexend(
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF92400e),
-                        fontSize: 13,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '• Use clear, well-lit photos',
-                      style: GoogleFonts.lexend(
-                        fontSize: 12,
-                        color: const Color(0xFF92400e),
-                      ),
-                    ),
-                    Text(
-                      '• Ensure main objects are visible',
-                      style: GoogleFonts.lexend(
-                        fontSize: 12,
-                        color: const Color(0xFF92400e),
-                      ),
-                    ),
-                    Text(
-                      '• Avoid blurry or low-resolution images',
-                      style: GoogleFonts.lexend(
-                        fontSize: 12,
-                        color: const Color(0xFF92400e),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+        content: Text(
+          message,
+          style: GoogleFonts.lexend(
+            fontSize: 14,
+            fontWeight: FontWeight.w400,
+            color: const Color(0xFF6b7280),
           ),
         ),
         actions: [
@@ -437,6 +410,10 @@ class _GenerationLoadingScreenState
 
   void _handleNetworkError(String error) {
     if (!mounted) return;
+
+    // Check if it's the friendly quota message
+    final isQuotaMessage = error.contains('Starmory needs a rest');
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -447,19 +424,21 @@ class _GenerationLoadingScreenState
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: Colors.red.withValues(alpha: 0.15),
+                color: isQuotaMessage
+                    ? Colors.purple.withValues(alpha: 0.15)
+                    : Colors.red.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(
-                Icons.cloud_off_rounded,
-                color: Colors.red,
+              child: Icon(
+                isQuotaMessage ? Icons.bedtime_rounded : Icons.cloud_off_rounded,
+                color: isQuotaMessage ? Colors.purple : Colors.red,
                 size: 20,
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                'Connection Error',
+                isQuotaMessage ? 'Starmory' : 'Connection Error',
                 style: GoogleFonts.lexend(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
@@ -469,56 +448,12 @@ class _GenerationLoadingScreenState
             ),
           ],
         ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Unable to connect to AI service: $error',
-                style: GoogleFonts.lexend(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w400,
-                  color: const Color(0xFF6b7280),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.red.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Possible solutions:',
-                      style: GoogleFonts.lexend(
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF991b1b),
-                        fontSize: 13,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '• Check your internet connection',
-                      style: GoogleFonts.lexend(
-                        fontSize: 12,
-                        color: const Color(0xFF991b1b),
-                      ),
-                    ),
-                    Text(
-                      '• Try again in a moment',
-                      style: GoogleFonts.lexend(
-                        fontSize: 12,
-                        color: const Color(0xFF991b1b),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+        content: Text(
+          error,
+          style: GoogleFonts.lexend(
+            fontSize: 14,
+            fontWeight: FontWeight.w400,
+            color: const Color(0xFF6b7280),
           ),
         ),
         actions: [
@@ -844,6 +779,36 @@ class _GenerationLoadingScreenState
         ),
       ],
     );
+  }
+
+  /// Refund quota when generation fails due to API quota exceeded
+  Future<void> _refundQuota() async {
+    try {
+      final user = ref.read(currentUserProvider);
+      if (user == null || user.quotaManager.usageHistory.isEmpty) {
+        return;
+      }
+
+      // Remove the last usage entry
+      final updatedHistory =
+          List<QuotaEntry>.from(user.quotaManager.usageHistory)..removeLast();
+
+      final updatedQuotaManager = QuotaManager(
+        totalLimit: user.quotaManager.totalLimit,
+        dailyLimit: user.quotaManager.dailyLimit,
+        usageHistory: updatedHistory,
+      );
+
+      final updatedUser = user.copyWith(quotaManager: updatedQuotaManager);
+
+      // Update user state
+      final userNotifier = ref.read(userStateProvider.notifier);
+      await userNotifier.updateUser(updatedUser);
+
+      debugPrint('✅ Quota refunded successfully');
+    } catch (e) {
+      debugPrint('⚠️ Failed to refund quota: $e');
+    }
   }
 }
 
