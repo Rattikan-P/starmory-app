@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../providers/providers.dart';
+import '../providers/auth_quota_provider.dart';
 import 'interactive_vocabulary_screen.dart';
+import 'auth/account_method_page.dart';
 
 /// Generation Loading Screen - Shows AI processing progress
 class GenerationLoadingScreen extends ConsumerStatefulWidget {
@@ -53,8 +55,155 @@ class _GenerationLoadingScreenState
     );
     _scanController.repeat(reverse: true);
 
+    // Check quota first, then start generation
+    _checkQuotaAndStart();
+  }
+
+  Future<void> _checkQuotaAndStart() async {
+    // Wait for providers to be ready
+    await Future.delayed(const Duration(milliseconds: 100));
+
+    if (!mounted) return;
+
+    final authQuotaState = ref.read(authQuotaProvider);
+
+    if (!authQuotaState.canGenerate) {
+      _handleQuotaExhausted(authQuotaState.isGuest);
+      return;
+    }
+
     // Start generation
     _startGeneration();
+  }
+
+  void _handleQuotaExhausted(bool isGuest) {
+    if (!mounted) return;
+
+    setState(() => _isProcessing = false);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: Colors.orange.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.warning_amber_rounded,
+                color: Colors.orange,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Generation Limit Reached',
+                style: GoogleFonts.lexend(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF1f2937),
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              isGuest
+                  ? 'You\'ve used all your free generations as a guest.'
+                  : 'You\'ve reached your daily generation limit.',
+              style: GoogleFonts.lexend(
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+                color: const Color(0xFF6b7280),
+              ),
+            ),
+            if (isGuest) ...[
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF8b5cf6).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.star_rounded, color: const Color(0xFF8b5cf6), size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Sign up for unlimited generations!',
+                        style: GoogleFonts.lexend(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF7c3aed),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          if (isGuest)
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context); // Close dialog
+                // Navigate to sign up screen
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const AccountMethodPage(),
+                  ),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF8b5cf6),
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+              child: Text(
+                'Sign Up Free',
+                style: GoogleFonts.lexend(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context); // Close dialog
+              Navigator.popUntil(context, (route) => route.isFirst); // Go to home
+            },
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFF6b7280),
+            ),
+            child: Text(
+              'Later',
+              style: GoogleFonts.lexend(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -151,6 +300,10 @@ class _GenerationLoadingScreenState
   }
 
   void _showResult(dynamic result) {
+    // Record quota usage after successful generation
+    final authQuotaNotifier = ref.read(authQuotaProvider.notifier);
+    authQuotaNotifier.recordQuotaUsage(imageId: widget.imagePath);
+
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(

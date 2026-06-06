@@ -6,6 +6,7 @@ import '../providers/providers.dart';
 import '../../core/utils/image_clarity_checker.dart';
 import '../../core/utils/quota_manager.dart';
 import 'generation_loading_screen.dart';
+import 'auth/account_method_page.dart';
 
 /// Image Preview Screen - Preview and confirm photo selection
 class ImagePreviewScreen extends ConsumerStatefulWidget {
@@ -410,7 +411,6 @@ class _ImagePreviewScreenState extends ConsumerState<ImagePreviewScreen> {
               onPressed: () {
                 Navigator.pop(context);
                 setState(() => _isProcessing = false);
-                // TODO: Navigate to sign up screen
               },
               style: TextButton.styleFrom(
                 foregroundColor: const Color(0xFF9ca3af),
@@ -427,6 +427,15 @@ class _ImagePreviewScreenState extends ConsumerState<ImagePreviewScreen> {
             onPressed: () {
               Navigator.pop(context);
               setState(() => _isProcessing = false);
+              // Navigate to sign up screen
+              if (isGuest) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const AccountMethodPage(),
+                  ),
+                );
+              }
             },
             style: ElevatedButton.styleFrom(
               elevation: 0,

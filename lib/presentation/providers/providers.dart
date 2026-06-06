@@ -1,9 +1,13 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/services/gemini_service.dart';
 import '../../data/services/hive_service.dart';
 import '../../data/models/user_model.dart';
 import '../../data/models/vocabulary_model.dart';
 import '../../data/models/calendar_model.dart';
+import '../../core/utils/quota_manager.dart';
+import 'auth_quota_provider.dart';
 
 // ============= Service Providers =============
 
@@ -95,6 +99,7 @@ final userStateProvider = StateNotifierProvider<UserNotifier, UserState>((ref) {
 /// User State Notifier
 class UserNotifier extends StateNotifier<UserState> {
   final HiveService _hiveService;
+  StreamSubscription<AuthState>? _authSubscription;
 
   UserNotifier(this._hiveService)
       : super(const UserState(isLoading: true)) {
@@ -113,10 +118,132 @@ class UserNotifier extends StateNotifier<UserState> {
 
       print('✅ Hive initialized, loading user...');
       await _loadUser();
+
+      // Listen to Supabase auth changes
+      _listenToAuthChanges();
     } catch (e, stackTrace) {
       print('❌ Error waiting for initialization: $e');
       print('📚 Stack trace: $stackTrace');
       state = UserState(error: 'Initialization failed: ${e.toString()}');
+    }
+  }
+
+  void _listenToAuthChanges() {
+    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen(
+      (data) {
+        print('🔐 Auth state changed: ${data.event}');
+        _handleAuthChange(data.event, data.session?.user);
+      },
+    );
+  }
+
+  Future<void> _handleAuthChange(AuthChangeEvent event, User? supabaseUser) async {
+    switch (event) {
+      case AuthChangeEvent.signedIn:
+        print('✅ User signed in: ${supabaseUser?.email}');
+        if (supabaseUser != null) {
+          await _convertToRegisteredUser(supabaseUser);
+        }
+        break;
+
+      case AuthChangeEvent.signedOut:
+        print('👋 User signed out');
+        await logout();
+        break;
+
+      case AuthChangeEvent.userUpdated:
+        print('🔄 User updated');
+        // Refresh user data if needed
+        break;
+
+      default:
+        break;
+    }
+  }
+
+  Future<void> _convertToRegisteredUser(User supabaseUser) async {
+    try {
+      // Get current user from Hive
+      final currentUser = await _hiveService.getCurrentUser();
+
+      // Fetch quota from Supabase
+      final client = Supabase.instance.client;
+      final today = DateTime.now().toIso8601String().split('T')[0];
+
+      final quotaResponse = await client
+          .from('user_quotas')
+          .select()
+          .eq('user_id', supabaseUser.id)
+          .maybeSingle();
+
+      QuotaManager quotaManager;
+      if (quotaResponse == null) {
+        // Create new quota record
+        await client.from('user_quotas').insert({
+          'user_id': supabaseUser.id,
+          'daily_gen_count': 0,
+          'daily_gen_reset_date': today,
+          'total_gen_count': 0,
+        });
+        quotaManager = QuotaManager.registeredUser();
+        print('📝 Created new quota record for user');
+      } else {
+        // Load existing quota
+        final lastReset = quotaResponse['daily_gen_reset_date'] as String?;
+        final dailyCount = quotaResponse['daily_gen_count'] as int? ?? 0;
+        final totalCount = quotaResponse['total_gen_count'] as int? ?? 0;
+
+        // Build usage history from total count
+        final usageHistory = List<QuotaEntry>.generate(
+          totalCount,
+          (_) => QuotaEntry(timestamp: DateTime.now()),
+        );
+
+        // Check if daily reset needed
+        if (lastReset != today) {
+          // New day - reset daily count
+          await client
+              .from('user_quotas')
+              .update({
+                'daily_gen_count': 0,
+                'daily_gen_reset_date': today,
+              })
+              .eq('user_id', supabaseUser.id);
+          print('🔄 Daily quota reset');
+        }
+
+        quotaManager = QuotaManager(
+          totalLimit: 999999,
+          dailyLimit: 15,
+          usageHistory: usageHistory,
+        );
+        print('📊 Loaded quota: daily=$dailyCount, total=$totalCount');
+      }
+
+      // Create registered user with synced quota
+      final registeredUser = UserModel.createRegisteredUser(
+        id: supabaseUser.id,
+        email: supabaseUser.email ?? 'user@example.com',
+        displayName: supabaseUser.userMetadata?['display_name'] as String?,
+        photoUrl: supabaseUser.userMetadata?['avatar_url'] as String?,
+      ).copyWith(quotaManager: quotaManager);
+
+      await _hiveService.saveUser(registeredUser);
+      state = UserState(user: registeredUser);
+      print('✅ Registered user saved: ${registeredUser.displayNameOrEmail}');
+      print('📊 Quota: ${quotaManager.getTodayUsage()}/${quotaManager.dailyLimit} today');
+    } catch (e, stackTrace) {
+      print('❌ Error converting to registered user: $e');
+      print('📚 Stack trace: $stackTrace');
+      // Fallback: create user with default quota
+      final registeredUser = UserModel.createRegisteredUser(
+        id: supabaseUser.id,
+        email: supabaseUser.email ?? 'user@example.com',
+        displayName: supabaseUser.userMetadata?['display_name'] as String?,
+        photoUrl: supabaseUser.userMetadata?['avatar_url'] as String?,
+      );
+      await _hiveService.saveUser(registeredUser);
+      state = UserState(user: registeredUser);
     }
   }
 
@@ -127,14 +254,34 @@ class UserNotifier extends StateNotifier<UserState> {
       print('✅ Loaded user: ${user?.displayNameOrEmail ?? "null"}');
 
       if (user != null) {
-        state = UserState(user: user);
+        // Check if auth state matches
+        final supabaseSession = Supabase.instance.client.auth.currentSession;
+        if (supabaseSession != null && user.isGuest) {
+          // User is logged in but local user is guest - convert
+          print('🔄 User logged in but local is guest, converting...');
+          await _convertToRegisteredUser(supabaseSession.user);
+        } else if (supabaseSession == null && !user.isGuest) {
+          // User logged out but local is registered - create guest
+          print('🔄 User logged out but local is registered, creating guest...');
+          await logout();
+        } else {
+          state = UserState(user: user);
+        }
       } else {
-        // Create guest user
-        print('👤 Creating guest user...');
-        final guestUser = UserModel.createGuest();
-        await _hiveService.saveUser(guestUser);
-        print('✅ Guest user saved: ${guestUser.displayNameOrEmail}');
-        state = UserState(user: guestUser);
+        // Check if user is logged in to Supabase
+        final supabaseSession = Supabase.instance.client.auth.currentSession;
+        if (supabaseSession != null) {
+          // User logged in but no local user - create registered
+          print('🔄 No local user but logged in, creating registered...');
+          await _convertToRegisteredUser(supabaseSession.user);
+        } else {
+          // Create guest user
+          print('👤 Creating guest user...');
+          final guestUser = UserModel.createGuest();
+          await _hiveService.saveUser(guestUser);
+          print('✅ Guest user saved: ${guestUser.displayNameOrEmail}');
+          state = UserState(user: guestUser);
+        }
       }
     } catch (e, stackTrace) {
       print('❌ Error loading user: $e');
@@ -192,7 +339,50 @@ class UserNotifier extends StateNotifier<UserState> {
       return false;
     }
 
-    // Record usage
+    // Sync to Supabase if registered user
+    if (!user.isGuest) {
+      try {
+        final client = Supabase.instance.client;
+        final supabaseUser = client.auth.currentUser;
+        if (supabaseUser != null) {
+          final today = DateTime.now().toIso8601String().split('T')[0];
+
+          // Get current quota from Supabase
+          final quotaResponse = await client
+              .from('user_quotas')
+              .select()
+              .eq('user_id', supabaseUser.id)
+              .maybeSingle();
+
+          if (quotaResponse != null) {
+            final lastReset = quotaResponse['daily_gen_reset_date'] as String?;
+            final dailyCount = quotaResponse['daily_gen_count'] as int? ?? 0;
+            final totalCount = quotaResponse['total_gen_count'] as int? ?? 0;
+
+            // Check if needs reset
+            int newDailyCount = (lastReset == today) ? dailyCount + 1 : 1;
+
+            // Update Supabase
+            await client
+                .from('user_quotas')
+                .update({
+                  'daily_gen_count': newDailyCount,
+                  'daily_gen_reset_date': today,
+                  'total_gen_count': totalCount + 1,
+                  'updated_at': DateTime.now().toIso8601String(),
+                })
+                .eq('user_id', supabaseUser.id);
+
+            print('✅ Synced quota to Supabase: daily=$newDailyCount, total=${totalCount + 1}');
+          }
+        }
+      } catch (e) {
+        print('⚠️ Failed to sync quota to Supabase: $e');
+        // Continue anyway - local update is more important
+      }
+    }
+
+    // Record usage locally
     final updatedQuotaManager = user.quotaManager.recordUsage(
       imageId: imageId,
       vocabularyId: vocabularyId,
@@ -204,6 +394,12 @@ class UserNotifier extends StateNotifier<UserState> {
   }
 
   bool get canGenerate => state.user?.canGenerate ?? false;
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
+  }
 }
 
 // ============= Vocabulary Providers =============

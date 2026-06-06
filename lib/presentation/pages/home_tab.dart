@@ -5,6 +5,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../providers/providers.dart';
 import 'image_preview_screen.dart';
+import 'auth/account_method_page.dart';
 
 /// Home Tab - Main screen with AI generation
 class HomeTab extends ConsumerStatefulWidget {
@@ -286,7 +287,12 @@ class _HomeTabState extends ConsumerState<HomeTab> {
               ),
               child: ElevatedButton(
                 onPressed: () {
-                  // TODO: Navigate to sign up screen
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const AccountMethodPage(),
+                    ),
+                  );
                 },
                 style: ElevatedButton.styleFrom(
                   elevation: 0,
