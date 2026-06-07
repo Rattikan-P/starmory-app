@@ -1,4 +1,9 @@
+import 'dart:io';
+
+import 'package:flutter/painting.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../constants/app_defaults.dart';
@@ -313,5 +318,55 @@ class PreferenceService {
       'last_activity_date': await getGuestLastActivityDate(),
       'consecutive_days': await getGuestConsecutiveDays(),
     };
+  }
+
+  // Clear app cache (images, temporary data)
+  // Does NOT delete: user settings, preferences, or learning data
+  Future<void> clearCache() async {
+    print('🧹 Clearing cache...');
+
+    // Get cache info before clearing (for debug)
+    final imageCountBefore = PaintingBinding.instance.imageCache.currentSize;
+    final liveImageCountBefore = PaintingBinding.instance.imageCache.liveImageCount;
+
+    print('  - Images in memory cache: $imageCountBefore');
+    print('  - Live images: $liveImageCountBefore');
+
+    // 1. Clear Flutter image cache (memory)
+    PaintingBinding.instance.imageCache.clear();
+    PaintingBinding.instance.imageCache.clearLiveImages();
+
+    // 2. Clear CachedNetworkImage cache (disk - avatars, etc.)
+    try {
+      await DefaultCacheManager().emptyCache();
+      print('  - Network image cache: cleared');
+    } catch (e) {
+      print('  - Network image cache: failed ($e)');
+    }
+
+    // 3. Clear temporary files
+    try {
+      final tempDir = await getTemporaryDirectory();
+      if (await tempDir.exists()) {
+        final tempFiles = tempDir.listSync();
+        final filesDeleted = tempFiles.length;
+        for (var file in tempFiles) {
+          try {
+            if (file is File) {
+              await file.delete();
+            } else if (file is Directory) {
+              await file.delete(recursive: true);
+            }
+          } catch (e) {
+            // Skip files that can't be deleted
+          }
+        }
+        print('  - Temporary files: $filesDeleted deleted');
+      }
+    } catch (e) {
+      print('  - Temporary files: failed ($e)');
+    }
+
+    print('✅ Cache cleared successfully!');
   }
 }

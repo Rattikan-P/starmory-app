@@ -455,7 +455,7 @@ class _StreakSection extends ConsumerWidget {
                       _buildShieldInfoItem(
                         icon: Icons.star_rounded,
                         title: 'Earn Shields',
-                        description: 'Learn 7 consecutive days to earn 1 shield',
+                        description: 'Keep learning for 7 days to earn a shield',
                       ),
                     ],
                   ),
@@ -1518,22 +1518,21 @@ class _DataSection extends ConsumerWidget {
           _buildCompactItem(
             icon: Icons.cleaning_services_outlined,
             title: 'Clear Cache',
-            subtitle: 'Remove cached data from device',
-            showDivider: true,
-            onTap: () {
-              // TODO: Clear cache
-            },
-            iconBgColor: const Color(0xFFF3F4F6), // 🩶 Soft Gray (Minimal)
-          ),
-
-          // Reset All Data
-          _buildCompactItem(
-            icon: Icons.refresh,
-            title: 'Reset All Data',
-            subtitle: 'Clear all data from the cloud (keep account)',
+            subtitle: 'Free up storage space',
             showDivider: false,
-            onTap: () {
-              // TODO: Reset all data from cloud
+            onTap: () async {
+              try {
+                final preferenceService = ref.read(onboardingServiceProvider);
+                await preferenceService.clearCache();
+
+                if (context.mounted) {
+                  SnackBarHelper.success(context, 'Cache cleared successfully');
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  SnackBarHelper.error(context, 'Failed to clear cache');
+                }
+              }
             },
             iconBgColor: const Color(0xFFF3F4F6), // 🩶 Soft Gray (Minimal)
           ),
@@ -2938,6 +2937,7 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
 
       final validExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'];
       final safeExt = validExtensions.contains(fileExt) ? fileExt : 'jpg';
+      // Use same filename so it overwrites (no storage waste)
       final fileName = '${userId}_avatar.$safeExt';
 
       final fileBytes = await pickedFile.readAsBytes();
@@ -2955,7 +2955,10 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
         rethrow;
       }
 
-      final avatarUrl = client.storage.from('avatars').getPublicUrl(fileName);
+      // Add version parameter to URL for cache busting
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final baseUrl = client.storage.from('avatars').getPublicUrl(fileName);
+      final avatarUrl = '$baseUrl?v=$timestamp';
 
       try {
         await client.auth.updateUser(
@@ -2976,14 +2979,14 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
 
       if (context.mounted) {
         Navigator.of(context).pop();
-        SnackBarHelper.success(context, 'Profile photo updated');
+        SnackBarHelper.success(context, AlertMessages.changesSaved);
       }
 
       _fetchUserData();
     } catch (e) {
       if (context.mounted) {
         Navigator.of(context).pop();
-        SnackBarHelper.error(context, 'Failed to upload photo. Please try again.');
+        SnackBarHelper.error(context, AlertMessages.saveFailed);
       }
     }
   }
@@ -3012,13 +3015,13 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
           .eq('id', userId);
 
       if (context.mounted) {
-        SnackBarHelper.success(context, 'Profile photo removed');
+        SnackBarHelper.success(context, AlertMessages.changesSaved);
       }
 
       _fetchUserData();
     } catch (e) {
       if (context.mounted) {
-        SnackBarHelper.error(context, 'Failed to remove photo');
+        SnackBarHelper.error(context, AlertMessages.saveFailed);
       }
     }
   }
@@ -3655,174 +3658,201 @@ class _AvatarPickerDialog extends StatelessWidget {
             ),
           ],
         ),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 90,
-                height: 90,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Color(0xFFf472b6),
-                      Color(0xFF60a5fa),
-                    ],
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Avatar preview - simple and clean
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFFF3F4F6),
+                border: Border.all(
+                  color: Colors.white,
+                  width: 3,
                 ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFFf472b6).withValues(alpha: 0.3),
-                      blurRadius: 20,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                padding: const EdgeInsets.all(3),
-                child: Container(
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white,
-                ),
-                  child: ClipOval(
-                    child: currentAvatarUrl != null
-                        ? CachedNetworkImage(
-                            imageUrl: currentAvatarUrl!,
-                            fit: BoxFit.cover,
-                            placeholder: (context, url) => const Center(
-                              child: CircularProgressIndicator(),
-                            ),
-                            errorWidget: (context, url, error) => Center(
-                              child: Text(
-                                displayName.isNotEmpty ? displayName[0].toUpperCase() : '?',
-                                style: const TextStyle(
-                                  fontSize: 32,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF8B5CF6),
-                                ),
-                              ),
-                            ),
-                          )
-                        : Center(
-                            child: Text(
-                              displayName.isNotEmpty ? displayName[0].toUpperCase() : '?',
-                              style: const TextStyle(
-                                fontSize: 32,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF8B5CF6),
-                              ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.08),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: ClipOval(
+                child: currentAvatarUrl != null
+                    ? CachedNetworkImage(
+                        imageUrl: currentAvatarUrl!,
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) => const Center(
+                          child: SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        ),
+                        errorWidget: (context, url, error) => Center(
+                          child: Text(
+                            displayName.isNotEmpty ? displayName[0].toUpperCase() : '?',
+                            style: const TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF9CA3AF),
                             ),
                           ),
-                ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                'Change Profile Photo',
-                style: GoogleFonts.lexend(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF1f2937),
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: () => Navigator.pop(context, 'camera'),
-                  icon: const Icon(Icons.camera_alt, size: 20),
-                  label: Text(
-                    'Take Photo',
-                    style: GoogleFonts.lexend(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.white,
-                    ),
-                ),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF8B5CF6),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                ),
-                ),
-              ),
-              const SizedBox(height: 10),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () => Navigator.pop(context, 'gallery'),
-                  icon: const Icon(Icons.photo_library, size: 20),
-                  label: Text(
-                    'Choose from Gallery',
-                    style: GoogleFonts.lexend(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                      color: const Color(0xFF8B5CF6),
-                    ),
-                ),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF8B5CF6),
-                    side: BorderSide(
-                      color: const Color(0xFF8B5CF6).withValues(alpha: 0.3),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                ),
-                ),
-              ),
-              if (currentAvatarUrl != null) ...[
-                const SizedBox(height: 8),
-                SizedBox(
-                  width: double.infinity,
-                  child: TextButton.icon(
-                    onPressed: () => Navigator.pop(context, 'remove'),
-                    icon: const Icon(Icons.delete_outline, size: 18),
-                    label: Text(
-                      'Remove Photo',
-                      style: GoogleFonts.lexend(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.red,
+                        ),
+                      )
+                    : Center(
+                        child: Text(
+                          displayName.isNotEmpty ? displayName[0].toUpperCase() : '?',
+                          style: const TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF9CA3AF),
+                          ),
+                        ),
                       ),
-                    ),
-                    style: TextButton.styleFrom(
-                      foregroundColor: Colors.red.withValues(alpha: 0.8),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Change Profile Photo',
+              style: GoogleFonts.lexend(
+                fontSize: 22,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF1f2937),
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Choose a new profile picture',
+              style: GoogleFonts.lexend(
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+                color: const Color(0xFF6b7280),
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+
+            // Take Photo
+            _buildActionButton(
+              icon: Icons.camera_alt_outlined,
+              title: 'Take Photo',
+              onTap: () => Navigator.pop(context, 'camera'),
+            ),
+            const SizedBox(height: 12),
+
+            // Choose from Gallery
+            _buildActionButton(
+              icon: Icons.photo_library_outlined,
+              title: 'Choose from Gallery',
+              onTap: () => Navigator.pop(context, 'gallery'),
+            ),
+
+            if (currentAvatarUrl != null) ...[
+              const SizedBox(height: 20),
+              // Remove Photo
+              TextButton.icon(
+                onPressed: () => Navigator.pop(context, 'remove'),
+                icon: const Icon(Icons.delete_outline, size: 20),
+                label: Text(
+                  'Remove Photo',
+                  style: GoogleFonts.lexend(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.red.withValues(alpha: 0.8),
+                  ),
                 ),
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.red.withValues(alpha: 0.8),
                 ),
-              ],
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: TextButton(
-                  onPressed: () => Navigator.pop(context),
+              ),
+            ],
+
+            const SizedBox(height: 8),
+            // Cancel
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                'Cancel',
+                style: GoogleFonts.lexend(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                  color: const Color(0xFF9ca3af),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionButton({
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+  }) {
+    return SizedBox(
+      width: double.infinity,
+      height: 52,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: const Color(0xFFE5E7EB),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(14),
+            child: Row(
+              children: [
+                const SizedBox(width: 20),
+                Icon(
+                  icon,
+                  size: 22,
+                  color: const Color(0xFF6B7280),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
                   child: Text(
-                    'Cancel',
+                    title,
                     style: GoogleFonts.lexend(
                       fontSize: 15,
                       fontWeight: FontWeight.w500,
-                      color: const Color(0xFF6b7280),
+                      color: const Color(0xFF1f2937),
                     ),
+                  ),
                 ),
-                  style: TextButton.styleFrom(
-                    foregroundColor: const Color(0xFF6b7280),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+                const SizedBox(width: 16),
+                Icon(
+                  Icons.chevron_right,
+                  size: 20,
+                  color: const Color(0xFFD1D5DB),
                 ),
-                ),
-              ),
+                const SizedBox(width: 12),
               ],
+            ),
           ),
         ),
       ),
     );
   }
 }
+
+
