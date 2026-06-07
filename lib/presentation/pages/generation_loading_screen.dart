@@ -824,27 +824,21 @@ class _GenerationLoadingScreenState
           final client = Supabase.instance.client;
           final supabaseUser = client.auth.currentUser;
           if (supabaseUser != null) {
-            // Get current quota from Supabase
+            // Get current quota from Supabase using auto-reset function
             final quotaResponse = await client
-                .from('user_quotas')
-                .select()
-                .eq('user_id', supabaseUser.id)
+                .rpc('get_user_quota_with_reset', params: {'p_user_id': supabaseUser.id})
                 .maybeSingle();
 
             if (quotaResponse != null) {
               final dailyCount = quotaResponse['daily_gen_count'] as int? ?? 0;
               final totalCount = quotaResponse['total_gen_count'] as int? ?? 0;
-              final today = DateTime.now().toIso8601String().split('T')[0];
-              final lastReset = quotaResponse['daily_gen_reset_date'] as String?;
 
               // Calculate the new counts after refund
               int newDailyCount = dailyCount - 1;
               int newTotalCount = totalCount - 1;
 
-              // Handle daily reset boundary
-              if (lastReset != today && newDailyCount < 0) {
-                newDailyCount = 0;
-              } else if (newDailyCount < 0) {
+              // Ensure counts don't go negative
+              if (newDailyCount < 0) {
                 newDailyCount = 0;
               }
               if (newTotalCount < 0) {

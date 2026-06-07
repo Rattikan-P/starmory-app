@@ -168,14 +168,13 @@ class UserNotifier extends StateNotifier<UserState> {
       // Get current user from Hive
       final currentUser = await _hiveService.getCurrentUser();
 
-      // Fetch quota from Supabase
+      // Fetch quota from Supabase using auto-reset function
       final client = Supabase.instance.client;
       final today = DateTime.now().toIso8601String().split('T')[0];
 
+      // Use RPC function that auto-resets if new day
       final quotaResponse = await client
-          .from('user_quotas')
-          .select()
-          .eq('user_id', supabaseUser.id)
+          .rpc('get_user_quota_with_reset', params: {'p_user_id': supabaseUser.id})
           .maybeSingle();
 
       QuotaManager quotaManager;
@@ -190,8 +189,7 @@ class UserNotifier extends StateNotifier<UserState> {
         quotaManager = QuotaManager.registeredUser();
         print('📝 Created new quota record for user');
       } else {
-        // Load existing quota
-        final lastReset = quotaResponse['daily_gen_reset_date'] as String?;
+        // Load existing quota (already auto-reset by RPC if needed)
         final dailyCount = quotaResponse['daily_gen_count'] as int? ?? 0;
         final totalCount = quotaResponse['total_gen_count'] as int? ?? 0;
 
@@ -200,19 +198,6 @@ class UserNotifier extends StateNotifier<UserState> {
           totalCount,
           (_) => QuotaEntry(timestamp: DateTime.now()),
         );
-
-        // Check if daily reset needed
-        if (lastReset != today) {
-          // New day - reset daily count
-          await client
-              .from('user_quotas')
-              .update({
-                'daily_gen_count': 0,
-                'daily_gen_reset_date': today,
-              })
-              .eq('user_id', supabaseUser.id);
-          print('🔄 Daily quota reset');
-        }
 
         quotaManager = QuotaManager(
           totalLimit: 999999,
