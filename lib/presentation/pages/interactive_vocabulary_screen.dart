@@ -14,6 +14,7 @@ class InteractiveVocabularyScreen extends ConsumerStatefulWidget {
   final String imagePath;
   final String cefrLevel;
   final String communicativeFunction;
+  final String englishVariant;
   final VocabularyExtractionResult? extractionResult;
 
   const InteractiveVocabularyScreen({
@@ -21,6 +22,7 @@ class InteractiveVocabularyScreen extends ConsumerStatefulWidget {
     required this.imagePath,
     required this.cefrLevel,
     required this.communicativeFunction,
+    required this.englishVariant,
     this.extractionResult,
   });
 
@@ -169,6 +171,7 @@ class _InteractiveVocabularyScreenState
         tones: tones,
         category: selectedDots.first.category,
         combined: _useCombinedSentence,
+        englishVariant: widget.englishVariant,
       );
 
       // Update each selected dot with generated sentences
@@ -242,12 +245,16 @@ class _InteractiveVocabularyScreenState
     setState(() {
       for (var i = 0; i < _vocabularyDots.length; i++) {
         final dot = _vocabularyDots[i];
+        debugPrint(
+          '🔧 Generating fallback for: word="${dot.word}", thai="${dot.thaiTranslation}", tone="${dot.tone}", category="${dot.category}"',
+        );
         final (enSentence, thSentence) = _generateFallbackSentence(
           dot.word,
           dot.thaiTranslation,
           dot.tone,
           dot.category,
         );
+        debugPrint('✅ Fallback sentence generated: "$enSentence" / "$thSentence"');
         _vocabularyDots[i] = dot.copyWith(
           englishSentence: enSentence,
           thaiSentence: thSentence,
@@ -259,6 +266,7 @@ class _InteractiveVocabularyScreenState
         );
       }
     });
+    debugPrint('✅ Applied fallback sentences to ${_vocabularyDots.length} words');
   }
 
   /// Generate contextual fallback sentence based on tone and category
@@ -937,12 +945,6 @@ class _InteractiveVocabularyScreenState
       containerHeight,
     );
 
-    debugPrint('📐 Container: $containerWidth x $containerHeight');
-    debugPrint('🖼️ Image: ${imageSize.width} x ${imageSize.height}');
-    debugPrint(
-      '🔧 Fit: scale=${fit.scale.toStringAsFixed(3)}, offsetX=${fit.offsetX.toStringAsFixed(1)}, offsetY=${fit.offsetY.toStringAsFixed(1)}',
-    );
-
     return _vocabularyDots.map((dot) {
       final isSelected = _selectedWordIds.contains(dot.id);
 
@@ -950,7 +952,7 @@ class _InteractiveVocabularyScreenState
       final imageX = dot.x * imageSize.width;
       final imageY = dot.y * imageSize.height;
 
-      // Apply BoxFit.cover transformation
+      // Apply BoxFit.contain transformation
       final displayedX = imageX * fit.scale + fit.offsetX;
       final displayedY = imageY * fit.scale + fit.offsetY;
 
@@ -1018,102 +1020,7 @@ class _InteractiveVocabularyScreenState
     }).toList();
   }
 
-  List<Widget> _buildVocabularyDotsWithFittedSize(
-    double containerWidth,
-    double containerHeight,
-    Size imageSize,
-    FittedSizes fittedSizes,
-  ) {
-    debugPrint('📐 Container: $containerWidth x $containerHeight');
-    debugPrint('🖼️ Image: ${imageSize.width} x ${imageSize.height}');
-    debugPrint(
-      '🔧 Fitted: source=${fittedSizes.source.width}x${fittedSizes.source.height}, destination=${fittedSizes.destination.width}x${fittedSizes.destination.height}',
-    );
-
-    // Calculate scale and offsets from fittedSizes for BoxFit.cover
-    final scale = fittedSizes.destination.width / imageSize.width;
-
-    // For BoxFit.cover with top-center alignment:
-    // - If image is wider than container: destination width > container width (cropped horizontally)
-    // - If image is taller than container: destination height > container height (cropped vertically)
-    // Since we use Alignment.topCenter, offsetY is always 0, and we center horizontally if needed
-
-    final double offsetX;
-    final double offsetY = 0; // Always 0 for top alignment
-
-    if (fittedSizes.destination.width >= containerWidth) {
-      // Image fills width (was scaled to fit width)
-      offsetX = 0;
-    } else {
-      // Image is narrower (was scaled to fit height), center it
-      offsetX = (containerWidth - fittedSizes.destination.width) / 2;
-    }
-
-    debugPrint(
-      '🔧 Calculated: scale=${scale.toStringAsFixed(3)}, offsetX=${offsetX.toStringAsFixed(1)}, offsetY=$offsetY',
-    );
-
-    return _vocabularyDots.map((dot) {
-      final isSelected = _selectedWordIds.contains(dot.id);
-
-      // Convert normalized coordinates to actual image position
-      final imageX = dot.x * imageSize.width;
-      final imageY = dot.y * imageSize.height;
-
-      // Apply BoxFit.cover transformation (top-aligned)
-      final displayedX = imageX * scale + offsetX;
-      final displayedY = imageY * scale + offsetY;
-
-      debugPrint(
-        '📍 Dot "${dot.word}": normalized=(${dot.x.toStringAsFixed(2)}, ${dot.y.toStringAsFixed(2)}) → displayed=(${displayedX.toStringAsFixed(1)}, ${displayedY.toStringAsFixed(1)})',
-      );
-
-      const dotSize = 34.0;
-
-      return Positioned(
-        left: displayedX - dotSize / 2,
-        top: displayedY - dotSize / 2,
-        child: GestureDetector(
-          onTap: () => _showWordOverlay(dot),
-          child: Container(
-            width: dotSize,
-            height: dotSize,
-            padding: const EdgeInsets.all(8),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: isSelected
-                    ? const Color(0xFF6C63FF)
-                    : Colors.white.withOpacity(0.8),
-                border: Border.all(
-                  color: const Color(0xFF6C63FF),
-                  width: isSelected ? 2.5 : 1.5,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.2),
-                    blurRadius: 3,
-                  ),
-                ],
-              ),
-              child: Center(
-                child: Text(
-                  '',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-    }).toList();
-  }
-
+  
   Widget _buildSelectedWordsChips() {
     final selectedDots = _vocabularyDots
         .where((dot) => _selectedWordIds.contains(dot.id))
@@ -1536,6 +1443,7 @@ class _InteractiveVocabularyScreenState
         tones: [apiTone],
         category: category,
         combined: false,
+        englishVariant: widget.englishVariant,
       );
 
       debugPrint('📦 Result keys: ${result.results.keys}');
@@ -1623,6 +1531,7 @@ class _InteractiveVocabularyScreenState
         tones: [apiTone],
         category: category,
         combined: _useCombinedSentence,
+        englishVariant: widget.englishVariant,
       );
 
       debugPrint('📦 Result mode: ${result.mode}');
@@ -1780,6 +1689,7 @@ class _InteractiveVocabularyScreenState
                     imagePath: widget.imagePath,
                     cefrLevel: widget.cefrLevel,
                     communicativeFunction: widget.communicativeFunction,
+                    englishVariant: widget.englishVariant,
                   ),
                 ),
               );

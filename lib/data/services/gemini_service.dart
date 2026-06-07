@@ -167,6 +167,7 @@ CRITICAL: Use these exact words: ${words.join(', ')}''';
     required Uint8List imageData,
     required String level,
     required String category,
+    String englishVariant = 'US',
   }) async {
     // Validate API key before making request
     final apiKey = AppConstants.geminiApiKey;
@@ -280,8 +281,9 @@ Return exactly 5 items.''';
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 INPUT PARAMETERS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-• level    — $level
-• category — $category
+• level           — $level
+• category        — $category
+• english_variant — $englishVariant (US or UK English)
 
 Extract exactly 5 vocabulary items from the image.''');
 
@@ -322,6 +324,7 @@ Extract exactly 5 vocabulary items from the image.''');
     required List<String> tones,
     required String category,
     required bool combined,
+    String englishVariant = 'US',
   }) async {
     return await _retryWithBackoff(() async {
       final result = await _generateSentencesInternal(
@@ -330,6 +333,7 @@ Extract exactly 5 vocabulary items from the image.''');
         tones: tones,
         category: category,
         combined: combined,
+        englishVariant: englishVariant,
       );
 
       // Validate that returned words match requested words
@@ -377,6 +381,7 @@ Extract exactly 5 vocabulary items from the image.''');
     required List<String> tones,
     required String category,
     required bool combined,
+    String englishVariant = 'US',
   }) async {
     // System instruction with all the rules
     final systemInstruction = '''
@@ -400,6 +405,14 @@ Conditional type by level:
 Thai translation register:
 • A1–B1 → everyday Thai (ภาษาพูดทั่วไป)
 • B2    → precise Thai (อาจใช้ศัพท์ทางการ)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ENGLISH VARIANT (US vs UK)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• US  → American English spelling/color/colorful, favorite, center
+• UK  → British English spelling/colour/colourful, favourite, centre
+• Use vocabulary and idioms natural for that region
+• Follow the "english_variant" from input parameters strictly
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 TONE & INTENT DEFINITIONS
@@ -518,11 +531,12 @@ FIELD RULES:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 INPUT PARAMETERS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-• words    — ${words.join(', ')}
-• level    — $level
-• tones    — ${tones.join(', ')}
-• category — $category
-• combined — $combined
+• words           — ${words.join(', ')}
+• level           — $level
+• tones           — ${tones.join(', ')}
+• category        — $category
+• combined        — $combined
+• english_variant — $englishVariant (US or UK English)
 
 REMINDER: All sentences must describe ONE coherent scene. When multiple words are provided, their sentences should reference each other naturally (e.g., items in a cart, objects on a table).
 

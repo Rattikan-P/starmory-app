@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/services/gemini_service.dart';
 import '../../data/services/hive_service.dart';
+import '../../data/services/preference_service.dart';
 import '../../data/models/user_model.dart';
 import '../../data/models/vocabulary_model.dart';
 import '../../data/models/calendar_model.dart';
@@ -220,13 +221,23 @@ class UserNotifier extends StateNotifier<UserState> {
         print('📊 Loaded quota: daily=$dailyCount, total=$totalCount');
       }
 
-      // Create registered user with synced quota
+      // Sync language_level and english_variant from Supabase user metadata
+      final languageLevel = supabaseUser.userMetadata?['language_level'] as String?;
+      final englishVariant = supabaseUser.userMetadata?['english_variant'] as String?;
+
+      // Create registered user with synced quota and preferences
       final registeredUser = UserModel.createRegisteredUser(
         id: supabaseUser.id,
         email: supabaseUser.email ?? 'user@example.com',
         displayName: supabaseUser.userMetadata?['display_name'] as String?,
         photoUrl: supabaseUser.userMetadata?['avatar_url'] as String?,
-      ).copyWith(quotaManager: quotaManager);
+      ).copyWith(
+        quotaManager: quotaManager,
+        preferences: {
+          'defaultCefrLevel': languageLevel ?? 'A1',
+          'languageVariant': englishVariant ?? 'US',
+        },
+      );
 
       await _hiveService.saveUser(registeredUser);
       state = UserState(user: registeredUser);
@@ -235,12 +246,20 @@ class UserNotifier extends StateNotifier<UserState> {
     } catch (e, stackTrace) {
       print('❌ Error converting to registered user: $e');
       print('📚 Stack trace: $stackTrace');
-      // Fallback: create user with default quota
+      // Fallback: create user with default quota and preferences
+      final languageLevel = supabaseUser.userMetadata?['language_level'] as String?;
+      final englishVariant = supabaseUser.userMetadata?['english_variant'] as String?;
+
       final registeredUser = UserModel.createRegisteredUser(
         id: supabaseUser.id,
         email: supabaseUser.email ?? 'user@example.com',
         displayName: supabaseUser.userMetadata?['display_name'] as String?,
         photoUrl: supabaseUser.userMetadata?['avatar_url'] as String?,
+      ).copyWith(
+        preferences: {
+          'defaultCefrLevel': languageLevel ?? 'A1',
+          'languageVariant': englishVariant ?? 'US',
+        },
       );
       await _hiveService.saveUser(registeredUser);
       state = UserState(user: registeredUser);
@@ -277,7 +296,7 @@ class UserNotifier extends StateNotifier<UserState> {
         } else {
           // Create guest user
           print('👤 Creating guest user...');
-          final guestUser = UserModel.createGuest();
+          final guestUser = await _createGuestUserWithPreferences();
           await _hiveService.saveUser(guestUser);
           print('✅ Guest user saved: ${guestUser.displayNameOrEmail}');
           state = UserState(user: guestUser);
@@ -305,13 +324,35 @@ class UserNotifier extends StateNotifier<UserState> {
       state = state.copyWith(isLoading: true);
       await _hiveService.clearCurrentUser();
 
-      // Create new guest user
-      final guestUser = UserModel.createGuest();
+      // Create new guest user with preferences from SharedPreferences
+      final guestUser = await _createGuestUserWithPreferences();
       await _hiveService.saveUser(guestUser);
       state = UserState(user: guestUser);
     } catch (e) {
       state = UserState(user: state.user, error: e.toString());
     }
+  }
+
+  /// Create guest user with preferences loaded from SharedPreferences
+  Future<UserModel> _createGuestUserWithPreferences() async {
+    final preferenceService = PreferenceService();
+    await preferenceService.init();
+
+    // Load guest preferences
+    final guestLanguageLevel = await preferenceService.getGuestLanguageLevel();
+    final guestEnglishVariant = await preferenceService.getGuestEnglishVariant();
+
+    print('👤 Loading guest preferences: languageLevel=$guestLanguageLevel, englishVariant=$guestEnglishVariant');
+
+    // Create guest user with loaded preferences
+    final guestUser = UserModel.createGuest().copyWith(
+      preferences: {
+        'defaultCefrLevel': guestLanguageLevel ?? 'A1',
+        'languageVariant': guestEnglishVariant ?? 'US',
+      },
+    );
+
+    return guestUser;
   }
 
   Future<void> updateLastActive() async {

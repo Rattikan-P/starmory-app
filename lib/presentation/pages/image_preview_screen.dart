@@ -296,10 +296,12 @@ class _ImagePreviewScreenState extends ConsumerState<ImagePreviewScreen> {
         return;
       }
 
-      // Step 3: Get user's default CEFR level and communicative function
+      // Step 3: Get user's default CEFR level, English variant, and communicative function
       final user = ref.read(currentUserProvider);
       final defaultCefrLevel =
           user?.preferences['defaultCefrLevel'] as String? ?? 'A1';
+      final defaultEnglishVariant =
+          user?.preferences['languageVariant'] as String? ?? 'US';
       final defaultCommunicativeFunction = 'Indicative'; // Default for now
 
       // Step 4: Navigate directly to Generation Loading Screen
@@ -311,6 +313,7 @@ class _ImagePreviewScreenState extends ConsumerState<ImagePreviewScreen> {
               imagePath: widget.imagePath,
               cefrLevel: defaultCefrLevel,
               communicativeFunction: defaultCommunicativeFunction,
+              englishVariant: defaultEnglishVariant,
             ),
           ),
         );

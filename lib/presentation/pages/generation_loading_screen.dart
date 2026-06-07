@@ -14,12 +14,14 @@ class GenerationLoadingScreen extends ConsumerStatefulWidget {
   final String imagePath;
   final String cefrLevel;
   final String communicativeFunction;
+  final String englishVariant;
 
   const GenerationLoadingScreen({
     super.key,
     required this.imagePath,
     required this.cefrLevel,
     required this.communicativeFunction,
+    required this.englishVariant,
   });
 
   @override
@@ -244,6 +246,7 @@ class _GenerationLoadingScreenState
         imageData: imageData,
         level: widget.cefrLevel,
         category: 'Daily Life',
+        englishVariant: widget.englishVariant,
       ).timeout(
         const Duration(seconds: 90), // 90 second timeout
         onTimeout: () {
@@ -335,6 +338,7 @@ class _GenerationLoadingScreenState
           imagePath: widget.imagePath,
           cefrLevel: widget.cefrLevel,
           communicativeFunction: widget.communicativeFunction,
+          englishVariant: widget.englishVariant,
           extractionResult: result,
         ),
       ),
