@@ -159,4 +159,159 @@ class PreferenceService {
   }
 
   int getCurrentTermsVersion() => _currentTermsVersion;
+
+  // Guest Streak Tracking
+  static const String _guestCurrentStreakKey = 'guest_current_streak';
+  static const String _guestShieldsKey = 'guest_shields_available';
+  static const String _guestLongestStreakKey = 'guest_longest_streak';
+  static const String _guestLastActivityKey = 'guest_last_activity_date';
+  static const String _guestConsecutiveDaysKey = 'guest_consecutive_days';
+
+  // Get guest streak data
+  Future<int> getGuestCurrentStreak() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_guestCurrentStreakKey) ?? 0;
+  }
+
+  Future<void> setGuestCurrentStreak(int streak) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_guestCurrentStreakKey, streak);
+  }
+
+  Future<int> getGuestShields() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_guestShieldsKey) ?? 0;
+  }
+
+  Future<void> setGuestShields(int shields) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_guestShieldsKey, shields);
+  }
+
+  Future<int> getGuestLongestStreak() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_guestLongestStreakKey) ?? 0;
+  }
+
+  Future<void> setGuestLongestStreak(int streak) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_guestLongestStreakKey, streak);
+  }
+
+  Future<String?> getGuestLastActivityDate() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_guestLastActivityKey);
+  }
+
+  Future<void> setGuestLastActivityDate(String date) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_guestLastActivityKey, date);
+  }
+
+  Future<int> getGuestConsecutiveDays() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_guestConsecutiveDaysKey) ?? 0;
+  }
+
+  Future<void> setGuestConsecutiveDays(int days) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_guestConsecutiveDaysKey, days);
+  }
+
+  // Update guest streak after activity
+  Future<void> updateGuestStreakAfterActivity() async {
+    final today = DateTime.now().toIso8601String().split('T')[0];
+    final lastActivity = await getGuestLastActivityDate();
+
+    int currentStreak = await getGuestCurrentStreak();
+    int shields = await getGuestShields();
+    int longestStreak = await getGuestLongestStreak();
+    int consecutiveDays = await getGuestConsecutiveDays();
+
+    // First activity ever
+    if (lastActivity == null) {
+      currentStreak = 1;
+      consecutiveDays = 1;
+    }
+    // Same day - do nothing
+    else if (lastActivity == today) {
+      // Already updated today
+    }
+    // Consecutive day (yesterday)
+    else if (_isYesterday(lastActivity)) {
+      currentStreak++;
+      consecutiveDays++;
+
+      // Earn shield every 7 consecutive days
+      if (consecutiveDays % 7 == 0) {
+        shields++;
+        consecutiveDays = 0; // Reset for next shield cycle
+      }
+
+      // Update longest streak
+      if (currentStreak > longestStreak) {
+        longestStreak = currentStreak;
+      }
+    }
+    // Missed a day - use shield if available
+    else {
+      if (shields > 0) {
+        shields--;
+      } else {
+        // No shields - reset streak
+        currentStreak = 1;
+        consecutiveDays = 1;
+      }
+    }
+
+    // Save all values
+    await setGuestCurrentStreak(currentStreak);
+    await setGuestShields(shields);
+    await setGuestLongestStreak(longestStreak);
+    await setGuestConsecutiveDays(consecutiveDays);
+    await setGuestLastActivityDate(today);
+  }
+
+  // Helper: Check if date string is yesterday
+  bool _isYesterday(String dateStr) {
+    try {
+      final date = DateTime.parse(dateStr);
+      final yesterday = DateTime.now().subtract(const Duration(days: 1));
+      return date.year == yesterday.year &&
+          date.month == yesterday.month &&
+          date.day == yesterday.day;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // Reset guest streak (for testing)
+  Future<void> resetGuestStreak() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_guestCurrentStreakKey);
+    await prefs.remove(_guestShieldsKey);
+    await prefs.remove(_guestLongestStreakKey);
+    await prefs.remove(_guestLastActivityKey);
+    await prefs.remove(_guestConsecutiveDaysKey);
+  }
+
+  // Set guest streak for testing
+  Future<void> setGuestStreakForTesting(int streak, {int shields = 0}) async {
+    await setGuestCurrentStreak(streak);
+    await setGuestShields(shields);
+    await setGuestLongestStreak(streak);
+    await setGuestConsecutiveDays(streak % 7);
+    await setGuestLastActivityDate(DateTime.now().toIso8601String().split('T')[0]);
+  }
+
+  // Get all guest streak data as map (for migration to cloud)
+  Future<Map<String, dynamic>> getGuestStreakDataForMigration() async {
+    return {
+      'current_streak': await getGuestCurrentStreak(),
+      'shields_available': await getGuestShields(),
+      'longest_streak': await getGuestLongestStreak(),
+      'last_activity_date': await getGuestLastActivityDate(),
+      'consecutive_days': await getGuestConsecutiveDays(),
+    };
+  }
 }

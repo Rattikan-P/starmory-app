@@ -140,6 +140,40 @@ class _EnglishVariantPageState extends ConsumerState<EnglishVariantPage> {
               ),
             ),
           ),
+          Positioned(
+            bottom: 100,
+            left: -60,
+            child: Container(
+              width: 350,
+              height: 350,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    const Color(0xFFF472B6).withValues(alpha: 0.55),
+                    const Color(0x00F472B6),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: -80,
+            right: -60,
+            child: Container(
+              width: 380,
+              height: 380,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    const Color(0xFFFCD34D).withValues(alpha: 0.35),
+                    const Color(0x00FCD34D),
+                  ],
+                ),
+              ),
+            ),
+          ),
 
           SafeArea(
             child: Column(

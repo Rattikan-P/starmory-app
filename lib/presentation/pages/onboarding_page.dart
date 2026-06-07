@@ -348,7 +348,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    const Color(0xFFFCD34D).withValues(alpha: 0.5),
+                    const Color(0xFFFCD34D).withValues(alpha: 0.35),
                     const Color(0x00FCD34D),
                   ],
                 ),

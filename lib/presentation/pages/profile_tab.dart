@@ -7,6 +7,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../constants/app_defaults.dart';
 import '../../utils/snackbar_helper.dart';
 import '../providers/auth_provider.dart';
+import '../providers/streak_provider.dart';
 import '../../data/services/auth_service.dart';
 import 'onboarding_page.dart';
 import 'language_selection_page.dart';
@@ -69,217 +70,640 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
 }
 
 // ==================== STREAK SECTION ====================
+
+// Debug button widget for testing
+class _DebugButton extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+
+  const _DebugButton({
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ElevatedButton(
+      onPressed: onTap,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: const Color(0xFF8B5CF6),
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+      child: Text(
+        label,
+        style: GoogleFonts.lexend(
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
+  }
+}
+
 class _StreakSection extends ConsumerWidget {
   const _StreakSection();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // TODO: Fetch actual streak data from provider/database
-    final bestStreak = 30; // Placeholder
-    final thisMonthDays = 25; // Placeholder
+    final streakData = ref.watch(streakProvider);
+    final currentStreak = streakData?.currentStreak ?? 0;
+    final shields = streakData?.shieldsAvailable ?? 0;
+    final streakStatus = ref.watch(streakStatusProvider);
 
-    // Generate weekly progress (Mon-Fri)
-    final weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
-    final completedDays = [true, true, true, true, false]; // Placeholder
+    final weekDays = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+    final consecutiveDays = streakData?.consecutiveDays ?? 0;
+    final completedDays = List.generate(7, (index) => index < consecutiveDays);
 
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            const Color(0xFFFFB3BA).withValues(alpha: 0.3),
-            const Color(0xFFFFDFBA).withValues(alpha: 0.3),
-            const Color(0xFFE2D1F9).withValues(alpha: 0.3),
+    return GestureDetector(
+      onLongPress: () => _showStreakDebugDialog(context, ref),
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
+              blurRadius: 20,
+              offset: const Offset(0, 4),
+            ),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
+          border: Border.all(
+            color: const Color(0xFFE2D1F9).withValues(alpha: 0.3),
+            width: 1,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 10),
+              child: Row(
+                children: [
+                  Container(
+                    width: 4,
+                    height: 18,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [Color(0xFFFF6B6B), Color(0xFFFF8E53)],
+                      ),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    'STREAK',
+                    style: GoogleFonts.lexend(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF8B5CF6),
+                      letterSpacing: 2,
+                    ),
+                  ),
+                  const Spacer(),
+                  _buildStatusChip(streakStatus),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: List.generate(7, (index) {
+                  final isCompleted = index < completedDays.length && completedDays[index];
+                  return Column(
+                    children: [
+                      Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: isCompleted ? const Color(0xFF4ADE80) : const Color(0xFFE5E7EB),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: Text(
+                            weekDays[index],
+                            style: GoogleFonts.lexend(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: isCompleted ? Colors.white : const Color(0xFF9CA3AF),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                }),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _buildStatCard(
+                      icon: '🔥',
+                      label: 'Current Streak',
+                      value: '$currentStreak',
+                      suffix: 'days',
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => _showShieldInfoDialog(context),
+                      child: _buildStatCard(
+                        icon: '🛡️',
+                        label: 'Shields',
+                        value: '$shields',
+                        suffix: 'available',
+                        showInfo: true,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.5),
-          width: 1.5,
+      ),
+    );
+  }
+
+  Widget _buildStatusChip(StreakStatus status) {
+    Color bgColor;
+    Color textColor;
+    String label;
+
+    switch (status) {
+      case StreakStatus.active:
+        bgColor = const Color(0xFFD1FAE5);
+        textColor = const Color(0xFF059669);
+        label = '🔥 Active';
+        break;
+      case StreakStatus.atRisk:
+        bgColor = const Color(0xFFFEF3C7);
+        textColor = const Color(0xFFD97706);
+        label = '🛡️ Protected';
+        break;
+      case StreakStatus.broken:
+        bgColor = const Color(0xFFFEE2E2);
+        textColor = const Color(0xFFDC2626);
+        label = '💔 Broken';
+        break;
+      case StreakStatus.inactive:
+        bgColor = const Color(0xFFE5E7EB);
+        textColor = const Color(0xFF6B7280);
+        label = '💫 Start';
+        break;
+      default:
+        bgColor = const Color(0xFFE5E7EB);
+        textColor = const Color(0xFF6B7280);
+        label = '⏳ Loading';
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        label,
+        style: GoogleFonts.lexend(
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+          color: textColor,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF8B5CF6).withValues(alpha: 0.15),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
+      ),
+    );
+  }
+
+  Widget _buildStatCard({
+    required String icon,
+    required String label,
+    required String value,
+    required String suffix,
+    bool showInfo = false,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF9FAFB),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE5E7EB), width: 0.5),
+      ),
+      child: Row(
+        children: [
+          Text(icon, style: const TextStyle(fontSize: 20)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      label,
+                      style: GoogleFonts.lexend(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                        color: const Color(0xFF6B7280),
+                      ),
+                    ),
+                    if (showInfo) ...[
+                      const SizedBox(width: 4),
+                      const Icon(Icons.info_outline, size: 12, color: Color(0xFF8B5CF6)),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Row(
+                  children: [
+                    Text(
+                      value,
+                      style: GoogleFonts.lexend(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF1f2937),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        suffix,
+                        style: GoogleFonts.lexend(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: const Color(0xFF9CA3AF),
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Section Header
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFF6B6B).withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(10),
+    );
+  }
+
+  void _showShieldInfoDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.white,
+                Color(0xFFf8f9ff),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(28),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF8b5cf6).withValues(alpha: 0.15),
+                blurRadius: 30,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Color(0xFF8B5CF6),
+                        Color(0xFF60a5fa),
+                      ],
+                    ),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF8B5CF6).withValues(alpha: 0.3),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.shield_rounded,
+                    color: Colors.white,
+                    size: 40,
+                  ),
                 ),
-                child: const Text(
-                  '🔥',
-                  style: TextStyle(fontSize: 20),
+                const SizedBox(height: 24),
+                Text(
+                  'Streak Shields',
+                  style: GoogleFonts.lexend(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF1f2937),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Don\'t let a missed day break your streak!',
+                  style: GoogleFonts.lexend(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                    color: const Color(0xFF6b7280),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE2D1F9).withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    children: [
+                      _buildShieldInfoItem(
+                        icon: Icons.shield_rounded,
+                        title: 'Shield Protection',
+                        description: 'Each shield protects your streak for 1 missed day',
+                      ),
+                      const SizedBox(height: 12),
+                      _buildShieldInfoItem(
+                        icon: Icons.star_rounded,
+                        title: 'Earn Shields',
+                        description: 'Learn 7 consecutive days to earn 1 shield',
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Color(0xFF8B5CF6),
+                          Color(0xFF60a5fa),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF8B5CF6).withValues(alpha: 0.4),
+                          blurRadius: 15,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () => Navigator.pop(context),
+                        borderRadius: BorderRadius.circular(14),
+                        child: const Center(
+                          child: Text(
+                            'Got it!',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildShieldInfoItem({
+    required IconData icon,
+    required String title,
+    required String description,
+  }) {
+    return Row(
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: const Color(0xFFEDE9FE),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(
+            icon,
+            size: 20,
+            color: const Color(0xFF5E3A8E),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: GoogleFonts.lexend(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF5E3A8E),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(height: 2),
               Text(
-                'STREAK DETAILS',
+                description,
                 style: GoogleFonts.lexend(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF5E3A8E),
-                  letterSpacing: 1.5,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w400,
+                  color: const Color(0xFF6B7280),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+        ),
+      ],
+    );
+  }
 
-          // Weekly Progress
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.7),
-              borderRadius: BorderRadius.circular(16),
+  void _showStreakDebugDialog(BuildContext context, WidgetRef ref) async {
+    final prefService = ref.read(preferenceServiceProvider);
+    final isGuest = await prefService.isGuestMode();
+    final streakData = ref.read(streakProvider);
+    final currentStreak = streakData?.currentStreak ?? 0;
+    final shields = streakData?.shieldsAvailable ?? 0;
+
+    if (!context.mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Colors.white, Color(0xFFf8f9ff)],
             ),
-            child: Column(
-              children: [
-                // Week days
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: List.generate(5, (index) {
-                    final isCompleted = index < completedDays.length && completedDays[index];
-                    return Column(
-                      children: [
-                        Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            color: isCompleted
-                                ? const Color(0xFF4ADE80)
-                                : const Color(0xFFE5E7EB),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Center(
-                            child: Text(
-                              weekDays[index].substring(0, 1),
-                              style: GoogleFonts.lexend(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                color: isCompleted ? Colors.white : const Color(0xFF9CA3AF),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          weekDays[index],
-                          style: GoogleFonts.lexend(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                            color: const Color(0xFF6B7280),
-                          ),
-                        ),
-                      ],
-                    );
-                  }),
-                ),
-              ],
-            ),
+            borderRadius: BorderRadius.circular(28),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF8b5cf6).withValues(alpha: 0.15),
+                blurRadius: 30,
+                offset: const Offset(0, 10),
+              ),
+            ],
           ),
-          const SizedBox(height: 16),
-
-          // Stats
-          Row(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              // Best Streak
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.7),
-                    borderRadius: BorderRadius.circular(12),
+              Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFF8B5CF6), Color(0xFF60a5fa)],
                   ),
-                  child: Row(
-                    children: [
-                      const Text('🏆', style: TextStyle(fontSize: 20)),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Best',
-                              style: GoogleFonts.lexend(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w500,
-                                color: const Color(0xFF6B7280),
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '$bestStreak days',
-                              style: GoogleFonts.lexend(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                color: const Color(0xFF5E3A8E),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF8B5CF6).withValues(alpha: 0.3),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
                 ),
+                child: const Icon(Icons.build_rounded, color: Colors.white, size: 40),
               ),
-              const SizedBox(width: 12),
-              // This Month
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.7),
-                    borderRadius: BorderRadius.circular(12),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'Debug Controls',
+                    style: GoogleFonts.lexend(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF1f2937),
+                    ),
                   ),
-                  child: Row(
-                    children: [
-                      const Text('📊', style: TextStyle(fontSize: 20)),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'This month',
-                              style: GoogleFonts.lexend(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w500,
-                                color: const Color(0xFF6B7280),
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '$thisMonthDays days',
-                              style: GoogleFonts.lexend(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                color: const Color(0xFF5E3A8E),
-                              ),
-                            ),
-                          ],
-                        ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: isGuest
+                          ? const Color(0xFFF59E0B).withValues(alpha: 0.15)
+                          : const Color(0xFF10B981).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      isGuest ? 'Guest 🟡' : 'Cloud 🟢',
+                      style: GoogleFonts.lexend(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: isGuest ? const Color(0xFFF59E0B) : const Color(0xFF10B981),
                       ),
-                    ],
+                    ),
                   ),
-                ),
+                ],
               ),
-              ],
+              const SizedBox(height: 12),
+              Text(
+                'Streak: $currentStreak | Shields: $shields',
+                style: GoogleFonts.lexend(fontSize: 14, color: const Color(0xFF6B7280)),
+              ),
+              const SizedBox(height: 20),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _DebugButton(
+                    label: 'Set 0',
+                    onTap: () async {
+                      final notifier = ref.read(streakProvider.notifier);
+                      await notifier.setStreak(0);
+                      if (context.mounted) Navigator.pop(context);
+                    },
+                  ),
+                  _DebugButton(
+                    label: 'Set 7',
+                    onTap: () async {
+                      final notifier = ref.read(streakProvider.notifier);
+                      await notifier.setStreak(7);
+                      if (context.mounted) Navigator.pop(context);
+                    },
+                  ),
+                  _DebugButton(
+                    label: 'Set 30',
+                    onTap: () async {
+                      final notifier = ref.read(streakProvider.notifier);
+                      await notifier.setStreak(30);
+                      if (context.mounted) Navigator.pop(context);
+                    },
+                  ),
+                  _DebugButton(
+                    label: 'Add Shield',
+                    onTap: () async {
+                      final notifier = ref.read(streakProvider.notifier);
+                      await notifier.addShields(1);
+                      if (context.mounted) Navigator.pop(context);
+                    },
+                  ),
+                  _DebugButton(
+                    label: 'Reset',
+                    onTap: () async {
+                      final notifier = ref.read(streakProvider.notifier);
+                      await notifier.reset();
+                      if (context.mounted) Navigator.pop(context);
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Long-press streak section to open',
+                style: GoogleFonts.lexend(fontSize: 11, color: const Color(0xFF9CA3AF)),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -350,32 +774,61 @@ class _PreferencesSectionState extends ConsumerState<_PreferencesSection> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 12,
+            color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
             offset: const Offset(0, 2),
           ),
         ],
+        border: Border.all(
+          color: const Color(0xFFE2D1F9).withValues(alpha: 0.3),
+          width: 1,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Section Header
+          // Enhanced Section Header
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-            child: Text(
-              'YOUR PREFERENCES',
-              style: GoogleFonts.lexend(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF5E3A8E),
-                letterSpacing: 1.5,
-              ),
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 10),
+            child: Row(
+              children: [
+                Container(
+                  width: 4,
+                  height: 18,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Color(0xFF8B5CF6),
+                        Color(0xFF60a5fa),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(2),
+                ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  'YOUR PREFERENCES',
+                  style: GoogleFonts.lexend(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF8B5CF6),
+                    letterSpacing: 2,
+                ),
+                ),
+              ],
             ),
           ),
 
@@ -394,11 +847,12 @@ class _PreferencesSectionState extends ConsumerState<_PreferencesSection> {
                     isEditing: true,
                     isInitialSetup: false,
                     currentLevel: _currentLevel,
-                  ),
+                ),
                 ),
               );
               widget.onPreferenceChanged?.call();
             },
+            iconBgColor: const Color(0xFFF3F4F6), // 🩶 Soft Gray (Minimal)
           ),
 
           // English Variant
@@ -417,11 +871,12 @@ class _PreferencesSectionState extends ConsumerState<_PreferencesSection> {
                     isEditing: true,
                     isInitialSetup: false,
                     currentVariant: _currentVariant,
-                  ),
+                ),
                 ),
               );
               widget.onPreferenceChanged?.call();
             },
+            iconBgColor: const Color(0xFFF3F4F6), // 🩶 Soft Gray (Minimal)
           ),
 
           // Theme
@@ -433,6 +888,7 @@ class _PreferencesSectionState extends ConsumerState<_PreferencesSection> {
             onTap: () {
               // TODO: Navigate to theme settings
             },
+            iconBgColor: const Color(0xFFF3F4F6), // 🩶 Soft Gray (Minimal)
           ),
         ],
       ),
@@ -446,6 +902,7 @@ class _PreferencesSectionState extends ConsumerState<_PreferencesSection> {
     required String value,
     required bool showDivider,
     required VoidCallback onTap,
+    Color? iconBgColor, // Kept for compatibility but not used
   }) {
     return Column(
       children: [
@@ -453,31 +910,33 @@ class _PreferencesSectionState extends ConsumerState<_PreferencesSection> {
           color: Colors.transparent,
           child: InkWell(
             onTap: onTap,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            borderRadius: BorderRadius.circular(12),
+            splashColor: const Color(0xFF8B5CF6).withValues(alpha: 0.1),
+            highlightColor: const Color(0xFF8B5CF6).withValues(alpha: 0.05),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: Row(
                 children: [
+                  // Minimal icon - no background
                   Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE2D1F9).withValues(alpha: 0.5),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
+                    width: 40,
+                    height: 40,
+                    alignment: Alignment.center,
                     child: iconText != null
-                        ? Center(
-                            child: Text(
-                              iconText,
-                              style: const TextStyle(fontSize: 18),
-                            ),
+                        ? Text(
+                            iconText,
+                            style: const TextStyle(fontSize: 20),
                           )
                         : Icon(
                             icon,
-                            size: 20,
-                            color: const Color(0xFF5E3A8E),
+                            size: 24,
+                            color: const Color(0xFF1f2937),
                           ),
-                  ),
-                  const SizedBox(width: 12),
+                ),
+                  const SizedBox(width: 14),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -485,27 +944,36 @@ class _PreferencesSectionState extends ConsumerState<_PreferencesSection> {
                         Text(
                           title,
                           style: TextStyle(
-                            fontSize: 13,
-                            color: const Color(0xFF5E3A8E).withValues(alpha: 0.6),
+                            fontSize: 12,
+                            color: const Color(0xFF1f2937).withValues(alpha: 0.65),
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
-                        const SizedBox(height: 2),
+                        const SizedBox(height: 3),
                         Text(
                           value,
                           style: const TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF5E3A8E),
+                            color: Color(0xFF1f2937),
                           ),
                         ),
                       ],
                     ),
-                  ),
-                  Icon(
-                    Icons.chevron_right,
-                    size: 20,
-                    color: const Color(0xFF5E3A8E).withValues(alpha: 0.4),
-                  ),
+                ),
+                  // Animated chevron
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      Icons.chevron_right,
+                      size: 18,
+                      color: const Color(0xFF8B5CF6),
+                    ),
+                ),
                 ],
               ),
             ),
@@ -513,11 +981,11 @@ class _PreferencesSectionState extends ConsumerState<_PreferencesSection> {
         ),
         if (showDivider)
           Padding(
-            padding: const EdgeInsets.only(left: 64),
+            padding: const EdgeInsets.only(left: 70, right: 16),
             child: Divider(
               height: 1,
-              color: const Color(0xFFE5E7EB),
-              thickness: 1,
+              color: const Color(0xFFE5E7EB).withValues(alpha: 0.6),
+              thickness: 0.5,
             ),
           ),
       ],
@@ -532,32 +1000,61 @@ class _GuestDataSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 12,
+            color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
             offset: const Offset(0, 2),
           ),
         ],
+        border: Border.all(
+          color: const Color(0xFFE2D1F9).withValues(alpha: 0.3),
+          width: 1,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Section Header
+          // Enhanced Section Header
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-            child: Text(
-              'DATA (Guest Mode)',
-              style: GoogleFonts.lexend(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF5E3A8E),
-                letterSpacing: 1.5,
-              ),
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 10),
+            child: Row(
+              children: [
+                Container(
+                  width: 4,
+                  height: 18,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Color(0xFF8B5CF6),
+                        Color(0xFF60a5fa),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(2),
+                ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  'DATA (Guest Mode)',
+                  style: GoogleFonts.lexend(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF8B5CF6),
+                    letterSpacing: 2,
+                ),
+                ),
+              ],
             ),
           ),
 
@@ -588,6 +1085,7 @@ class _GuestDataSection extends ConsumerWidget {
                 }
               }
             },
+            iconBgColor: const Color(0xFFF3F4F6), // 🩶 Soft Gray (Minimal)
           ),
 
           // Export Vocabulary
@@ -599,6 +1097,7 @@ class _GuestDataSection extends ConsumerWidget {
             onTap: () {
               // TODO: Export vocabulary as CSV
             },
+            iconBgColor: const Color(0xFFF3F4F6), // 🩶 Soft Gray (Minimal)
           ),
         ],
       ),
@@ -611,6 +1110,7 @@ class _GuestDataSection extends ConsumerWidget {
     required String subtitle,
     required bool showDivider,
     required VoidCallback onTap,
+    Color? iconBgColor, // Kept for compatibility but not used
   }) {
     return Column(
       children: [
@@ -618,24 +1118,28 @@ class _GuestDataSection extends ConsumerWidget {
           color: Colors.transparent,
           child: InkWell(
             onTap: onTap,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            borderRadius: BorderRadius.circular(12),
+            splashColor: const Color(0xFF8B5CF6).withValues(alpha: 0.1),
+            highlightColor: const Color(0xFF8B5CF6).withValues(alpha: 0.05),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: Row(
                 children: [
+                  // Minimal icon - no background
                   Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE2D1F9).withValues(alpha: 0.5),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
+                    width: 40,
+                    height: 40,
+                    alignment: Alignment.center,
                     child: Icon(
                       icon,
-                      size: 20,
-                      color: const Color(0xFF5E3A8E),
+                      size: 24,
+                      color: const Color(0xFF1f2937),
                     ),
-                  ),
-                  const SizedBox(width: 12),
+                ),
+                  const SizedBox(width: 14),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -645,25 +1149,33 @@ class _GuestDataSection extends ConsumerWidget {
                           style: const TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF5E3A8E),
+                            color: Color(0xFF1f2937),
                           ),
                         ),
-                        const SizedBox(height: 2),
+                        const SizedBox(height: 3),
                         Text(
                           subtitle,
                           style: TextStyle(
                             fontSize: 12,
-                            color: const Color(0xFF5E3A8E).withValues(alpha: 0.6),
+                            color: const Color(0xFF1f2937).withValues(alpha: 0.65),
                           ),
                         ),
                       ],
                     ),
-                  ),
-                  Icon(
-                    Icons.chevron_right,
-                    size: 20,
-                    color: const Color(0xFF5E3A8E).withValues(alpha: 0.4),
-                  ),
+                ),
+                  // Animated chevron
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      Icons.chevron_right,
+                      size: 18,
+                      color: const Color(0xFF8B5CF6),
+                    ),
+                ),
                 ],
               ),
             ),
@@ -671,11 +1183,11 @@ class _GuestDataSection extends ConsumerWidget {
         ),
         if (showDivider)
           Padding(
-            padding: const EdgeInsets.only(left: 64),
+            padding: const EdgeInsets.only(left: 70, right: 16),
             child: Divider(
               height: 1,
-              color: const Color(0xFFE5E7EB),
-              thickness: 1,
+              color: const Color(0xFFE5E7EB).withValues(alpha: 0.6),
+              thickness: 0.5,
             ),
           ),
       ],
@@ -721,14 +1233,14 @@ class _ConfirmStartOverDialog extends StatelessWidget {
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      Color(0xFF8B5CF6),
-                      Color(0xFF60a5fa),
+                      Color(0xFFFF6B6B),
+                      Color(0xFFFF8E53),
                     ],
-                  ),
+                ),
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF8B5CF6).withValues(alpha: 0.3),
+                      color: const Color(0xFFFF6B6B).withValues(alpha: 0.3),
                       blurRadius: 20,
                       offset: const Offset(0, 8),
                     ),
@@ -764,17 +1276,34 @@ class _ConfirmStartOverDialog extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE2D1F9).withValues(alpha: 0.3),
+                  color: const Color(0xFFFEE2E2).withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildConfirmItem('✅ Vocabulary deleted'),
-                    _buildConfirmItem('✅ Progress reset'),
-                    _buildConfirmItem('✅ Streak cleared'),
-                    const SizedBox(height: 4),
-                    _buildConfirmItem('💡 Settings (Level, Variant) kept'),
+                    _buildConfirmInfoItem(
+                      icon: Icons.menu_book_rounded,
+                      title: 'Vocabulary Deleted',
+                      description: 'All saved words will be removed',
+                    ),
+                    const SizedBox(height: 12),
+                    _buildConfirmInfoItem(
+                      icon: Icons.analytics_rounded,
+                      title: 'Progress Reset',
+                      description: 'Learning progress will be reset to zero',
+                    ),
+                    const SizedBox(height: 12),
+                    _buildConfirmInfoItem(
+                      icon: Icons.local_fire_department_rounded,
+                      title: 'Streak Cleared',
+                      description: 'Your streak and shields will be reset',
+                    ),
+                    const SizedBox(height: 12),
+                    _buildConfirmInfoItem(
+                      icon: Icons.lightbulb_rounded,
+                      title: 'Settings Kept',
+                      description: 'Language level and variant will be preserved',
+                    ),
                   ],
                 ),
               ),
@@ -805,7 +1334,7 @@ class _ConfirmStartOverDialog extends StatelessWidget {
                         ),
                       ),
                     ),
-                  ),
+                ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: SizedBox(
@@ -816,14 +1345,14 @@ class _ConfirmStartOverDialog extends StatelessWidget {
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                             colors: [
-                              Color(0xFF8B5CF6),
-                              Color(0xFF60a5fa),
+                              Color(0xFFFF6B6B),
+                              Color(0xFFFF8E53),
                             ],
                           ),
                           borderRadius: BorderRadius.circular(14),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFF8B5CF6).withValues(alpha: 0.4),
+                              color: const Color(0xFFFF6B6B).withValues(alpha: 0.4),
                               blurRadius: 15,
                               offset: const Offset(0, 4),
                             ),
@@ -848,7 +1377,7 @@ class _ConfirmStartOverDialog extends StatelessWidget {
                         ),
                       ),
                     ),
-                  ),
+                ),
                 ],
               ),
             ],
@@ -858,17 +1387,52 @@ class _ConfirmStartOverDialog extends StatelessWidget {
     );
   }
 
-  Widget _buildConfirmItem(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Text(
-        text,
-        style: GoogleFonts.lexend(
-          fontSize: 13,
-          fontWeight: FontWeight.w500,
-          color: const Color(0xFF5E3A8E),
+  Widget _buildConfirmInfoItem({
+    required IconData icon,
+    required String title,
+    required String description,
+  }) {
+    return Row(
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: const Color(0xFFFEE2E2),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(
+            icon,
+            size: 20,
+            color: const Color(0xFFDC2626),
+          ),
         ),
-      ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: GoogleFonts.lexend(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFFDC2626),
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                description,
+                style: GoogleFonts.lexend(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w400,
+                  color: const Color(0xFF6B7280),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -880,32 +1444,61 @@ class _DataSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 12,
+            color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
             offset: const Offset(0, 2),
           ),
         ],
+        border: Border.all(
+          color: const Color(0xFFE2D1F9).withValues(alpha: 0.3),
+          width: 1,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Section Header
+          // Enhanced Section Header
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-            child: Text(
-              'DATA',
-              style: GoogleFonts.lexend(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF5E3A8E),
-                letterSpacing: 1.5,
-              ),
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 10),
+            child: Row(
+              children: [
+                Container(
+                  width: 4,
+                  height: 18,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Color(0xFF8B5CF6),
+                        Color(0xFF60a5fa),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(2),
+                ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  'DATA',
+                  style: GoogleFonts.lexend(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF8B5CF6),
+                    letterSpacing: 2,
+                ),
+                ),
+              ],
             ),
           ),
 
@@ -918,6 +1511,7 @@ class _DataSection extends ConsumerWidget {
             onTap: () {
               // TODO: Export vocabulary as CSV
             },
+            iconBgColor: const Color(0xFFF3F4F6), // 🩶 Soft Gray (Minimal)
           ),
 
           // Clear Cache
@@ -929,6 +1523,7 @@ class _DataSection extends ConsumerWidget {
             onTap: () {
               // TODO: Clear cache
             },
+            iconBgColor: const Color(0xFFF3F4F6), // 🩶 Soft Gray (Minimal)
           ),
 
           // Reset All Data
@@ -940,6 +1535,7 @@ class _DataSection extends ConsumerWidget {
             onTap: () {
               // TODO: Reset all data from cloud
             },
+            iconBgColor: const Color(0xFFF3F4F6), // 🩶 Soft Gray (Minimal)
           ),
         ],
       ),
@@ -952,6 +1548,7 @@ class _DataSection extends ConsumerWidget {
     required String subtitle,
     required bool showDivider,
     required VoidCallback onTap,
+    Color? iconBgColor, // Kept for compatibility but not used
   }) {
     return Column(
       children: [
@@ -959,24 +1556,28 @@ class _DataSection extends ConsumerWidget {
           color: Colors.transparent,
           child: InkWell(
             onTap: onTap,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            borderRadius: BorderRadius.circular(12),
+            splashColor: const Color(0xFF8B5CF6).withValues(alpha: 0.1),
+            highlightColor: const Color(0xFF8B5CF6).withValues(alpha: 0.05),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: Row(
                 children: [
+                  // Minimal icon - no background
                   Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE2D1F9).withValues(alpha: 0.5),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
+                    width: 40,
+                    height: 40,
+                    alignment: Alignment.center,
                     child: Icon(
                       icon,
-                      size: 20,
-                      color: const Color(0xFF5E3A8E),
+                      size: 24,
+                      color: const Color(0xFF1f2937),
                     ),
-                  ),
-                  const SizedBox(width: 12),
+                ),
+                  const SizedBox(width: 14),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -986,25 +1587,33 @@ class _DataSection extends ConsumerWidget {
                           style: const TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF5E3A8E),
+                            color: Color(0xFF1f2937),
                           ),
                         ),
-                        const SizedBox(height: 2),
+                        const SizedBox(height: 3),
                         Text(
                           subtitle,
                           style: TextStyle(
                             fontSize: 12,
-                            color: const Color(0xFF5E3A8E).withValues(alpha: 0.6),
+                            color: const Color(0xFF1f2937).withValues(alpha: 0.65),
                           ),
                         ),
                       ],
                     ),
-                  ),
-                  Icon(
-                    Icons.chevron_right,
-                    size: 20,
-                    color: const Color(0xFF5E3A8E).withValues(alpha: 0.4),
-                  ),
+                ),
+                  // Animated chevron
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      Icons.chevron_right,
+                      size: 18,
+                      color: const Color(0xFF8B5CF6),
+                    ),
+                ),
                 ],
               ),
             ),
@@ -1012,11 +1621,11 @@ class _DataSection extends ConsumerWidget {
         ),
         if (showDivider)
           Padding(
-            padding: const EdgeInsets.only(left: 64),
+            padding: const EdgeInsets.only(left: 70, right: 16),
             child: Divider(
               height: 1,
-              color: const Color(0xFFE5E7EB),
-              thickness: 1,
+              color: const Color(0xFFE5E7EB).withValues(alpha: 0.6),
+              thickness: 0.5,
             ),
           ),
       ],
@@ -1064,7 +1673,7 @@ class _AccountSection extends ConsumerWidget {
                     fontWeight: FontWeight.w700,
                     color: Colors.red,
                     letterSpacing: 1.5,
-                  ),
+                ),
                 ),
                 const SizedBox(width: 6),
                 const Text(
@@ -1144,32 +1753,61 @@ class _AboutSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 12,
+            color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
             offset: const Offset(0, 2),
           ),
         ],
+        border: Border.all(
+          color: const Color(0xFFE2D1F9).withValues(alpha: 0.3),
+          width: 1,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Section Header
+          // Enhanced Section Header
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-            child: Text(
-              'ABOUT',
-              style: GoogleFonts.lexend(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF5E3A8E),
-                letterSpacing: 1.5,
-              ),
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 10),
+            child: Row(
+              children: [
+                Container(
+                  width: 4,
+                  height: 18,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Color(0xFF8B5CF6),
+                        Color(0xFF60a5fa),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(2),
+                ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  'ABOUT',
+                  style: GoogleFonts.lexend(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF8B5CF6),
+                    letterSpacing: 2,
+                ),
+                ),
+              ],
             ),
           ),
 
@@ -1181,6 +1819,7 @@ class _AboutSection extends ConsumerWidget {
             onTap: () {
               _showAboutDialog(context);
             },
+            iconBgColor: const Color(0xFFF3F4F6), // 🩶 Soft Gray (Minimal)
           ),
 
           // Privacy Policy
@@ -1196,6 +1835,7 @@ class _AboutSection extends ConsumerWidget {
                 ),
               );
             },
+            iconBgColor: const Color(0xFFF3F4F6), // 🩶 Soft Gray (Minimal)
           ),
 
           // Terms of Service
@@ -1211,6 +1851,7 @@ class _AboutSection extends ConsumerWidget {
                 ),
               );
             },
+            iconBgColor: const Color(0xFFF3F4F6), // 🩶 Soft Gray (Minimal)
           ),
         ],
       ),
@@ -1222,6 +1863,7 @@ class _AboutSection extends ConsumerWidget {
     required String title,
     required bool showDivider,
     required VoidCallback onTap,
+    Color? iconBgColor, // Kept for compatibility but not used
   }) {
     return Column(
       children: [
@@ -1229,39 +1871,51 @@ class _AboutSection extends ConsumerWidget {
           color: Colors.transparent,
           child: InkWell(
             onTap: onTap,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            borderRadius: BorderRadius.circular(12),
+            splashColor: const Color(0xFF8B5CF6).withValues(alpha: 0.1),
+            highlightColor: const Color(0xFF8B5CF6).withValues(alpha: 0.05),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: Row(
                 children: [
+                  // Minimal icon - no background
                   Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE2D1F9).withValues(alpha: 0.5),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
+                    width: 40,
+                    height: 40,
+                    alignment: Alignment.center,
                     child: Icon(
                       icon,
-                      size: 20,
-                      color: const Color(0xFF5E3A8E),
+                      size: 24,
+                      color: const Color(0xFF1f2937),
                     ),
-                  ),
-                  const SizedBox(width: 12),
+                ),
+                  const SizedBox(width: 14),
                   Expanded(
                     child: Text(
                       title,
                       style: const TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF5E3A8E),
+                        color: Color(0xFF1f2937),
                       ),
                     ),
-                  ),
-                  Icon(
-                    Icons.chevron_right,
-                    size: 20,
-                    color: const Color(0xFF5E3A8E).withValues(alpha: 0.4),
-                  ),
+                ),
+                  // Animated chevron
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      Icons.chevron_right,
+                      size: 18,
+                      color: const Color(0xFF8B5CF6),
+                    ),
+                ),
                 ],
               ),
             ),
@@ -1269,11 +1923,11 @@ class _AboutSection extends ConsumerWidget {
         ),
         if (showDivider)
           Padding(
-            padding: const EdgeInsets.only(left: 64),
+            padding: const EdgeInsets.only(left: 70, right: 16),
             child: Divider(
               height: 1,
-              color: const Color(0xFFE5E7EB),
-              thickness: 1,
+              color: const Color(0xFFE5E7EB).withValues(alpha: 0.6),
+              thickness: 0.5,
             ),
           ),
       ],
@@ -1336,7 +1990,7 @@ class _AboutDialog extends StatelessWidget {
                     color: const Color(0xFFa78bfa).withValues(alpha: 0.3),
                     blurRadius: 20,
                     offset: const Offset(0, 8),
-                  ),
+                ),
                 ],
               ),
               child: const Icon(
@@ -1417,7 +2071,7 @@ class _AboutDialog extends StatelessWidget {
                       Color(0xFF60a5fa),
                       Color(0xFFa78bfa),
                     ],
-                  ),
+                ),
                   borderRadius: BorderRadius.circular(14),
                   boxShadow: [
                     BoxShadow(
@@ -1442,7 +2096,7 @@ class _AboutDialog extends StatelessWidget {
                         ),
                       ),
                     ),
-                  ),
+                ),
                 ),
               ),
             ),
@@ -1570,7 +2224,7 @@ class _NotLoggedInViewState extends ConsumerState<_NotLoggedInView> {
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    const Color(0xFFFCD34D).withValues(alpha: 0.5),
+                    const Color(0xFFFCD34D).withValues(alpha: 0.35),
                     const Color(0x00FCD34D),
                   ],
                 ),
@@ -1586,7 +2240,7 @@ class _NotLoggedInViewState extends ConsumerState<_NotLoggedInView> {
                   padding: const EdgeInsets.all(20),
                   child: Column(
                     children: [
-                      // Top bar with back button
+                      // Top bar with back button and Guest badge
                       Row(
                         children: [
                           Container(
@@ -1602,21 +2256,56 @@ class _NotLoggedInViewState extends ConsumerState<_NotLoggedInView> {
                               ],
                             ),
                             child: IconButton(
-                              icon: const Icon(Icons.arrow_back, color: Color(0xFF5E3A8E)),
+                              icon: const Icon(Icons.arrow_back, color: Color(0xFF1f2937)),
                               onPressed: () => Navigator.pop(context),
+                            ),
+                          ),
+                          const Spacer(),
+                          // Guest User badge (moved here)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE2D1F9).withValues(alpha: 0.5),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: const Color(0xFF8B5CF6).withValues(alpha: 0.2),
+                                width: 1,
+                              ),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.person_outline,
+                                  size: 14,
+                                  color: Color(0xFF1f2937),
+                                ),
+                                SizedBox(width: 4),
+                                Text(
+                                  'Guest User',
+                                  style: TextStyle(
+                                    color: Color(0xFF1f2937),
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 16),
 
                       // Register Prompt Card
                       Container(
                         width: double.infinity,
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(20),
                         decoration: BoxDecoration(
                           color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(20),
                           boxShadow: [
                             BoxShadow(
                               color: Colors.black.withValues(alpha: 0.08),
@@ -1627,80 +2316,84 @@ class _NotLoggedInViewState extends ConsumerState<_NotLoggedInView> {
                         ),
                         child: Column(
                           children: [
-                            // Guest User badge
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFE2D1F9).withValues(alpha: 0.5),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: const Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.person_outline,
-                                    size: 14,
-                                    color: Color(0xFF5E3A8E),
-                                  ),
-                                  SizedBox(width: 4),
-                                  Text(
-                                    'Guest User',
-                                    style: TextStyle(
-                                      color: Color(0xFF5E3A8E),
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 11,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 12),
                             Icon(
                               Icons.cloud_sync_outlined,
-                              size: 32,
+                              size: 36,
                               color: const Color(0xFF8B5CF6),
                             ),
-                            const SizedBox(height: 10),
+                            const SizedBox(height: 12),
                             Text(
                               'Save your progress',
                               style: GoogleFonts.cormorantUnicase(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
-                                color: const Color(0xFF5E3A8E),
+                                color: const Color(0xFF1f2937),
                               ),
                             ),
-                            const SizedBox(height: 3),
+                            const SizedBox(height: 4),
                             Text(
-                              'Create an account to sync across devices',
+                              'Continue your journey anywhere',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: const Color(0xFF5E3A8E).withValues(alpha: 0.7),
+                                color: const Color(0xFF1f2937).withValues(alpha: 0.7),
                               ),
                               textAlign: TextAlign.center,
                             ),
-                            const SizedBox(height: 12),
+                            const SizedBox(height: 16),
+                            // Consistent gradient button
                             SizedBox(
                               width: double.infinity,
-                              child: FilledButton.icon(
-                                onPressed: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => const AccountMethodPage(),
+                              height: 50,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                    colors: [
+                                      Color(0xFF8B5CF6),
+                                      Color(0xFF60a5fa),
+                                    ],
+                                  ),
+                                  borderRadius: BorderRadius.circular(14),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(0xFF8B5CF6).withValues(alpha: 0.4),
+                                      blurRadius: 15,
+                                      offset: const Offset(0, 4),
                                     ),
-                                  );
-                                },
-                                icon: const Icon(Icons.person_add),
-                                label: const Text('Create Account'),
-                                style: FilledButton.styleFrom(
-                                  backgroundColor: const Color(0xFF8B5CF6),
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(vertical: 12),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
+                                  ],
+                                ),
+                                child: Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => const AccountMethodPage(),
+                                        ),
+                                      );
+                                    },
+                                    borderRadius: BorderRadius.circular(14),
+                                    child: const Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.person_add,
+                                          color: Colors.white,
+                                          size: 20,
+                                        ),
+                                        SizedBox(width: 8),
+                                        Text(
+                                          'Create Account',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
@@ -1728,7 +2421,7 @@ class _NotLoggedInViewState extends ConsumerState<_NotLoggedInView> {
                         offset: const Offset(0, -4),
                       ),
                     ],
-                  ),
+                ),
                   child: SingleChildScrollView(
                     physics: const ClampingScrollPhysics(),
                     padding: const EdgeInsets.only(top: 8, bottom: 40),
@@ -1755,7 +2448,7 @@ class _NotLoggedInViewState extends ConsumerState<_NotLoggedInView> {
                         const SizedBox(height: 24),
                       ],
                     ),
-                  ),
+                ),
                 ),
               ),
             ],
@@ -1908,7 +2601,7 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    const Color(0xFFFCD34D).withValues(alpha: 0.5),
+                    const Color(0xFFFCD34D).withValues(alpha: 0.35),
                     const Color(0x00FCD34D),
                   ],
                 ),
@@ -1940,7 +2633,7 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
                               ],
                             ),
                             child: IconButton(
-                              icon: const Icon(Icons.arrow_back, color: Color(0xFF5E3A8E)),
+                              icon: const Icon(Icons.arrow_back, color: Color(0xFF1f2937)),
                               onPressed: () => Navigator.pop(context),
                             ),
                           ),
@@ -1958,7 +2651,7 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
                               ],
                             ),
                             child: IconButton(
-                              icon: const Icon(Icons.logout, color: Color(0xFF5E3A8E)),
+                              icon: const Icon(Icons.logout, color: Color(0xFF1f2937)),
                               onPressed: () => _showLogoutDialog(context, ref),
                               tooltip: 'Logout',
                             ),
@@ -2035,14 +2728,14 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
                               style: GoogleFonts.cormorantUnicase(
                                 fontSize: 24,
                                 fontWeight: FontWeight.bold,
-                                color: const Color(0xFF5E3A8E),
+                                color: const Color(0xFF1f2937),
                               ),
                             ),
                             const SizedBox(width: 6),
                             Icon(
                               Icons.edit_outlined,
                               size: 16,
-                              color: const Color(0xFF5E3A8E).withValues(alpha: 0.5),
+                              color: const Color(0xFF1f2937).withValues(alpha: 0.5),
                             ),
                           ],
                         ),
@@ -2053,12 +2746,12 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
                         email,
                         style: TextStyle(
                           fontSize: 13,
-                          color: const Color(0xFF5E3A8E).withValues(alpha: 0.7),
+                          color: const Color(0xFF1f2937).withValues(alpha: 0.7),
                         ),
                       ),
                       const SizedBox(height: 16),
                     ],
-                  ),
+                ),
                 ),
               ),
 
@@ -2076,7 +2769,7 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
                         offset: const Offset(0, -4),
                       ),
                     ],
-                  ),
+                ),
                   child: SingleChildScrollView(
                     physics: const ClampingScrollPhysics(),
                     padding: const EdgeInsets.only(top: 8, bottom: 40),
@@ -2108,7 +2801,7 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
                         const SizedBox(height: 24),
                       ],
                     ),
-                  ),
+                ),
                 ),
               ),
             ],
@@ -2383,12 +3076,12 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
                         offset: const Offset(0, 8),
                       ),
                     ],
-                  ),
+                ),
                   child: const Icon(
                     Icons.logout_rounded,
                     color: Colors.white,
                     size: 40,
-                  ),
+                ),
                 ),
                 const SizedBox(height: 24),
                 Text(
@@ -2397,7 +3090,7 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
                     fontSize: 22,
                     fontWeight: FontWeight.w600,
                     color: const Color(0xFF1f2937),
-                  ),
+                ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
@@ -2407,7 +3100,7 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
                     fontSize: 14,
                     fontWeight: FontWeight.w400,
                     color: const Color(0xFF6b7280),
-                  ),
+                ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 24),
@@ -2566,12 +3259,12 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
                         offset: const Offset(0, 8),
                       ),
                     ],
-                  ),
+                ),
                   child: const Icon(
                     Icons.delete_forever_rounded,
                     color: Colors.white,
                     size: 40,
-                  ),
+                ),
                 ),
                 const SizedBox(height: 24),
                 Text(
@@ -2580,7 +3273,7 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
                     fontSize: 22,
                     fontWeight: FontWeight.w600,
                     color: const Color(0xFF1f2937),
-                  ),
+                ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
@@ -2590,7 +3283,7 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
                     fontSize: 14,
                     fontWeight: FontWeight.w400,
                     color: const Color(0xFF6b7280),
-                  ),
+                ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
@@ -2600,7 +3293,7 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                     color: const Color(0xFFef4444),
-                  ),
+                ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 24),
@@ -2761,7 +3454,7 @@ class _DisplayNameDialogState extends State<_DisplayNameDialog> {
                       Color(0xFFf472b6),
                       Color(0xFF60a5fa),
                     ],
-                  ),
+                ),
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
@@ -2831,7 +3524,7 @@ class _DisplayNameDialogState extends State<_DisplayNameDialog> {
                       horizontal: 16,
                       vertical: 14,
                     ),
-                  ),
+                ),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
                       return 'Please enter a name';
@@ -2870,7 +3563,7 @@ class _DisplayNameDialogState extends State<_DisplayNameDialog> {
                         ),
                       ),
                     ),
-                  ),
+                ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: SizedBox(
@@ -2917,7 +3610,7 @@ class _DisplayNameDialogState extends State<_DisplayNameDialog> {
                         ),
                       ),
                     ),
-                  ),
+                ),
                 ],
               ),
             ],
@@ -2978,7 +3671,7 @@ class _AvatarPickerDialog extends StatelessWidget {
                       Color(0xFFf472b6),
                       Color(0xFF60a5fa),
                     ],
-                  ),
+                ),
                   boxShadow: [
                     BoxShadow(
                       color: const Color(0xFFf472b6).withValues(alpha: 0.3),
@@ -2992,7 +3685,7 @@ class _AvatarPickerDialog extends StatelessWidget {
                   decoration: const BoxDecoration(
                     shape: BoxShape.circle,
                     color: Colors.white,
-                  ),
+                ),
                   child: ClipOval(
                     child: currentAvatarUrl != null
                         ? CachedNetworkImage(
@@ -3022,7 +3715,7 @@ class _AvatarPickerDialog extends StatelessWidget {
                               ),
                             ),
                           ),
-                  ),
+                ),
                 ),
               ),
               const SizedBox(height: 20),
@@ -3048,7 +3741,7 @@ class _AvatarPickerDialog extends StatelessWidget {
                       fontWeight: FontWeight.w500,
                       color: Colors.white,
                     ),
-                  ),
+                ),
                   style: FilledButton.styleFrom(
                     backgroundColor: const Color(0xFF8B5CF6),
                     foregroundColor: Colors.white,
@@ -3056,7 +3749,7 @@ class _AvatarPickerDialog extends StatelessWidget {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
-                  ),
+                ),
                 ),
               ),
               const SizedBox(height: 10),
@@ -3072,7 +3765,7 @@ class _AvatarPickerDialog extends StatelessWidget {
                       fontWeight: FontWeight.w500,
                       color: const Color(0xFF8B5CF6),
                     ),
-                  ),
+                ),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: const Color(0xFF8B5CF6),
                     side: BorderSide(
@@ -3082,7 +3775,7 @@ class _AvatarPickerDialog extends StatelessWidget {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
-                  ),
+                ),
                 ),
               ),
               if (currentAvatarUrl != null) ...[
@@ -3104,7 +3797,7 @@ class _AvatarPickerDialog extends StatelessWidget {
                       foregroundColor: Colors.red.withValues(alpha: 0.8),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
-                  ),
+                ),
                 ),
               ],
               const SizedBox(height: 8),
@@ -3119,11 +3812,11 @@ class _AvatarPickerDialog extends StatelessWidget {
                       fontWeight: FontWeight.w500,
                       color: const Color(0xFF6b7280),
                     ),
-                  ),
+                ),
                   style: TextButton.styleFrom(
                     foregroundColor: const Color(0xFF6b7280),
                     padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
+                ),
                 ),
               ),
               ],

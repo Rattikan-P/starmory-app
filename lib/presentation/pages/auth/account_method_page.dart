@@ -519,16 +519,16 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
           children: [
             // Galaxy blobs
             Positioned(
-              top: -80,
-              left: -60,
+              top: -100,
+              left: -80,
               child: Container(
-                width: 280,
-                height: 280,
+                width: 350,
+                height: 350,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
-                      const Color(0xFFC4B5FD).withValues(alpha: 0.4),
+                      const Color(0xFFC4B5FD).withValues(alpha: 0.5),
                       const Color(0x00C4B5FD),
                     ],
                   ),
@@ -536,16 +536,16 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
               ),
             ),
             Positioned(
-              top: 80,
-              right: -80,
+              top: 50,
+              right: -100,
               child: Container(
-                width: 300,
-                height: 300,
+                width: 380,
+                height: 380,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
-                      const Color(0xFF93C5FD).withValues(alpha: 0.4),
+                      const Color(0xFF93C5FD).withValues(alpha: 0.5),
                       const Color(0x0093C5FD),
                     ],
                   ),
@@ -553,17 +553,34 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
               ),
             ),
             Positioned(
-              bottom: -60,
-              left: 100,
+              bottom: 100,
+              left: -60,
               child: Container(
-                width: 280,
-                height: 280,
+                width: 350,
+                height: 350,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
-                      const Color(0xFFF472B6).withValues(alpha: 0.4),
+                      const Color(0xFFF472B6).withValues(alpha: 0.55),
                       const Color(0x00F472B6),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              bottom: -80,
+              right: -60,
+              child: Container(
+                width: 380,
+                height: 380,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      const Color(0xFFFCD34D).withValues(alpha: 0.35),
+                      const Color(0x00FCD34D),
                     ],
                   ),
                 ),
