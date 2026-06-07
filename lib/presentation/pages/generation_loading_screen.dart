@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers/providers.dart';
 import '../providers/auth_quota_provider.dart';
 import '../../core/utils/quota_manager.dart';
@@ -35,6 +36,7 @@ class _GenerationLoadingScreenState
   int _currentPhase = 1;
   String? _errorMessage;
   bool _isProcessing = true;
+  bool _quotaDeducted = false; // Track if quota was deducted in this session
 
   // Phase descriptions - updated to reflect actual process
   final List<String> _phaseDescriptions = [
@@ -279,14 +281,14 @@ class _GenerationLoadingScreenState
         final errorStr = e.toString();
         final errorStrLower = errorStr.toLowerCase();
 
-        debugPrint('🔍 Generation loading caught error: "$errorStr"');
+        // debugPrint('🔍 Generation loading caught error: "$errorStr"');
 
         // Handle QuotaExceededFailure with a friendly message (don't mention quota/backend limit)
         if (errorStr.contains('QuotaExceededFailure') ||
             errorStr.contains('Starmory needs a rest') ||
             errorStrLower.contains('quota exceeded') ||
             errorStrLower.contains('please check your plan and billing')) {
-          debugPrint('✅ Showing friendly quota message to user');
+          // debugPrint('✅ Showing friendly quota message to userrrrrr');
 
           // Refund quota since generation failed due to API quota exceeded
           await _refundQuota();
@@ -328,6 +330,7 @@ class _GenerationLoadingScreenState
 
   void _showResult(dynamic result) {
     // Record quota usage after successful generation
+    _quotaDeducted = true; // Mark that quota was deducted
     final authQuotaNotifier = ref.read(authQuotaProvider.notifier);
     authQuotaNotifier.recordQuotaUsage(imageId: widget.imagePath);
 
@@ -788,6 +791,12 @@ class _GenerationLoadingScreenState
   /// Refund quota when generation fails due to API quota exceeded
   Future<void> _refundQuota() async {
     try {
+      // Only refund if quota was actually deducted in this session
+      if (!_quotaDeducted) {
+        debugPrint('⏭️ Quota was not deducted in this session, skipping refund');
+        return;
+      }
+
       final user = ref.read(currentUserProvider);
       if (user == null || user.quotaManager.usageHistory.isEmpty) {
         return;
@@ -808,6 +817,58 @@ class _GenerationLoadingScreenState
       // Update user state
       final userNotifier = ref.read(userStateProvider.notifier);
       await userNotifier.updateUser(updatedUser);
+
+      // Rollback Supabase quota count for registered users
+      if (!user.isGuest) {
+        try {
+          final client = Supabase.instance.client;
+          final supabaseUser = client.auth.currentUser;
+          if (supabaseUser != null) {
+            // Get current quota from Supabase
+            final quotaResponse = await client
+                .from('user_quotas')
+                .select()
+                .eq('user_id', supabaseUser.id)
+                .maybeSingle();
+
+            if (quotaResponse != null) {
+              final dailyCount = quotaResponse['daily_gen_count'] as int? ?? 0;
+              final totalCount = quotaResponse['total_gen_count'] as int? ?? 0;
+              final today = DateTime.now().toIso8601String().split('T')[0];
+              final lastReset = quotaResponse['daily_gen_reset_date'] as String?;
+
+              // Calculate the new counts after refund
+              int newDailyCount = dailyCount - 1;
+              int newTotalCount = totalCount - 1;
+
+              // Handle daily reset boundary
+              if (lastReset != today && newDailyCount < 0) {
+                newDailyCount = 0;
+              } else if (newDailyCount < 0) {
+                newDailyCount = 0;
+              }
+              if (newTotalCount < 0) {
+                newTotalCount = 0;
+              }
+
+              // Update Supabase with decremented counts
+              await client
+                  .from('user_quotas')
+                  .update({
+                    'daily_gen_count': newDailyCount,
+                    'total_gen_count': newTotalCount,
+                    'updated_at': DateTime.now().toIso8601String(),
+                  })
+                  .eq('user_id', supabaseUser.id);
+
+              debugPrint('✅ Refund synced to Supabase: daily=$newDailyCount, total=$newTotalCount');
+            }
+          }
+        } catch (e) {
+          debugPrint('⚠️ Failed to rollback Supabase quota: $e');
+          // Continue anyway - local refund is more important
+        }
+      }
 
       debugPrint('✅ Quota refunded successfully');
     } catch (e) {

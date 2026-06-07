@@ -4,7 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../constants/app_defaults.dart';
 import '../../utils/snackbar_helper.dart';
-import '../providers/auth_provider.dart';
+import '../providers/auth_provider.dart' as auth;
+import '../providers/providers.dart';
 import '../../data/services/auth_service.dart';
 import 'onboarding_page.dart';
 import 'language_selection_page.dart';
@@ -50,7 +51,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
 
   @override
   Widget build(BuildContext context) {
-    final user = ref.watch(currentUserProvider);
+    final user = ref.watch(auth.currentUserProvider);
 
     if (_isCheckingGuest) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
@@ -350,6 +351,22 @@ class _NotLoggedInViewState extends ConsumerState<_NotLoggedInView> {
         _guestLanguageLevel = level;
         _guestEnglishVariant = variant;
       });
+
+      // Also update global UserModel preferences with latest from SharedPreferences
+      if (level != null || variant != null) {
+        final userNotifier = ref.read(userStateProvider.notifier);
+        final currentUser = ref.read(currentUserProvider);
+        if (currentUser != null && currentUser.isGuest) {
+          final updatedUser = currentUser.copyWith(
+            preferences: {
+              'defaultCefrLevel': level ?? 'A1',
+              'languageVariant': variant ?? 'US',
+            },
+          );
+          await userNotifier.updateUser(updatedUser);
+          debugPrint('✅ Synced guest preferences to UserModel: level=$level, variant=$variant');
+        }
+      }
     }
   }
 
@@ -534,6 +551,23 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
         _userData = data;
         _isLoading = false;
       });
+
+      // Also update global UserModel preferences with latest from Supabase
+      if (data != null) {
+        final userNotifier = ref.read(userStateProvider.notifier);
+        final currentUser = ref.read(currentUserProvider);
+        if (currentUser != null) {
+          final updatedUser = currentUser.copyWith(
+            preferences: {
+              'defaultCefrLevel': data['language_level'] as String? ?? 'A1',
+              'languageVariant': data['english_variant'] as String? ?? 'US',
+            },
+          );
+          await userNotifier.updateUser(updatedUser);
+          debugPrint('✅ Synced preferences from Supabase to UserModel: '
+              'level=${data['language_level']}, variant=${data['english_variant']}');
+        }
+      }
     }
   }
 

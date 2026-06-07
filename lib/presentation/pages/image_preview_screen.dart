@@ -255,18 +255,15 @@ class _ImagePreviewScreenState extends ConsumerState<ImagePreviewScreen> {
     setState(() => _isProcessing = true);
 
     try {
-      // Step 1: Check quota
-      final notifier = ref.read(userStateProvider.notifier);
-      final success = await notifier.recordQuotaUsage(
-        imageId: widget.imagePath,
-      );
+      // Step 1: Check if user can generate (without deducting yet)
+      final currentUser = ref.read(currentUserProvider);
+      final canGenerate = currentUser?.canGenerate ?? false;
 
-      if (!success) {
+      if (!canGenerate) {
         if (mounted) {
           setState(() => _isProcessing = false);
           // Show appropriate dialog based on user type
-          final user = ref.read(currentUserProvider);
-          _showQuotaLimitDialog(user?.isGuest ?? true);
+          _showQuotaLimitDialog(currentUser?.isGuest ?? true);
         }
         return;
       }
@@ -276,7 +273,6 @@ class _ImagePreviewScreenState extends ConsumerState<ImagePreviewScreen> {
       if (!hasConnection) {
         if (mounted) {
           setState(() => _isProcessing = false);
-          await _refundQuota(); // Refund quota since we won't proceed
           _showNoInternetDialog();
         }
         return;
@@ -298,10 +294,12 @@ class _ImagePreviewScreenState extends ConsumerState<ImagePreviewScreen> {
 
       // Step 3: Get user's default CEFR level, English variant, and communicative function
       final user = ref.read(currentUserProvider);
+      debugPrint('🔍 User preferences: ${user?.preferences}');
       final defaultCefrLevel =
           user?.preferences['defaultCefrLevel'] as String? ?? 'A1';
       final defaultEnglishVariant =
           user?.preferences['languageVariant'] as String? ?? 'US';
+      debugPrint('📤 Using CEFR: $defaultCefrLevel, English Variant: $defaultEnglishVariant');
       final defaultCommunicativeFunction = 'Indicative'; // Default for now
 
       // Step 4: Navigate directly to Generation Loading Screen

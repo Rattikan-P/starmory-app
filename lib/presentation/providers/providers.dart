@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/services/gemini_service.dart';
@@ -375,8 +376,11 @@ class UserNotifier extends StateNotifier<UserState> {
     final user = state.user;
     if (user == null) return false;
 
+    debugPrint('🔢 recordQuotaUsage called - current daily: ${user.quotaManager.getTodayUsage()}/${user.quotaManager.dailyLimit}');
+
     // Check if user can generate
     if (!user.canGenerate) {
+      debugPrint('❌ Cannot generate - quota exhausted');
       return false;
     }
 
@@ -431,6 +435,8 @@ class UserNotifier extends StateNotifier<UserState> {
 
     final updatedUser = user.copyWith(quotaManager: updatedQuotaManager);
     await updateUser(updatedUser);
+
+    debugPrint('✅ recordQuotaUsage completed - new daily: ${updatedQuotaManager.getTodayUsage()}/${updatedQuotaManager.dailyLimit}');
     return true;
   }
 
