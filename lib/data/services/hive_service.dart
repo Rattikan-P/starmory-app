@@ -19,22 +19,16 @@ class HiveService {
     if (_isInitialized) return;
 
     try {
-      print('🔧 Initializing Hive...');
-
       // Initialize Hive (auto-detects platform)
       await Hive.initFlutter();
-      print('✅ Hive.initFlutter() successful');
 
       // Register adapters
       _registerAdapters();
-      print('✅ Adapters registered');
 
       // Open boxes
       await _openBoxes();
-      print('✅ Boxes opened');
 
       _isInitialized = true;
-      print('✅ Hive initialization complete');
     } catch (e, stackTrace) {
       print('❌ Hive initialization failed: $e');
       print('📚 Stack trace: $stackTrace');
@@ -55,13 +49,8 @@ class HiveService {
   /// Open all required boxes
   Future<void> _openBoxes() async {
     try {
-      print('📦 Opening ${AppConstants.boxVocabulary} box...');
       await Hive.openBox<String>(AppConstants.boxVocabulary);
-      print('✅ ${AppConstants.boxVocabulary} box opened');
-
-      print('📦 Opening ${AppConstants.boxUser} box...');
       await Hive.openBox<String>(AppConstants.boxUser);
-      print('✅ ${AppConstants.boxUser} box opened');
     } catch (e, stackTrace) {
       print('❌ Error opening boxes: $e');
       print('📚 Stack trace: $stackTrace');

@@ -68,11 +68,6 @@ class _InteractiveVocabularyScreenState
 
   void _initializeVocabularyData() {
     if (widget.extractionResult != null) {
-      // Debug: Print the vocab list count
-      debugPrint(
-        '📊 Extraction Result: ${widget.extractionResult!.vocabList.length} items',
-      );
-
       // Use default context (Describe + image category) for initial sentences
       final defaultTone = 'Describe';
       final defaultCategory = widget.extractionResult!.category;
@@ -81,9 +76,6 @@ class _InteractiveVocabularyScreenState
       _vocabularyDots = widget.extractionResult!.vocabList.map((item) {
         final bbox = item.boundingBox;
         final (x, y) = bbox.center;
-        debugPrint(
-          '✅ Word: ${item.word}, Thai: ${item.thai}, Center: ($x, $y)',
-        );
 
         return _VocabularyDot(
           id: item.word,
@@ -98,8 +90,6 @@ class _InteractiveVocabularyScreenState
           category: defaultCategory,
         );
       }).toList();
-
-      debugPrint('🎯 Final _vocabularyDots count: ${_vocabularyDots.length}');
 
       // Fix overlapping coordinates
       _fixOverlappingCoordinates();
@@ -195,9 +185,6 @@ class _InteractiveVocabularyScreenState
                 }
               }
             }
-            debugPrint(
-              '✅ Combined sentences generated for ${result.combinedWords?.join(', ')}',
-            );
           }
         } else {
           // Normal mode: each dot has its own sentence
@@ -220,17 +207,12 @@ class _InteractiveVocabularyScreenState
                     english: sentenceData.text,
                     thai: sentenceData.thai,
                   );
-                  debugPrint(
-                    '🤖 AI sentence for ${dot.word}: ${sentenceData.text}',
-                  );
                 }
               }
             }
           }
         }
       });
-
-      debugPrint('✅ Generated sentences for ${words.length} words');
     } catch (e) {
       setState(() => _isRegenerating = false); // Clear loading state on error
       debugPrint('❌ Error generating sentences: $e');
@@ -245,16 +227,12 @@ class _InteractiveVocabularyScreenState
     setState(() {
       for (var i = 0; i < _vocabularyDots.length; i++) {
         final dot = _vocabularyDots[i];
-        debugPrint(
-          '🔧 Generating fallback for: word="${dot.word}", thai="${dot.thaiTranslation}", tone="${dot.tone}", category="${dot.category}"',
-        );
         final (enSentence, thSentence) = _generateFallbackSentence(
           dot.word,
           dot.thaiTranslation,
           dot.tone,
           dot.category,
         );
-        debugPrint('✅ Fallback sentence generated: "$enSentence" / "$thSentence"');
         _vocabularyDots[i] = dot.copyWith(
           englishSentence: enSentence,
           thaiSentence: thSentence,
@@ -266,7 +244,6 @@ class _InteractiveVocabularyScreenState
         );
       }
     });
-    debugPrint('✅ Applied fallback sentences to ${_vocabularyDots.length} words');
   }
 
   /// Generate contextual fallback sentence based on tone and category
@@ -532,9 +509,6 @@ class _InteractiveVocabularyScreenState
         );
       }
     }
-    debugPrint(
-      '💾 Saved ${_savedIndividualSentences.length} individual sentences',
-    );
   }
 
   /// Restore individual sentences when switching back from combined mode
@@ -564,12 +538,8 @@ class _InteractiveVocabularyScreenState
     });
 
     if (hasAllSaved) {
-      debugPrint(
-        '♻️ Restored ${_savedIndividualSentences.length} individual sentences',
-      );
       return true;
     } else {
-      debugPrint('⚠️ Some words missing saved sentences, will regenerate');
       return false;
     }
   }
@@ -956,9 +926,9 @@ class _InteractiveVocabularyScreenState
       final displayedX = imageX * fit.scale + fit.offsetX;
       final displayedY = imageY * fit.scale + fit.offsetY;
 
-      debugPrint(
-        '📍 Dot "${dot.word}": normalized=(${dot.x.toStringAsFixed(2)}, ${dot.y.toStringAsFixed(2)}) → displayed=(${displayedX.toStringAsFixed(1)}, ${displayedY.toStringAsFixed(1)})',
-      );
+      // debugPrint(
+      //   '📍 Dot "${dot.word}": normalized=(${dot.x.toStringAsFixed(2)}, ${dot.y.toStringAsFixed(2)}) → displayed=(${displayedX.toStringAsFixed(1)}, ${displayedY.toStringAsFixed(1)})',
+      // );
 
       // Don't hide dots that are out of bounds - let them be clickable even if outside visible area
       const dotSize = 34.0;
@@ -1306,7 +1276,6 @@ class _InteractiveVocabularyScreenState
 
     // If combined mode is ON and there are selected words, regenerate
     if (_useCombinedSentence && _selectedWordIds.isNotEmpty) {
-      debugPrint('🔄 Word toggled, regenerating combined sentence');
       setState(() {
         _clearSelectedSentences();
         _isRegenerating = true;
@@ -1433,10 +1402,6 @@ class _InteractiveVocabularyScreenState
     final apiTone = _mapToneToApiFormat(tone);
 
     try {
-      debugPrint(
-        '🔄 Regenerating sentence for ${dot.word} with tone: $apiTone, category: $category',
-      );
-
       final result = await geminiService.generateSentences(
         words: [dot.word],
         level: widget.cefrLevel,
@@ -1446,13 +1411,9 @@ class _InteractiveVocabularyScreenState
         englishVariant: widget.englishVariant,
       );
 
-      debugPrint('📦 Result keys: ${result.results.keys}');
-      debugPrint('📦 Result for ${dot.word}: ${result.results[dot.word]}');
-
       if (!mounted) return false;
 
       final sentenceData = result.results[dot.word]?[apiTone];
-      debugPrint('📝 Sentence data for $apiTone: $sentenceData');
 
       if (sentenceData != null) {
         setState(() {
@@ -1461,14 +1422,8 @@ class _InteractiveVocabularyScreenState
             thaiSentence: sentenceData.thai,
           );
         });
-        debugPrint(
-          '✅ Regenerated sentence for ${dot.word}: ${sentenceData.text}',
-        );
         return true;
       } else {
-        debugPrint(
-          '⚠️ No sentence data found for tone: $apiTone, using fallback',
-        );
         // Use fallback sentence
         final (enSentence, thSentence) = _generateFallbackSentence(
           dot.word,
@@ -1485,7 +1440,6 @@ class _InteractiveVocabularyScreenState
         return false; // Return false since API didn't work
       }
     } catch (e) {
-      debugPrint('❌ Error regenerating sentence: $e, using fallback');
       // Use fallback sentence on error
       final (enSentence, thSentence) = _generateFallbackSentence(
         dot.word,
@@ -1521,10 +1475,6 @@ class _InteractiveVocabularyScreenState
     final apiTone = _mapToneToApiFormat(tone);
 
     try {
-      debugPrint(
-        '🔄 Regenerating sentences for ${words.length} words with tone: $apiTone, category: $category',
-      );
-
       final result = await geminiService.generateSentences(
         words: words,
         level: widget.cefrLevel,
@@ -1533,8 +1483,6 @@ class _InteractiveVocabularyScreenState
         combined: _useCombinedSentence,
         englishVariant: widget.englishVariant,
       );
-
-      debugPrint('📦 Result mode: ${result.mode}');
 
       if (!mounted) return false;
 
@@ -1558,19 +1506,14 @@ class _InteractiveVocabularyScreenState
                   successCount++;
                 }
               }
-              debugPrint('✅ Combined sentence: ${sentenceData.text}');
             }
           }
         } else {
           // Normal mode: each dot gets its own sentence
-          debugPrint('📦 Result keys: ${result.results.keys}');
           for (var i = 0; i < _vocabularyDots.length; i++) {
             final dot = _vocabularyDots[i];
             if (wordIds.contains(dot.id)) {
               final sentenceData = result.results[dot.word]?[apiTone];
-              debugPrint(
-                '📝 Sentence data for ${dot.word} ($apiTone): ${sentenceData?.text}',
-              );
 
               if (sentenceData != null) {
                 _vocabularyDots[i] = dot.copyWith(
@@ -1596,12 +1539,8 @@ class _InteractiveVocabularyScreenState
         }
       });
 
-      debugPrint(
-        '✅ Regenerated sentences for $successCount/${selectedDots.length} words',
-      );
       return successCount > 0;
     } catch (e) {
-      debugPrint('❌ Error regenerating sentences: $e, using fallbacks');
       // Use fallback sentences for all words on error
       setState(() {
         for (var i = 0; i < _vocabularyDots.length; i++) {

@@ -52,12 +52,11 @@ class GeminiService {
 
           // Check if it's a quota exceeded error (429)
           final errorStr = e.toString().toLowerCase();
-          debugPrint('🔍 Checking error string: "$errorStr"');
           if (errorStr.contains('429') ||
               errorStr.contains('quota') ||
               errorStr.contains('rate limit') ||
               errorStr.contains('rate_limit')) {
-            debugPrint('✅ Detected quota error, throwing QuotaExceededFailure');
+            // debugPrint('✅ Detected quota error, throwing QuotaExceededFailure');
             throw QuotaExceededFailure(
               'Starmory needs a rest today 😴\nNew lessons will be ready again tomorrow!',
             );
@@ -305,13 +304,7 @@ Extract exactly 5 vocabulary items from the image.''');
       );
 
       final text = response.text ?? '';
-      debugPrint('🔍 Raw AI Response length: ${text.length} chars');
-      debugPrint(
-        '📄 Raw AI Response (first 500 chars): ${text.substring(0, text.length > 500 ? 500 : text.length)}',
-      );
-
       final result = VocabularyExtractionResult.fromJson(text);
-      debugPrint('✅ Parsed ${result.vocabList.length} vocabulary items');
 
       return result;
     });
@@ -554,10 +547,6 @@ Generate sentences now.''';
       );
 
       final text = response.text ?? '';
-      debugPrint(
-        '🔍 Sentence Generation Response (first 500 chars): ${text.length > 500 ? text.substring(0, 500) : text}',
-      );
-
       return SentenceGenerationResult.fromJson(text, tones);
     });
   }
@@ -737,13 +726,6 @@ class SentenceGenerationResult {
     String jsonString,
     List<String> selectedTones,
   ) {
-    debugPrint(
-      '🔍 SentenceGenerationResult.fromJson - selectedTones: $selectedTones',
-    );
-    debugPrint(
-      '🔍 Raw response (first 300 chars): ${jsonString.length > 300 ? jsonString.substring(0, 300) : jsonString}',
-    );
-
     // Extract JSON from response (handle markdown and extra text)
     String cleanJson = jsonString.trim();
 
@@ -765,13 +747,8 @@ class SentenceGenerationResult {
       cleanJson = cleanJson.substring(start, end + 1);
     }
 
-    debugPrint('🔍 Cleaned JSON: $cleanJson');
-
     final json = jsonDecode(cleanJson) as Map<String, dynamic>;
     final mode = json['mode'] as String? ?? 'normal';
-
-    debugPrint('🔍 Parsed mode: $mode');
-    debugPrint('🔍 JSON keys: ${json.keys}');
 
     if (mode == 'combined') {
       final sentencesJson = json['sentences'] as Map<String, dynamic>?;
@@ -799,15 +776,11 @@ class SentenceGenerationResult {
       final resultsJson = json['results'] as List<dynamic>?;
       final results = <String, Map<String, SentenceData>>{};
 
-      debugPrint('🔍 Results JSON: $resultsJson');
-
       if (resultsJson != null) {
         for (final item in resultsJson) {
           final itemMap = item as Map<String, dynamic>;
           final word = itemMap['word'] as String;
           final sentencesJson = itemMap['sentences'] as Map<String, dynamic>?;
-
-          debugPrint('🔍 Processing word: $word, sentences: $sentencesJson');
 
           if (sentencesJson != null) {
             final sentences = <String, SentenceData>{};
@@ -820,8 +793,6 @@ class SentenceGenerationResult {
           }
         }
       }
-
-      debugPrint('🔍 Final results map: $results');
 
       return SentenceGenerationResult.normal(
         level: json['level'] as String? ?? 'A1',
@@ -838,29 +809,17 @@ class SentenceGenerationResult {
     required Map<String, Map<String, SentenceData>> results,
     List<String> selectedTones = const [],
   }) {
-    debugPrint(
-      '🔍 SentenceGenerationResult.normal - selectedTones: $selectedTones',
-    );
-    debugPrint('🔍 Input results keys: ${results.keys}');
-
     // Filter results to only include selected tones
     final filteredResults = <String, Map<String, SentenceData>>{};
     for (final entry in results.entries) {
       final word = entry.key;
       final sentences = entry.value;
 
-      debugPrint(
-        '🔍 Processing word: $word, available tones: ${sentences.keys}',
-      );
-
       // Only include sentences for selected tones
       final filteredSentences = <String, SentenceData>{};
       for (final tone in selectedTones) {
         if (sentences.containsKey(tone)) {
           filteredSentences[tone] = sentences[tone]!;
-          debugPrint('✅ Found sentence for tone: $tone');
-        } else {
-          debugPrint('⚠️ No sentence for tone: $tone');
         }
       }
 
@@ -868,8 +827,6 @@ class SentenceGenerationResult {
         filteredResults[word] = filteredSentences;
       }
     }
-
-    debugPrint('🔍 Filtered results keys: ${filteredResults.keys}');
 
     return SentenceGenerationResult(
       mode: 'normal',
