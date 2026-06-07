@@ -60,6 +60,23 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
         return;
       }
 
+      // Get display name from Google metadata (if available), otherwise fallback to email
+      final user = client.auth.currentUser;
+      final userEmail = user?.email;
+      String? displayName = user?.userMetadata?['full_name']
+                          ?? user?.userMetadata?['name'];
+
+      // Fallback: extract name from email (e.g., john.smith@gmail.com → John Smith)
+      if (displayName == null && userEmail != null) {
+        final localPart = userEmail.split('@').first;
+        // Convert john.smith or john_smith → John Smith
+        displayName = localPart
+            .split(RegExp(r'[._]'))
+            .where((part) => part.isNotEmpty)
+            .map((part) => part[0].toUpperCase() + part.substring(1))
+            .join(' ');
+      }
+
       final preferenceService = ref.read(onboardingServiceProvider);
       await preferenceService.init();
 
@@ -106,6 +123,7 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
         await authService.updateUserPreferences(
           userId: userId,
           email: client.auth.currentUser?.email ?? '',
+          displayName: displayName,
           languageLevel: finalLevel ?? AppDefaults.defaultLanguageLevel,
           englishVariant: finalVariant ?? AppDefaults.defaultEnglishVariant,
           termsVersion: preferenceService.getCurrentTermsVersion(),

@@ -498,11 +498,28 @@ class _EnglishVariantPageState extends ConsumerState<EnglishVariantPage> {
       final userId = client.auth.currentSession?.user.id;
       final userEmail = client.auth.currentSession?.user.email;
 
+      // Get display name from Google metadata (if available), otherwise fallback to email
+      final user = client.auth.currentUser;
+      String? displayName = user?.userMetadata?['full_name']
+                          ?? user?.userMetadata?['name'];
+
+      // Fallback: extract name from email (e.g., john.smith@gmail.com → John Smith)
+      if (displayName == null && userEmail != null) {
+        final localPart = userEmail.split('@').first;
+        // Convert john.smith or john_smith → John Smith
+        displayName = localPart
+            .split(RegExp(r'[._]'))
+            .where((part) => part.isNotEmpty)
+            .map((part) => part[0].toUpperCase() + part.substring(1))
+            .join(' ');
+      }
+
       if (userId != null) {
         final authService = AuthService();
         await authService.updateUserPreferences(
           userId: userId,
           email: userEmail ?? '',
+          displayName: displayName,
           languageLevel: widget.languageLevel ?? AppDefaults.defaultLanguageLevel,
           englishVariant: code,
           termsVersion: preferenceService.getCurrentTermsVersion(),

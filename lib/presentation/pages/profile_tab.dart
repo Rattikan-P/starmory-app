@@ -2940,6 +2940,25 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
       // Use same filename so it overwrites (no storage waste)
       final fileName = '${userId}_avatar.$safeExt';
 
+      // Delete old avatar files with different extensions first
+      try {
+        final oldAvatarUrl = widget.user.userMetadata?['avatar_url'] as String?;
+        if (oldAvatarUrl != null) {
+          final urlWithoutParams = oldAvatarUrl.split('?').first;
+          final oldFileName = urlWithoutParams.split('/').last;
+          // Only delete if it's a different file (different extension)
+          if (oldFileName != fileName) {
+            try {
+              await client.storage.from('avatars').remove([oldFileName]);
+            } catch (e) {
+              // Ignore if old file doesn't exist
+            }
+          }
+        }
+      } catch (e) {
+        // Ignore if metadata fetch fails
+      }
+
       final fileBytes = await pickedFile.readAsBytes();
 
       try {
@@ -2999,7 +3018,9 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
       final currentAvatarUrl = widget.user.userMetadata?['avatar_url'] as String?;
       if (currentAvatarUrl != null) {
         try {
-          final fileName = currentAvatarUrl.split('/').last;
+          // Remove query parameters (e.g., ?v=123456) before getting file name
+          final urlWithoutParams = currentAvatarUrl.split('?').first;
+          final fileName = urlWithoutParams.split('/').last;
           await client.storage.from('avatars').remove([fileName]);
         } catch (e) {
           // Ignore if file doesn't exist
@@ -3419,6 +3440,18 @@ class _DisplayNameDialog extends StatefulWidget {
 
 class _DisplayNameDialogState extends State<_DisplayNameDialog> {
   @override
+  void initState() {
+    super.initState();
+    // Select all text after dialog opens for easy editing
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final text = widget.controller.text;
+      if (text.isNotEmpty) {
+        widget.controller.selection = TextSelection(baseOffset: 0, extentOffset: text.length);
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
@@ -3500,6 +3533,13 @@ class _DisplayNameDialogState extends State<_DisplayNameDialog> {
                   controller: widget.controller,
                   autofocus: true,
                   textCapitalization: TextCapitalization.words,
+                  onTap: () {
+                    // Select all text when tapped for easy editing
+                    final text = widget.controller.text;
+                    if (text.isNotEmpty) {
+                      widget.controller.selection = TextSelection(baseOffset: 0, extentOffset: text.length);
+                    }
+                  },
                   decoration: InputDecoration(
                     hintText: 'Enter your name',
                     filled: true,
@@ -3661,58 +3701,70 @@ class _AvatarPickerDialog extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Avatar preview - simple and clean
+            // Avatar preview with gradient glow
             Container(
               width: 80,
               height: 80,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: const Color(0xFFF3F4F6),
-                border: Border.all(
-                  color: Colors.white,
-                  width: 3,
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color(0xFF8B5CF6),
+                    Color(0xFF60A5FA),
+                  ],
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.08),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
+                    color: const Color(0xFF8B5CF6).withValues(alpha: 0.3),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
                   ),
                 ],
               ),
-              child: ClipOval(
-                child: currentAvatarUrl != null
-                    ? CachedNetworkImage(
-                        imageUrl: currentAvatarUrl!,
-                        fit: BoxFit.cover,
-                        placeholder: (context, url) => const Center(
-                          child: SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                        ),
-                        errorWidget: (context, url, error) => Center(
-                          child: Text(
-                            displayName.isNotEmpty ? displayName[0].toUpperCase() : '?',
-                            style: const TextStyle(
-                              fontSize: 28,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF9CA3AF),
+              child: Padding(
+                padding: const EdgeInsets.all(3.5),
+                child: Container(
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white,
+                  ),
+                  child: ClipOval(
+                    child: currentAvatarUrl != null
+                        ? CachedNetworkImage(
+                            imageUrl: currentAvatarUrl!,
+                            fit: BoxFit.cover,
+                            placeholder: (context, url) => const Center(
+                              child: SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                            ),
+                            errorWidget: (context, url, error) => Center(
+                              child: Text(
+                                displayName.isNotEmpty ? displayName[0].toUpperCase() : '?',
+                                style: const TextStyle(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF9CA3AF),
+                                ),
+                              ),
+                            ),
+                          )
+                        : Center(
+                            child: Text(
+                              displayName.isNotEmpty ? displayName[0].toUpperCase() : '?',
+                              style: const TextStyle(
+                                fontSize: 28,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF9CA3AF),
+                              ),
                             ),
                           ),
-                        ),
-                      )
-                    : Center(
-                        child: Text(
-                          displayName.isNotEmpty ? displayName[0].toUpperCase() : '?',
-                          style: const TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF9CA3AF),
-                          ),
-                        ),
-                      ),
+                  ),
+                ),
               ),
             ),
             const SizedBox(height: 24),

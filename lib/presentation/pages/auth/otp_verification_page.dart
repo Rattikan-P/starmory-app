@@ -41,6 +41,19 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
     6,
     (index) => TextEditingController(),
   );
+
+  // Extract display name from email (fallback)
+  String? _getDisplayNameFromEmail() {
+    if (widget.displayName != null) return widget.displayName;
+
+    // Extract from email (e.g., john.smith@gmail.com → John Smith)
+    final localPart = widget.email.split('@').first;
+    return localPart
+        .split(RegExp(r'[._]'))
+        .where((part) => part.isNotEmpty)
+        .map((part) => part[0].toUpperCase() + part.substring(1))
+        .join(' ');
+  }
   final List<FocusNode> _focusNodes = List.generate(6, (index) => FocusNode());
 
   bool _isLoading = false;
@@ -143,7 +156,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
             await authService.mergeGuestPreferences(
               userId: user!.id,
               email: widget.email,
-              displayName: widget.displayName,
+              displayName: _getDisplayNameFromEmail(),
               languageLevel: widget.languageLevel,
               englishVariant: widget.englishVariant,
             );
@@ -160,7 +173,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
           await authService.updateUserPreferences(
             userId: user.id,
             email: widget.email,
-            displayName: widget.displayName,
+            displayName: _getDisplayNameFromEmail(),
             languageLevel: widget.languageLevel ?? AppDefaults.defaultLanguageLevel,
             englishVariant: widget.englishVariant ?? AppDefaults.defaultEnglishVariant,
             termsVersion: preferenceService.getCurrentTermsVersion(),
@@ -203,7 +216,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
       if (!isNewUser) {
         SnackBarHelper.success(context, AlertMessages.welcomeBack, showAboveKeyboard: true);
       } else {
-        SnackBarHelper.success(context, AlertMessages.loginSuccess, showAboveKeyboard: true);
+        SnackBarHelper.success(context, AlertMessages.welcomeToApp, showAboveKeyboard: true);
       }
 
       // Reset failed attempts on success
