@@ -51,6 +51,10 @@ class _InteractiveVocabularyScreenState
   final Map<String, ({String english, String thai})> _savedIndividualSentences =
       {};
 
+  // Store combined sentences cache per tone to avoid regenerating
+  final Map<String, ({String english, String thai})> _savedCombinedSentences =
+      {};
+
   /// Map UI tone to API tone format
   String _mapToneToApiFormat(String uiTone) {
     final toneMap = {
@@ -109,7 +113,12 @@ class _InteractiveVocabularyScreenState
       final defaultTone = 'Describe';
       final defaultCategory = widget.extractionResult!.category;
 
-      // Use actual AI result - start with empty sentences (will be filled by AI)
+      // Check if any vocabulary items have pre-generated sentences
+      final hasPreGeneratedSentences = widget.extractionResult!.vocabList.any(
+        (item) => item.englishSentence != null && item.englishSentence!.isNotEmpty,
+      );
+
+      // Use actual AI result - use pre-generated sentences if available
       _vocabularyDots = widget.extractionResult!.vocabList.map((item) {
         final bbox = item.boundingBox;
         final (x, y) = bbox.center;
@@ -121,8 +130,9 @@ class _InteractiveVocabularyScreenState
           partOfSpeech: item.type,
           x: x,
           y: y,
-          englishSentence: '', // Empty - will be filled by AI
-          thaiSentence: '', // Empty - will be filled by AI
+          // Use pre-generated sentences if available, otherwise empty
+          englishSentence: item.englishSentence ?? '',
+          thaiSentence: item.thaiSentence ?? '',
           tone: defaultTone,
           category: defaultCategory,
         );
@@ -131,8 +141,20 @@ class _InteractiveVocabularyScreenState
       // Fix overlapping coordinates
       _fixOverlappingCoordinates();
 
-      // Generate AI sentences
-      _generateAllSentences();
+      // Only generate sentences if we don't have pre-generated ones
+      if (!hasPreGeneratedSentences) {
+        _generateAllSentences();
+      } else {
+        // Save pre-generated sentences to cache for later use
+        for (final dot in _vocabularyDots) {
+          if (dot.englishSentence.isNotEmpty) {
+            _savedIndividualSentences[dot.id] = (
+              english: dot.englishSentence,
+              thai: dot.thaiSentence,
+            );
+          }
+        }
+      }
     } else {
       // No data available
       debugPrint('⚠️ Extraction result is null');
@@ -208,6 +230,9 @@ class _InteractiveVocabularyScreenState
           // Combined mode: all selected dots share the same sentences
           final combinedSentences = result.combinedSentences;
           if (combinedSentences != null) {
+            // Save to cache for future restoration
+            _savedCombinedSentences.clear();
+
             for (var i = 0; i < _vocabularyDots.length; i++) {
               final dot = _vocabularyDots[i];
               // Only update selected dots
@@ -219,6 +244,12 @@ class _InteractiveVocabularyScreenState
                     englishSentence: sentenceData.text,
                     thaiSentence: sentenceData.thai,
                   );
+
+                  // Cache this combined sentence by tone
+                  _savedCombinedSentences[toneKey] = (
+                    english: sentenceData.text,
+                    thai: sentenceData.thai,
+                  );
                 }
               }
             }
@@ -227,7 +258,7 @@ class _InteractiveVocabularyScreenState
           // Normal mode: each dot has its own sentence
           for (var i = 0; i < _vocabularyDots.length; i++) {
             final dot = _vocabularyDots[i];
-            // Only update selected dots
+            // Only update selected dots (or all if nothing selected)
             if (_selectedWordIds.contains(dot.id) || _selectedWordIds.isEmpty) {
               final wordResult = result.results[dot.word];
               if (wordResult != null && wordResult.isNotEmpty) {
@@ -239,7 +270,7 @@ class _InteractiveVocabularyScreenState
                     englishSentence: sentenceData.text,
                     thaiSentence: sentenceData.thai,
                   );
-                  // Save to cache for later restoration
+                  // Save to cache for later restoration (save ALL sentences, not just selected)
                   _savedIndividualSentences[dot.id] = (
                     english: sentenceData.text,
                     thai: sentenceData.thai,
@@ -453,6 +484,7 @@ class _InteractiveVocabularyScreenState
               final value = !_useCombinedSentence;
 
               if (value) {
+                // Switching TO combined mode - save individual sentences first
                 _saveIndividualSentences();
 
                 setState(() {
@@ -461,8 +493,18 @@ class _InteractiveVocabularyScreenState
                   _isRegenerating = true;
                 });
 
-                await _generateAllSentences();
+                // Check if we have cached combined sentences to use
+                final restored = _restoreCombinedSentences();
+
+                if (!restored) {
+                  // No cache, need to generate
+                  await _generateAllSentences();
+                } else {
+                  // Cache hit - just clear loading state
+                  setState(() => _isRegenerating = false);
+                }
               } else {
+                // Switching FROM combined mode - restore individual sentences
                 setState(() => _useCombinedSentence = false);
 
                 final restored = _restoreIndividualSentences();
@@ -536,10 +578,12 @@ class _InteractiveVocabularyScreenState
   }
 
   /// Save individual sentences before switching to combined mode
+  /// Now saves ALL sentences (not just selected) for better restoration
   void _saveIndividualSentences() {
     _savedIndividualSentences.clear();
     for (final dot in _vocabularyDots) {
-      if (_selectedWordIds.contains(dot.id) && dot.englishSentence.isNotEmpty) {
+      // Save ALL words that have sentences, not just selected ones
+      if (dot.englishSentence.isNotEmpty) {
         _savedIndividualSentences[dot.id] = (
           english: dot.englishSentence,
           thai: dot.thaiSentence,
@@ -579,6 +623,34 @@ class _InteractiveVocabularyScreenState
     } else {
       return false;
     }
+  }
+
+  /// Restore combined sentences from cache when switching to combined mode
+  /// Returns true if sentences were restored, false if need to regenerate
+  bool _restoreCombinedSentences() {
+    if (_savedCombinedSentences.isEmpty) {
+      debugPrint('📭 No saved combined sentences, will regenerate');
+      return false;
+    }
+
+    setState(() {
+      // Restore combined sentences for each selected dot based on its tone
+      for (var i = 0; i < _vocabularyDots.length; i++) {
+        final dot = _vocabularyDots[i];
+        if (_selectedWordIds.contains(dot.id)) {
+          final toneKey = _mapToneToApiFormat(dot.tone);
+          final saved = _savedCombinedSentences[toneKey];
+          if (saved != null) {
+            _vocabularyDots[i] = dot.copyWith(
+              englishSentence: saved.english,
+              thaiSentence: saved.thai,
+            );
+          }
+        }
+      }
+    });
+
+    return true;
   }
 
   Widget _buildImageWithDots() {
@@ -1091,6 +1163,17 @@ class _InteractiveVocabularyScreenState
         .map((dot) => dot.word)
         .toList();
 
+    // Get unique tones and categories from all selected dots
+    final uniqueTones = _selectedWordIds
+        .map((id) => _vocabularyDots.firstWhere((d) => d.id == id).tone)
+        .toSet()
+        .toList();
+
+    final uniqueCategories = _selectedWordIds
+        .map((id) => _vocabularyDots.firstWhere((d) => d.id == id).category)
+        .toSet()
+        .toList();
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       padding: const EdgeInsets.all(16),
@@ -1211,6 +1294,32 @@ class _InteractiveVocabularyScreenState
                     ],
                   ),
           ),
+          const SizedBox(height: 12),
+
+          // Context Tags & +Context Button
+          Row(
+            children: [
+              // Show all unique tones
+              ...uniqueTones.take(2).map((tone) => Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: _ContextChip(label: tone, icon: Icons.tune),
+              )),
+              // Show first category
+              if (uniqueCategories.isNotEmpty)
+                _ContextChip(label: uniqueCategories.first, icon: Icons.category),
+              const Spacer(),
+              TextButton.icon(
+                onPressed: _isRegenerating ? null : () => _showCombinedContextSelector(),
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Context'),
+                style: TextButton.styleFrom(
+                  foregroundColor: _isRegenerating
+                      ? Colors.grey
+                      : const Color(0xFF6C63FF),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -1314,8 +1423,29 @@ class _InteractiveVocabularyScreenState
       }
     });
 
-    // If combined mode is ON and there are selected words, regenerate
+    // If combined mode is ON and there are selected words
     if (_useCombinedSentence && _selectedWordIds.isNotEmpty) {
+      // Try to restore from cache first (for newly selected words)
+      final dotIndex = _vocabularyDots.indexWhere((d) => d.id == wordId);
+      if (dotIndex != -1 && !wasSelected) {
+        // This is a newly selected word - check if we have cached combined sentence for its tone
+        final dot = _vocabularyDots[dotIndex];
+        final toneKey = _mapToneToApiFormat(dot.tone);
+        final cached = _savedCombinedSentences[toneKey];
+
+        if (cached != null) {
+          // Cache hit - just update this word without regenerating
+          setState(() {
+            _vocabularyDots[dotIndex] = dot.copyWith(
+              englishSentence: cached.english,
+              thaiSentence: cached.thai,
+            );
+          });
+          return; // Don't regenerate
+        }
+      }
+
+      // No cache for the new word, need to regenerate
       setState(() {
         _clearSelectedSentences();
         _isRegenerating = true;
@@ -1708,6 +1838,147 @@ class _InteractiveVocabularyScreenState
         ],
       ),
     );
+  }
+
+  /// Show context selector for combined sentences
+  void _showCombinedContextSelector() {
+    if (_selectedWordIds.isEmpty) return;
+
+    // Get current context from first selected dot
+    final firstSelectedDot = _vocabularyDots.firstWhere(
+      (d) => _selectedWordIds.contains(d.id),
+    );
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CombinedContextSelectorScreen(
+          currentTone: firstSelectedDot.tone,
+          currentCategory: firstSelectedDot.category,
+          selectedWords: _selectedWordIds
+              .map((id) => _vocabularyDots.firstWhere((d) => d.id == id).word)
+              .toList(),
+          onApply: (tone, category) => _applyCombinedContext(tone, category),
+        ),
+      ),
+    );
+  }
+
+  /// Apply new context to all selected words in combined mode
+  void _applyCombinedContext(String tone, String category) async {
+    // Show loading
+    setState(() {
+      _isRegenerating = true;
+    });
+
+    // Update tone and category for all selected words
+    final selectedDotIds = List<String>.from(_selectedWordIds);
+
+    setState(() {
+      for (int i = 0; i < _vocabularyDots.length; i++) {
+        if (_selectedWordIds.contains(_vocabularyDots[i].id)) {
+          _vocabularyDots[i] = _vocabularyDots[i].copyWith(
+            tone: tone,
+            category: category,
+          );
+        }
+      }
+    });
+
+    // Regenerate combined sentences with new context
+    final success = await _regenerateCombinedSentences(
+      selectedDotIds,
+      tone,
+      category,
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      _isRegenerating = false;
+    });
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('✓ Combined sentence updated with new context'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('✗ Failed to update combined sentence. Please try again.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  /// Regenerate combined sentences with new context
+  Future<bool> _regenerateCombinedSentences(
+    List<String> wordIds,
+    String tone,
+    String category,
+  ) async {
+    final geminiService = ref.read(geminiServiceProvider);
+
+    // Get selected words
+    final selectedDots = _vocabularyDots
+        .where((d) => wordIds.contains(d.id))
+        .toList();
+    if (selectedDots.isEmpty) return false;
+
+    final words = selectedDots.map((d) => d.word).toList();
+    final apiTone = _mapToneToApiFormat(tone);
+
+    try {
+      final result = await geminiService.generateSentences(
+        words: words,
+        level: widget.cefrLevel,
+        tones: [apiTone],
+        category: category,
+        combined: true,
+        englishVariant: widget.englishVariant,
+      );
+
+      if (!mounted) return false;
+
+      bool success = false;
+
+      // Update all dots with new combined sentences
+      setState(() {
+        if (result.mode == 'combined' && result.combinedSentences != null) {
+          final combinedSentences = result.combinedSentences!;
+          final sentenceData = combinedSentences[apiTone];
+
+          if (sentenceData != null) {
+            // Update cache
+            _savedCombinedSentences[apiTone] = (
+              english: sentenceData.text,
+              thai: sentenceData.thai,
+            );
+
+            // Update all selected dots
+            for (var i = 0; i < _vocabularyDots.length; i++) {
+              final dot = _vocabularyDots[i];
+              if (wordIds.contains(dot.id)) {
+                _vocabularyDots[i] = dot.copyWith(
+                  englishSentence: sentenceData.text,
+                  thaiSentence: sentenceData.thai,
+                );
+              }
+            }
+            success = true;
+          }
+        }
+      });
+
+      return success;
+    } catch (e) {
+      debugPrint('❌ Error regenerating combined sentences: $e');
+      return false;
+    }
   }
 }
 
@@ -2253,4 +2524,239 @@ class _TrianglePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _TrianglePainter oldDelegate) =>
       oldDelegate.color != color || oldDelegate.pointDown != pointDown;
+}
+
+/// Context Selector Screen for Combined Sentences
+class CombinedContextSelectorScreen extends StatefulWidget {
+  final String currentTone;
+  final String currentCategory;
+  final List<String> selectedWords;
+  final Function(String tone, String category) onApply;
+
+  const CombinedContextSelectorScreen({
+    super.key,
+    required this.currentTone,
+    required this.currentCategory,
+    required this.selectedWords,
+    required this.onApply,
+  });
+
+  @override
+  State<CombinedContextSelectorScreen> createState() =>
+      _CombinedContextSelectorScreenState();
+}
+
+class _CombinedContextSelectorScreenState
+    extends State<CombinedContextSelectorScreen> {
+  late String _selectedTone;
+  late String _selectedCategory;
+  final TextEditingController _customTextController = TextEditingController();
+
+  final List<String> _tones = ['Describe', 'Command', 'Wish', 'Conditional'];
+
+  final List<String> _categories = [
+    'Moment',
+    'Nature',
+    'Food',
+    'Study',
+    'Daily Life',
+    'Custom',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedTone = widget.currentTone;
+
+    // Check if the saved category is a custom one (not in predefined list)
+    if (_categories.contains(widget.currentCategory)) {
+      _selectedCategory = widget.currentCategory;
+    } else {
+      _selectedCategory = 'Custom';
+      _customTextController.text = widget.currentCategory;
+    }
+  }
+
+  @override
+  void dispose() {
+    _customTextController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8F7FF),
+      appBar: AppBar(
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        backgroundColor: Colors.transparent,
+        foregroundColor: const Color(0xFF2D2A4A),
+        title: Text(
+          'Customize Combined Context',
+          style: GoogleFonts.lexend(
+            fontWeight: FontWeight.w600,
+            color: const Color(0xFF2D2A4A),
+          ),
+        ),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Combined Words Info
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.9),
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.04),
+                    blurRadius: 18,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Combined Sentence',
+                    style: GoogleFonts.lexend(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF7B6EF6),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Words: ${widget.selectedWords.join(", ")}',
+                    style: GoogleFonts.lexend(
+                      fontSize: 14,
+                      color: Colors.grey[700],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Tone & Intent Selection
+            _buildSectionTitle('Tone & Intent'),
+            const SizedBox(height: 12),
+            _buildToneSelector(),
+            const SizedBox(height: 24),
+
+            // Category Selection
+            _buildSectionTitle('Category'),
+            const SizedBox(height: 12),
+            _buildCategorySelector(),
+            if (_selectedCategory == 'Custom') ...[
+              const SizedBox(height: 12),
+              TextField(
+                controller: _customTextController,
+                decoration: InputDecoration(
+                  hintText: 'Enter custom category',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(height: 32),
+
+            // Action Button
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton(
+                onPressed: _handleApply,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF6C63FF),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+                child: const Text(
+                  'Apply to Combined Sentence',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Text(
+      title,
+      style: GoogleFonts.lexend(
+        fontSize: 18,
+        fontWeight: FontWeight.w600,
+        color: Colors.grey[800],
+      ),
+    );
+  }
+
+  Widget _buildToneSelector() {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: _tones.map((tone) {
+        final isSelected = _selectedTone == tone;
+        return FilterChip(
+          label: Text(tone),
+          selected: isSelected,
+          onSelected: (_) {
+            setState(() => _selectedTone = tone);
+          },
+          selectedColor: const Color(0xFFDCD4FF),
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          side: BorderSide(color: const Color(0xFFD8D1FF), width: 1.2),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildCategorySelector() {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: _categories.map((category) {
+        final isSelected = _selectedCategory == category;
+        return FilterChip(
+          label: Text(category),
+          selected: isSelected,
+          onSelected: (_) {
+            setState(() => _selectedCategory = category);
+          },
+          selectedColor: const Color(0xFFDCD4FF),
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          side: BorderSide(color: const Color(0xFFD8D1FF), width: 1.2),
+        );
+      }).toList(),
+    );
+  }
+
+  void _handleApply() {
+    final category = _selectedCategory == 'Custom'
+        ? (_customTextController.text.isNotEmpty
+              ? _customTextController.text
+              : 'Other')
+        : _selectedCategory;
+
+    widget.onApply(_selectedTone, category);
+    Navigator.pop(context);
+  }
 }

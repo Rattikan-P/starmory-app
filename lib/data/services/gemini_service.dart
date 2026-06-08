@@ -468,9 +468,10 @@ MODE A — NORMAL MODE  (combined: false)
 MODE B — COMBINED SENTENCE MODE  (combined: true)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 • Treat all words as a single group
-• For each selected tone → ONE sentence that naturally uses ALL words together
-• Words must appear meaningfully — not forced or listed
-• If words cannot be naturally combined for a tone, explain in sentence_note
+• For each selected tone → ONE sentence that MUST include EVERY word from the input list
+• REQUIREMENT: ALL provided words MUST appear in the sentence — no exceptions, no omissions
+• Words should be integrated naturally (e.g., "I use my laptop, notebook, and book for studying")
+• Only explain in sentence_note if it's absolutely impossible to include all words (rare case)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 OUTPUT FORMAT
@@ -532,6 +533,12 @@ INPUT PARAMETERS
 • english_variant — $englishVariant (US or UK English)
 
 REMINDER: All sentences must describe ONE coherent scene. When multiple words are provided, their sentences should reference each other naturally (e.g., items in a cart, objects on a table).
+
+${combined ? '''
+⚠️ IMPORTANT FOR COMBINED MODE:
+You MUST include ALL ${words.length} words in each combined sentence:
+${words.map((w) => '  - "$w"').join('\n')}
+DO NOT omit any word. Every single word must appear in the sentence.''' : ''}
 
 Generate sentences now.''';
 
@@ -647,18 +654,22 @@ class VocabularyExtractionResult {
   }
 }
 
-/// Single vocabulary item with bounding box
+/// Single vocabulary item with bounding box and optional pre-generated sentences
 class VocabularyItem {
   final String word;
   final String type; // 'noun' or 'verb'
   final String thai;
   final BoundingBox boundingBox;
+  final String? englishSentence; // Pre-generated sentence (optional)
+  final String? thaiSentence; // Pre-generated Thai translation (optional)
 
   VocabularyItem({
     required this.word,
     required this.type,
     required this.thai,
     required this.boundingBox,
+    this.englishSentence,
+    this.thaiSentence,
   });
 
   factory VocabularyItem.fromJson(Map<String, dynamic> json) {
@@ -669,6 +680,20 @@ class VocabularyItem {
       boundingBox: BoundingBox.fromJson(
         json['bounding_box'] as Map<String, dynamic>? ?? {},
       ),
+      englishSentence: json['english_sentence'] as String?,
+      thaiSentence: json['thai_sentence'] as String?,
+    );
+  }
+
+  /// Create a copy with sentences added
+  VocabularyItem withSentences(String english, String thai) {
+    return VocabularyItem(
+      word: word,
+      type: type,
+      thai: this.thai,
+      boundingBox: boundingBox,
+      englishSentence: english,
+      thaiSentence: thai,
     );
   }
 }

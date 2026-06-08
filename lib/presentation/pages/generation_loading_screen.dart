@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers/providers.dart';
 import '../providers/auth_quota_provider.dart';
 import '../../core/utils/quota_manager.dart';
+import '../../data/services/gemini_service.dart';
 import 'interactive_vocabulary_screen.dart';
 import 'auth/account_method_page.dart';
 
@@ -256,7 +257,47 @@ class _GenerationLoadingScreenState
         },
       );
 
-      if (mounted) {
+      if (mounted && result.vocabList.isNotEmpty) {
+        // Phase 4: Generate sentences for all vocabulary words
+        // Use default 'Describe' tone for initial sentences
+        final words = result.vocabList.map((item) => item.word).toList();
+        final tones = ['describe']; // Default tone
+
+        final sentencesResult = await geminiService.generateSentences(
+          words: words,
+          level: widget.cefrLevel,
+          tones: tones,
+          category: result.category,
+          combined: false, // Generate individual sentences initially
+          englishVariant: widget.englishVariant,
+        ).timeout(
+          const Duration(seconds: 60), // 60 second timeout for sentences
+          onTimeout: () {
+            throw TimeoutException('Sentence generation timed out. Please try again.');
+          },
+        );
+
+        if (mounted) {
+          // Attach generated sentences to each vocabulary item
+          final vocabListWithSentences = result.vocabList.map((item) {
+            final sentenceData = sentencesResult.results[item.word]?['describe'];
+            if (sentenceData != null) {
+              return item.withSentences(sentenceData.text, sentenceData.thai);
+            }
+            return item; // Keep original if no sentence found
+          }).toList();
+
+          // Create updated result with sentences
+          final updatedResult = VocabularyExtractionResult(
+            level: result.level,
+            category: result.category,
+            vocabList: vocabListWithSentences,
+          );
+
+          setState(() => _isProcessing = false);
+          _showResult(updatedResult);
+        }
+      } else if (mounted) {
         setState(() => _isProcessing = false);
         _showResult(result);
       }
