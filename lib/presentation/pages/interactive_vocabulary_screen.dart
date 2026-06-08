@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import '../providers/providers.dart';
 import '../../data/models/vocabulary_model.dart';
 import '../../data/services/gemini_service.dart';
@@ -38,6 +39,8 @@ class _InteractiveVocabularyScreenState
   final Set<String> _selectedWordIds = {};
   bool _isRegenerating = false;
   _VocabularyDot? _selectedDotForOverlay;
+  late FlutterTts _flutterTts;
+  String? _playingWordId; // Track which word is currently playing
 
   // Store container and image dimensions for overlay positioning
   Size? _containerSize;
@@ -62,8 +65,42 @@ class _InteractiveVocabularyScreenState
   @override
   void initState() {
     super.initState();
+    // Initialize TTS
+    _initTts();
     // Load actual AI generation result
     _initializeVocabularyData();
+  }
+
+  /// Initialize Text-to-Speech
+  Future<void> _initTts() async {
+    _flutterTts = FlutterTts();
+
+    // Set TTS properties
+    await _flutterTts.setLanguage('en-US');
+    await _flutterTts.setSpeechRate(0.5);
+    await _flutterTts.setVolume(1.0);
+    await _flutterTts.setPitch(1.0);
+
+    // Handle completion
+    _flutterTts.setCompletionHandler(() {
+      if (mounted) {
+        setState(() => _playingWordId = null);
+      }
+    });
+
+    // Handle error
+    _flutterTts.setErrorHandler((message) {
+      if (mounted) {
+        setState(() => _playingWordId = null);
+        debugPrint('TTS Error: $message');
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _flutterTts.stop();
+    super.dispose();
   }
 
   void _initializeVocabularyData() {
@@ -822,12 +859,14 @@ class _InteractiveVocabularyScreenState
                           InkWell(
                             onTap: () => _playAudio(dot),
                             borderRadius: BorderRadius.circular(20),
-                            child: const Padding(
-                              padding: EdgeInsets.all(4),
+                            child: Padding(
+                              padding: const EdgeInsets.all(4),
                               child: Icon(
-                                Icons.volume_up_rounded,
+                                _playingWordId == dot.id
+                                    ? Icons.stop_rounded
+                                    : Icons.volume_up_rounded,
                                 size: 20,
-                                color: Color(0xFF7B6EF6),
+                                color: const Color(0xFF7B6EF6),
                               ),
                             ),
                           ),
@@ -1229,6 +1268,7 @@ class _InteractiveVocabularyScreenState
                     _isRegenerating ? null : _showContextSelector(dot),
                 onAudioTap: () => _playAudio(dot),
                 isRegenerating: _isRegenerating,
+                playingWordId: _playingWordId,
               ),
             ],
           ),
@@ -1563,11 +1603,37 @@ class _InteractiveVocabularyScreenState
     }
   }
 
-  void _playAudio(_VocabularyDot dot) {
-    // TODO: Implement text-to-speech
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('Playing: ${dot.word}')));
+  void _playAudio(_VocabularyDot dot) async {
+    // If clicking the same word that's playing, stop it
+    if (_playingWordId == dot.id) {
+      await _flutterTts.stop();
+      setState(() => _playingWordId = null);
+      return;
+    }
+
+    // Stop any currently playing audio first
+    if (_playingWordId != null) {
+      await _flutterTts.stop();
+    }
+
+    // Play pronunciation of the word
+    setState(() => _playingWordId = dot.id);
+
+    // Set language based on englishVariant
+    final language = widget.englishVariant == 'UK' ? 'en-GB' : 'en-US';
+    await _flutterTts.setLanguage(language);
+
+    // Speak the word
+    await _flutterTts.speak(dot.word);
+
+    // Fallback: Auto-reset after estimated duration (in case completion handler doesn't fire)
+    // Estimate: ~0.5 seconds per character at normal speech rate
+    final estimatedDuration = Duration(milliseconds: (dot.word.length * 150).clamp(500, 3000));
+    Future.delayed(estimatedDuration, () {
+      if (mounted && _playingWordId == dot.id) {
+        setState(() => _playingWordId = null);
+      }
+    });
   }
 
   void _saveAllVocabularies() {
@@ -1652,6 +1718,7 @@ class _WordDetailCard extends StatelessWidget {
   final VoidCallback onContextTap;
   final VoidCallback onAudioTap;
   final bool isRegenerating;
+  final String? playingWordId;
 
   const _WordDetailCard({
     required this.dot,
@@ -1659,6 +1726,7 @@ class _WordDetailCard extends StatelessWidget {
     required this.onContextTap,
     required this.onAudioTap,
     this.isRegenerating = false,
+    this.playingWordId,
   });
 
   @override
@@ -1707,7 +1775,7 @@ class _WordDetailCard extends StatelessWidget {
               ),
               // Audio Button
               IconButton(
-                icon: const Icon(Icons.volume_up),
+                icon: Icon(playingWordId == dot.id ? Icons.stop : Icons.volume_up),
                 color: isRegenerating ? Colors.grey : const Color(0xFF6C63FF),
                 onPressed: isRegenerating ? null : onAudioTap,
               ),
