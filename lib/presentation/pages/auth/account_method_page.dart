@@ -115,12 +115,18 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
         try {
           final localVocabs = await hiveService.getAllVocabulary();
           if (localVocabs.isNotEmpty) {
-            await vocabSyncService.batchUpload(localVocabs);
-            // Clear local vocabularies only after successful upload
-            await hiveService.clearAllVocabulary();
+            final uploadedCount = await vocabSyncService.batchUpload(localVocabs);
+            // Only clear local vocabularies after successful upload of ALL items
+            if (uploadedCount == localVocabs.length) {
+              await hiveService.clearAllVocabulary();
+            } else {
+              // Partial upload failed - keep local data for retry
+              print('⚠️ [Google Login] Partial upload: $uploadedCount/${localVocabs.length}');
+            }
           }
         } catch (e) {
-          // Skip failed upload - local vocabularies preserved for retry
+          // Upload failed - local vocabularies preserved
+          print('❌ [Google Login] Upload failed: $e');
         }
 
         // set onboarding_completed

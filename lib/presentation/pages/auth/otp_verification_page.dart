@@ -177,12 +177,18 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
           try {
             final localVocabs = await hiveService.getAllVocabulary();
             if (localVocabs.isNotEmpty) {
-              await vocabSyncService.batchUpload(localVocabs);
-              // Clear local vocabularies only after successful upload
-              await hiveService.clearAllVocabulary();
+              final uploadedCount = await vocabSyncService.batchUpload(localVocabs);
+              // Only clear local vocabularies after successful upload of ALL items
+              if (uploadedCount == localVocabs.length) {
+                await hiveService.clearAllVocabulary();
+              } else {
+                // Partial upload failed - keep local data for retry
+                print('⚠️ [OTP Login] Partial upload: $uploadedCount/${localVocabs.length}');
+              }
             }
           } catch (e) {
-            // Skip failed upload - local vocabularies preserved for retry
+            // Upload failed - local vocabularies preserved
+            print('❌ [OTP Login] Upload failed: $e');
           }
         } else {
           // Login จาก onboarding หรือไม่มีข้อมูล → ถาม level/variant

@@ -7,6 +7,9 @@ import 'scrapbook_tab.dart';
 import 'progress_tab.dart';
 import '../providers/providers.dart';
 
+// Sync only once per app session (from launch, not resume)
+bool _hasSyncedThisSession = false;
+
 /// Main Navigation Screen with Bottom Navigation Bar
 /// 4 Tabs: Home, Review, Scrapbook, Progress
 /// Profile accessible from Progress tab
@@ -37,6 +40,12 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
   }
 
   Future<void> _syncOnAppOpen() async {
+    // Only sync once per app session (not on resume from background)
+    if (_hasSyncedThisSession) {
+      print('ℹ️ [App Open] Skipping sync (already synced this session)');
+      return;
+    }
+
     try {
       // Only sync for registered users (not guests)
       if (Supabase.instance.client.auth.currentSession == null) {
@@ -65,6 +74,9 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
       } else {
         print('ℹ️ [App Open] No local vocabularies to sync');
       }
+
+      // Mark as synced for this session
+      _hasSyncedThisSession = true;
     } catch (e) {
       print('❌ [App Open] Sync failed: $e');
       // Sync failed - continue with app (local vocabularies still available)
