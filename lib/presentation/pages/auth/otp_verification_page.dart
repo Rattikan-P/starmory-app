@@ -216,6 +216,38 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
             .eq('id', user.id);
       }
 
+      // Auto sync local vocabularies to cloud (for existing users with unsynced data)
+      // Skip for new users who just uploaded (already cleared)
+      if (!isNewUser) {
+        try {
+          print('🔄 [OTP Login] Starting auto sync...');
+          final hiveService = ref.read(hiveServiceProvider);
+          final vocabSyncService = ref.read(vocabularySyncServiceProvider);
+          final localVocabs = await hiveService.getAllVocabulary();
+
+          print('📦 [OTP Login] Found ${localVocabs.length} local vocabularies');
+
+          if (localVocabs.isNotEmpty) {
+            // Use mergeWithCloud to avoid duplicates
+            print('☁️ [OTP Login] Merging with cloud...');
+            final syncedVocabs = await vocabSyncService.mergeWithCloud(localVocabs);
+            // Update local storage with merged vocabularies
+            await hiveService.clearAllVocabulary();
+            for (final vocab in syncedVocabs) {
+              await hiveService.saveVocabulary(vocab);
+            }
+            print('✅ [OTP Login] Sync complete! Total vocabularies: ${syncedVocabs.length}');
+          } else {
+            print('ℹ️ [OTP Login] No local vocabularies to sync');
+          }
+        } catch (e) {
+          print('❌ [OTP Login] Sync failed: $e');
+          // Sync failed - continue with login (local vocabularies still available)
+        }
+      } else {
+        print('ℹ️ [OTP Login] Skipping sync (new user)');
+      }
+
       if (!mounted) return;
 
       // Show different message for existing vs new users

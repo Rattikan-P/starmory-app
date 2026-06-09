@@ -1,20 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'home_tab.dart';
 import 'review_tab.dart';
 import 'scrapbook_tab.dart';
 import 'progress_tab.dart';
+import '../providers/providers.dart';
 
 /// Main Navigation Screen with Bottom Navigation Bar
 /// 4 Tabs: Home, Review, Scrapbook, Progress
 /// Profile accessible from Progress tab
-class MainNavigationScreen extends StatefulWidget {
+class MainNavigationScreen extends ConsumerStatefulWidget {
   const MainNavigationScreen({super.key});
 
   @override
-  State<MainNavigationScreen> createState() => _MainNavigationScreenState();
+  ConsumerState<MainNavigationScreen> createState() => _MainNavigationScreenState();
 }
 
-class _MainNavigationScreenState extends State<MainNavigationScreen> {
+class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
   int _currentIndex = 0;
 
   final List<Widget> _tabs = const [
@@ -23,6 +26,50 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     ScrapbookTab(),
     ProgressTab(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    // Auto sync vocabularies when app opens (for registered users)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _syncOnAppOpen();
+    });
+  }
+
+  Future<void> _syncOnAppOpen() async {
+    try {
+      // Only sync for registered users (not guests)
+      if (Supabase.instance.client.auth.currentSession == null) {
+        print('ℹ️ [App Open] Skipping sync (not logged in)');
+        return;
+      }
+
+      print('🔄 [App Open] Starting auto sync...');
+      final hiveService = ref.read(hiveServiceProvider);
+      final vocabSyncService = ref.read(vocabularySyncServiceProvider);
+
+      final localVocabs = await hiveService.getAllVocabulary();
+
+      print('📦 [App Open] Found ${localVocabs.length} local vocabularies');
+
+      if (localVocabs.isNotEmpty) {
+        // Use mergeWithCloud to avoid duplicates
+        print('☁️ [App Open] Merging with cloud...');
+        final syncedVocabs = await vocabSyncService.mergeWithCloud(localVocabs);
+        // Update local storage with merged vocabularies
+        await hiveService.clearAllVocabulary();
+        for (final vocab in syncedVocabs) {
+          await hiveService.saveVocabulary(vocab);
+        }
+        print('✅ [App Open] Sync complete! Total vocabularies: ${syncedVocabs.length}');
+      } else {
+        print('ℹ️ [App Open] No local vocabularies to sync');
+      }
+    } catch (e) {
+      print('❌ [App Open] Sync failed: $e');
+      // Sync failed - continue with app (local vocabularies still available)
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
