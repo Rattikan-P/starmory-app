@@ -233,17 +233,24 @@ class AuthService {
     // Merge vocabulary if services are provided
     if (hiveService != null && vocabularySyncService != null) {
       try {
-        print('🔄 Merging guest vocabulary to cloud...');
+        // First, fetch existing vocabularies from cloud to avoid duplicates
+        final cloudVocabs = await vocabularySyncService.fetchFromCloud();
+        final cloudVocabIds = {for (var v in cloudVocabs) v.id};
+
+        // Get local vocabularies
         final localVocabs = await hiveService.getAllVocabulary();
-        if (localVocabs.isNotEmpty) {
-          final uploadedCount = await vocabularySyncService.batchUpload(localVocabs);
-          print('✅ Merged $uploadedCount vocabularies from guest to cloud');
-        } else {
-          print('ℹ️ No guest vocabulary to merge');
+
+        // Filter: only upload vocabularies that don't exist in cloud yet
+        final newVocabs = localVocabs.where((vocab) => !cloudVocabIds.contains(vocab.id)).toList();
+
+        if (newVocabs.isNotEmpty) {
+          await vocabularySyncService.batchUpload(newVocabs);
         }
       } catch (e) {
-        print('⚠️ Failed to merge vocabulary: $e');
         // Don't fail the whole merge process if vocab merge fails
+      } finally {
+        // Clear local vocabularies after merge (regardless of success/failure)
+        await hiveService.clearAllVocabulary();
       }
     }
   }

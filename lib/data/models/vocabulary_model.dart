@@ -122,7 +122,7 @@ class VocabularyModel extends Equatable {
     };
   }
 
-  /// Create from JSON
+  /// Create from JSON (camelCase - for local storage)
   factory VocabularyModel.fromJson(Map<String, dynamic> json) {
     return VocabularyModel(
       id: json['id'] as String,
@@ -141,6 +141,28 @@ class VocabularyModel extends Equatable {
           : null,
       tags: (json['tags'] as List<dynamic>?)?.cast<String>() ?? [],
       isFavorite: json['isFavorite'] as bool? ?? false,
+    );
+  }
+
+  /// Create from Supabase JSON (snake_case from database)
+  factory VocabularyModel.fromSupabaseJson(Map<String, dynamic> json) {
+    return VocabularyModel(
+      id: json['id'] as String,
+      word: json['word'] as String,
+      partOfSpeech: json['part_of_speech'] as String,
+      thaiTranslation: json['thai_translation'] as String,
+      englishSentence: json['english_sentence'] as String,
+      thaiSentence: json['thai_sentence'] as String,
+      cefrLevel: json['cefr_level'] as String,
+      communicativeFunction: json['communicative_function'] as String,
+      languageVariant: json['language_variant'] as String,
+      imageUrl: json['image_url'] as String? ?? '',
+      createdAt: DateTime.parse(json['created_at'] as String),
+      updatedAt: json['updated_at'] != null
+          ? DateTime.parse(json['updated_at'] as String)
+          : null,
+      tags: (json['tags'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+      isFavorite: json['is_favorite'] as bool? ?? false,
     );
   }
 

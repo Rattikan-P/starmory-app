@@ -750,11 +750,15 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
                   try {
                     final client = Supabase.instance.client;
                     final preferenceService = ref.read(onboardingServiceProvider);
+                    final hiveService = ref.read(hiveServiceProvider);
 
                     // Clear guest state completely on logout
                     await preferenceService.clearGuestPreferences();
                     await preferenceService.setGuestMode(false);
                     await preferenceService.setOnboardingCompleted(false);
+
+                    // Clear local vocabularies to prevent data leakage to next user
+                    await hiveService.clearAllVocabulary();
 
                     // Sign out from auth
                     await client.auth.signOut();
@@ -1039,9 +1043,13 @@ Future<void> _showDeleteAccountDialog(
     final authService = ref.read(authServiceProvider);
     // อ่านค่าก่อน deleteAccount เพราะหลังจากนั้น ref อาจ dispose แล้ว
     final preferenceService = ref.read(onboardingServiceProvider);
+    final hiveService = ref.read(hiveServiceProvider);
     final navigator = Navigator.of(context);
 
     await authService.deleteAccount();
+
+    // Clear all local data including vocabularies
+    await hiveService.clearAllVocabulary();
 
     // Clear guest mode and go to onboarding
     await preferenceService.clearGuestPreferences();

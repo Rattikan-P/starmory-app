@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_tts/flutter_tts.dart';
@@ -218,8 +219,12 @@ class _InteractiveVocabularyScreenState
       // Get selected words only
       final words = selectedDots.map((d) => d.word).toList();
 
+      // Load image for contextually relevant sentences
+      final imageData = await _loadImageData();
+
       // Generate sentences
       final result = await geminiService.generateSentences(
+        imageData: imageData,
         words: words,
         level: widget.cefrLevel,
         tones: tones,
@@ -991,6 +996,11 @@ class _InteractiveVocabularyScreenState
     return Size(decodedImage.width.toDouble(), decodedImage.height.toDouble());
   }
 
+  /// Load image data from file for AI generation
+  Future<Uint8List> _loadImageData() async {
+    return await File(widget.imagePath).readAsBytes();
+  }
+
   /// Calculate BoxFit.contain scaling and position (centered)
   ({double scale, double offsetX, double offsetY}) _calculateBoxFitContain(
     Size imageSize,
@@ -1577,7 +1587,11 @@ class _InteractiveVocabularyScreenState
     final apiTone = _mapToneToApiFormat(tone);
 
     try {
+      // Load image for contextually relevant sentences
+      final imageData = await _loadImageData();
+
       final result = await geminiService.generateSentences(
+        imageData: imageData,
         words: [dot.word],
         level: widget.cefrLevel,
         tones: [apiTone],
@@ -1650,7 +1664,11 @@ class _InteractiveVocabularyScreenState
     final apiTone = _mapToneToApiFormat(tone);
 
     try {
+      // Load image for contextually relevant sentences
+      final imageData = await _loadImageData();
+
       final result = await geminiService.generateSentences(
+        imageData: imageData,
         words: words,
         level: widget.cefrLevel,
         tones: [apiTone],
@@ -1788,9 +1806,7 @@ class _InteractiveVocabularyScreenState
           userId: currentUser.id,
         );
         finalImageUrl = imageUrl;
-        print('✅ Image uploaded to cloud: $imageUrl');
       } catch (e) {
-        print('⚠️ Failed to upload image, using local path: $e');
         // Continue with local path on error
       }
     }
@@ -1806,7 +1822,7 @@ class _InteractiveVocabularyScreenState
         cefrLevel: widget.cefrLevel,
         communicativeFunction: widget.communicativeFunction,
         languageVariant: 'US',
-        imageUrl: finalImageUrl,  // Use uploaded URL or local path
+        imageUrl: finalImageUrl,
         tags: [dot.tone, dot.category],
         createdAt: DateTime.now(),
       );
@@ -1959,7 +1975,11 @@ class _InteractiveVocabularyScreenState
     final apiTone = _mapToneToApiFormat(tone);
 
     try {
+      // Load image for contextually relevant sentences
+      final imageData = await _loadImageData();
+
       final result = await geminiService.generateSentences(
+        imageData: imageData,
         words: words,
         level: widget.cefrLevel,
         tones: [apiTone],

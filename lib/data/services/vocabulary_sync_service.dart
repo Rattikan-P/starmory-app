@@ -54,7 +54,6 @@ class VocabularySyncService {
 
       return true;
     } catch (e) {
-      print('❌ Error saving vocabulary to cloud: $e');
       return false;
     }
   }
@@ -85,7 +84,6 @@ class VocabularySyncService {
 
       return true;
     } catch (e) {
-      print('❌ Error updating vocabulary in cloud: $e');
       return false;
     }
   }
@@ -103,7 +101,6 @@ class VocabularySyncService {
 
       return true;
     } catch (e) {
-      print('❌ Error deleting vocabulary from cloud: $e');
       return false;
     }
   }
@@ -121,11 +118,24 @@ class VocabularySyncService {
           .eq('user_id', currentUserId!)
           .order('created_at', ascending: false);
 
-      return (response as List<dynamic>)
-          .map((json) => VocabularyModel.fromJson(json as Map<String, dynamic>))
+      // Handle empty response
+      if (response == null) {
+        return [];
+      }
+
+      // Convert to list safely
+      final List<dynamic> vocabList = response is List ? response : [];
+
+      return vocabList
+          .map((json) {
+            if (json is Map<String, dynamic>) {
+              return VocabularyModel.fromSupabaseJson(json);
+            } else {
+              throw CacheFailure('Invalid vocabulary format');
+            }
+          })
           .toList();
     } catch (e) {
-      print('❌ Error fetching vocabularies from cloud: $e');
       throw CacheFailure('Failed to fetch vocabularies: ${e.toString()}');
     }
   }
@@ -142,6 +152,9 @@ class VocabularySyncService {
     final userId = currentUserId!;
 
     try {
+      // Cache for uploaded images: local path -> cloud URL
+      final uploadedImages = <String, String>{};
+
       // Upload vocabularies with image processing
       final data = <Map<String, dynamic>>[];
 
@@ -153,15 +166,20 @@ class VocabularySyncService {
             !vocab.imageUrl.startsWith('http') &&
             vocab.imageUrl.isNotEmpty) {
           try {
-            // Upload local image to cloud
-            final cloudUrl = await _imageStorageService!.uploadVocabularyImage(
-              imageFile: File(vocab.imageUrl),
-              userId: userId,
-            );
-            finalImageUrl = cloudUrl;
-            print('✅ Uploaded image for ${vocab.word}: $cloudUrl');
+            // Check if we already uploaded this image
+            if (uploadedImages.containsKey(vocab.imageUrl)) {
+              // Reuse existing uploaded URL
+              finalImageUrl = uploadedImages[vocab.imageUrl]!;
+            } else {
+              // Upload local image to cloud
+              final cloudUrl = await _imageStorageService!.uploadVocabularyImage(
+                imageFile: File(vocab.imageUrl),
+                userId: userId,
+              );
+              finalImageUrl = cloudUrl;
+              uploadedImages[vocab.imageUrl] = cloudUrl; // Cache it
+            }
           } catch (e) {
-            print('⚠️ Failed to upload image for ${vocab.word}, using local path: $e');
             // Keep local path on error
           }
         }
@@ -189,21 +207,16 @@ class VocabularySyncService {
       await _client.from('vocabularies').insert(data);
 
       successCount = vocabularies.length;
-      print('✅ Uploaded $successCount vocabularies to cloud');
     } catch (e) {
-      print('⚠️ Batch upload failed, trying individual uploads: $e');
-
       // Fallback: upload individually
       for (final vocab in vocabularies) {
         try {
           await saveToCloud(vocab);
           successCount++;
         } catch (e) {
-          print('❌ Failed to upload vocabulary ${vocab.word}: $e');
+          // Skip failed items
         }
       }
-
-      print('✅ Uploaded $successCount/${vocabularies.length} vocabularies individually');
     }
 
     return successCount;
@@ -230,26 +243,19 @@ class VocabularySyncService {
       mergedVocabs.addAll(cloudVocabs);
 
       // Add local vocabularies that don't exist in cloud
-      int newFromLocal = 0;
       for (final localVocab in localVocabs) {
         if (!cloudMap.containsKey(localVocab.id)) {
           mergedVocabs.add(localVocab);
           // Also upload this local-only vocabulary to cloud
           await saveToCloud(localVocab);
-          newFromLocal++;
-        } else {
-          print('  ⚠️ Duplicate vocabulary found (cloud has it): ${localVocab.word}');
         }
       }
 
       // Sort by created date descending
       mergedVocabs.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
-      print('✅ Merged vocabularies: ${cloudVocabs.length} from cloud + $newFromLocal new from local = ${mergedVocabs.length} total');
-
       return mergedVocabs;
     } catch (e) {
-      print('⚠️ Failed to merge with cloud, using local only: $e');
       return localVocabs;
     }
   }
@@ -266,7 +272,6 @@ class VocabularySyncService {
 
       return true;
     } catch (e) {
-      print('❌ Error clearing cloud vocabularies: $e');
       return false;
     }
   }
@@ -292,7 +297,6 @@ class VocabularySyncService {
 
       return {'total': 0, 'favorites': 0, 'today': 0};
     } catch (e) {
-      print('❌ Error fetching cloud stats: $e');
       return {'total': 0, 'favorites': 0, 'today': 0};
     }
   }

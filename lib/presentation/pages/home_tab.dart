@@ -335,7 +335,6 @@ class _HomeTabState extends ConsumerState<HomeTab> {
         }
       }
 
-      // Pick image
       final XFile? image = await _imagePicker.pickImage(
         source: source,
         maxWidth: 800,

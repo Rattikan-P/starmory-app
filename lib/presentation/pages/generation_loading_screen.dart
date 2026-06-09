@@ -43,6 +43,7 @@ class _GenerationLoadingScreenState
   final List<String> _phaseDescriptions = [
     'Analyzing your photo...',
     'Detecting vocabulary words...',
+    'Generating sentences...',
     'Finalizing...',
   ];
 
@@ -241,9 +242,6 @@ class _GenerationLoadingScreenState
       // Phase 2: Analyzing with AI
       setState(() => _currentPhase = 2);
 
-      // Phase 3: Processing results
-      setState(() => _currentPhase = 3);
-
       // Actual API call with timeout to prevent indefinite hanging
       final result = await geminiService.extractVocabulary(
         imageData: imageData,
@@ -258,12 +256,15 @@ class _GenerationLoadingScreenState
       );
 
       if (mounted && result.vocabList.isNotEmpty) {
-        // Phase 4: Generate sentences for all vocabulary words
+        // Phase 3: Generate sentences for all vocabulary words
+        setState(() => _currentPhase = 3);
+
         // Use default 'Describe' tone for initial sentences
         final words = result.vocabList.map((item) => item.word).toList();
         final tones = ['describe']; // Default tone
 
         final sentencesResult = await geminiService.generateSentences(
+          imageData: imageData,  // Send image for contextually relevant sentences
           words: words,
           level: widget.cefrLevel,
           tones: tones,
@@ -294,12 +295,15 @@ class _GenerationLoadingScreenState
             vocabList: vocabListWithSentences,
           );
 
+          // Phase 4: Finalizing
+          setState(() => _currentPhase = 4);
           setState(() => _isProcessing = false);
           _showResult(updatedResult);
         }
       } else if (mounted) {
+        // No vocabulary found - show error
         setState(() => _isProcessing = false);
-        _showResult(result);
+        _handleImageError('A1', 'No vocabulary found in this image. Please try another photo with clearer objects.');
       }
     } on _ImageAnalysisException catch (e) {
       if (mounted) {

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import '../../core/error/failures.dart';
@@ -77,6 +78,8 @@ class GeminiService {
   /// Check if error is retryable
   bool _isRetryableError(dynamic error) {
     if (error is TimeoutException) return true;
+    // FormatException from incomplete JSON is retryable (AI sometimes truncates output)
+    if (error is FormatException) return true;
     final errorStr = error.toString().toLowerCase();
     return errorStr.contains('503') ||
         errorStr.contains('429') ||
@@ -299,7 +302,7 @@ Extract exactly 5 vocabulary items from the image.''');
           temperature: 1.0, // Match AI Studio setting
           topP: 0.94,
           topK: 40,
-          maxOutputTokens: 8192,
+          maxOutputTokens: 16384,  // Increased to prevent truncated JSON responses
         ),
       );
 
@@ -312,6 +315,7 @@ Extract exactly 5 vocabulary items from the image.''');
 
   /// Generate sentences for selected vocabulary words
   Future<SentenceGenerationResult> generateSentences({
+    Uint8List? imageData,  // Optional: if provided, sentences will be grounded to the image
     required List<String> words,
     required String level,
     required List<String> tones,
@@ -321,6 +325,7 @@ Extract exactly 5 vocabulary items from the image.''');
   }) async {
     return await _retryWithBackoff(() async {
       final result = await _generateSentencesInternal(
+        imageData: imageData,
         words: words,
         level: level,
         tones: tones,
@@ -369,6 +374,7 @@ Extract exactly 5 vocabulary items from the image.''');
 
   /// Internal sentence generation without validation
   Future<SentenceGenerationResult> _generateSentencesInternal({
+    Uint8List? imageData,
     required List<String> words,
     required String level,
     required List<String> tones,
@@ -543,13 +549,25 @@ DO NOT omit any word. Every single word must appear in the sentence.''' : ''}
 Generate sentences now.''';
 
     return await _retryWithBackoff(() async {
-      final response = await _textModel.generateContent(
-        [Content.system(systemInstruction), Content.text(userPrompt)],
+      // Use vision model if image data is provided, otherwise use text model
+      final model = imageData != null ? _visionModel : _textModel;
+
+      // Build content parts
+      List<Part> parts = [TextPart(userPrompt)];
+
+      // Add image part if image data is provided
+      if (imageData != null) {
+        final mimeType = _detectMimeType(imageData);
+        parts.insert(0, DataPart(mimeType, imageData)); // Insert image before text
+      }
+
+      final response = await model.generateContent(
+        [Content.system(systemInstruction), Content.multi(parts)],
         generationConfig: GenerationConfig(
           temperature: 1.0, // Match AI Studio setting
           topP: 0.94,
           topK: 40,
-          maxOutputTokens: 8192,
+          maxOutputTokens: 16384,  // Increased to prevent truncated JSON responses
         ),
       );
 

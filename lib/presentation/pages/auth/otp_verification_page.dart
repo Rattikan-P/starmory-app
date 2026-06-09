@@ -178,10 +178,12 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
             final localVocabs = await hiveService.getAllVocabulary();
             if (localVocabs.isNotEmpty) {
               await vocabSyncService.batchUpload(localVocabs);
-              print('✅ Uploaded ${localVocabs.length} vocabularies to new user cloud');
             }
           } catch (e) {
-            print('⚠️ Failed to upload vocabulary for new user: $e');
+            // Skip failed upload
+          } finally {
+            // Clear local vocabularies after upload (regardless of success/failure)
+            await hiveService.clearAllVocabulary();
           }
         } else {
           // Login จาก onboarding หรือไม่มีข้อมูล → ถาม level/variant
