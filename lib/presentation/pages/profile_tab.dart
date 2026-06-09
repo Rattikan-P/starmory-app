@@ -76,10 +76,7 @@ class _DebugButton extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
 
-  const _DebugButton({
-    required this.label,
-    required this.onTap,
-  });
+  const _DebugButton({required this.label, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -89,16 +86,11 @@ class _DebugButton extends StatelessWidget {
         backgroundColor: const Color(0xFF8B5CF6),
         foregroundColor: Colors.white,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
       child: Text(
         label,
-        style: GoogleFonts.lexend(
-          fontSize: 12,
-          fontWeight: FontWeight.w500,
-        ),
+        style: GoogleFonts.lexend(fontSize: 12, fontWeight: FontWeight.w500),
       ),
     );
   }
@@ -112,11 +104,13 @@ class _StreakSection extends ConsumerWidget {
     final streakData = ref.watch(streakProvider);
     final currentStreak = streakData?.currentStreak ?? 0;
     final shields = streakData?.shieldsAvailable ?? 0;
-    final streakStatus = ref.watch(streakStatusProvider);
 
     final weekDays = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
     final consecutiveDays = streakData?.consecutiveDays ?? 0;
     final completedDays = List.generate(7, (index) => index < consecutiveDays);
+
+    // Calculate days until next shield
+    final daysUntilShield = consecutiveDays == 0 ? 7 : 7 - consecutiveDays;
 
     return GestureDetector(
       onLongPress: () => _showStreakDebugDialog(context, ref),
@@ -172,191 +166,198 @@ class _StreakSection extends ConsumerWidget {
                     ),
                   ),
                   const Spacer(),
-                  _buildStatusChip(streakStatus),
+                  // Status chips removed - UI is clean enough without them
                 ],
               ),
             ),
+            // Main content: Streak number on left, Week days on right
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: List.generate(7, (index) {
-                  final isCompleted = index < completedDays.length && completedDays[index];
-                  return Column(
-                    children: [
-                      Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: isCompleted ? const Color(0xFF4ADE80) : const Color(0xFFE5E7EB),
-                          shape: BoxShape.circle,
+                children: [
+                  // Big streak number on left with fire icon
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(
+                              Icons.local_fire_department,
+                              size: 32,
+                              color: currentStreak == 0
+                                  ? const Color(
+                                      0xFF9CA3AF,
+                                    ) // Gray when streak is 0
+                                  : const Color(
+                                      0xFFFF6B6B,
+                                    ), // Orange/red normally
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '$currentStreak',
+                              style: GoogleFonts.lexend(
+                                fontSize: 42,
+                                fontWeight: FontWeight.w700,
+                                color: currentStreak == 0
+                                    ? const Color(
+                                        0xFF9CA3AF,
+                                      ) // Gray when streak is 0
+                                    : const Color(
+                                        0xFF1f2937,
+                                      ), // Dark gray normally
+                                height: 1,
+                              ),
+                            ),
+                          ],
                         ),
-                        child: Center(
+                        const SizedBox(height: 4),
+                        Text(
+                          currentStreak == 1 ? 'day' : 'days',
+                          style: GoogleFonts.lexend(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xFF9CA3AF),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // Week days circles on right - smaller size
+                  SizedBox(
+                    width: 180,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: List.generate(7, (index) {
+                        final isCompleted =
+                            index < completedDays.length &&
+                            completedDays[index];
+                        return Container(
+                          width: 22,
+                          height: 22,
+                          decoration: BoxDecoration(
+                            color: isCompleted
+                                ? const Color(0xFF4ADE80)
+                                : const Color(0xFFE5E7EB),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Center(
+                            child: Text(
+                              weekDays[index],
+                              style: GoogleFonts.lexend(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: isCompleted
+                                    ? Colors.white
+                                    : const Color(0xFF9CA3AF),
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Shield progress bar at bottom
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+              child: GestureDetector(
+                onTap: () => _showShieldInfoDialog(context),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
                           child: Text(
-                            weekDays[index],
+                            daysUntilShield == 0
+                                ? 'Shield earned! 🎉'
+                                : '$daysUntilShield ${daysUntilShield == 1 ? 'day' : 'days'} until next shield',
                             style: GoogleFonts.lexend(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: isCompleted ? Colors.white : const Color(0xFF9CA3AF),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF6B7280),
                             ),
                           ),
                         ),
-                      ),
-                    ],
-                  );
-                }),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _buildStatCard(
-                      icon: '🔥',
-                      label: 'Current Streak',
-                      value: '$currentStreak',
-                      suffix: 'days',
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(
+                              0xFFE2D1F9,
+                            ).withValues(alpha: 0.5),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Text('🛡️', style: TextStyle(fontSize: 10)),
+                              SizedBox(width: 4),  
+                              Text(
+                                '$shields',
+                                style: GoogleFonts.lexend(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: const Color(0xFF8B5CF6),
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              const Icon(
+                                Icons.info_outline,
+                                size: 12,
+                                color: Color(0xFF8B5CF6),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => _showShieldInfoDialog(context),
-                      child: _buildStatCard(
-                        icon: '🛡️',
-                        label: 'Shields',
-                        value: '$shields',
-                        suffix: 'available',
-                        showInfo: true,
+                    const SizedBox(height: 8),
+                    // Progress bar
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Stack(
+                        children: [
+                          // Background
+                          Container(
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE5E7EB),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          // Progress
+                          FractionallySizedBox(
+                            widthFactor: consecutiveDays / 7,
+                            child: Container(
+                              height: 8,
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [
+                                    Color(0xFF8B5CF6),
+                                    Color(0xFF60A5FA),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildStatusChip(StreakStatus status) {
-    Color bgColor;
-    Color textColor;
-    String label;
-
-    switch (status) {
-      case StreakStatus.active:
-        bgColor = const Color(0xFFD1FAE5);
-        textColor = const Color(0xFF059669);
-        label = '🔥 Active';
-        break;
-      case StreakStatus.atRisk:
-        bgColor = const Color(0xFFFEF3C7);
-        textColor = const Color(0xFFD97706);
-        label = '🛡️ Protected';
-        break;
-      case StreakStatus.broken:
-        bgColor = const Color(0xFFFEE2E2);
-        textColor = const Color(0xFFDC2626);
-        label = '💔 Broken';
-        break;
-      case StreakStatus.inactive:
-        bgColor = const Color(0xFFE5E7EB);
-        textColor = const Color(0xFF6B7280);
-        label = '💫 Start';
-        break;
-      default:
-        bgColor = const Color(0xFFE5E7EB);
-        textColor = const Color(0xFF6B7280);
-        label = '⏳ Loading';
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        label,
-        style: GoogleFonts.lexend(
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
-          color: textColor,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatCard({
-    required String icon,
-    required String label,
-    required String value,
-    required String suffix,
-    bool showInfo = false,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF9FAFB),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE5E7EB), width: 0.5),
-      ),
-      child: Row(
-        children: [
-          Text(icon, style: const TextStyle(fontSize: 20)),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      label,
-                      style: GoogleFonts.lexend(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w500,
-                        color: const Color(0xFF6B7280),
-                      ),
-                    ),
-                    if (showInfo) ...[
-                      const SizedBox(width: 4),
-                      const Icon(Icons.info_outline, size: 12, color: Color(0xFF8B5CF6)),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: 2),
-                Row(
-                  children: [
-                    Text(
-                      value,
-                      style: GoogleFonts.lexend(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF1f2937),
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        suffix,
-                        style: GoogleFonts.lexend(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                          color: const Color(0xFF9CA3AF),
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -372,10 +373,7 @@ class _StreakSection extends ConsumerWidget {
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [
-                Colors.white,
-                Color(0xFFf8f9ff),
-              ],
+              colors: [Colors.white, Color(0xFFf8f9ff)],
             ),
             borderRadius: BorderRadius.circular(28),
             boxShadow: [
@@ -397,10 +395,7 @@ class _StreakSection extends ConsumerWidget {
                     gradient: const LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: [
-                        Color(0xFF8B5CF6),
-                        Color(0xFF60a5fa),
-                      ],
+                      colors: [Color(0xFF8B5CF6), Color(0xFF60a5fa)],
                     ),
                     shape: BoxShape.circle,
                     boxShadow: [
@@ -449,13 +444,15 @@ class _StreakSection extends ConsumerWidget {
                       _buildShieldInfoItem(
                         icon: Icons.shield_rounded,
                         title: 'Shield Protection',
-                        description: 'Each shield protects your streak for 1 missed day',
+                        description:
+                            'Each shield protects your streak for 1 missed day',
                       ),
                       const SizedBox(height: 12),
                       _buildShieldInfoItem(
                         icon: Icons.star_rounded,
                         title: 'Earn Shields',
-                        description: 'Keep learning for 7 days to earn a shield',
+                        description:
+                            'Keep learning for 7 days to earn a shield',
                       ),
                     ],
                   ),
@@ -469,10 +466,7 @@ class _StreakSection extends ConsumerWidget {
                       gradient: const LinearGradient(
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
-                        colors: [
-                          Color(0xFF8B5CF6),
-                          Color(0xFF60a5fa),
-                        ],
+                        colors: [Color(0xFF8B5CF6), Color(0xFF60a5fa)],
                       ),
                       borderRadius: BorderRadius.circular(14),
                       boxShadow: [
@@ -524,11 +518,7 @@ class _StreakSection extends ConsumerWidget {
             color: const Color(0xFFEDE9FE),
             borderRadius: BorderRadius.circular(10),
           ),
-          child: Icon(
-            icon,
-            size: 20,
-            color: const Color(0xFF5E3A8E),
-          ),
+          child: Icon(icon, size: 20, color: const Color(0xFF5E3A8E)),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -610,7 +600,11 @@ class _StreakSection extends ConsumerWidget {
                     ),
                   ],
                 ),
-                child: const Icon(Icons.build_rounded, color: Colors.white, size: 40),
+                child: const Icon(
+                  Icons.build_rounded,
+                  color: Colors.white,
+                  size: 40,
+                ),
               ),
               const SizedBox(height: 20),
               Row(
@@ -626,7 +620,10 @@ class _StreakSection extends ConsumerWidget {
                   ),
                   const SizedBox(width: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: isGuest
                           ? const Color(0xFFF59E0B).withValues(alpha: 0.15)
@@ -638,7 +635,9 @@ class _StreakSection extends ConsumerWidget {
                       style: GoogleFonts.lexend(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
-                        color: isGuest ? const Color(0xFFF59E0B) : const Color(0xFF10B981),
+                        color: isGuest
+                            ? const Color(0xFFF59E0B)
+                            : const Color(0xFF10B981),
                       ),
                     ),
                   ),
@@ -647,7 +646,10 @@ class _StreakSection extends ConsumerWidget {
               const SizedBox(height: 12),
               Text(
                 'Streak: $currentStreak | Shields: $shields',
-                style: GoogleFonts.lexend(fontSize: 14, color: const Color(0xFF6B7280)),
+                style: GoogleFonts.lexend(
+                  fontSize: 14,
+                  color: const Color(0xFF6B7280),
+                ),
               ),
               const SizedBox(height: 20),
               Wrap(
@@ -699,7 +701,10 @@ class _StreakSection extends ConsumerWidget {
               const SizedBox(height: 16),
               Text(
                 'Long-press streak section to open',
-                style: GoogleFonts.lexend(fontSize: 11, color: const Color(0xFF9CA3AF)),
+                style: GoogleFonts.lexend(
+                  fontSize: 11,
+                  color: const Color(0xFF9CA3AF),
+                ),
               ),
             ],
           ),
@@ -724,20 +729,19 @@ class _PreferencesSection extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<_PreferencesSection> createState() => _PreferencesSectionState();
+  ConsumerState<_PreferencesSection> createState() =>
+      _PreferencesSectionState();
 }
 
 class _PreferencesSectionState extends ConsumerState<_PreferencesSection> {
   late String _currentLevel;
   late String _currentVariant;
-  late String _currentTheme;
 
   @override
   void initState() {
     super.initState();
     _currentLevel = widget.languageLevel;
     _currentVariant = widget.englishVariant;
-    _currentTheme = 'Light'; // TODO: Get from actual settings
     _reloadFromSource();
   }
 
@@ -810,13 +814,10 @@ class _PreferencesSectionState extends ConsumerState<_PreferencesSection> {
                     gradient: const LinearGradient(
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
-                      colors: [
-                        Color(0xFF8B5CF6),
-                        Color(0xFF60a5fa),
-                      ],
+                      colors: [Color(0xFF8B5CF6), Color(0xFF60a5fa)],
                     ),
                     borderRadius: BorderRadius.circular(2),
-                ),
+                  ),
                 ),
                 const SizedBox(width: 10),
                 Text(
@@ -826,7 +827,7 @@ class _PreferencesSectionState extends ConsumerState<_PreferencesSection> {
                     fontWeight: FontWeight.w700,
                     color: const Color(0xFF8B5CF6),
                     letterSpacing: 2,
-                ),
+                  ),
                 ),
               ],
             ),
@@ -847,7 +848,7 @@ class _PreferencesSectionState extends ConsumerState<_PreferencesSection> {
                     isEditing: true,
                     isInitialSetup: false,
                     currentLevel: _currentLevel,
-                ),
+                  ),
                 ),
               );
               widget.onPreferenceChanged?.call();
@@ -861,7 +862,7 @@ class _PreferencesSectionState extends ConsumerState<_PreferencesSection> {
             iconText: variantFlag,
             title: 'English Variant',
             value: variantName,
-            showDivider: true,
+            showDivider: false,
             onTap: () async {
               await Navigator.push(
                 context,
@@ -871,22 +872,10 @@ class _PreferencesSectionState extends ConsumerState<_PreferencesSection> {
                     isEditing: true,
                     isInitialSetup: false,
                     currentVariant: _currentVariant,
-                ),
+                  ),
                 ),
               );
               widget.onPreferenceChanged?.call();
-            },
-            iconBgColor: const Color(0xFFF3F4F6), // 🩶 Soft Gray (Minimal)
-          ),
-
-          // Theme
-          _buildCompactItem(
-            icon: Icons.palette_outlined,
-            title: 'Theme',
-            value: _currentTheme,
-            showDivider: false,
-            onTap: () {
-              // TODO: Navigate to theme settings
             },
             iconBgColor: const Color(0xFFF3F4F6), // 🩶 Soft Gray (Minimal)
           ),
@@ -926,16 +915,9 @@ class _PreferencesSectionState extends ConsumerState<_PreferencesSection> {
                     height: 40,
                     alignment: Alignment.center,
                     child: iconText != null
-                        ? Text(
-                            iconText,
-                            style: const TextStyle(fontSize: 20),
-                          )
-                        : Icon(
-                            icon,
-                            size: 24,
-                            color: const Color(0xFF1f2937),
-                          ),
-                ),
+                        ? Text(iconText, style: const TextStyle(fontSize: 20))
+                        : Icon(icon, size: 24, color: const Color(0xFF1f2937)),
+                  ),
                   const SizedBox(width: 14),
                   Expanded(
                     child: Column(
@@ -945,7 +927,9 @@ class _PreferencesSectionState extends ConsumerState<_PreferencesSection> {
                           title,
                           style: TextStyle(
                             fontSize: 12,
-                            color: const Color(0xFF1f2937).withValues(alpha: 0.65),
+                            color: const Color(
+                              0xFF1f2937,
+                            ).withValues(alpha: 0.65),
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -960,7 +944,7 @@ class _PreferencesSectionState extends ConsumerState<_PreferencesSection> {
                         ),
                       ],
                     ),
-                ),
+                  ),
                   // Animated chevron
                   Container(
                     padding: const EdgeInsets.all(4),
@@ -973,7 +957,7 @@ class _PreferencesSectionState extends ConsumerState<_PreferencesSection> {
                       size: 18,
                       color: const Color(0xFF8B5CF6),
                     ),
-                ),
+                  ),
                 ],
               ),
             ),
@@ -1036,13 +1020,10 @@ class _GuestDataSection extends ConsumerWidget {
                     gradient: const LinearGradient(
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
-                      colors: [
-                        Color(0xFF8B5CF6),
-                        Color(0xFF60a5fa),
-                      ],
+                      colors: [Color(0xFF8B5CF6), Color(0xFF60a5fa)],
                     ),
                     borderRadius: BorderRadius.circular(2),
-                ),
+                  ),
                 ),
                 const SizedBox(width: 10),
                 Text(
@@ -1052,7 +1033,7 @@ class _GuestDataSection extends ConsumerWidget {
                     fontWeight: FontWeight.w700,
                     color: const Color(0xFF8B5CF6),
                     letterSpacing: 2,
-                ),
+                  ),
                 ),
               ],
             ),
@@ -1133,12 +1114,8 @@ class _GuestDataSection extends ConsumerWidget {
                     width: 40,
                     height: 40,
                     alignment: Alignment.center,
-                    child: Icon(
-                      icon,
-                      size: 24,
-                      color: const Color(0xFF1f2937),
-                    ),
-                ),
+                    child: Icon(icon, size: 24, color: const Color(0xFF1f2937)),
+                  ),
                   const SizedBox(width: 14),
                   Expanded(
                     child: Column(
@@ -1157,12 +1134,14 @@ class _GuestDataSection extends ConsumerWidget {
                           subtitle,
                           style: TextStyle(
                             fontSize: 12,
-                            color: const Color(0xFF1f2937).withValues(alpha: 0.65),
+                            color: const Color(
+                              0xFF1f2937,
+                            ).withValues(alpha: 0.65),
                           ),
                         ),
                       ],
                     ),
-                ),
+                  ),
                   // Animated chevron
                   Container(
                     padding: const EdgeInsets.all(4),
@@ -1175,7 +1154,7 @@ class _GuestDataSection extends ConsumerWidget {
                       size: 18,
                       color: const Color(0xFF8B5CF6),
                     ),
-                ),
+                  ),
                 ],
               ),
             ),
@@ -1207,10 +1186,7 @@ class _ConfirmStartOverDialog extends StatelessWidget {
           gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Colors.white,
-              Color(0xFFf8f9ff),
-            ],
+            colors: [Colors.white, Color(0xFFf8f9ff)],
           ),
           borderRadius: BorderRadius.circular(28),
           boxShadow: [
@@ -1232,11 +1208,8 @@ class _ConfirmStartOverDialog extends StatelessWidget {
                   gradient: const LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [
-                      Color(0xFFFF6B6B),
-                      Color(0xFFFF8E53),
-                    ],
-                ),
+                    colors: [Color(0xFFFF6B6B), Color(0xFFFF8E53)],
+                  ),
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
@@ -1302,7 +1275,8 @@ class _ConfirmStartOverDialog extends StatelessWidget {
                     _buildConfirmInfoItem(
                       icon: Icons.lightbulb_rounded,
                       title: 'Settings Kept',
-                      description: 'Language level and variant will be preserved',
+                      description:
+                          'Language level and variant will be preserved',
                     ),
                   ],
                 ),
@@ -1318,7 +1292,9 @@ class _ConfirmStartOverDialog extends StatelessWidget {
                         style: OutlinedButton.styleFrom(
                           foregroundColor: const Color(0xFF9ca3af),
                           side: BorderSide(
-                            color: const Color(0xFF9ca3af).withValues(alpha: 0.3),
+                            color: const Color(
+                              0xFF9ca3af,
+                            ).withValues(alpha: 0.3),
                             width: 1.5,
                           ),
                           shape: RoundedRectangleBorder(
@@ -1334,7 +1310,7 @@ class _ConfirmStartOverDialog extends StatelessWidget {
                         ),
                       ),
                     ),
-                ),
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: SizedBox(
@@ -1344,15 +1320,14 @@ class _ConfirmStartOverDialog extends StatelessWidget {
                           gradient: const LinearGradient(
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
-                            colors: [
-                              Color(0xFFFF6B6B),
-                              Color(0xFFFF8E53),
-                            ],
+                            colors: [Color(0xFFFF6B6B), Color(0xFFFF8E53)],
                           ),
                           borderRadius: BorderRadius.circular(14),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFFFF6B6B).withValues(alpha: 0.4),
+                              color: const Color(
+                                0xFFFF6B6B,
+                              ).withValues(alpha: 0.4),
                               blurRadius: 15,
                               offset: const Offset(0, 4),
                             ),
@@ -1377,7 +1352,7 @@ class _ConfirmStartOverDialog extends StatelessWidget {
                         ),
                       ),
                     ),
-                ),
+                  ),
                 ],
               ),
             ],
@@ -1401,11 +1376,7 @@ class _ConfirmStartOverDialog extends StatelessWidget {
             color: const Color(0xFFFEE2E2),
             borderRadius: BorderRadius.circular(10),
           ),
-          child: Icon(
-            icon,
-            size: 20,
-            color: const Color(0xFFDC2626),
-          ),
+          child: Icon(icon, size: 20, color: const Color(0xFFDC2626)),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -1480,13 +1451,10 @@ class _DataSection extends ConsumerWidget {
                     gradient: const LinearGradient(
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
-                      colors: [
-                        Color(0xFF8B5CF6),
-                        Color(0xFF60a5fa),
-                      ],
+                      colors: [Color(0xFF8B5CF6), Color(0xFF60a5fa)],
                     ),
                     borderRadius: BorderRadius.circular(2),
-                ),
+                  ),
                 ),
                 const SizedBox(width: 10),
                 Text(
@@ -1496,7 +1464,7 @@ class _DataSection extends ConsumerWidget {
                     fontWeight: FontWeight.w700,
                     color: const Color(0xFF8B5CF6),
                     letterSpacing: 2,
-                ),
+                  ),
                 ),
               ],
             ),
@@ -1570,12 +1538,8 @@ class _DataSection extends ConsumerWidget {
                     width: 40,
                     height: 40,
                     alignment: Alignment.center,
-                    child: Icon(
-                      icon,
-                      size: 24,
-                      color: const Color(0xFF1f2937),
-                    ),
-                ),
+                    child: Icon(icon, size: 24, color: const Color(0xFF1f2937)),
+                  ),
                   const SizedBox(width: 14),
                   Expanded(
                     child: Column(
@@ -1594,12 +1558,14 @@ class _DataSection extends ConsumerWidget {
                           subtitle,
                           style: TextStyle(
                             fontSize: 12,
-                            color: const Color(0xFF1f2937).withValues(alpha: 0.65),
+                            color: const Color(
+                              0xFF1f2937,
+                            ).withValues(alpha: 0.65),
                           ),
                         ),
                       ],
                     ),
-                ),
+                  ),
                   // Animated chevron
                   Container(
                     padding: const EdgeInsets.all(4),
@@ -1612,7 +1578,7 @@ class _DataSection extends ConsumerWidget {
                       size: 18,
                       color: const Color(0xFF8B5CF6),
                     ),
-                ),
+                  ),
                 ],
               ),
             ),
@@ -1672,13 +1638,10 @@ class _AccountSection extends ConsumerWidget {
                     fontWeight: FontWeight.w700,
                     color: Colors.red,
                     letterSpacing: 1.5,
-                ),
+                  ),
                 ),
                 const SizedBox(width: 6),
-                const Text(
-                  '⚠️',
-                  style: TextStyle(fontSize: 14),
-                ),
+                const Text('⚠️', style: TextStyle(fontSize: 14)),
               ],
             ),
           ),
@@ -1689,7 +1652,10 @@ class _AccountSection extends ConsumerWidget {
             child: InkWell(
               onTap: onDeleteAccount,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
                 child: Row(
                   children: [
                     Container(
@@ -1721,10 +1687,7 @@ class _AccountSection extends ConsumerWidget {
                           SizedBox(height: 2),
                           Text(
                             'Permanently delete your account',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.red,
-                            ),
+                            style: TextStyle(fontSize: 12, color: Colors.red),
                           ),
                         ],
                       ),
@@ -1788,13 +1751,10 @@ class _AboutSection extends ConsumerWidget {
                     gradient: const LinearGradient(
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
-                      colors: [
-                        Color(0xFF8B5CF6),
-                        Color(0xFF60a5fa),
-                      ],
+                      colors: [Color(0xFF8B5CF6), Color(0xFF60a5fa)],
                     ),
                     borderRadius: BorderRadius.circular(2),
-                ),
+                  ),
                 ),
                 const SizedBox(width: 10),
                 Text(
@@ -1804,7 +1764,7 @@ class _AboutSection extends ConsumerWidget {
                     fontWeight: FontWeight.w700,
                     color: const Color(0xFF8B5CF6),
                     letterSpacing: 2,
-                ),
+                  ),
                 ),
               ],
             ),
@@ -1829,9 +1789,7 @@ class _AboutSection extends ConsumerWidget {
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (_) => const PrivacyPolicyPage(),
-                ),
+                MaterialPageRoute(builder: (_) => const PrivacyPolicyPage()),
               );
             },
             iconBgColor: const Color(0xFFF3F4F6), // 🩶 Soft Gray (Minimal)
@@ -1845,9 +1803,7 @@ class _AboutSection extends ConsumerWidget {
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (_) => const TermsOfServicePage(),
-                ),
+                MaterialPageRoute(builder: (_) => const TermsOfServicePage()),
               );
             },
             iconBgColor: const Color(0xFFF3F4F6), // 🩶 Soft Gray (Minimal)
@@ -1885,12 +1841,8 @@ class _AboutSection extends ConsumerWidget {
                     width: 40,
                     height: 40,
                     alignment: Alignment.center,
-                    child: Icon(
-                      icon,
-                      size: 24,
-                      color: const Color(0xFF1f2937),
-                    ),
-                ),
+                    child: Icon(icon, size: 24, color: const Color(0xFF1f2937)),
+                  ),
                   const SizedBox(width: 14),
                   Expanded(
                     child: Text(
@@ -1901,7 +1853,7 @@ class _AboutSection extends ConsumerWidget {
                         color: Color(0xFF1f2937),
                       ),
                     ),
-                ),
+                  ),
                   // Animated chevron
                   Container(
                     padding: const EdgeInsets.all(4),
@@ -1914,7 +1866,7 @@ class _AboutSection extends ConsumerWidget {
                       size: 18,
                       color: const Color(0xFF8B5CF6),
                     ),
-                ),
+                  ),
                 ],
               ),
             ),
@@ -1934,10 +1886,7 @@ class _AboutSection extends ConsumerWidget {
   }
 
   void _showAboutDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => _AboutDialog(),
-    );
+    showDialog(context: context, builder: (context) => _AboutDialog());
   }
 }
 
@@ -1953,10 +1902,7 @@ class _AboutDialog extends StatelessWidget {
           gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Colors.white,
-              Color(0xFFf8f9ff),
-            ],
+            colors: [Colors.white, Color(0xFFf8f9ff)],
           ),
           borderRadius: BorderRadius.circular(28),
           boxShadow: [
@@ -1978,10 +1924,7 @@ class _AboutDialog extends StatelessWidget {
                 gradient: const LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [
-                    Color(0xFF60a5fa),
-                    Color(0xFFa78bfa),
-                  ],
+                  colors: [Color(0xFF60a5fa), Color(0xFFa78bfa)],
                 ),
                 shape: BoxShape.circle,
                 boxShadow: [
@@ -1989,7 +1932,7 @@ class _AboutDialog extends StatelessWidget {
                     color: const Color(0xFFa78bfa).withValues(alpha: 0.3),
                     blurRadius: 20,
                     offset: const Offset(0, 8),
-                ),
+                  ),
                 ],
               ),
               child: const Icon(
@@ -2066,11 +2009,8 @@ class _AboutDialog extends StatelessWidget {
                   gradient: const LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [
-                      Color(0xFF60a5fa),
-                      Color(0xFFa78bfa),
-                    ],
-                ),
+                    colors: [Color(0xFF60a5fa), Color(0xFFa78bfa)],
+                  ),
                   borderRadius: BorderRadius.circular(14),
                   boxShadow: [
                     BoxShadow(
@@ -2095,7 +2035,7 @@ class _AboutDialog extends StatelessWidget {
                         ),
                       ),
                     ),
-                ),
+                  ),
                 ),
               ),
             ),
@@ -2255,7 +2195,10 @@ class _NotLoggedInViewState extends ConsumerState<_NotLoggedInView> {
                               ],
                             ),
                             child: IconButton(
-                              icon: const Icon(Icons.arrow_back, color: Color(0xFF1f2937)),
+                              icon: const Icon(
+                                Icons.arrow_back,
+                                color: Color(0xFF1f2937),
+                              ),
                               onPressed: () => Navigator.pop(context),
                             ),
                           ),
@@ -2267,10 +2210,14 @@ class _NotLoggedInViewState extends ConsumerState<_NotLoggedInView> {
                               vertical: 6,
                             ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFE2D1F9).withValues(alpha: 0.5),
+                              color: const Color(
+                                0xFFE2D1F9,
+                              ).withValues(alpha: 0.5),
                               borderRadius: BorderRadius.circular(20),
                               border: Border.all(
-                                color: const Color(0xFF8B5CF6).withValues(alpha: 0.2),
+                                color: const Color(
+                                  0xFF8B5CF6,
+                                ).withValues(alpha: 0.2),
                                 width: 1,
                               ),
                             ),
@@ -2334,7 +2281,9 @@ class _NotLoggedInViewState extends ConsumerState<_NotLoggedInView> {
                               'Continue your journey anywhere',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: const Color(0xFF1f2937).withValues(alpha: 0.7),
+                                color: const Color(
+                                  0xFF1f2937,
+                                ).withValues(alpha: 0.7),
                               ),
                               textAlign: TextAlign.center,
                             ),
@@ -2356,7 +2305,9 @@ class _NotLoggedInViewState extends ConsumerState<_NotLoggedInView> {
                                   borderRadius: BorderRadius.circular(14),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: const Color(0xFF8B5CF6).withValues(alpha: 0.4),
+                                      color: const Color(
+                                        0xFF8B5CF6,
+                                      ).withValues(alpha: 0.4),
                                       blurRadius: 15,
                                       offset: const Offset(0, 4),
                                     ),
@@ -2369,13 +2320,15 @@ class _NotLoggedInViewState extends ConsumerState<_NotLoggedInView> {
                                       Navigator.push(
                                         context,
                                         MaterialPageRoute(
-                                          builder: (_) => const AccountMethodPage(),
+                                          builder: (_) =>
+                                              const AccountMethodPage(),
                                         ),
                                       );
                                     },
                                     borderRadius: BorderRadius.circular(14),
                                     child: const Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
                                       children: [
                                         Icon(
                                           Icons.person_add,
@@ -2412,7 +2365,9 @@ class _NotLoggedInViewState extends ConsumerState<_NotLoggedInView> {
                   clipBehavior: Clip.antiAlias,
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(32),
+                    ),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.04),
@@ -2420,7 +2375,7 @@ class _NotLoggedInViewState extends ConsumerState<_NotLoggedInView> {
                         offset: const Offset(0, -4),
                       ),
                     ],
-                ),
+                  ),
                   child: SingleChildScrollView(
                     physics: const ClampingScrollPhysics(),
                     padding: const EdgeInsets.only(top: 8, bottom: 40),
@@ -2432,8 +2387,12 @@ class _NotLoggedInViewState extends ConsumerState<_NotLoggedInView> {
 
                         // Preferences Section
                         _PreferencesSection(
-                          languageLevel: _guestLanguageLevel ?? AppDefaults.defaultLanguageLevel,
-                          englishVariant: _guestEnglishVariant ?? AppDefaults.defaultEnglishVariant,
+                          languageLevel:
+                              _guestLanguageLevel ??
+                              AppDefaults.defaultLanguageLevel,
+                          englishVariant:
+                              _guestEnglishVariant ??
+                              AppDefaults.defaultEnglishVariant,
                           isGuest: true,
                           onPreferenceChanged: _loadGuestPreferences,
                         ),
@@ -2447,7 +2406,7 @@ class _NotLoggedInViewState extends ConsumerState<_NotLoggedInView> {
                         const SizedBox(height: 24),
                       ],
                     ),
-                ),
+                  ),
                 ),
               ),
             ],
@@ -2507,7 +2466,8 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
         AppDefaults.defaultEnglishVariant;
 
     // Get avatar URL from database or Google (fallback)
-    final rawAvatarUrl = _userData?['avatar_url'] ??
+    final rawAvatarUrl =
+        _userData?['avatar_url'] ??
         widget.user.userMetadata?['avatar_url'] ??
         widget.user.userMetadata?['picture'];
 
@@ -2613,7 +2573,10 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
               // Profile Header
               SafeArea(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
+                  ),
                   child: Column(
                     children: [
                       // Top bar with back and logout buttons
@@ -2632,7 +2595,10 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
                               ],
                             ),
                             child: IconButton(
-                              icon: const Icon(Icons.arrow_back, color: Color(0xFF1f2937)),
+                              icon: const Icon(
+                                Icons.arrow_back,
+                                color: Color(0xFF1f2937),
+                              ),
                               onPressed: () => Navigator.pop(context),
                             ),
                           ),
@@ -2650,7 +2616,10 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
                               ],
                             ),
                             child: IconButton(
-                              icon: const Icon(Icons.logout, color: Color(0xFF1f2937)),
+                              icon: const Icon(
+                                Icons.logout,
+                                color: Color(0xFF1f2937),
+                              ),
                               onPressed: () => _showLogoutDialog(context, ref),
                               tooltip: 'Logout',
                             ),
@@ -2660,7 +2629,8 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
                       const SizedBox(height: 4),
                       // Avatar - clickable to change
                       GestureDetector(
-                        onTap: () => _showAvatarPicker(context, displayName, avatarUrl),
+                        onTap: () =>
+                            _showAvatarPicker(context, displayName, avatarUrl),
                         child: Stack(
                           children: [
                             Container(
@@ -2683,7 +2653,9 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
                                     : null,
                                 child: avatarUrl == null
                                     ? Text(
-                                        displayName.substring(0, 1).toUpperCase(),
+                                        displayName
+                                            .substring(0, 1)
+                                            .toUpperCase(),
                                         style: const TextStyle(
                                           fontSize: 28,
                                           fontWeight: FontWeight.bold,
@@ -2703,7 +2675,10 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
                                 decoration: BoxDecoration(
                                   color: const Color(0xFF8B5CF6),
                                   shape: BoxShape.circle,
-                                  border: Border.all(color: Colors.white, width: 2),
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: 2,
+                                  ),
                                 ),
                                 child: const Icon(
                                   Icons.camera_alt,
@@ -2718,7 +2693,8 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
                       const SizedBox(height: 12),
                       // Name - clickable to edit
                       GestureDetector(
-                        onTap: () => _showDisplayNameDialog(context, ref, displayName),
+                        onTap: () =>
+                            _showDisplayNameDialog(context, ref, displayName),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -2734,7 +2710,9 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
                             Icon(
                               Icons.edit_outlined,
                               size: 16,
-                              color: const Color(0xFF1f2937).withValues(alpha: 0.5),
+                              color: const Color(
+                                0xFF1f2937,
+                              ).withValues(alpha: 0.5),
                             ),
                           ],
                         ),
@@ -2750,7 +2728,7 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
                       ),
                       const SizedBox(height: 16),
                     ],
-                ),
+                  ),
                 ),
               ),
 
@@ -2760,7 +2738,9 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
                   clipBehavior: Clip.antiAlias,
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(32),
+                    ),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.04),
@@ -2768,7 +2748,7 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
                         offset: const Offset(0, -4),
                       ),
                     ],
-                ),
+                  ),
                   child: SingleChildScrollView(
                     physics: const ClampingScrollPhysics(),
                     padding: const EdgeInsets.only(top: 8, bottom: 40),
@@ -2794,13 +2774,14 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
 
                         // Account Section (moved to bottom for safety)
                         _AccountSection(
-                          onDeleteAccount: () => _showDeleteAccountDialog(context, ref),
+                          onDeleteAccount: () =>
+                              _showDeleteAccountDialog(context, ref),
                         ),
 
                         const SizedBox(height: 24),
                       ],
                     ),
-                ),
+                  ),
                 ),
               ),
             ],
@@ -2820,10 +2801,8 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
 
     final result = await showDialog<bool>(
       context: context,
-      builder: (context) => _DisplayNameDialog(
-        controller: controller,
-        formKey: formKey,
-      ),
+      builder: (context) =>
+          _DisplayNameDialog(controller: controller, formKey: formKey),
     );
 
     if (result == true && formKey.currentState?.validate() == true) {
@@ -2906,9 +2885,7 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) => const Center(
-          child: CircularProgressIndicator(),
-        ),
+        builder: (context) => const Center(child: CircularProgressIndicator()),
       );
 
       // Upload to Supabase Storage
@@ -2962,14 +2939,16 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
       final fileBytes = await pickedFile.readAsBytes();
 
       try {
-        await client.storage.from('avatars').uploadBinary(
-          fileName,
-          fileBytes,
-          fileOptions: FileOptions(
-            upsert: true,
-            contentType: getContentType(fileExt),
-          ),
-        );
+        await client.storage
+            .from('avatars')
+            .uploadBinary(
+              fileName,
+              fileBytes,
+              fileOptions: FileOptions(
+                upsert: true,
+                contentType: getContentType(fileExt),
+              ),
+            );
       } catch (uploadError) {
         rethrow;
       }
@@ -3015,7 +2994,8 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
       final client = Supabase.instance.client;
       final userId = widget.user.id;
 
-      final currentAvatarUrl = widget.user.userMetadata?['avatar_url'] as String?;
+      final currentAvatarUrl =
+          widget.user.userMetadata?['avatar_url'] as String?;
       if (currentAvatarUrl != null) {
         try {
           // Remove query parameters (e.g., ?v=123456) before getting file name
@@ -3027,13 +3007,8 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
         }
       }
 
-      await client.auth.updateUser(
-        UserAttributes(data: {'avatar_url': null}),
-      );
-      await client
-          .from('users')
-          .update({'avatar_url': null})
-          .eq('id', userId);
+      await client.auth.updateUser(UserAttributes(data: {'avatar_url': null}));
+      await client.from('users').update({'avatar_url': null}).eq('id', userId);
 
       if (context.mounted) {
         SnackBarHelper.success(context, AlertMessages.changesSaved);
@@ -3047,10 +3022,7 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
     }
   }
 
-  Future<void> _showLogoutDialog(
-    BuildContext context,
-    WidgetRef ref,
-  ) async {
+  Future<void> _showLogoutDialog(BuildContext context, WidgetRef ref) async {
     final confirmed = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
@@ -3062,10 +3034,7 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [
-                Colors.white,
-                Color(0xFFf8f9ff),
-              ],
+              colors: [Colors.white, Color(0xFFf8f9ff)],
             ),
             borderRadius: BorderRadius.circular(28),
             boxShadow: [
@@ -3087,10 +3056,7 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
                     gradient: const LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: [
-                        Color(0xFFf472b6),
-                        Color(0xFF60a5fa),
-                      ],
+                      colors: [Color(0xFFf472b6), Color(0xFF60a5fa)],
                     ),
                     shape: BoxShape.circle,
                     boxShadow: [
@@ -3100,12 +3066,12 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
                         offset: const Offset(0, 8),
                       ),
                     ],
-                ),
+                  ),
                   child: const Icon(
                     Icons.logout_rounded,
                     color: Colors.white,
                     size: 40,
-                ),
+                  ),
                 ),
                 const SizedBox(height: 24),
                 Text(
@@ -3114,7 +3080,7 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
                     fontSize: 22,
                     fontWeight: FontWeight.w600,
                     color: const Color(0xFF1f2937),
-                ),
+                  ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
@@ -3124,7 +3090,7 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
                     fontSize: 14,
                     fontWeight: FontWeight.w400,
                     color: const Color(0xFF6b7280),
-                ),
+                  ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 24),
@@ -3138,7 +3104,9 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
                           style: OutlinedButton.styleFrom(
                             foregroundColor: const Color(0xFF9ca3af),
                             side: BorderSide(
-                              color: const Color(0xFF9ca3af).withValues(alpha: 0.3),
+                              color: const Color(
+                                0xFF9ca3af,
+                              ).withValues(alpha: 0.3),
                               width: 1.5,
                             ),
                             shape: RoundedRectangleBorder(
@@ -3164,15 +3132,14 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
                             gradient: const LinearGradient(
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
-                              colors: [
-                                Color(0xFF60a5fa),
-                                Color(0xFFa78bfa),
-                              ],
+                              colors: [Color(0xFF60a5fa), Color(0xFFa78bfa)],
                             ),
                             borderRadius: BorderRadius.circular(14),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFFa78bfa).withValues(alpha: 0.4),
+                                color: const Color(
+                                  0xFFa78bfa,
+                                ).withValues(alpha: 0.4),
                                 blurRadius: 15,
                                 offset: const Offset(0, 4),
                               ),
@@ -3213,18 +3180,26 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
         final preferenceService = ref.read(onboardingServiceProvider);
         final navigator = Navigator.of(context);
 
+        // Sign out from Supabase FIRST (step 7)
+        // If this fails, we don't clear local data to keep user state consistent
+        await client.auth.signOut();
+
+        // Only clear local data AFTER successful sign out (steps 4-6)
         await preferenceService.clearLocalPreferences();
         await preferenceService.setGuestMode(false);
         await preferenceService.setOnboardingCompleted(false);
-        await client.auth.signOut();
 
+        // Navigate to Onboarding page (step 8)
         navigator.pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const OnboardingPage(skipToAuth: true)),
+          MaterialPageRoute(
+            builder: (_) => const OnboardingPage(skipToAuth: true),
+          ),
           (route) => false,
         );
       } catch (e) {
         if (context.mounted) {
           SnackBarHelper.error(context, AlertMessages.logoutFailed);
+          // User remains logged in with intact local preferences
         }
       }
     }
@@ -3245,10 +3220,7 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [
-                Colors.white,
-                Color(0xFFf8f9ff),
-              ],
+              colors: [Colors.white, Color(0xFFf8f9ff)],
             ),
             borderRadius: BorderRadius.circular(28),
             boxShadow: [
@@ -3270,10 +3242,7 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
                     gradient: const LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: [
-                        Color(0xFFef4444),
-                        Color(0xFFf97316),
-                      ],
+                      colors: [Color(0xFFef4444), Color(0xFFf97316)],
                     ),
                     shape: BoxShape.circle,
                     boxShadow: [
@@ -3283,12 +3252,12 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
                         offset: const Offset(0, 8),
                       ),
                     ],
-                ),
+                  ),
                   child: const Icon(
                     Icons.delete_forever_rounded,
                     color: Colors.white,
                     size: 40,
-                ),
+                  ),
                 ),
                 const SizedBox(height: 24),
                 Text(
@@ -3297,7 +3266,7 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
                     fontSize: 22,
                     fontWeight: FontWeight.w600,
                     color: const Color(0xFF1f2937),
-                ),
+                  ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
@@ -3307,7 +3276,7 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
                     fontSize: 14,
                     fontWeight: FontWeight.w400,
                     color: const Color(0xFF6b7280),
-                ),
+                  ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
@@ -3317,7 +3286,7 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                     color: const Color(0xFFef4444),
-                ),
+                  ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 24),
@@ -3331,7 +3300,9 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
                           style: OutlinedButton.styleFrom(
                             foregroundColor: const Color(0xFF9ca3af),
                             side: BorderSide(
-                              color: const Color(0xFF9ca3af).withValues(alpha: 0.3),
+                              color: const Color(
+                                0xFF9ca3af,
+                              ).withValues(alpha: 0.3),
                               width: 1.5,
                             ),
                             shape: RoundedRectangleBorder(
@@ -3357,15 +3328,14 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
                             gradient: const LinearGradient(
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
-                              colors: [
-                                Color(0xFFef4444),
-                                Color(0xFFf97316),
-                              ],
+                              colors: [Color(0xFFef4444), Color(0xFFf97316)],
                             ),
                             borderRadius: BorderRadius.circular(14),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFFef4444).withValues(alpha: 0.4),
+                                color: const Color(
+                                  0xFFef4444,
+                                ).withValues(alpha: 0.4),
                                 blurRadius: 15,
                                 offset: const Offset(0, 4),
                               ),
@@ -3429,10 +3399,7 @@ class _DisplayNameDialog extends StatefulWidget {
   final TextEditingController controller;
   final GlobalKey<FormState> formKey;
 
-  const _DisplayNameDialog({
-    required this.controller,
-    required this.formKey,
-  });
+  const _DisplayNameDialog({required this.controller, required this.formKey});
 
   @override
   State<_DisplayNameDialog> createState() => _DisplayNameDialogState();
@@ -3446,7 +3413,10 @@ class _DisplayNameDialogState extends State<_DisplayNameDialog> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final text = widget.controller.text;
       if (text.isNotEmpty) {
-        widget.controller.selection = TextSelection(baseOffset: 0, extentOffset: text.length);
+        widget.controller.selection = TextSelection(
+          baseOffset: 0,
+          extentOffset: text.length,
+        );
       }
     });
   }
@@ -3461,10 +3431,7 @@ class _DisplayNameDialogState extends State<_DisplayNameDialog> {
           gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Colors.white,
-              Color(0xFFf8f9ff),
-            ],
+            colors: [Colors.white, Color(0xFFf8f9ff)],
           ),
           borderRadius: BorderRadius.circular(28),
           boxShadow: [
@@ -3486,11 +3453,8 @@ class _DisplayNameDialogState extends State<_DisplayNameDialog> {
                   gradient: const LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [
-                      Color(0xFFf472b6),
-                      Color(0xFF60a5fa),
-                    ],
-                ),
+                    colors: [Color(0xFFf472b6), Color(0xFF60a5fa)],
+                  ),
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
@@ -3537,7 +3501,10 @@ class _DisplayNameDialogState extends State<_DisplayNameDialog> {
                     // Select all text when tapped for easy editing
                     final text = widget.controller.text;
                     if (text.isNotEmpty) {
-                      widget.controller.selection = TextSelection(baseOffset: 0, extentOffset: text.length);
+                      widget.controller.selection = TextSelection(
+                        baseOffset: 0,
+                        extentOffset: text.length,
+                      );
                     }
                   },
                   decoration: InputDecoration(
@@ -3567,7 +3534,7 @@ class _DisplayNameDialogState extends State<_DisplayNameDialog> {
                       horizontal: 16,
                       vertical: 14,
                     ),
-                ),
+                  ),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
                       return 'Please enter a name';
@@ -3590,7 +3557,9 @@ class _DisplayNameDialogState extends State<_DisplayNameDialog> {
                         style: OutlinedButton.styleFrom(
                           foregroundColor: const Color(0xFF9ca3af),
                           side: BorderSide(
-                            color: const Color(0xFF9ca3af).withValues(alpha: 0.3),
+                            color: const Color(
+                              0xFF9ca3af,
+                            ).withValues(alpha: 0.3),
                             width: 1.5,
                           ),
                           shape: RoundedRectangleBorder(
@@ -3606,7 +3575,7 @@ class _DisplayNameDialogState extends State<_DisplayNameDialog> {
                         ),
                       ),
                     ),
-                ),
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: SizedBox(
@@ -3616,15 +3585,14 @@ class _DisplayNameDialogState extends State<_DisplayNameDialog> {
                           gradient: const LinearGradient(
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
-                            colors: [
-                              Color(0xFF60a5fa),
-                              Color(0xFFa78bfa),
-                            ],
+                            colors: [Color(0xFF60a5fa), Color(0xFFa78bfa)],
                           ),
                           borderRadius: BorderRadius.circular(14),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFFa78bfa).withValues(alpha: 0.4),
+                              color: const Color(
+                                0xFFa78bfa,
+                              ).withValues(alpha: 0.4),
                               blurRadius: 15,
                               offset: const Offset(0, 4),
                             ),
@@ -3634,7 +3602,8 @@ class _DisplayNameDialogState extends State<_DisplayNameDialog> {
                           color: Colors.transparent,
                           child: InkWell(
                             onTap: () {
-                              if (widget.formKey.currentState?.validate() == true) {
+                              if (widget.formKey.currentState?.validate() ==
+                                  true) {
                                 Navigator.of(context).pop(true);
                               }
                             },
@@ -3653,7 +3622,7 @@ class _DisplayNameDialogState extends State<_DisplayNameDialog> {
                         ),
                       ),
                     ),
-                ),
+                  ),
                 ],
               ),
             ],
@@ -3684,10 +3653,7 @@ class _AvatarPickerDialog extends StatelessWidget {
           gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Colors.white,
-              Color(0xFFf8f9ff),
-            ],
+            colors: [Colors.white, Color(0xFFf8f9ff)],
           ),
           borderRadius: BorderRadius.circular(28),
           boxShadow: [
@@ -3710,10 +3676,7 @@ class _AvatarPickerDialog extends StatelessWidget {
                 gradient: const LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [
-                    Color(0xFF8B5CF6),
-                    Color(0xFF60A5FA),
-                  ],
+                  colors: [Color(0xFF8B5CF6), Color(0xFF60A5FA)],
                 ),
                 boxShadow: [
                   BoxShadow(
@@ -3739,12 +3702,16 @@ class _AvatarPickerDialog extends StatelessWidget {
                               child: SizedBox(
                                 width: 24,
                                 height: 24,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               ),
                             ),
                             errorWidget: (context, url, error) => Center(
                               child: Text(
-                                displayName.isNotEmpty ? displayName[0].toUpperCase() : '?',
+                                displayName.isNotEmpty
+                                    ? displayName[0].toUpperCase()
+                                    : '?',
                                 style: const TextStyle(
                                   fontSize: 28,
                                   fontWeight: FontWeight.bold,
@@ -3755,7 +3722,9 @@ class _AvatarPickerDialog extends StatelessWidget {
                           )
                         : Center(
                             child: Text(
-                              displayName.isNotEmpty ? displayName[0].toUpperCase() : '?',
+                              displayName.isNotEmpty
+                                  ? displayName[0].toUpperCase()
+                                  : '?',
                               style: const TextStyle(
                                 fontSize: 28,
                                 fontWeight: FontWeight.bold,
@@ -3855,10 +3824,7 @@ class _AvatarPickerDialog extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: const Color(0xFFE5E7EB),
-            width: 1,
-          ),
+          border: Border.all(color: const Color(0xFFE5E7EB), width: 1),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.03),
@@ -3875,11 +3841,7 @@ class _AvatarPickerDialog extends StatelessWidget {
             child: Row(
               children: [
                 const SizedBox(width: 20),
-                Icon(
-                  icon,
-                  size: 22,
-                  color: const Color(0xFF6B7280),
-                ),
+                Icon(icon, size: 22, color: const Color(0xFF6B7280)),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Text(
@@ -3906,5 +3868,3 @@ class _AvatarPickerDialog extends StatelessWidget {
     );
   }
 }
-
-

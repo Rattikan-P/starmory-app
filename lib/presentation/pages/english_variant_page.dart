@@ -446,75 +446,86 @@ class _EnglishVariantPageState extends ConsumerState<EnglishVariantPage> {
     _selectVariant(context, ref, AppDefaults.defaultEnglishVariant);
   }
 
-  Future<void> _selectVariant(
-    BuildContext context,
-    WidgetRef ref,
-    String code,
-  ) async {
-    setState(() {
-      _selectedVariant = code;
-    });
-
-    final preferenceService = ref.read(onboardingServiceProvider);
-    await preferenceService.setEnglishVariant(code);
-
-    if (widget.isEditing) {
-      if (!widget.isGuest) {
-        final client = Supabase.instance.client;
-        final userId = client.auth.currentSession?.user.id;
-        if (userId != null) {
-          await client.auth.updateUser(
-            UserAttributes(data: {'english_variant': code}),
-          );
-          await client
-              .from('users')
-              .update({'english_variant': code})
-              .eq('id', userId);
-        }
-      }
-      if (context.mounted) Navigator.pop(context);
-      return;
+  /// Handles sync failure - local save already succeeded, just notify user
+  void _handleSyncFailure(BuildContext context) {
+    if (mounted) {
+      SnackBarHelper.error(context, 'Failed to sync. Changes saved locally.');
+      setState(() => _selectedVariant = null);
     }
+  }
 
-    // Guest flow: save preferences locally and navigate to home
+  /// Flow 1: User editing preferences from Profile page
+  /// - Updates english_variant in Supabase
+  /// - Returns to Profile on success/failure
+  Future<void> _handleEditingFlow(String code) async {
     if (widget.isGuest) {
-      await preferenceService.setGuestMode(true);
-      await preferenceService.setOnboardingCompleted(true);
-      if (context.mounted) {
-        SnackBarHelper.success(context, AlertMessages.welcomeToApp);
-        await Future.delayed(const Duration(milliseconds: 400));
-        if (!context.mounted) return;
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
-          (route) => false,
-        );
-      }
+      // Guest mode editing - just return, local save already done
+      if (mounted) Navigator.pop(context);
       return;
     }
 
-    // For initial setup (from OTP/Google flow), navigate directly to home to prevent flashing
-    if (widget.isInitialSetup) {
-      final client = Supabase.instance.client;
-      final userId = client.auth.currentSession?.user.id;
-      final userEmail = client.auth.currentSession?.user.email;
-
-      // Get display name from Google metadata (if available), otherwise fallback to email
-      final user = client.auth.currentUser;
-      String? displayName = user?.userMetadata?['full_name']
-                          ?? user?.userMetadata?['name'];
-
-      // Fallback: extract name from email (e.g., john.smith@gmail.com → John Smith)
-      if (displayName == null && userEmail != null) {
-        final localPart = userEmail.split('@').first;
-        // Convert john.smith or john_smith → John Smith
-        displayName = localPart
-            .split(RegExp(r'[._]'))
-            .where((part) => part.isNotEmpty)
-            .map((part) => part[0].toUpperCase() + part.substring(1))
-            .join(' ');
+    final client = Supabase.instance.client;
+    final userId = client.auth.currentSession?.user.id;
+    if (userId != null) {
+      try {
+        await client.auth.updateUser(
+          UserAttributes(data: {'english_variant': code}),
+        );
+        await client
+            .from('users')
+            .update({'english_variant': code})
+            .eq('id', userId);
+      } catch (e) {
+        _handleSyncFailure(context);
       }
+    }
+    if (mounted) Navigator.pop(context);
+  }
 
-      if (userId != null) {
+  /// Flow 2: Guest user completing onboarding
+  /// - Saves preferences locally
+  /// - Navigates to Home
+  Future<void> _handleGuestFlow(WidgetRef ref) async {
+    final preferenceService = ref.read(onboardingServiceProvider);
+    await preferenceService.setGuestMode(true);
+    await preferenceService.setOnboardingCompleted(true);
+    if (!mounted) return;
+    SnackBarHelper.success(context, AlertMessages.welcomeToApp);
+    await Future.delayed(const Duration(milliseconds: 400));
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
+      (route) => false,
+    );
+  }
+
+  /// Flow 3: New user after OTP/Google authentication (initial setup)
+  /// - Saves all preferences to Supabase
+  /// - Extracts display name from Google metadata or email
+  /// - Navigates to Home
+  Future<void> _handleInitialSetupFlow(String code, WidgetRef ref) async {
+    final client = Supabase.instance.client;
+    final userId = client.auth.currentSession?.user.id;
+    final userEmail = client.auth.currentSession?.user.email;
+    final preferenceService = ref.read(onboardingServiceProvider);
+
+    // Get display name from Google metadata (if available), otherwise fallback to email
+    final user = client.auth.currentUser;
+    String? displayName = user?.userMetadata?['full_name']
+                        ?? user?.userMetadata?['name'];
+
+    // Fallback: extract name from email (e.g., john.smith@gmail.com → John Smith)
+    if (displayName == null && userEmail != null) {
+      final localPart = userEmail.split('@').first;
+      displayName = localPart
+          .split(RegExp(r'[._]'))
+          .where((part) => part.isNotEmpty)
+          .map((part) => part[0].toUpperCase() + part.substring(1))
+          .join(' ');
+    }
+
+    if (userId != null) {
+      try {
         final authService = AuthService();
         await authService.updateUserPreferences(
           userId: userId,
@@ -526,42 +537,49 @@ class _EnglishVariantPageState extends ConsumerState<EnglishVariantPage> {
         );
 
         // Also mark onboarding as completed in database
-        await Supabase.instance.client
+        await client
             .from('users')
             .update({'onboarding_completed': true})
             .eq('id', userId);
+      } catch (e) {
+        if (mounted) {
+          _handleSyncFailure(context);
+        }
+        return;
       }
-
-      await preferenceService.clearLocalPreferences();
-      await preferenceService.setOnboardingCompleted(true);
-      await preferenceService.setGuestMode(false);
-
-      if (context.mounted) {
-        SnackBarHelper.success(context, 'Welcome to Starmory!');
-        await Future.delayed(const Duration(milliseconds: 400));
-        if (!context.mounted) return;
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(
-            builder: (_) => const MainNavigationScreen(),
-          ),
-          (route) => false,
-        );
-      }
-      return;
     }
 
-    if (widget.returnAfterSelection) {
-      if (context.mounted) {
-        Navigator.of(context).pop(true);
-      }
-      return;
-    }
+    await preferenceService.clearLocalPreferences();
+    await preferenceService.setOnboardingCompleted(true);
+    await preferenceService.setGuestMode(false);
 
-    // Editing flow: update preferences for logged-in user
-    else {
-      final client = Supabase.instance.client;
-      final userId = client.auth.currentSession?.user.id;
-      if (userId != null) {
+    if (!mounted) return;
+    SnackBarHelper.success(context, 'Welcome to Starmory!');
+    await Future.delayed(const Duration(milliseconds: 400));
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
+      (route) => false,
+    );
+  }
+
+  /// Flow 4: Return to previous screen (for language selection page)
+  void _handleReturnAfterSelection() {
+    if (mounted) {
+      Navigator.of(context).pop(true);
+    }
+  }
+
+  /// Flow 5: Regular onboarding flow (logged-in user)
+  /// - Updates language_level and english_variant in Supabase
+  /// - Navigates to Home
+  Future<void> _handleOnboardingFlow(String code, WidgetRef ref) async {
+    final client = Supabase.instance.client;
+    final userId = client.auth.currentSession?.user.id;
+    final preferenceService = ref.read(onboardingServiceProvider);
+
+    if (userId != null) {
+      try {
         await client.auth.updateUser(
           UserAttributes(
             data: {
@@ -576,19 +594,48 @@ class _EnglishVariantPageState extends ConsumerState<EnglishVariantPage> {
           'english_variant': code,
           'onboarding_completed': true,
         });
+      } catch (e) {
+        if (mounted) {
+          _handleSyncFailure(context);
+        }
+        return;
       }
+    }
 
-      await preferenceService.setOnboardingCompleted(true);
-      await preferenceService.setGuestMode(false);
+    await preferenceService.setOnboardingCompleted(true);
+    await preferenceService.setGuestMode(false);
 
-      if (context.mounted) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(
-            builder: (_) => const MainNavigationScreen(),
-          ),
-          (route) => false,
-        );
-      }
+    if (mounted) {
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
+        (route) => false,
+      );
+    }
+  }
+
+  Future<void> _selectVariant(
+    BuildContext context,
+    WidgetRef ref,
+    String code,
+  ) async {
+    setState(() {
+      _selectedVariant = code;
+    });
+
+    final preferenceService = ref.read(onboardingServiceProvider);
+    await preferenceService.setEnglishVariant(code);
+
+    // Route to appropriate flow based on widget flags
+    if (widget.isEditing) {
+      await _handleEditingFlow(code);
+    } else if (widget.isGuest) {
+      await _handleGuestFlow(ref);
+    } else if (widget.isInitialSetup) {
+      await _handleInitialSetupFlow(code, ref);
+    } else if (widget.returnAfterSelection) {
+      _handleReturnAfterSelection();
+    } else {
+      await _handleOnboardingFlow(code, ref);
     }
   }
 }

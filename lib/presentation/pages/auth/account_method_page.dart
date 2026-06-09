@@ -119,21 +119,29 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
           return;
         }
 
-        // บันทึกข้อมูล
-        await authService.updateUserPreferences(
-          userId: userId,
-          email: client.auth.currentUser?.email ?? '',
-          displayName: displayName,
-          languageLevel: finalLevel ?? AppDefaults.defaultLanguageLevel,
-          englishVariant: finalVariant ?? AppDefaults.defaultEnglishVariant,
-          termsVersion: preferenceService.getCurrentTermsVersion(),
-        );
+        // บันทึกข้อมูล (Step 18)
+        try {
+          await authService.updateUserPreferences(
+            userId: userId,
+            email: client.auth.currentUser?.email ?? '',
+            displayName: displayName,
+            languageLevel: finalLevel ?? AppDefaults.defaultLanguageLevel,
+            englishVariant: finalVariant ?? AppDefaults.defaultEnglishVariant,
+            termsVersion: preferenceService.getCurrentTermsVersion(),
+          );
 
-        // set onboarding_completed
-        await client
-            .from('users')
-            .update({'onboarding_completed': true})
-            .eq('id', userId);
+          // set onboarding_completed
+          await client
+              .from('users')
+              .update({'onboarding_completed': true})
+              .eq('id', userId);
+        } catch (e) {
+          // E3: Service unavailable when saving preferences
+          if (context.mounted) {
+            SnackBarHelper.error(context, AlertMessages.serviceUnavailable);
+          }
+          return; // Stay on page, user can retry
+        }
       } else {
         // Existing user → เช็คว่ามี guest data ไหม
         if (hasGuestData) {
@@ -142,13 +150,21 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
           final shouldMerge = await _showMergeDialog(context, guestLevel, guestVariant);
 
           if (shouldMerge == true) {
-            // User เลือก merge → อัปเดต preferences เป็นของ guest
-            await authService.mergeGuestPreferences(
-              userId: userId,
-              email: client.auth.currentUser?.email ?? '',
-              languageLevel: guestLevel,
-              englishVariant: guestVariant,
-            );
+            // User เลือก merge → อัปเดต preferences เป็นของ guest (Step 18)
+            try {
+              await authService.mergeGuestPreferences(
+                userId: userId,
+                email: client.auth.currentUser?.email ?? '',
+                languageLevel: guestLevel,
+                englishVariant: guestVariant,
+              );
+            } catch (e) {
+              // E3: Service unavailable when merging preferences
+              if (context.mounted) {
+                SnackBarHelper.error(context, AlertMessages.serviceUnavailable);
+              }
+              return; // Stay on page, user can retry
+            }
           }
           // ถ้า shouldMerge == false → ใช้ข้อมูลเดิม (ไม่ทำอะไร)
         }

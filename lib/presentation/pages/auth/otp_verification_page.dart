@@ -152,14 +152,23 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
           final shouldMerge = await _showMergeDialog(context);
 
           if (shouldMerge == true) {
-            // User เลือก merge → อัปเดต preferences เป็นของ guest
-            await authService.mergeGuestPreferences(
-              userId: user!.id,
-              email: widget.email,
-              displayName: _getDisplayNameFromEmail(),
-              languageLevel: widget.languageLevel,
-              englishVariant: widget.englishVariant,
-            );
+            // User เลือก merge → อัปเดต preferences เป็นของ guest (Step 18)
+            try {
+              await authService.mergeGuestPreferences(
+                userId: user!.id,
+                email: widget.email,
+                displayName: _getDisplayNameFromEmail(),
+                languageLevel: widget.languageLevel,
+                englishVariant: widget.englishVariant,
+              );
+            } catch (e) {
+              // E3: Service unavailable when merging preferences
+              setState(() => _isLoading = false);
+              if (mounted) {
+                SnackBarHelper.error(context, AlertMessages.serviceUnavailable, showAboveKeyboard: true);
+              }
+              return; // Stay on page
+            }
           }
           // ถ้า shouldMerge == false → ใช้ข้อมูลเดิม (ไม่ทำอะไร)
         }
@@ -168,16 +177,25 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
         final hasExplicitData = widget.languageLevel != null || widget.englishVariant != null;
 
         if (hasExplicitData) {
-          // มีข้อมูลจาก guest creating account → ใช้เลย
-          await preferenceService.clearLocalPreferences();
-          await authService.updateUserPreferences(
-            userId: user.id,
-            email: widget.email,
-            displayName: _getDisplayNameFromEmail(),
-            languageLevel: widget.languageLevel ?? AppDefaults.defaultLanguageLevel,
-            englishVariant: widget.englishVariant ?? AppDefaults.defaultEnglishVariant,
-            termsVersion: preferenceService.getCurrentTermsVersion(),
-          );
+          // มีข้อมูลจาก guest creating account → ใช้เลย (Step 18)
+          try {
+            await preferenceService.clearLocalPreferences();
+            await authService.updateUserPreferences(
+              userId: user.id,
+              email: widget.email,
+              displayName: _getDisplayNameFromEmail(),
+              languageLevel: widget.languageLevel ?? AppDefaults.defaultLanguageLevel,
+              englishVariant: widget.englishVariant ?? AppDefaults.defaultEnglishVariant,
+              termsVersion: preferenceService.getCurrentTermsVersion(),
+            );
+          } catch (e) {
+            // E3: Service unavailable when saving preferences
+            setState(() => _isLoading = false);
+            if (mounted) {
+              SnackBarHelper.error(context, AlertMessages.serviceUnavailable, showAboveKeyboard: true);
+            }
+            return; // Stay on page
+          }
         } else {
           // Login จาก onboarding หรือไม่มีข้อมูล → ถาม level/variant
           // EnglishVariantPage จะจัดการทุกอย่างเมื่อ isInitialSetup
@@ -229,6 +247,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
         (route) => false,
       );
     } catch (e) {
+      // This catch is for OTP verification errors only
       if (mounted) {
         // Increment failed attempts
         setState(() => _failedAttempts++);
