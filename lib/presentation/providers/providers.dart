@@ -5,6 +5,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/services/gemini_service.dart';
 import '../../data/services/hive_service.dart';
 import '../../data/services/preference_service.dart';
+import '../../data/services/vocabulary_sync_service.dart';
+import '../../data/services/image_storage_service.dart';
 import '../../data/models/user_model.dart';
 import '../../data/models/vocabulary_model.dart';
 import '../../data/models/calendar_model.dart';
@@ -16,6 +18,17 @@ import 'auth_quota_provider.dart';
 /// Hive Service Provider
 final hiveServiceProvider = Provider<HiveService>((ref) {
   return HiveService();
+});
+
+/// Image Storage Service Provider
+final imageStorageServiceProvider = Provider<ImageStorageService>((ref) {
+  return ImageStorageService();
+});
+
+/// Vocabulary Sync Service Provider
+final vocabularySyncServiceProvider = Provider<VocabularySyncService>((ref) {
+  final imageStorageService = ref.read(imageStorageServiceProvider);
+  return VocabularySyncService(imageStorageService: imageStorageService);
 });
 
 /// Gemini Service Provider
@@ -477,14 +490,18 @@ class VocabularyState {
 /// Vocabulary State Provider
 final vocabularyStateProvider =
     StateNotifierProvider<VocabularyNotifier, VocabularyState>((ref) {
-  return VocabularyNotifier(ref.read(hiveServiceProvider));
+  return VocabularyNotifier(
+    ref.read(hiveServiceProvider),
+    ref.read(vocabularySyncServiceProvider),
+  );
 });
 
 /// Vocabulary State Notifier
 class VocabularyNotifier extends StateNotifier<VocabularyState> {
   final HiveService _hiveService;
+  final VocabularySyncService _syncService;
 
-  VocabularyNotifier(this._hiveService)
+  VocabularyNotifier(this._hiveService, this._syncService)
       : super(const VocabularyState(isLoading: true)) {
     _waitForInitializationAndLoad();
   }
@@ -517,7 +534,15 @@ class VocabularyNotifier extends StateNotifier<VocabularyState> {
 
   Future<void> addVocabulary(VocabularyModel vocabulary) async {
     try {
+      // Always save to local storage
       await _hiveService.saveVocabulary(vocabulary);
+
+      // Sync to cloud if registered user
+      if (_syncService.isLoggedIn) {
+        await _syncService.saveToCloud(vocabulary);
+        print('✅ Vocabulary synced to cloud: ${vocabulary.word}');
+      }
+
       state = VocabularyState(
         vocabularies: [...state.vocabularies, vocabulary],
       );
@@ -531,7 +556,14 @@ class VocabularyNotifier extends StateNotifier<VocabularyState> {
 
   Future<void> updateVocabulary(VocabularyModel vocabulary) async {
     try {
+      // Always update local storage
       await _hiveService.saveVocabulary(vocabulary);
+
+      // Sync to cloud if registered user
+      if (_syncService.isLoggedIn) {
+        await _syncService.updateInCloud(vocabulary);
+        print('✅ Vocabulary updated in cloud: ${vocabulary.word}');
+      }
 
       final updatedList = state.vocabularies.map((v) {
         return v.id == vocabulary.id ? vocabulary : v;
@@ -548,7 +580,14 @@ class VocabularyNotifier extends StateNotifier<VocabularyState> {
 
   Future<void> deleteVocabulary(String id) async {
     try {
+      // Always delete from local storage
       await _hiveService.deleteVocabulary(id);
+
+      // Delete from cloud if registered user
+      if (_syncService.isLoggedIn) {
+        await _syncService.deleteFromCloud(id);
+        print('✅ Vocabulary deleted from cloud: $id');
+      }
 
       final updatedList = state.vocabularies.where((v) => v.id != id).toList();
       state = VocabularyState(vocabularies: updatedList);

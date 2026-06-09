@@ -12,6 +12,7 @@ import '../language_selection_page.dart';
 import '../main_navigation.dart';
 import '../onboarding_page.dart' show onboardingServiceProvider;
 import '../../../constants/app_defaults.dart';
+import '../../../presentation/providers/providers.dart' show hiveServiceProvider, vocabularySyncServiceProvider;
 
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
 
@@ -140,12 +141,16 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
 
           if (shouldMerge == true) {
             // User เลือก merge → อัปเดต preferences เป็นของ guest
+            final hiveService = ref.read(hiveServiceProvider);
+            final vocabSyncService = ref.read(vocabularySyncServiceProvider);
             await authService.mergeGuestPreferences(
               userId: user!.id,
               email: widget.email,
               displayName: widget.displayName,
               languageLevel: widget.languageLevel,
               englishVariant: widget.englishVariant,
+              hiveService: hiveService,
+              vocabularySyncService: vocabSyncService,
             );
           }
           // ถ้า shouldMerge == false → ใช้ข้อมูลเดิม (ไม่ทำอะไร)
@@ -165,6 +170,19 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
             englishVariant: widget.englishVariant ?? AppDefaults.defaultEnglishVariant,
             termsVersion: preferenceService.getCurrentTermsVersion(),
           );
+
+          // Upload guest vocabulary to new user's cloud storage
+          final hiveService = ref.read(hiveServiceProvider);
+          final vocabSyncService = ref.read(vocabularySyncServiceProvider);
+          try {
+            final localVocabs = await hiveService.getAllVocabulary();
+            if (localVocabs.isNotEmpty) {
+              await vocabSyncService.batchUpload(localVocabs);
+              print('✅ Uploaded ${localVocabs.length} vocabularies to new user cloud');
+            }
+          } catch (e) {
+            print('⚠️ Failed to upload vocabulary for new user: $e');
+          }
         } else {
           // Login จาก onboarding หรือไม่มีข้อมูล → ถาม level/variant
           // EnglishVariantPage จะจัดการทุกอย่างเมื่อ isInitialSetup

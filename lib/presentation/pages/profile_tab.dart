@@ -553,10 +553,13 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
       });
 
       // Also update global UserModel preferences with latest from Supabase
+      // Only do this if the current user is still a registered user (not guest)
+      // This prevents race conditions during logout where guest prefs get overwritten
       if (data != null) {
         final userNotifier = ref.read(userStateProvider.notifier);
         final currentUser = ref.read(currentUserProvider);
-        if (currentUser != null) {
+        // Skip sync if user is now a guest (logout happened during async fetch)
+        if (currentUser != null && !currentUser.isGuest) {
           final updatedUser = currentUser.copyWith(
             preferences: {
               'defaultCefrLevel': data['language_level'] as String? ?? 'A1',
@@ -566,6 +569,8 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
           await userNotifier.updateUser(updatedUser);
           debugPrint('✅ Synced preferences from Supabase to UserModel: '
               'level=${data['language_level']}, variant=${data['english_variant']}');
+        } else if (currentUser?.isGuest == true) {
+          debugPrint('⏭️ Skipping preference sync - user is now guest (logout during fetch)');
         }
       }
     }

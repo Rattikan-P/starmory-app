@@ -599,7 +599,7 @@ Generate sentences now.''';
   static bool isValidApiKey(String apiKey) {
     return apiKey.isNotEmpty &&
         apiKey != 'YOUR_GEMINI_API_KEY_HERE' &&
-        apiKey.startsWith('AIza');
+        (apiKey.startsWith('AIza') || apiKey.startsWith('AQ.'));
   }
 }
 

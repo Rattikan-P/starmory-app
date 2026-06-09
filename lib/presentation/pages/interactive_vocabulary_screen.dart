@@ -119,12 +119,17 @@ class _InteractiveVocabularyScreenState
       );
 
       // Use actual AI result - use pre-generated sentences if available
-      _vocabularyDots = widget.extractionResult!.vocabList.map((item) {
+      _vocabularyDots = widget.extractionResult!.vocabList.asMap().entries.map((entry) {
+        final item = entry.value;
+        final index = entry.key;
         final bbox = item.boundingBox;
         final (x, y) = bbox.center;
 
+        // Generate unique ID (timestamp + index to guarantee no duplicates)
+        final uniqueId = '${DateTime.now().millisecondsSinceEpoch}_$index';
+
         return _VocabularyDot(
-          id: item.word,
+          id: uniqueId,
           word: item.word,
           thaiTranslation: item.thai,
           partOfSpeech: item.type,
@@ -1766,10 +1771,29 @@ class _InteractiveVocabularyScreenState
     });
   }
 
-  void _saveAllVocabularies() {
+  Future<void> _saveAllVocabularies() async {
     final selectedDots = _vocabularyDots
         .where((dot) => _selectedWordIds.contains(dot.id))
         .toList();
+
+    // Upload image to cloud if user is logged in
+    String finalImageUrl = widget.imagePath;
+    final currentUser = ref.read(currentUserProvider);
+    final imageStorageService = ref.read(imageStorageServiceProvider);
+
+    if (currentUser != null && !currentUser.isGuest) {
+      try {
+        final imageUrl = await imageStorageService.uploadVocabularyImage(
+          imageFile: File(widget.imagePath),
+          userId: currentUser.id,
+        );
+        finalImageUrl = imageUrl;
+        print('✅ Image uploaded to cloud: $imageUrl');
+      } catch (e) {
+        print('⚠️ Failed to upload image, using local path: $e');
+        // Continue with local path on error
+      }
+    }
 
     for (final dot in selectedDots) {
       final vocabulary = VocabularyModel(
@@ -1782,13 +1806,15 @@ class _InteractiveVocabularyScreenState
         cefrLevel: widget.cefrLevel,
         communicativeFunction: widget.communicativeFunction,
         languageVariant: 'US',
-        imageUrl: widget.imagePath,
+        imageUrl: finalImageUrl,  // Use uploaded URL or local path
         tags: [dot.tone, dot.category],
         createdAt: DateTime.now(),
       );
 
       ref.read(vocabularyStateProvider.notifier).addVocabulary(vocabulary);
     }
+
+    if (!mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

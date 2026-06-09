@@ -193,7 +193,7 @@ class AuthService {
 
   // Merge guest preferences into existing user account
   // Preferences: overwrite with guest values
-  // Vocab/future data: will be combined
+  // Vocabulary: upload local vocabularies to cloud
   Future<void> mergeGuestPreferences({
     required String userId,
     required String email,
@@ -201,6 +201,9 @@ class AuthService {
     String? languageLevel,
     String? englishVariant,
     int? termsVersion,
+    // Optional services for vocabulary merge
+    dynamic hiveService,
+    dynamic vocabularySyncService,
   }) async {
     final data = {
       'id': userId,
@@ -226,6 +229,23 @@ class AuthService {
         },
       ),
     );
+
+    // Merge vocabulary if services are provided
+    if (hiveService != null && vocabularySyncService != null) {
+      try {
+        print('🔄 Merging guest vocabulary to cloud...');
+        final localVocabs = await hiveService.getAllVocabulary();
+        if (localVocabs.isNotEmpty) {
+          final uploadedCount = await vocabularySyncService.batchUpload(localVocabs);
+          print('✅ Merged $uploadedCount vocabularies from guest to cloud');
+        } else {
+          print('ℹ️ No guest vocabulary to merge');
+        }
+      } catch (e) {
+        print('⚠️ Failed to merge vocabulary: $e');
+        // Don't fail the whole merge process if vocab merge fails
+      }
+    }
   }
 
   // Google Authentication methods

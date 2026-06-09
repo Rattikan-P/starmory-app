@@ -10,6 +10,7 @@ import '../onboarding_page.dart';
 import '../language_selection_page.dart';
 import 'otp_verification_page.dart' show OtpVerificationPage;
 import '../../../constants/app_defaults.dart';
+import '../../../presentation/providers/providers.dart' show hiveServiceProvider, vocabularySyncServiceProvider;
 
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
 
@@ -108,6 +109,19 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
           termsVersion: preferenceService.getCurrentTermsVersion(),
         );
 
+        // Upload guest vocabulary to new user's cloud storage
+        final hiveService = ref.read(hiveServiceProvider);
+        final vocabSyncService = ref.read(vocabularySyncServiceProvider);
+        try {
+          final localVocabs = await hiveService.getAllVocabulary();
+          if (localVocabs.isNotEmpty) {
+            await vocabSyncService.batchUpload(localVocabs);
+            print('✅ Uploaded ${localVocabs.length} vocabularies to new user cloud (Google)');
+          }
+        } catch (e) {
+          print('⚠️ Failed to upload vocabulary for new user (Google): $e');
+        }
+
         // set onboarding_completed
         await client
             .from('users')
@@ -122,11 +136,15 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
 
           if (shouldMerge == true) {
             // User เลือก merge → อัปเดต preferences เป็นของ guest
+            final hiveService = ref.read(hiveServiceProvider);
+            final vocabSyncService = ref.read(vocabularySyncServiceProvider);
             await authService.mergeGuestPreferences(
               userId: userId,
               email: client.auth.currentUser?.email ?? '',
               languageLevel: guestLevel,
               englishVariant: guestVariant,
+              hiveService: hiveService,
+              vocabularySyncService: vocabSyncService,
             );
           }
           // ถ้า shouldMerge == false → ใช้ข้อมูลเดิม (ไม่ทำอะไร)

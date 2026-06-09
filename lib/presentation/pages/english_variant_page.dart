@@ -7,6 +7,7 @@ import 'main_navigation.dart';
 import '../../constants/app_defaults.dart';
 import '../../data/services/auth_service.dart';
 import '../../utils/snackbar_helper.dart';
+import '../providers/providers.dart' show userStateProvider, currentUserProvider;
 
 class EnglishVariantPage extends ConsumerStatefulWidget {
   final bool isGuest;
@@ -442,10 +443,26 @@ class _EnglishVariantPageState extends ConsumerState<EnglishVariantPage> {
       return;
     }
 
-    // Guest flow: save preferences locally and navigate to home
+    // Guest flow: save preferences locally, update UserModel, and navigate to home
     if (widget.isGuest) {
       await preferenceService.setGuestMode(true);
       await preferenceService.setOnboardingCompleted(true);
+
+      // Update the UserModel with the selected preferences
+      // This ensures the guest user has their selected preferences immediately
+      final userNotifier = ref.read(userStateProvider.notifier);
+      final currentUser = ref.read(currentUserProvider);
+      if (currentUser != null) {
+        final updatedUser = currentUser.copyWith(
+          preferences: {
+            'defaultCefrLevel': widget.languageLevel,
+            'languageVariant': code,
+          },
+        );
+        await userNotifier.updateUser(updatedUser);
+        debugPrint('✅ Updated UserModel with guest preferences: level=${widget.languageLevel}, variant=$code');
+      }
+
       if (context.mounted) {
         SnackBarHelper.success(context, AlertMessages.guestWelcome);
         await Future.delayed(const Duration(milliseconds: 400));
