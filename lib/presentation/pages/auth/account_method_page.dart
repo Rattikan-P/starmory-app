@@ -116,10 +116,11 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
           final localVocabs = await hiveService.getAllVocabulary();
           if (localVocabs.isNotEmpty) {
             await vocabSyncService.batchUpload(localVocabs);
-            print('✅ Uploaded ${localVocabs.length} vocabularies to new user cloud (Google)');
+            // Clear local vocabularies only after successful upload
+            await hiveService.clearAllVocabulary();
           }
         } catch (e) {
-          print('⚠️ Failed to upload vocabulary for new user (Google): $e');
+          // Skip failed upload - local vocabularies preserved for retry
         }
 
         // set onboarding_completed

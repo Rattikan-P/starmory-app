@@ -246,11 +246,11 @@ class AuthService {
         if (newVocabs.isNotEmpty) {
           await vocabularySyncService.batchUpload(newVocabs);
         }
+        // Clear local vocabularies only after successful upload
+        await hiveService.clearAllVocabulary();
       } catch (e) {
         // Don't fail the whole merge process if vocab merge fails
-      } finally {
-        // Clear local vocabularies after merge (regardless of success/failure)
-        await hiveService.clearAllVocabulary();
+        // Local vocabularies preserved for retry
       }
     }
   }
