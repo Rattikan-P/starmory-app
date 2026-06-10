@@ -12,7 +12,8 @@ import '../language_selection_page.dart';
 import '../main_navigation.dart';
 import '../onboarding_page.dart' show onboardingServiceProvider;
 import '../../../constants/app_defaults.dart';
-import '../../../presentation/providers/providers.dart' show hiveServiceProvider, vocabularySyncServiceProvider;
+import '../../../presentation/providers/providers.dart' show hiveServiceProvider, vocabularySyncServiceProvider, userStateProvider;
+import '../../../data/models/user_model.dart';
 
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
 
@@ -42,6 +43,19 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
     6,
     (index) => TextEditingController(),
   );
+
+  // Extract display name from email (fallback)
+  String? _getDisplayNameFromEmail() {
+    if (widget.displayName != null) return widget.displayName;
+
+    // Extract from email (e.g., john.smith@gmail.com → John Smith)
+    final localPart = widget.email.split('@').first;
+    return localPart
+        .split(RegExp(r'[._]'))
+        .where((part) => part.isNotEmpty)
+        .map((part) => part[0].toUpperCase() + part.substring(1))
+        .join(' ');
+  }
   final List<FocusNode> _focusNodes = List.generate(6, (index) => FocusNode());
 
   bool _isLoading = false;
@@ -141,17 +155,46 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
 
           if (shouldMerge == true) {
             // User เลือก merge → อัปเดต preferences เป็นของ guest
-            final hiveService = ref.read(hiveServiceProvider);
-            final vocabSyncService = ref.read(vocabularySyncServiceProvider);
-            await authService.mergeGuestPreferences(
-              userId: user!.id,
-              email: widget.email,
-              displayName: widget.displayName,
-              languageLevel: widget.languageLevel,
-              englishVariant: widget.englishVariant,
-              hiveService: hiveService,
-              vocabularySyncService: vocabSyncService,
-            );
+            try {
+              final hiveService = ref.read(hiveServiceProvider);
+              final vocabSyncService = ref.read(vocabularySyncServiceProvider);
+              await authService.mergeGuestPreferences(
+                userId: user!.id,
+                email: widget.email,
+                displayName: widget.displayName ?? _getDisplayNameFromEmail(),
+                languageLevel: widget.languageLevel,
+                englishVariant: widget.englishVariant,
+                hiveService: hiveService,
+                vocabularySyncService: vocabSyncService,
+              );
+
+              // Refresh UserModel with merged preferences from Supabase
+              final userNotifier = ref.read(userStateProvider.notifier);
+              final currentUser = ref.read(userStateProvider).user;
+              if (currentUser != null) {
+                // Create updated user with merged preferences from Supabase metadata
+                final supabaseUser = Supabase.instance.client.auth.currentUser;
+                final mergedLevel = supabaseUser?.userMetadata?['language_level'] as String?;
+                final mergedVariant = supabaseUser?.userMetadata?['english_variant'] as String?;
+
+                final updatedUser = currentUser.copyWith(
+                  preferences: {
+                    ...currentUser.preferences,
+                    'defaultCefrLevel': mergedLevel ?? currentUser.preferences['defaultCefrLevel'],
+                    'languageVariant': mergedVariant ?? currentUser.preferences['languageVariant'],
+                  },
+                );
+                await userNotifier.updateUser(updatedUser);
+                print('✅ [OTP Login] Refreshed UserModel with merged preferences: level=$mergedLevel, variant=$mergedVariant');
+              }
+            } catch (e) {
+              // E3: Service unavailable when merging preferences
+              setState(() => _isLoading = false);
+              if (mounted) {
+                SnackBarHelper.error(context, AlertMessages.serviceUnavailable, showAboveKeyboard: true);
+              }
+              return; // Stay on page
+            }
           }
           // ถ้า shouldMerge == false → ใช้ข้อมูลเดิม (ไม่ทำอะไร)
         }
@@ -161,34 +204,43 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
 
         if (hasExplicitData) {
           // มีข้อมูลจาก guest creating account → ใช้เลย
-          await preferenceService.clearGuestPreferences();
-          await authService.updateUserPreferences(
-            userId: user.id,
-            email: widget.email,
-            displayName: widget.displayName,
-            languageLevel: widget.languageLevel ?? AppDefaults.defaultLanguageLevel,
-            englishVariant: widget.englishVariant ?? AppDefaults.defaultEnglishVariant,
-            termsVersion: preferenceService.getCurrentTermsVersion(),
-          );
-
-          // Upload guest vocabulary to new user's cloud storage
-          final hiveService = ref.read(hiveServiceProvider);
-          final vocabSyncService = ref.read(vocabularySyncServiceProvider);
           try {
-            final localVocabs = await hiveService.getAllVocabulary();
-            if (localVocabs.isNotEmpty) {
-              final uploadedCount = await vocabSyncService.batchUpload(localVocabs);
-              // Only clear local vocabularies after successful upload of ALL items
-              if (uploadedCount == localVocabs.length) {
-                await hiveService.clearAllVocabulary();
-              } else {
-                // Partial upload failed - keep local data for retry
-                print('⚠️ [OTP Login] Partial upload: $uploadedCount/${localVocabs.length}');
+            await preferenceService.clearLocalPreferences();
+            await authService.updateUserPreferences(
+              userId: user.id,
+              email: widget.email,
+              displayName: widget.displayName ?? _getDisplayNameFromEmail(),
+              languageLevel: widget.languageLevel ?? AppDefaults.defaultLanguageLevel,
+              englishVariant: widget.englishVariant ?? AppDefaults.defaultEnglishVariant,
+              termsVersion: preferenceService.getCurrentTermsVersion(),
+            );
+
+            // Upload guest vocabulary to new user's cloud storage
+            final hiveService = ref.read(hiveServiceProvider);
+            final vocabSyncService = ref.read(vocabularySyncServiceProvider);
+            try {
+              final localVocabs = await hiveService.getAllVocabulary();
+              if (localVocabs.isNotEmpty) {
+                final uploadedCount = await vocabSyncService.batchUpload(localVocabs);
+                // Only clear local vocabularies after successful upload of ALL items
+                if (uploadedCount == localVocabs.length) {
+                  await hiveService.clearAllVocabulary();
+                } else {
+                  // Partial upload failed - keep local data for retry
+                  print('⚠️ [OTP Login] Partial upload: $uploadedCount/${localVocabs.length}');
+                }
               }
+            } catch (e) {
+              // Upload failed - local vocabularies preserved
+              print('❌ [OTP Login] Upload failed: $e');
             }
           } catch (e) {
-            // Upload failed - local vocabularies preserved
-            print('❌ [OTP Login] Upload failed: $e');
+            // E3: Service unavailable when saving preferences
+            setState(() => _isLoading = false);
+            if (mounted) {
+              SnackBarHelper.error(context, AlertMessages.serviceUnavailable, showAboveKeyboard: true);
+            }
+            return; // Stay on page
           }
         } else {
           // Login จาก onboarding หรือไม่มีข้อมูล → ถาม level/variant
@@ -260,7 +312,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
       if (!isNewUser) {
         SnackBarHelper.success(context, AlertMessages.welcomeBack, showAboveKeyboard: true);
       } else {
-        SnackBarHelper.success(context, AlertMessages.loginSuccess, showAboveKeyboard: true);
+        SnackBarHelper.success(context, AlertMessages.welcomeToApp, showAboveKeyboard: true);
       }
 
       // Reset failed attempts on success
@@ -273,6 +325,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
         (route) => false,
       );
     } catch (e) {
+      // This catch is for OTP verification errors only
       if (mounted) {
         // Increment failed attempts
         setState(() => _failedAttempts++);
@@ -430,8 +483,9 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
                           child: InkWell(
                             onTap: () async {
                               Navigator.pop(context);
-                              // Reset attempts and request new OTP
+                              // Reset attempts, clear input, and request new OTP
                               setState(() => _failedAttempts = 0);
+                              _clearOtp();
                               await _resendOtp();
                             },
                             borderRadius: BorderRadius.circular(12),

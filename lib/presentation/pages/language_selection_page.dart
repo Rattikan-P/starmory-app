@@ -6,6 +6,8 @@ import 'onboarding_page.dart';
 import 'main_navigation.dart';
 import 'english_variant_page.dart';
 import '../../constants/app_defaults.dart';
+import '../../utils/snackbar_helper.dart';
+import '../providers/providers.dart';
 
 class LanguageSelectionPage extends ConsumerStatefulWidget {
   final bool isGuest;
@@ -55,8 +57,8 @@ class _LanguageSelectionPageState extends ConsumerState<LanguageSelectionPage> {
     if (widget.forceSelection || widget.isInitialSetup) return;
 
     final preferenceService = ref.read(onboardingServiceProvider);
-    final existingLevel = await preferenceService.getGuestLanguageLevel();
-    final existingVariant = await preferenceService.getGuestEnglishVariant();
+    final existingLevel = await preferenceService.getLanguageLevel();
+    final existingVariant = await preferenceService.getEnglishVariant();
 
     // Store existing level for highlighting
     if (existingLevel != null && mounted) {
@@ -165,6 +167,40 @@ class _LanguageSelectionPageState extends ConsumerState<LanguageSelectionPage> {
                   colors: [
                     const Color(0xFF93C5FD).withValues(alpha: 0.5),
                     const Color(0x0093C5FD),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: 100,
+            left: -60,
+            child: Container(
+              width: 350,
+              height: 350,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    const Color(0xFFF472B6).withValues(alpha: 0.55),
+                    const Color(0x00F472B6),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: -80,
+            right: -60,
+            child: Container(
+              width: 380,
+              height: 380,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    const Color(0xFFFCD34D).withValues(alpha: 0.35),
+                    const Color(0x00FCD34D),
                   ],
                 ),
               ),
@@ -457,50 +493,76 @@ class _LanguageSelectionPageState extends ConsumerState<LanguageSelectionPage> {
     });
 
     final preferenceService = ref.read(onboardingServiceProvider);
-    await preferenceService.setGuestLanguageLevel(code);
+    await preferenceService.setLanguageLevel(code);
 
     if (!context.mounted) return;
 
     if (widget.isEditing) {
       if (widget.isGuest) {
-        // Already saved above
-      } else {
-        final client = Supabase.instance.client;
-        final userId = client.auth.currentSession?.user.id;
-        if (userId != null) {
-          await client.auth.updateUser(
-            UserAttributes(data: {'language_level': code}),
-          );
-          await client
-              .from('users')
-              .update({'language_level': code})
-              .eq('id', userId);
+        // Guest mode editing - update UserModel locally
+        final userNotifier = ref.read(userStateProvider.notifier);
+        final currentUser = ref.read(userStateProvider).user;
+        if (currentUser != null) {
+          final updatedPrefs = Map<String, dynamic>.from(currentUser.preferences);
+          updatedPrefs['defaultCefrLevel'] = code;
+          final updatedUser = currentUser.copyWith(preferences: updatedPrefs);
+          await userNotifier.updateUser(updatedUser);
+          debugPrint('✅ Updated guest UserModel with new level: $code');
         }
+      } else {
+        await _updateLanguageLevelInSupabase(code);
       }
-      if (context.mounted) Navigator.pop(context);
+      _popIfMounted();
       return;
     }
 
     // Go to English variant selection
-    if (context.mounted) {
-      final result = await Navigator.push<bool>(
-        context,
-        MaterialPageRoute(
-          builder: (_) => EnglishVariantPage(
-            isGuest: widget.isGuest,
-            isInitialSetup: widget.isInitialSetup,
-            languageLevel: code,
-            forceSelection: widget.forceSelection,
-            returnAfterSelection: widget.returnAfterSelection,
-          ),
+    if (!mounted) return;
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => EnglishVariantPage(
+          isGuest: widget.isGuest,
+          isInitialSetup: widget.isInitialSetup,
+          languageLevel: code,
+          forceSelection: widget.forceSelection,
+          returnAfterSelection: widget.returnAfterSelection,
         ),
-      );
+      ),
+    );
 
-      if (widget.returnAfterSelection && context.mounted) {
-        if (result == true) {
-          Navigator.pop(context, true);
+    _handleVariantSelectionResult(result);
+  }
+
+  Future<void> _updateLanguageLevelInSupabase(String code) async {
+    final client = Supabase.instance.client;
+    final userId = client.auth.currentSession?.user.id;
+    if (userId != null) {
+      try {
+        await client.auth.updateUser(
+          UserAttributes(data: {'language_level': code}),
+        );
+        await client
+            .from('users')
+            .update({'language_level': code})
+            .eq('id', userId);
+      } catch (e) {
+        // Local save already done, just notify user
+        if (mounted) {
+          SnackBarHelper.error(context, 'Failed to sync. Changes saved locally.');
+          setState(() => _selectedLevel = null);
         }
       }
+    }
+  }
+
+  void _popIfMounted() {
+    if (mounted) Navigator.pop(context);
+  }
+
+  void _handleVariantSelectionResult(bool? result) {
+    if (widget.returnAfterSelection && mounted && result == true) {
+      Navigator.pop(context, true);
     }
   }
 }

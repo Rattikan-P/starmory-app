@@ -338,8 +338,8 @@ class UserNotifier extends StateNotifier<UserState> {
     await preferenceService.init();
 
     // Load guest preferences
-    final guestLanguageLevel = await preferenceService.getGuestLanguageLevel();
-    final guestEnglishVariant = await preferenceService.getGuestEnglishVariant();
+    final guestLanguageLevel = await preferenceService.getLanguageLevel();
+    final guestEnglishVariant = await preferenceService.getEnglishVariant();
 
     print('👤 Loading guest preferences: languageLevel=$guestLanguageLevel, englishVariant=$guestEnglishVariant');
 

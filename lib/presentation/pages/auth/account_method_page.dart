@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../data/services/auth_service.dart';
@@ -8,9 +9,11 @@ import '../../../utils/snackbar_helper.dart';
 import '../main_navigation.dart';
 import '../onboarding_page.dart';
 import '../language_selection_page.dart';
+import '../privacy_policy_page.dart';
+import '../terms_of_service_page.dart';
 import 'otp_verification_page.dart' show OtpVerificationPage;
 import '../../../constants/app_defaults.dart';
-import '../../../presentation/providers/providers.dart' show hiveServiceProvider, vocabularySyncServiceProvider;
+import '../../../presentation/providers/providers.dart' show hiveServiceProvider, vocabularySyncServiceProvider, userStateProvider;
 
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
 
@@ -58,14 +61,31 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
         return;
       }
 
+      // Get display name from Google metadata (if available), otherwise fallback to email
+      final user = client.auth.currentUser;
+      final userEmail = user?.email;
+      String? displayName = user?.userMetadata?['full_name']
+                          ?? user?.userMetadata?['name'];
+
+      // Fallback: extract name from email (e.g., john.smith@gmail.com → John Smith)
+      if (displayName == null && userEmail != null) {
+        final localPart = userEmail.split('@').first;
+        // Convert john.smith or john_smith → John Smith
+        displayName = localPart
+            .split(RegExp(r'[._]'))
+            .where((part) => part.isNotEmpty)
+            .map((part) => part[0].toUpperCase() + part.substring(1))
+            .join(' ');
+      }
+
       final preferenceService = ref.read(onboardingServiceProvider);
       await preferenceService.init();
 
       // Auto-accept terms
       await preferenceService.setTermsVersion(preferenceService.getCurrentTermsVersion());
 
-      final guestLevel = await preferenceService.getGuestLanguageLevel();
-      final guestVariant = await preferenceService.getGuestEnglishVariant();
+      final guestLevel = await preferenceService.getLanguageLevel();
+      final guestVariant = await preferenceService.getEnglishVariant();
       final hasGuestData = guestLevel != null || guestVariant != null;
 
       final userData = await client
@@ -100,40 +120,49 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
           return;
         }
 
-        // บันทึกข้อมูล
-        await authService.updateUserPreferences(
-          userId: userId,
-          email: client.auth.currentUser?.email ?? '',
-          languageLevel: finalLevel ?? AppDefaults.defaultLanguageLevel,
-          englishVariant: finalVariant ?? AppDefaults.defaultEnglishVariant,
-          termsVersion: preferenceService.getCurrentTermsVersion(),
-        );
-
-        // Upload guest vocabulary to new user's cloud storage
-        final hiveService = ref.read(hiveServiceProvider);
-        final vocabSyncService = ref.read(vocabularySyncServiceProvider);
+        // บันทึกข้อมูล (Step 18)
         try {
-          final localVocabs = await hiveService.getAllVocabulary();
-          if (localVocabs.isNotEmpty) {
-            final uploadedCount = await vocabSyncService.batchUpload(localVocabs);
-            // Only clear local vocabularies after successful upload of ALL items
-            if (uploadedCount == localVocabs.length) {
-              await hiveService.clearAllVocabulary();
-            } else {
-              // Partial upload failed - keep local data for retry
-              print('⚠️ [Google Login] Partial upload: $uploadedCount/${localVocabs.length}');
-            }
-          }
-        } catch (e) {
-          // Upload failed - local vocabularies preserved
-          print('❌ [Google Login] Upload failed: $e');
-        }
+          await authService.updateUserPreferences(
+            userId: userId,
+            email: client.auth.currentUser?.email ?? '',
+            displayName: displayName,
+            languageLevel: finalLevel ?? AppDefaults.defaultLanguageLevel,
+            englishVariant: finalVariant ?? AppDefaults.defaultEnglishVariant,
+            termsVersion: preferenceService.getCurrentTermsVersion(),
+          );
 
-        // set onboarding_completed
-        await client
-            .from('users')
-            .update({'onboarding_completed': true})
-            .eq('id', userId);
+          // Upload guest vocabulary to new user's cloud storage
+          final hiveService = ref.read(hiveServiceProvider);
+          final vocabSyncService = ref.read(vocabularySyncServiceProvider);
+          try {
+            final localVocabs = await hiveService.getAllVocabulary();
+            if (localVocabs.isNotEmpty) {
+              final uploadedCount = await vocabSyncService.batchUpload(localVocabs);
+              // Only clear local vocabularies after successful upload of ALL items
+              if (uploadedCount == localVocabs.length) {
+                await hiveService.clearAllVocabulary();
+              } else {
+                // Partial upload failed - keep local data for retry
+                print('⚠️ [Google Login] Partial upload: $uploadedCount/${localVocabs.length}');
+              }
+            }
+          } catch (e) {
+            // Upload failed - local vocabularies preserved
+            print('❌ [Google Login] Upload failed: $e');
+          }
+
+          // set onboarding_completed
+          await client
+              .from('users')
+              .update({'onboarding_completed': true})
+              .eq('id', userId);
+        } catch (e) {
+          // E3: Service unavailable when saving preferences
+          if (context.mounted) {
+            SnackBarHelper.error(context, AlertMessages.serviceUnavailable);
+          }
+          return; // Stay on page, user can retry
+        }
       } else {
         // Existing user → เช็คว่ามี guest data ไหม
         if (hasGuestData) {
@@ -143,16 +172,44 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
 
           if (shouldMerge == true) {
             // User เลือก merge → อัปเดต preferences เป็นของ guest
-            final hiveService = ref.read(hiveServiceProvider);
-            final vocabSyncService = ref.read(vocabularySyncServiceProvider);
-            await authService.mergeGuestPreferences(
-              userId: userId,
-              email: client.auth.currentUser?.email ?? '',
-              languageLevel: guestLevel,
-              englishVariant: guestVariant,
-              hiveService: hiveService,
-              vocabularySyncService: vocabSyncService,
-            );
+            try {
+              final hiveService = ref.read(hiveServiceProvider);
+              final vocabSyncService = ref.read(vocabularySyncServiceProvider);
+              await authService.mergeGuestPreferences(
+                userId: userId,
+                email: client.auth.currentUser?.email ?? '',
+                languageLevel: guestLevel,
+                englishVariant: guestVariant,
+                hiveService: hiveService,
+                vocabularySyncService: vocabSyncService,
+              );
+
+              // Refresh UserModel with merged preferences from Supabase
+              final userNotifier = ref.read(userStateProvider.notifier);
+              final currentUser = ref.read(userStateProvider).user;
+              if (currentUser != null) {
+                // Create updated user with merged preferences from Supabase metadata
+                final supabaseUser = client.auth.currentUser;
+                final mergedLevel = supabaseUser?.userMetadata?["language_level"] as String?;
+                final mergedVariant = supabaseUser?.userMetadata?["english_variant"] as String?;
+
+                final updatedUser = currentUser.copyWith(
+                  preferences: {
+                    ...currentUser.preferences,
+                    "defaultCefrLevel": mergedLevel ?? currentUser.preferences["defaultCefrLevel"],
+                    "languageVariant": mergedVariant ?? currentUser.preferences["languageVariant"],
+                  },
+                );
+                await userNotifier.updateUser(updatedUser);
+                print("✅ [Google Login] Refreshed UserModel with merged preferences: level=$mergedLevel, variant=$mergedVariant");
+              }
+            } catch (e) {
+              // E3: Service unavailable when merging preferences
+              if (context.mounted) {
+                SnackBarHelper.error(context, AlertMessages.serviceUnavailable);
+              }
+              return; // Stay on page, user can retry
+            }
           }
           // ถ้า shouldMerge == false → ใช้ข้อมูลเดิม (ไม่ทำอะไร)
         }
@@ -201,7 +258,7 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
       if (!isNewUser) {
         SnackBarHelper.success(context, AlertMessages.welcomeBack);
       } else {
-        SnackBarHelper.success(context, AlertMessages.loginSuccess);
+        SnackBarHelper.success(context, AlertMessages.welcomeToApp);
       }
 
       // Wait a bit so user can see the success message
@@ -232,8 +289,8 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
 
       // Get guest preferences to carry over
       final preferenceService = ref.read(onboardingServiceProvider);
-      final guestLevel = await preferenceService.getGuestLanguageLevel();
-      final guestVariant = await preferenceService.getGuestEnglishVariant();
+      final guestLevel = await preferenceService.getLanguageLevel();
+      final guestVariant = await preferenceService.getEnglishVariant();
 
       // Send OTP first, then navigate
       final authService = ref.read(authServiceProvider);
@@ -573,16 +630,16 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
           children: [
             // Galaxy blobs
             Positioned(
-              top: -80,
-              left: -60,
+              top: -100,
+              left: -80,
               child: Container(
-                width: 280,
-                height: 280,
+                width: 350,
+                height: 350,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
-                      const Color(0xFFC4B5FD).withValues(alpha: 0.4),
+                      const Color(0xFFC4B5FD).withValues(alpha: 0.5),
                       const Color(0x00C4B5FD),
                     ],
                   ),
@@ -590,16 +647,16 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
               ),
             ),
             Positioned(
-              top: 80,
-              right: -80,
+              top: 50,
+              right: -100,
               child: Container(
-                width: 300,
-                height: 300,
+                width: 380,
+                height: 380,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
-                      const Color(0xFF93C5FD).withValues(alpha: 0.4),
+                      const Color(0xFF93C5FD).withValues(alpha: 0.5),
                       const Color(0x0093C5FD),
                     ],
                   ),
@@ -607,17 +664,34 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
               ),
             ),
             Positioned(
-              bottom: -60,
-              left: 100,
+              bottom: 100,
+              left: -60,
               child: Container(
-                width: 280,
-                height: 280,
+                width: 350,
+                height: 350,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
-                      const Color(0xFFF472B6).withValues(alpha: 0.4),
+                      const Color(0xFFF472B6).withValues(alpha: 0.55),
                       const Color(0x00F472B6),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              bottom: -80,
+              right: -60,
+              child: Container(
+                width: 380,
+                height: 380,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      const Color(0xFFFCD34D).withValues(alpha: 0.35),
+                      const Color(0x00FCD34D),
                     ],
                   ),
                 ),
@@ -912,13 +986,10 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
                           ),
                           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
                         ),
-                        icon: Image.asset(
-                          'assets/images/google_logo.png',
+                        icon: SvgPicture.network(
+                          'https://thesvg.org/icons/google/default.svg',
                           width: 20,
                           height: 20,
-                          errorBuilder: (context, error, stackTrace) {
-                            return const Icon(Icons.g_mobiledata, size: 20, color: Color(0xFF1f2937));
-                          },
                         ),
                         label: Text(
                           'Continue with Google',
@@ -940,19 +1011,47 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
                     fontWeight: FontWeight.w400,
                     color: const Color(0xFF9ca3af),
                   ),
-                  children: const [
-                    TextSpan(text: 'By signing up, you agree to our '),
-                    TextSpan(
-                      text: 'Terms',
-                      style: TextStyle(
-                        color: Color(0xFFa5b4fc),
+                  children: [
+                    const TextSpan(text: 'By signing up, you agree to our '),
+                    WidgetSpan(
+                      alignment: PlaceholderAlignment.middle,
+                      child: GestureDetector(
+                        onTap: () {
+                          if (context.mounted) {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const TermsOfServicePage()),
+                            );
+                          }
+                        },
+                        child: Text(
+                          'Terms',
+                          style: GoogleFonts.lexend(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w400,
+                            color: Color(0xFFa5b4fc),
+                          ),
+                        ),
                       ),
                     ),
-                    TextSpan(text: ' & '),
-                    TextSpan(
-                      text: 'Privacy Policy',
-                      style: TextStyle(
-                        color: Color(0xFFa5b4fc),
+                    const TextSpan(text: ' & '),
+                    WidgetSpan(
+                      alignment: PlaceholderAlignment.middle,
+                      child: GestureDetector(
+                        onTap: () {
+                          if (context.mounted) {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const PrivacyPolicyPage()),
+                            );
+                          }
+                        },
+                        child: Text(
+                          'Privacy Policy',
+                          style: GoogleFonts.lexend(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w400,
+                            color: Color(0xFFa5b4fc),
+                          ),
+                        ),
                       ),
                     ),
                   ],

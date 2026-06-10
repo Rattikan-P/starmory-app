@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/services/preference_service.dart';
@@ -9,12 +10,15 @@ import '../../utils/snackbar_helper.dart';
 import 'auth/otp_verification_page.dart';
 import 'language_selection_page.dart';
 import 'main_navigation.dart';
+import 'privacy_policy_page.dart';
+import 'terms_of_service_page.dart';
 import '../providers/providers.dart' show hiveServiceProvider, vocabularySyncServiceProvider;
 
 final onboardingServiceProvider = Provider<PreferenceService>((ref) => PreferenceService());
 
 class OnboardingPage extends ConsumerStatefulWidget {
-  const OnboardingPage({super.key});
+  final bool skipToAuth;
+  const OnboardingPage({super.key, this.skipToAuth = false});
 
   @override
   ConsumerState<OnboardingPage> createState() => _OnboardingPageState();
@@ -50,6 +54,14 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
   @override
   void initState() {
     super.initState();
+
+    // Skip to auth bottom sheet immediately if requested (for logout)
+    if (widget.skipToAuth) {
+      Future.microtask(() => _showAuthBottomSheet());
+      return;
+    }
+
+    // Normal onboarding animations
     for (int i = 0; i < 3; i++) {
       _starControllers.add(AnimationController(
         duration: Duration(milliseconds: 2500 + i * 500),
@@ -96,6 +108,8 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
 
       if (!success) {
         if (mounted) {
+          // Close bottom sheet first, then show SnackBar
+          Navigator.of(context).pop();
           SnackBarHelper.error(context, AlertMessages.loginFailed);
         }
         return;
@@ -107,6 +121,8 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
       final userId = client.auth.currentUser?.id;
       if (userId == null) {
         if (mounted) {
+          // Close bottom sheet first, then show SnackBar
+          Navigator.of(context).pop();
           SnackBarHelper.error(context, AlertMessages.loginFailed);
         }
         return;
@@ -191,6 +207,8 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
       }
     } catch (e) {
       if (mounted) {
+        // Close bottom sheet first, then show SnackBar
+        Navigator.of(context).pop();
         SnackBarHelper.error(context, AlertMessages.loginFailed);
       }
     }
@@ -358,7 +376,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    const Color(0xFFFCD34D).withValues(alpha: 0.5),
+                    const Color(0xFFFCD34D).withValues(alpha: 0.35),
                     const Color(0x00FCD34D),
                   ],
                 ),
@@ -1031,13 +1049,10 @@ class _AuthOptionsSheet extends StatelessWidget {
                 ),
                 padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
               ),
-              icon: Image.asset(
-                'assets/images/google_logo.png',
+              icon: SvgPicture.network(
+                'https://thesvg.org/icons/google/default.svg',
                 width: 20,
                 height: 20,
-                errorBuilder: (context, error, stackTrace) {
-                  return const Icon(Icons.g_mobiledata, size: 20, color: Color(0xFF1f2937));
-                },
               ),
               label: Text(
                 'Continue with Google',
@@ -1059,19 +1074,47 @@ class _AuthOptionsSheet extends StatelessWidget {
                 fontWeight: FontWeight.w400,
                 color: const Color(0xFF9ca3af),
               ),
-              children: const [
-                TextSpan(text: 'By signing up, you agree to our '),
-                TextSpan(
-                  text: 'Terms',
-                  style: TextStyle(
-                    color: Color(0xFFa5b4fc),
+              children: [
+                const TextSpan(text: 'By signing up, you agree to our '),
+                WidgetSpan(
+                  alignment: PlaceholderAlignment.middle,
+                  child: GestureDetector(
+                    onTap: () {
+                      if (context.mounted) {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => const TermsOfServicePage()),
+                        );
+                      }
+                    },
+                    child: Text(
+                      'Terms',
+                      style: GoogleFonts.lexend(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
+                        color: Color(0xFFa5b4fc),
+                      ),
+                    ),
                   ),
                 ),
-                TextSpan(text: ' & '),
-                TextSpan(
-                  text: 'Privacy Policy',
-                  style: TextStyle(
-                    color: Color(0xFFa5b4fc),
+                const TextSpan(text: ' & '),
+                WidgetSpan(
+                  alignment: PlaceholderAlignment.middle,
+                  child: GestureDetector(
+                    onTap: () {
+                      if (context.mounted) {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => const PrivacyPolicyPage()),
+                        );
+                      }
+                    },
+                    child: Text(
+                      'Privacy Policy',
+                      style: GoogleFonts.lexend(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
+                        color: Color(0xFFa5b4fc),
+                      ),
+                    ),
                   ),
                 ),
               ],
