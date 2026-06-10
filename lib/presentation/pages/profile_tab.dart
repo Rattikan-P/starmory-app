@@ -10,6 +10,9 @@ import '../providers/auth_provider.dart' as auth;
 import '../providers/streak_provider.dart';
 import '../providers/providers.dart';
 import '../../data/services/auth_service.dart';
+import '../../data/models/user_model.dart';
+import '../../data/models/vocabulary_model.dart';
+import '../../utils/csv_export_helper.dart';
 import 'onboarding_page.dart';
 import 'language_selection_page.dart';
 import 'english_variant_page.dart';
@@ -1054,8 +1057,26 @@ class _GuestDataSection extends ConsumerWidget {
 
               if (confirmed == true && context.mounted) {
                 try {
+                  // Clear all vocabulary
+                  final hiveService = ref.read(hiveServiceProvider);
+                  await hiveService.clearAllVocabulary();
+
+                  // Reset streak
+                  await ref.read(streakProvider.notifier).reset();
+
+                  // Clear guest data (preferences but keep language level/variant)
                   final preferenceService = ref.read(onboardingServiceProvider);
                   await preferenceService.clearGuestData();
+
+                  // Update UserModel to reset progress (keep preferences)
+                  final userNotifier = ref.read(userStateProvider.notifier);
+                  final currentUser = ref.read(userStateProvider).user;
+                  if (currentUser != null && currentUser.isGuest) {
+                    final updatedUser = UserModel.createGuest().copyWith(
+                      preferences: currentUser.preferences, // Keep language level/variant
+                    );
+                    await userNotifier.updateUser(updatedUser);
+                  }
 
                   if (context.mounted) {
                     SnackBarHelper.success(context, 'Learning progress reset');
@@ -1076,8 +1097,34 @@ class _GuestDataSection extends ConsumerWidget {
             title: 'Export Vocabulary',
             subtitle: 'Download your vocabulary list',
             showDivider: false,
-            onTap: () {
-              // TODO: Export vocabulary as CSV
+            onTap: () async {
+              print('🔘 Export Vocabulary button pressed');
+              try {
+                final hiveService = ref.read(hiveServiceProvider);
+                print('📦 Getting vocabulary list...');
+                final vocabularyList = await hiveService.getAllVocabulary();
+                print('📦 Got ${vocabularyList.length} vocabularies');
+
+                if (vocabularyList.isEmpty) {
+                  print('⚠️ No vocabulary to export');
+                  if (context.mounted) {
+                    SnackBarHelper.info(context, 'No vocabulary to export yet');
+                  }
+                  return;
+                }
+
+                print('📤 Starting CSV export...');
+                await CsvExportHelper.exportVocabularyToCsv(vocabularyList);
+
+                if (context.mounted) {
+                  SnackBarHelper.success(context, 'Vocabulary exported (${vocabularyList.length} words)');
+                }
+              } catch (e) {
+                print('❌ Export error: $e');
+                if (context.mounted) {
+                  SnackBarHelper.error(context, 'Failed to export vocabulary');
+                }
+              }
             },
             iconBgColor: const Color(0xFFF3F4F6), // 🩶 Soft Gray (Minimal)
           ),
@@ -1477,8 +1524,44 @@ class _DataSection extends ConsumerWidget {
             title: 'Export Vocabulary',
             subtitle: 'Download your vocabulary list',
             showDivider: true,
-            onTap: () {
-              // TODO: Export vocabulary as CSV
+            onTap: () async {
+              print('🔘 Export Vocabulary button pressed (registered)');
+              try {
+                List<VocabularyModel> vocabularyList;
+                final vocabSyncService = ref.read(vocabularySyncServiceProvider);
+                final hiveService = ref.read(hiveServiceProvider);
+
+                print('📦 Fetching vocabulary from cloud...');
+                vocabularyList = await vocabSyncService.fetchFromCloud();
+                print('📦 Got ${vocabularyList.length} vocabularies from cloud');
+
+                // Fallback to local if cloud is empty
+                if (vocabularyList.isEmpty) {
+                  print('☁️ Cloud empty, trying local...');
+                  vocabularyList = await hiveService.getAllVocabulary();
+                  print('📦 Got ${vocabularyList.length} vocabularies from local');
+                }
+
+                if (vocabularyList.isEmpty) {
+                  print('⚠️ No vocabulary to export');
+                  if (context.mounted) {
+                    SnackBarHelper.info(context, 'No vocabulary to export yet');
+                  }
+                  return;
+                }
+
+                print('📤 Starting CSV export...');
+                await CsvExportHelper.exportVocabularyToCsv(vocabularyList);
+
+                if (context.mounted) {
+                  SnackBarHelper.success(context, 'Vocabulary exported (${vocabularyList.length} words)');
+                }
+              } catch (e) {
+                print('❌ Export error: $e');
+                if (context.mounted) {
+                  SnackBarHelper.error(context, 'Failed to export vocabulary');
+                }
+              }
             },
             iconBgColor: const Color(0xFFF3F4F6), // 🩶 Soft Gray (Minimal)
           ),

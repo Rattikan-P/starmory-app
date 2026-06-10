@@ -68,7 +68,9 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
         vsync: this,
       ));
       Future.delayed(Duration(milliseconds: i * 1200), () {
-        if (mounted) _starControllers[i].repeat();
+        if (mounted) {
+          _starControllers[i].repeat();
+        }
       });
     }
   }
