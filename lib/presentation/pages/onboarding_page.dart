@@ -9,6 +9,7 @@ import '../../utils/snackbar_helper.dart';
 import 'auth/otp_verification_page.dart';
 import 'language_selection_page.dart';
 import 'main_navigation.dart';
+import '../providers/providers.dart' show hiveServiceProvider, vocabularySyncServiceProvider;
 
 final onboardingServiceProvider = Provider<PreferenceService>((ref) => PreferenceService());
 
@@ -143,6 +144,33 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
       } else {
         await prefService.setOnboardingCompleted(true);
         await prefService.setGuestMode(false);
+
+        // Auto sync local vocabularies to cloud (for existing users)
+        try {
+          print('🔄 [Onboarding Google] Starting auto sync...');
+          final hiveService = ref.read(hiveServiceProvider);
+          final vocabSyncService = ref.read(vocabularySyncServiceProvider);
+          final localVocabs = await hiveService.getAllVocabulary();
+
+          print('📦 [Onboarding Google] Found ${localVocabs.length} local vocabularies');
+
+          if (localVocabs.isNotEmpty) {
+            // Use mergeWithCloud to avoid duplicates
+            print('☁️ [Onboarding Google] Merging with cloud...');
+            final syncedVocabs = await vocabSyncService.mergeWithCloud(localVocabs);
+            // Update local storage with merged vocabularies
+            await hiveService.clearAllVocabulary();
+            for (final vocab in syncedVocabs) {
+              await hiveService.saveVocabulary(vocab);
+            }
+            print('✅ [Onboarding Google] Sync complete! Total vocabularies: ${syncedVocabs.length}');
+          } else {
+            print('ℹ️ [Onboarding Google] No local vocabularies to sync');
+          }
+        } catch (e) {
+          print('❌ [Onboarding Google] Sync failed: $e');
+          // Sync failed - continue with login (local vocabularies still available)
+        }
 
         if (!mounted) return;
 

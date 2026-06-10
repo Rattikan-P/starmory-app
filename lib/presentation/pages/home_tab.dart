@@ -424,7 +424,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
                 child: GestureDetector(
                   onTap: () => _pickImage(ImageSource.camera),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    padding: const EdgeInsets.symmetric(vertical: 22),
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
                         begin: Alignment.topLeft,
@@ -470,7 +470,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
                 child: GestureDetector(
                   onTap: () => _pickImage(ImageSource.gallery),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    padding: const EdgeInsets.symmetric(vertical: 22),
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
                         begin: Alignment.topLeft,
