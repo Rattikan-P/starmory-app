@@ -279,9 +279,27 @@ class UserNotifier extends StateNotifier<UserState> {
           print('🔄 User logged in but local is guest, converting...');
           await _convertToRegisteredUser(supabaseSession.user);
         } else if (supabaseSession == null && !user.isGuest) {
-          // User logged out but local is registered - create guest
-          print('🔄 User logged out but local is registered, creating guest...');
-          await logout();
+          // User has local registered data but no Supabase session
+          // Try to refresh session first (token might be expired)
+          print('🔄 No Supabase session but local user is registered, attempting refresh...');
+          try {
+            await Supabase.instance.client.auth.refreshSession();
+            print('✅ Session refreshed successfully');
+            // After refresh, reload user to get updated data
+            final newSession = Supabase.instance.client.auth.currentSession;
+            if (newSession != null && newSession.user != null) {
+              await _convertToRegisteredUser(newSession.user);
+            } else {
+              // Refresh succeeded but no user data - should not happen, fallback to logout
+              print('⚠️ Refresh succeeded but no user data, logging out...');
+              await logout();
+            }
+          } catch (e) {
+            // Token truly expired or invalid - clear local data
+            print('❌ Session refresh failed: $e');
+            print('🔄 Clearing local data - please log in again');
+            await logout();
+          }
         } else {
           state = UserState(user: user);
         }

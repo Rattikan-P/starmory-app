@@ -224,6 +224,7 @@ class PreferenceService {
   }
 
   // Update guest streak after activity
+  // Logic matches the database trigger: update_streak_after_activity()
   Future<void> updateGuestStreakAfterActivity() async {
     final today = DateTime.now().toIso8601String().split('T')[0];
     final lastActivity = await getGuestLastActivityDate();
@@ -231,12 +232,10 @@ class PreferenceService {
     int currentStreak = await getGuestCurrentStreak();
     int shields = await getGuestShields();
     int longestStreak = await getGuestLongestStreak();
-    int consecutiveDays = await getGuestConsecutiveDays();
 
     // First activity ever
     if (lastActivity == null) {
       currentStreak = 1;
-      consecutiveDays = 1;
     }
     // Same day - do nothing
     else if (lastActivity == today) {
@@ -245,12 +244,10 @@ class PreferenceService {
     // Consecutive day (yesterday)
     else if (_isYesterday(lastActivity)) {
       currentStreak++;
-      consecutiveDays++;
 
-      // Earn shield every 7 consecutive days
-      if (consecutiveDays % 7 == 0) {
+      // Earn shield every 7 days (matches trigger logic: current_streak % 7 == 0)
+      if (currentStreak % 7 == 0) {
         shields++;
-        consecutiveDays = 0; // Reset for next shield cycle
       }
 
       // Update longest streak
@@ -265,7 +262,6 @@ class PreferenceService {
       } else {
         // No shields - reset streak
         currentStreak = 1;
-        consecutiveDays = 1;
       }
     }
 
@@ -273,7 +269,6 @@ class PreferenceService {
     await setGuestCurrentStreak(currentStreak);
     await setGuestShields(shields);
     await setGuestLongestStreak(longestStreak);
-    await setGuestConsecutiveDays(consecutiveDays);
     await setGuestLastActivityDate(today);
   }
 

@@ -3,10 +3,19 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../data/models/vocabulary_model.dart';
 
+/// Result of CSV export operation
+enum CsvExportResult {
+  success,
+  dismissed,
+  unavailable,
+  error,
+}
+
 /// Helper class for exporting vocabulary data to CSV format
 class CsvExportHelper {
   /// Export vocabulary list to CSV file and share it
-  static Future<void> exportVocabularyToCsv(List<VocabularyModel> vocabularyList) async {
+  /// Returns ShareResult to track if user successfully shared or dismissed
+  static Future<ShareResult> exportVocabularyToCsv(List<VocabularyModel> vocabularyList) async {
     if (vocabularyList.isEmpty) {
       throw Exception('No vocabulary to export');
     }
@@ -35,14 +44,16 @@ class CsvExportHelper {
       final savedContent = await file.readAsString();
       print('📄 Saved file content (${savedContent.length} chars)');
 
-      // Share the file
+      // Share the file and get result
       print('📤 Opening share dialog...');
-      await Share.shareXFiles(
+      final result = await Share.shareXFiles(
         [XFile(file.path)],
         text: 'My vocabulary list from Starmory (${vocabularyList.length} words)',
         subject: 'Starmory Vocabulary Export',
       );
-      print('✅ Share dialog opened');
+      print('✅ Share dialog closed - status: ${result.status}');
+
+      return result;
     } catch (e) {
       print('❌ Export failed: $e');
       throw Exception('Failed to export vocabulary: ${e.toString()}');

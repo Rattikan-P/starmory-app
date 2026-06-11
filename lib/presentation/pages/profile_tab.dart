@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../constants/app_defaults.dart';
 import '../../utils/snackbar_helper.dart';
 import '../providers/auth_provider.dart' as auth;
@@ -75,31 +76,6 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
 
 // ==================== STREAK SECTION ====================
 
-// Debug button widget for testing
-class _DebugButton extends StatelessWidget {
-  final String label;
-  final VoidCallback onTap;
-
-  const _DebugButton({required this.label, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return ElevatedButton(
-      onPressed: onTap,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFF8B5CF6),
-        foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      ),
-      child: Text(
-        label,
-        style: GoogleFonts.lexend(fontSize: 12, fontWeight: FontWeight.w500),
-      ),
-    );
-  }
-}
-
 class _StreakSection extends ConsumerWidget {
   const _StreakSection();
 
@@ -123,9 +99,7 @@ class _StreakSection extends ConsumerWidget {
       return 'Amazing! Legendary streak! 🏆';
     }
 
-    return GestureDetector(
-      onLongPress: () => _showStreakDebugDialog(context, ref),
-      child: Container(
+    return Container(
         margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         decoration: BoxDecoration(
           color: Colors.white,
@@ -315,7 +289,6 @@ class _StreakSection extends ConsumerWidget {
             ),
           ],
         ),
-      ),
     );
   }
 
@@ -503,170 +476,6 @@ class _StreakSection extends ConsumerWidget {
           ),
         ),
       ],
-    );
-  }
-
-  void _showStreakDebugDialog(BuildContext context, WidgetRef ref) async {
-    final prefService = ref.read(preferenceServiceProvider);
-    final isGuest = await prefService.isGuestMode();
-    final streakData = ref.read(streakProvider);
-    final currentStreak = streakData?.currentStreak ?? 0;
-    final shields = streakData?.shieldsAvailable ?? 0;
-
-    if (!context.mounted) return;
-
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-        child: Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Colors.white, Color(0xFFf8f9ff)],
-            ),
-            borderRadius: BorderRadius.circular(28),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF8b5cf6).withValues(alpha: 0.15),
-                blurRadius: 30,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xFF8B5CF6), Color(0xFF60a5fa)],
-                  ),
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF8B5CF6).withValues(alpha: 0.3),
-                      blurRadius: 20,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.build_rounded,
-                  color: Colors.white,
-                  size: 40,
-                ),
-              ),
-              const SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    'Debug Controls',
-                    style: GoogleFonts.lexend(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF1f2937),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: isGuest
-                          ? const Color(0xFFF59E0B).withValues(alpha: 0.15)
-                          : const Color(0xFF10B981).withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      isGuest ? 'Guest 🟡' : 'Cloud 🟢',
-                      style: GoogleFonts.lexend(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: isGuest
-                            ? const Color(0xFFF59E0B)
-                            : const Color(0xFF10B981),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Streak: $currentStreak | Shields: $shields',
-                style: GoogleFonts.lexend(
-                  fontSize: 14,
-                  color: const Color(0xFF6B7280),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _DebugButton(
-                    label: 'Set 0',
-                    onTap: () async {
-                      final notifier = ref.read(streakProvider.notifier);
-                      await notifier.setStreak(0);
-                      if (context.mounted) Navigator.pop(context);
-                    },
-                  ),
-                  _DebugButton(
-                    label: 'Set 7',
-                    onTap: () async {
-                      final notifier = ref.read(streakProvider.notifier);
-                      await notifier.setStreak(7);
-                      if (context.mounted) Navigator.pop(context);
-                    },
-                  ),
-                  _DebugButton(
-                    label: 'Set 30',
-                    onTap: () async {
-                      final notifier = ref.read(streakProvider.notifier);
-                      await notifier.setStreak(30);
-                      if (context.mounted) Navigator.pop(context);
-                    },
-                  ),
-                  _DebugButton(
-                    label: 'Add Shield',
-                    onTap: () async {
-                      final notifier = ref.read(streakProvider.notifier);
-                      await notifier.addShields(1);
-                      if (context.mounted) Navigator.pop(context);
-                    },
-                  ),
-                  _DebugButton(
-                    label: 'Reset',
-                    onTap: () async {
-                      final notifier = ref.read(streakProvider.notifier);
-                      await notifier.reset();
-                      if (context.mounted) Navigator.pop(context);
-                    },
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Long-press streak section to open',
-                style: GoogleFonts.lexend(
-                  fontSize: 11,
-                  color: const Color(0xFF9CA3AF),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }
@@ -1067,10 +876,13 @@ class _GuestDataSection extends ConsumerWidget {
                 }
 
                 print('📤 Starting CSV export...');
-                await CsvExportHelper.exportVocabularyToCsv(vocabularyList);
+                final result = await CsvExportHelper.exportVocabularyToCsv(vocabularyList);
 
-                if (context.mounted) {
-                  SnackBarHelper.success(context, 'Vocabulary exported (${vocabularyList.length} words)');
+                // Only show success message if user actually shared (not dismissed)
+                if (result.status == ShareResultStatus.success) {
+                  if (context.mounted) {
+                    SnackBarHelper.success(context, 'Vocabulary exported (${vocabularyList.length} words)');
+                  }
                 }
               } catch (e) {
                 print('❌ Export error: $e');
@@ -1504,10 +1316,13 @@ class _DataSection extends ConsumerWidget {
                 }
 
                 print('📤 Starting CSV export...');
-                await CsvExportHelper.exportVocabularyToCsv(vocabularyList);
+                final result = await CsvExportHelper.exportVocabularyToCsv(vocabularyList);
 
-                if (context.mounted) {
-                  SnackBarHelper.success(context, 'Vocabulary exported (${vocabularyList.length} words)');
+                // Only show success message if user actually shared (not dismissed)
+                if (result.status == ShareResultStatus.success) {
+                  if (context.mounted) {
+                    SnackBarHelper.success(context, 'Vocabulary exported (${vocabularyList.length} words)');
+                  }
                 }
               } catch (e) {
                 print('❌ Export error: $e');

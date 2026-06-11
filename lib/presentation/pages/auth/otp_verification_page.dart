@@ -167,26 +167,6 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
                 hiveService: hiveService,
                 vocabularySyncService: vocabSyncService,
               );
-
-              // Refresh UserModel with merged preferences from Supabase
-              final userNotifier = ref.read(userStateProvider.notifier);
-              final currentUser = ref.read(userStateProvider).user;
-              if (currentUser != null) {
-                // Create updated user with merged preferences from Supabase metadata
-                final supabaseUser = Supabase.instance.client.auth.currentUser;
-                final mergedLevel = supabaseUser?.userMetadata?['language_level'] as String?;
-                final mergedVariant = supabaseUser?.userMetadata?['english_variant'] as String?;
-
-                final updatedUser = currentUser.copyWith(
-                  preferences: {
-                    ...currentUser.preferences,
-                    'defaultCefrLevel': mergedLevel ?? currentUser.preferences['defaultCefrLevel'],
-                    'languageVariant': mergedVariant ?? currentUser.preferences['languageVariant'],
-                  },
-                );
-                await userNotifier.updateUser(updatedUser);
-                print('✅ [OTP Login] Refreshed UserModel with merged preferences: level=$mergedLevel, variant=$mergedVariant');
-              }
             } catch (e) {
               // E3: Service unavailable when merging preferences
               setState(() => _isLoading = false);
@@ -196,7 +176,31 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
               return; // Stay on page
             }
           }
-          // ถ้า shouldMerge == false → ใช้ข้อมูลเดิม (ไม่ทำอะไร)
+
+          // ทั้ง 2 กรณี (merge หรือ keep old) ต้องอัปเดต UserModel ให้ sync กับ Supabase
+          try {
+            final userNotifier = ref.read(userStateProvider.notifier);
+            final currentUser = ref.read(userStateProvider).user;
+            if (currentUser != null) {
+              // ดึงค่า preferences ล่าสุดจาก Supabase metadata
+              final supabaseUser = Supabase.instance.client.auth.currentUser;
+              final cloudLevel = supabaseUser?.userMetadata?['language_level'] as String?;
+              final cloudVariant = supabaseUser?.userMetadata?['english_variant'] as String?;
+
+              final updatedUser = currentUser.copyWith(
+                preferences: {
+                  ...currentUser.preferences,
+                  'defaultCefrLevel': cloudLevel ?? currentUser.preferences['defaultCefrLevel'],
+                  'languageVariant': cloudVariant ?? currentUser.preferences['languageVariant'],
+                },
+              );
+              await userNotifier.updateUser(updatedUser);
+              print('✅ [OTP Login] Synced UserModel with cloud preferences: level=$cloudLevel, variant=$cloudVariant (merged: $shouldMerge)');
+            }
+          } catch (e) {
+            // ไม่ต้องขัดจังหวะ login flow แค่ log error
+            print('⚠️ [OTP Login] Failed to sync UserModel: $e');
+          }
         }
       } else if (isNewUser && user != null) {
         // New user flow
