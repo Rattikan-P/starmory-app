@@ -167,8 +167,8 @@ class UserNotifier extends StateNotifier<UserState> {
         break;
 
       case AuthChangeEvent.userUpdated:
-        print('🔄 User updated');
-        // Refresh user data if needed
+        print('🔄 User updated - refreshing preferences from Supabase');
+        await _refreshUserFromSupabase();
         break;
 
       default:
@@ -439,6 +439,56 @@ class UserNotifier extends StateNotifier<UserState> {
   }
 
   bool get canGenerate => state.user?.canGenerate ?? false;
+
+  /// Refresh user preferences from Supabase when user metadata is updated
+  Future<void> _refreshUserFromSupabase() async {
+    try {
+      final currentUser = state.user;
+      if (currentUser == null || currentUser.isGuest) {
+        print('⏭️ Skipping refresh - user is null or guest');
+        return;
+      }
+
+      final client = Supabase.instance.client;
+      final supabaseUser = client.auth.currentUser;
+      if (supabaseUser == null) {
+        print('⚠️ No Supabase user found');
+        return;
+      }
+
+      // Fetch fresh preferences from Supabase auth metadata
+      final languageLevel = supabaseUser.userMetadata?['language_level'] as String?;
+      final englishVariant = supabaseUser.userMetadata?['english_variant'] as String?;
+
+      print('📥 Refreshing preferences: languageLevel=$languageLevel, englishVariant=$englishVariant');
+
+      // Update UserModel with new preferences
+      // Spread old preferences first, then override with new values
+      final updatedUser = currentUser.copyWith(
+        preferences: {
+          // Preserve other preferences
+          ...currentUser.preferences,
+          // Override with fresh values from Supabase
+          'defaultCefrLevel': languageLevel ?? currentUser.preferences['defaultCefrLevel'] ?? 'A1',
+          'languageVariant': englishVariant ?? currentUser.preferences['languageVariant'] ?? 'US',
+        },
+      );
+
+      print('📝 OLD preferences: ${currentUser.preferences}');
+      print('📝 NEW preferences: ${updatedUser.preferences}');
+      print('📝 OLD hash: ${currentUser.hashCode}');
+      print('📝 NEW hash: ${updatedUser.hashCode}');
+
+      await _hiveService.saveUser(updatedUser);
+      state = UserState(user: updatedUser);
+
+      print('✅ User preferences updated successfully');
+      print('✅ State hash after update: ${state.hashCode}');
+    } catch (e, stackTrace) {
+      print('❌ Error refreshing user from Supabase: $e');
+      print('📚 Stack trace: $stackTrace');
+    }
+  }
 
   @override
   void dispose() {

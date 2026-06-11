@@ -222,6 +222,47 @@ class StreakNotifier extends StateNotifier<StreakData?> {
 
     return success;
   }
+
+  /// Check if user has already acquired vocabulary today
+  /// Returns true if last activity date is today
+  Future<bool> hasAcquiredVocabularyToday() async {
+    final today = DateTime.now().toIso8601String().split('T')[0];
+    final streakData = state;
+
+    if (streakData?.lastActivityDate == null) return false;
+
+    final lastActivityStr = streakData!.lastActivityDate!.toIso8601String().split('T')[0];
+    return lastActivityStr == today;
+  }
+
+  /// Record vocabulary acquisition and update streak if not already done today
+  /// Returns true if streak was updated (first vocabulary of the day)
+  Future<bool> recordVocabularyAcquired() async {
+    // Check if already acquired vocabulary today
+    if (await hasAcquiredVocabularyToday()) {
+      // Already updated today, no need to update again
+      return false;
+    }
+
+    // First vocabulary of the day - update streak
+    return await updateAfterActivity();
+  }
+
+  /// Record review activity - for future review feature
+  /// This will update streak when user reviews vocabulary (not implemented yet)
+  /// TODO: Implement when review feature is added
+  Future<bool> recordReviewActivity() async {
+    // Review will also count towards streak
+    // Uses same logic as vocabulary acquisition
+    return await recordVocabularyAcquired();
+  }
+
+  /// Record any learning activity (new word or review)
+  /// This is a unified method that can be used for both activities
+  Future<bool> recordLearningActivity() async {
+    // Both new words and reviews count towards streak
+    return await recordVocabularyAcquired();
+  }
 }
 
 /// Streak notifier provider

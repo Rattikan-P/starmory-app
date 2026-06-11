@@ -152,6 +152,9 @@ class AuthService {
         }..removeWhere((key, value) => value == null),
       ),
     );
+
+    // ⭐ IMPORTANT: Refresh session to get updated metadata
+    await _client.auth.refreshSession();
   }
 
   // Get user's accepted terms version from Supabase
@@ -229,6 +232,9 @@ class AuthService {
         },
       ),
     );
+
+    // ⭐ IMPORTANT: Refresh session to get updated metadata
+    await _client.auth.refreshSession();
 
     // Merge vocabulary if services are provided
     if (hiveService != null && vocabularySyncService != null) {

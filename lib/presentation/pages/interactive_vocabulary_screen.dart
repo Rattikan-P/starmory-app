@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import '../providers/providers.dart';
+import '../providers/streak_provider.dart' show streakProvider;
 import '../../data/models/vocabulary_model.dart';
 import '../../data/services/gemini_service.dart';
 import 'generation_loading_screen.dart';
@@ -1830,6 +1831,10 @@ class _InteractiveVocabularyScreenState
       ref.read(vocabularyStateProvider.notifier).addVocabulary(vocabulary);
     }
 
+    // Update streak when saving vocabulary (only once per day)
+    final streakNotifier = ref.read(streakProvider.notifier);
+    await streakNotifier.recordVocabularyAcquired();
+
     if (!mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -1839,6 +1844,7 @@ class _InteractiveVocabularyScreenState
       ),
     );
 
+    if (!mounted) return;
     Navigator.popUntil(context, (route) => route.isFirst);
   }
 

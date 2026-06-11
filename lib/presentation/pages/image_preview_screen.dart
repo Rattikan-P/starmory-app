@@ -6,6 +6,7 @@ import '../providers/providers.dart';
 import '../../core/utils/image_clarity_checker.dart';
 import '../../core/utils/quota_manager.dart';
 import '../../core/utils/internet_connection_checker.dart';
+import '../../constants/app_defaults.dart';
 import 'generation_loading_screen.dart';
 import 'auth/account_method_page.dart';
 
@@ -296,9 +297,9 @@ class _ImagePreviewScreenState extends ConsumerState<ImagePreviewScreen> {
       final user = ref.read(currentUserProvider);
       debugPrint('🔍 User preferences: ${user?.preferences}');
       final defaultCefrLevel =
-          user?.preferences['defaultCefrLevel'] as String? ?? 'A1';
+          user?.preferences['defaultCefrLevel'] as String? ?? AppDefaults.defaultLanguageLevel;
       final defaultEnglishVariant =
-          user?.preferences['languageVariant'] as String? ?? 'US';
+          user?.preferences['languageVariant'] as String? ?? AppDefaults.defaultEnglishVariant;
       debugPrint('📤 Using CEFR: $defaultCefrLevel, English Variant: $defaultEnglishVariant');
       final defaultCommunicativeFunction = 'Indicative'; // Default for now
 

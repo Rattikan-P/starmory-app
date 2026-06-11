@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../providers/providers.dart';
+import '../providers/providers.dart' show vocabularyStateProvider;
+import '../providers/streak_provider.dart' show streakProvider;
 import '../../data/models/vocabulary_model.dart';
 
 /// Vocabulary Result Screen - Display generated vocabulary
@@ -228,9 +229,15 @@ class VocabularyResultScreen extends ConsumerWidget {
     );
   }
 
-  void _saveVocabulary(BuildContext context, WidgetRef ref) {
+  void _saveVocabulary(BuildContext context, WidgetRef ref) async {
     final notifier = ref.read(vocabularyStateProvider.notifier);
     notifier.addVocabulary(vocabulary);
+
+    // Update streak when saving vocabulary (only once per day)
+    final streakNotifier = ref.read(streakProvider.notifier);
+    await streakNotifier.recordVocabularyAcquired();
+
+    if (!context.mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -247,6 +254,7 @@ class VocabularyResultScreen extends ConsumerWidget {
     );
 
     // Navigate back to home
+    if (!context.mounted) return;
     Navigator.popUntil(context, (route) => route.isFirst);
   }
 

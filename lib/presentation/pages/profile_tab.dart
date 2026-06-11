@@ -109,12 +109,19 @@ class _StreakSection extends ConsumerWidget {
     final currentStreak = streakData?.currentStreak ?? 0;
     final shields = streakData?.shieldsAvailable ?? 0;
 
-    final weekDays = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
     final consecutiveDays = streakData?.consecutiveDays ?? 0;
-    final completedDays = List.generate(7, (index) => index < consecutiveDays);
 
     // Calculate days until next shield
     final daysUntilShield = consecutiveDays == 0 ? 7 : 7 - consecutiveDays;
+
+    // Get motivation message based on streak
+    String getMotivationMessage() {
+      if (currentStreak == 0) return 'Start your streak today!';
+      if (currentStreak == 1) return 'Great start! Keep going!';
+      if (currentStreak < 7) return "You're doing great!";
+      if (currentStreak < 30) return 'You\'re on fire! 🔥';
+      return 'Amazing! Legendary streak! 🏆';
+    }
 
     return GestureDetector(
       onLongPress: () => _showStreakDebugDialog(context, ref),
@@ -170,194 +177,140 @@ class _StreakSection extends ConsumerWidget {
                     ),
                   ),
                   const Spacer(),
-                  // Status chips removed - UI is clean enough without them
+                  // Shield badge
+                  GestureDetector(
+                    onTap: () => _showShieldInfoDialog(context),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE2D1F9).withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text('🛡️', style: TextStyle(fontSize: 12)),
+                          const SizedBox(width: 4),
+                          Text(
+                            '$shields',
+                            style: GoogleFonts.lexend(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF8B5CF6),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          const Icon(
+                            Icons.info_outline,
+                            size: 12,
+                            color: Color(0xFF8B5CF6),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
-            // Main content: Streak number on left, Week days on right
+            // Main content: Streak number and motivation message
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
               child: Row(
                 children: [
-                  // Big streak number on left with fire icon
+                  // Big streak number with fire icon
+                  Icon(
+                    Icons.local_fire_department,
+                    size: 36,
+                    color: currentStreak == 0
+                        ? const Color(0xFF9CA3AF)
+                        : const Color(0xFFFF6B6B),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '$currentStreak',
+                    style: GoogleFonts.lexend(
+                      fontSize: 48,
+                      fontWeight: FontWeight.w700,
+                      color: currentStreak == 0
+                          ? const Color(0xFF9CA3AF)
+                          : const Color(0xFF1f2937),
+                      height: 1,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Icon(
-                              Icons.local_fire_department,
-                              size: 32,
-                              color: currentStreak == 0
-                                  ? const Color(
-                                      0xFF9CA3AF,
-                                    ) // Gray when streak is 0
-                                  : const Color(
-                                      0xFFFF6B6B,
-                                    ), // Orange/red normally
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '$currentStreak',
-                              style: GoogleFonts.lexend(
-                                fontSize: 42,
-                                fontWeight: FontWeight.w700,
-                                color: currentStreak == 0
-                                    ? const Color(
-                                        0xFF9CA3AF,
-                                      ) // Gray when streak is 0
-                                    : const Color(
-                                        0xFF1f2937,
-                                      ), // Dark gray normally
-                                height: 1,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
                         Text(
                           currentStreak == 1 ? 'day' : 'days',
                           style: GoogleFonts.lexend(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
                             color: const Color(0xFF9CA3AF),
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  // Week days circles on right - smaller size
-                  SizedBox(
-                    width: 180,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: List.generate(7, (index) {
-                        final isCompleted =
-                            index < completedDays.length &&
-                            completedDays[index];
-                        return Container(
-                          width: 22,
-                          height: 22,
-                          decoration: BoxDecoration(
-                            color: isCompleted
-                                ? const Color(0xFF4ADE80)
-                                : const Color(0xFFE5E7EB),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Center(
-                            child: Text(
-                              weekDays[index],
-                              style: GoogleFonts.lexend(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                                color: isCompleted
-                                    ? Colors.white
-                                    : const Color(0xFF9CA3AF),
-                              ),
-                            ),
-                          ),
-                        );
-                      }),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // Shield progress bar at bottom
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-              child: GestureDetector(
-                onTap: () => _showShieldInfoDialog(context),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            daysUntilShield == 0
-                                ? 'Shield earned! 🎉'
-                                : '$daysUntilShield ${daysUntilShield == 1 ? 'day' : 'days'} until next shield',
-                            style: GoogleFonts.lexend(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xFF6B7280),
-                            ),
+                        const SizedBox(height: 4),
+                        Text(
+                          getMotivationMessage(),
+                          style: GoogleFonts.lexend(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xFF6B7280),
                           ),
                         ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
+                        const SizedBox(height: 6),
+                        // Shield progress text
+                        Text(
+                          daysUntilShield == 0
+                              ? 'Shield earned! 🎉'
+                              : '$daysUntilShield ${daysUntilShield == 1 ? 'day' : 'days'} to next shield',
+                          style: GoogleFonts.lexend(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xFF8B5CF6),
                           ),
-                          decoration: BoxDecoration(
-                            color: const Color(
-                              0xFFE2D1F9,
-                            ).withValues(alpha: 0.5),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
+                        ),
+                        const SizedBox(height: 8),
+                        // Progress bar
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(6),
+                          child: Stack(
                             children: [
-                              const Text('🛡️', style: TextStyle(fontSize: 10)),
-                              SizedBox(width: 4),  
-                              Text(
-                                '$shields',
-                                style: GoogleFonts.lexend(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  color: const Color(0xFF8B5CF6),
+                              // Background
+                              Container(
+                                height: 6,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFE5E7EB),
+                                  borderRadius: BorderRadius.circular(6),
                                 ),
                               ),
-                              const SizedBox(width: 4),
-                              const Icon(
-                                Icons.info_outline,
-                                size: 12,
-                                color: Color(0xFF8B5CF6),
+                              // Progress
+                              FractionallySizedBox(
+                                widthFactor: consecutiveDays / 7,
+                                child: Container(
+                                  height: 6,
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      colors: [
+                                        Color(0xFF8B5CF6),
+                                        Color(0xFF60A5FA),
+                                      ],
+                                    ),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                ),
                               ),
                             ],
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
-                    // Progress bar
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Stack(
-                        children: [
-                          // Background
-                          Container(
-                            height: 8,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFE5E7EB),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          // Progress
-                          FractionallySizedBox(
-                            widthFactor: consecutiveDays / 7,
-                            child: Container(
-                              height: 8,
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [
-                                    Color(0xFF8B5CF6),
-                                    Color(0xFF60A5FA),
-                                  ],
-                                ),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ],

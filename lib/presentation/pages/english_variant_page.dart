@@ -483,6 +483,8 @@ class _EnglishVariantPageState extends ConsumerState<EnglishVariantPage> {
         await client.auth.updateUser(
           UserAttributes(data: {'english_variant': code}),
         );
+        // ⭐ IMPORTANT: Refresh session to get updated metadata
+        await client.auth.refreshSession();
         await client
             .from('users')
             .update({'english_variant': code})
@@ -619,6 +621,8 @@ class _EnglishVariantPageState extends ConsumerState<EnglishVariantPage> {
             },
           ),
         );
+        // ⭐ IMPORTANT: Refresh session to get updated metadata
+        await client.auth.refreshSession();
         await client.from('users').upsert({
           'id': userId,
           'language_level': widget.languageLevel ?? AppDefaults.defaultLanguageLevel,

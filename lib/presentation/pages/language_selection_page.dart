@@ -542,6 +542,8 @@ class _LanguageSelectionPageState extends ConsumerState<LanguageSelectionPage> {
         await client.auth.updateUser(
           UserAttributes(data: {'language_level': code}),
         );
+        // ⭐ IMPORTANT: Refresh session to get updated metadata
+        await client.auth.refreshSession();
         await client
             .from('users')
             .update({'language_level': code})
