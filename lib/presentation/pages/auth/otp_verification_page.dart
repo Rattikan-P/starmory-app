@@ -13,6 +13,7 @@ import '../main_navigation.dart';
 import '../onboarding_page.dart' show onboardingServiceProvider;
 import '../../../constants/app_defaults.dart';
 import '../../../presentation/providers/providers.dart' show hiveServiceProvider, vocabularySyncServiceProvider, userStateProvider;
+import '../../../presentation/providers/streak_provider.dart' show streakProvider;
 import '../../../data/models/user_model.dart';
 
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
@@ -201,6 +202,21 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
             // ไม่ต้องขัดจังหวะ login flow แค่ log error
             print('⚠️ [OTP Login] Failed to sync UserModel: $e');
           }
+
+          // Migrate guest streak to cloud (ทั้ง 2 กรณี merge และ keep old)
+          try {
+            print('🔄 [OTP Login] Migrating guest streak...');
+            final streakNotifier = ref.read(streakProvider.notifier);
+            final migrated = await streakNotifier.migrateGuestStreakToCloud();
+            if (migrated) {
+              print('✅ [OTP Login] Streak migrated successfully (guest: $shouldMerge)');
+            } else {
+              print('ℹ️ [OTP Login] No streak data to migrate');
+            }
+          } catch (e) {
+            // Streak migration failed - continue with login
+            print('⚠️ [OTP Login] Streak migration failed: $e');
+          }
         }
       } else if (isNewUser && user != null) {
         // New user flow
@@ -237,6 +253,21 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
             } catch (e) {
               // Upload failed - local vocabularies preserved
               print('❌ [OTP Login] Upload failed: $e');
+            }
+
+            // Migrate guest streak to cloud
+            try {
+              print('🔄 [OTP Login] Migrating guest streak...');
+              final streakNotifier = ref.read(streakProvider.notifier);
+              final migrated = await streakNotifier.migrateGuestStreakToCloud();
+              if (migrated) {
+                print('✅ [OTP Login] Streak migrated successfully');
+              } else {
+                print('ℹ️ [OTP Login] No streak data to migrate');
+              }
+            } catch (e) {
+              // Streak migration failed - continue with login
+              print('⚠️ [OTP Login] Streak migration failed: $e');
             }
           } catch (e) {
             // E3: Service unavailable when saving preferences

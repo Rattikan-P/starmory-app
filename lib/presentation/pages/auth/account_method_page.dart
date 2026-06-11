@@ -14,6 +14,7 @@ import '../terms_of_service_page.dart';
 import 'otp_verification_page.dart' show OtpVerificationPage;
 import '../../../constants/app_defaults.dart';
 import '../../../presentation/providers/providers.dart' show hiveServiceProvider, vocabularySyncServiceProvider, userStateProvider;
+import '../../../presentation/providers/streak_provider.dart' show streakProvider;
 
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
 
@@ -151,6 +152,21 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
             print('❌ [Google Login] Upload failed: $e');
           }
 
+          // Migrate guest streak to cloud
+          try {
+            print('🔄 [Google Login] Migrating guest streak...');
+            final streakNotifier = ref.read(streakProvider.notifier);
+            final migrated = await streakNotifier.migrateGuestStreakToCloud();
+            if (migrated) {
+              print('✅ [Google Login] Streak migrated successfully');
+            } else {
+              print('ℹ️ [Google Login] No streak data to migrate');
+            }
+          } catch (e) {
+            // Streak migration failed - continue with login
+            print('⚠️ [Google Login] Streak migration failed: $e');
+          }
+
           // set onboarding_completed
           await client
               .from('users')
@@ -211,7 +227,22 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
               return; // Stay on page, user can retry
             }
           }
-          // ถ้า shouldMerge == false → ใช้ข้อมูลเดิม (ไม่ทำอะไร)
+
+          // ถ้า shouldMerge == false → ใช้ข้อมูลเดิม preferences และ vocab
+          // แต่ STREAK ยัง migrate ให้ทั้ง 2 กรณี (เพราะคือความพยายามล่าสุด)
+          try {
+            print('🔄 [Google Login] Migrating guest streak...');
+            final streakNotifier = ref.read(streakProvider.notifier);
+            final migrated = await streakNotifier.migrateGuestStreakToCloud();
+            if (migrated) {
+              print('✅ [Google Login] Streak migrated successfully (guest: $shouldMerge)');
+            } else {
+              print('ℹ️ [Google Login] No streak data to migrate');
+            }
+          } catch (e) {
+            // Streak migration failed - continue with login
+            print('⚠️ [Google Login] Streak migration failed: $e');
+          }
         }
       }
 

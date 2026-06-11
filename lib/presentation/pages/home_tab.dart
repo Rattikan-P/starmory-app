@@ -274,12 +274,17 @@ class _HomeTabState extends ConsumerState<HomeTab>
             Color(0xFF7c3aed),
           ],
         ),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
             color: const Color(0xFF8b5cf6).withValues(alpha: 0.3),
             blurRadius: 20,
             offset: const Offset(0, 8),
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -395,15 +400,24 @@ class _HomeTabState extends ConsumerState<HomeTab>
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.85),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 16,
+            color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
+            blurRadius: 20,
             offset: const Offset(0, 4),
           ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
         ],
+        border: Border.all(
+          color: const Color(0xFFE2D1F9).withValues(alpha: 0.3),
+          width: 1,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -589,24 +603,24 @@ class _HomeTabState extends ConsumerState<HomeTab>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Colors.white.withValues(alpha: 0.9),
-            Colors.white.withValues(alpha: 0.7),
-          ],
-        ),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: const Color(0xFFE5E7EB),
-          width: 1,
-        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 8,
+            color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
             offset: const Offset(0, 2),
           ),
         ],
+        border: Border.all(
+          color: const Color(0xFFE2D1F9).withValues(alpha: 0.3),
+          width: 1,
+        ),
       ),
       child: Row(
         children: [
@@ -890,15 +904,24 @@ class _HomeTabState extends ConsumerState<HomeTab>
         Container(
           height: 120,
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.85),
+            color: Colors.white,
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
-                blurRadius: 16,
+                color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
+                blurRadius: 20,
                 offset: const Offset(0, 4),
               ),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
+              ),
             ],
+            border: Border.all(
+              color: const Color(0xFFE2D1F9).withValues(alpha: 0.3),
+              width: 1,
+            ),
           ),
           child: Center(
             child: Column(

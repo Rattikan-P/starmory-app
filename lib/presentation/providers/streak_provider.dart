@@ -197,6 +197,7 @@ class StreakNotifier extends StateNotifier<StreakData?> {
   }
 
   /// Migrate guest streak to cloud (when user registers)
+  /// Uses MAX logic: keeps the better streak between guest and existing
   Future<bool> migrateGuestStreakToCloud() async {
     final guestData = await _prefService.getGuestStreakDataForMigration();
 
@@ -206,12 +207,51 @@ class StreakNotifier extends StateNotifier<StreakData?> {
       return true; // Nothing to migrate
     }
 
+    // Get existing streak from cloud to compare
+    final existingStreak = await _service.getStreakData();
+
+    // Use MAX logic: choose the better value between guest and existing
+    final guestStreak = guestData['current_streak'] as int? ?? 0;
+    final guestShields = guestData['shields_available'] as int? ?? 0;
+    final guestLastDate = guestData['last_activity_date'] != null
+        ? DateTime.parse(guestData['last_activity_date'] as String)
+        : null;
+
+    int finalStreak = guestStreak;
+    int finalShields = guestShields;
+    DateTime? finalLastDate = guestLastDate;
+
+    if (existingStreak != null) {
+      // Use MAX for streak (keep the better achievement)
+      finalStreak = guestStreak > existingStreak.currentStreak
+          ? guestStreak
+          : existingStreak.currentStreak;
+
+      // Use MAX for shields (keep more shields)
+      finalShields = guestShields > existingStreak.shieldsAvailable
+          ? guestShields
+          : existingStreak.shieldsAvailable;
+
+      // Use the most recent activity date
+      if (existingStreak.lastActivityDate != null) {
+        if (guestLastDate == null) {
+          finalLastDate = existingStreak.lastActivityDate;
+        } else {
+          finalLastDate = guestLastDate.isAfter(existingStreak.lastActivityDate!)
+              ? guestLastDate
+              : existingStreak.lastActivityDate;
+        }
+      }
+
+      print('🔄 [Streak Migration] Guest: streak=$guestStreak, shields=$guestShields');
+      print('🔄 [Streak Migration] Existing: streak=${existingStreak.currentStreak}, shields=${existingStreak.shieldsAvailable}');
+      print('✅ [Streak Migration] Final: streak=$finalStreak, shields=$finalShields');
+    }
+
     final success = await _service.updateStreakData(
-      currentStreak: guestData['current_streak'] as int?,
-      shieldsAvailable: guestData['shields_available'] as int?,
-      lastActivityDate: guestData['last_activity_date'] != null
-          ? DateTime.parse(guestData['last_activity_date'] as String)
-          : null,
+      currentStreak: finalStreak,
+      shieldsAvailable: finalShields,
+      lastActivityDate: finalLastDate,
     );
 
     if (success) {
