@@ -4,9 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../providers/providers.dart';
 import 'image_preview_screen.dart';
 import 'auth/account_method_page.dart';
+import 'profile_tab.dart';
 
 /// Home Tab - Main screen with AI generation
 /// Redesigned to feel warm, welcoming, and pressure-free
@@ -75,6 +77,13 @@ class _HomeTabState extends ConsumerState<HomeTab>
       controller.dispose();
     }
     super.dispose();
+  }
+
+  Future<void> _openProfile() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ProfileTab()),
+    );
   }
 
   @override
@@ -239,16 +248,19 @@ class _HomeTabState extends ConsumerState<HomeTab>
       greeting = 'Good morning';
     } else if (hour < 17) {
       greeting = 'Good afternoon';
-    } else {
+    } else if (hour < 21) {
       greeting = 'Good evening';
+    } else {
+      greeting = 'Good night';
     }
 
-    final userName = userState.user?.displayNameOrEmail.split('@')[0] ?? 'Guest';
+    final userName = userState.user?.displayName ?? 'Guest';
 
     IconData getTimeIcon() {
       if (hour < 12) return Icons.wb_sunny_rounded;
       if (hour < 17) return Icons.wb_twilight_rounded;
-      return Icons.nights_stay_rounded;
+      if (hour < 21) return Icons.nights_stay_rounded;
+      return Icons.bedtime_rounded;
     }
 
     return Container(
@@ -306,36 +318,70 @@ class _HomeTabState extends ConsumerState<HomeTab>
             ),
           ),
           const SizedBox(width: 16),
-          GestureDetector(
-            onTap: () {
-              // TODO: Open profile
-            },
-            child: Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0xFFC4B5FD), Color(0xFFA78BFA)],
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: _openProfile,
+              borderRadius: BorderRadius.circular(18),
+              child: Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFFC4B5FD), Color(0xFFA78BFA)],
+                  ),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.3),
+                    width: 2,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF8b5cf6).withValues(alpha: 0.3),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
-                borderRadius: BorderRadius.circular(18),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF8b5cf6).withValues(alpha: 0.3),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Center(
-                child: Text(
-                  (userState.user?.displayNameOrEmail[0].toUpperCase() ?? 'G'),
-                  style: GoogleFonts.lexend(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 22,
-                  ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: userState.user?.photoUrl != null
+                      ? CachedNetworkImage(
+                          imageUrl: userState.user!.photoUrl!,
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => Center(
+                            child: Text(
+                              userState.user?.displayNameOrEmail[0].toUpperCase() ?? 'G',
+                              style: GoogleFonts.lexend(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 22,
+                              ),
+                            ),
+                          ),
+                          errorWidget: (context, url, error) => Center(
+                            child: Text(
+                              userState.user?.displayNameOrEmail[0].toUpperCase() ?? 'G',
+                              style: GoogleFonts.lexend(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 22,
+                              ),
+                            ),
+                          ),
+                        )
+                      : Center(
+                          child: Text(
+                            userState.user?.displayNameOrEmail[0].toUpperCase() ?? 'G',
+                            style: GoogleFonts.lexend(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 22,
+                            ),
+                          ),
+                        ),
                 ),
               ),
             ),

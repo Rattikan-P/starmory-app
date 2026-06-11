@@ -474,36 +474,42 @@ class UserNotifier extends StateNotifier<UserState> {
         return;
       }
 
-      // Fetch fresh preferences from Supabase auth metadata
-      final languageLevel = supabaseUser.userMetadata?['language_level'] as String?;
-      final englishVariant = supabaseUser.userMetadata?['english_variant'] as String?;
+      // Fetch fresh data from database (users table) - like Profile tab does
+      final userData = await client
+          .from('users')
+          .select()
+          .eq('id', currentUser.id)
+          .single();
 
-      print('📥 Refreshing preferences: languageLevel=$languageLevel, englishVariant=$englishVariant');
+      final displayName = userData['display_name'] as String?;
+      final photoUrl = userData['avatar_url'] as String?;
+      final languageLevel = userData['language_level'] as String?;
+      final englishVariant = userData['english_variant'] as String?;
 
-      // Update UserModel with new preferences
-      // Spread old preferences first, then override with new values
+      print('📥 Refreshing from database: displayName=$displayName, photoUrl=$photoUrl');
+
+      // Update UserModel with fresh data from database
       final updatedUser = currentUser.copyWith(
+        displayName: displayName ?? currentUser.displayName,
+        photoUrl: photoUrl ?? currentUser.photoUrl,
         preferences: {
           // Preserve other preferences
           ...currentUser.preferences,
-          // Override with fresh values from Supabase
+          // Override with fresh values from database
           'defaultCefrLevel': languageLevel ?? currentUser.preferences['defaultCefrLevel'] ?? 'A1',
           'languageVariant': englishVariant ?? currentUser.preferences['languageVariant'] ?? 'US',
         },
       );
 
-      print('📝 OLD preferences: ${currentUser.preferences}');
-      print('📝 NEW preferences: ${updatedUser.preferences}');
-      print('📝 OLD hash: ${currentUser.hashCode}');
-      print('📝 NEW hash: ${updatedUser.hashCode}');
+      print('📝 OLD: ${currentUser.displayName} → NEW: ${updatedUser.displayName}');
+      print('📝 OLD: ${currentUser.photoUrl} → NEW: ${updatedUser.photoUrl}');
 
       await _hiveService.saveUser(updatedUser);
       state = UserState(user: updatedUser);
 
-      print('✅ User preferences updated successfully');
-      print('✅ State hash after update: ${state.hashCode}');
+      print('✅ User data updated from database');
     } catch (e, stackTrace) {
-      print('❌ Error refreshing user from Supabase: $e');
+      print('❌ Error refreshing user from database: $e');
       print('📚 Stack trace: $stackTrace');
     }
   }
