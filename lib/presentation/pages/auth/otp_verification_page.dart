@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../utils/snackbar_helper.dart';
 import '../../../presentation/widgets/otp_keypad.dart';
+import '../../widgets/galaxy_screen_background.dart';
 import '../language_selection_page.dart';
 import '../main_navigation.dart';
 import '../onboarding_page.dart' show onboardingServiceProvider;
@@ -924,94 +925,10 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       resizeToAvoidBottomInset: false,
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFFE8F4FD),
-              Color(0xFFF5EEF8),
-              Color(0xFFFDF4E8),
-            ],
-          ),
-        ),
-        child: Stack(
-          children: [
-            // Galaxy blobs
-            Positioned(
-              top: -80,
-              left: -60,
-              child: Container(
-                width: 280,
-                height: 280,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      const Color(0xFFC4B5FD).withValues(alpha: 0.4),
-                      const Color(0x00C4B5FD),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              top: 80,
-              right: -80,
-              child: Container(
-                width: 300,
-                height: 300,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      const Color(0xFF93C5FD).withValues(alpha: 0.4),
-                      const Color(0x0093C5FD),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              bottom: -60,
-              left: 100,
-              child: Container(
-                width: 280,
-                height: 280,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      const Color(0xFFF472B6).withValues(alpha: 0.4),
-                      const Color(0x00F472B6),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            // Static stars
-            ...List.generate(40, (i) {
-              final r = Random(i * 42);
-              final s = 1.5 + r.nextDouble() * 3.5;
-              return Positioned(
-                top: r.nextDouble() * MediaQuery.of(context).size.height,
-                left: r.nextDouble() * MediaQuery.of(context).size.width,
-                child: Opacity(
-                  opacity: 0.2 + r.nextDouble() * 0.6,
-                  child: Container(
-                    width: s, height: s,
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.white,
-                      boxShadow: [BoxShadow(color: Colors.white54, blurRadius: 2)],
-                    ),
-                  ),
-                ),
-              );
-            }),
-            // Content
-            SafeArea(
+      body: Stack(
+        children: [
+          GalaxyScreenBackground(
+            child: SafeArea(
               child: Column(
                 children: [
                   // Fixed card content - not scrollable
@@ -1219,42 +1136,42 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
             ],
           ),
         ),
-            if (_isLoading)
-              Container(
-                color: Colors.white.withValues(alpha: 0.8),
-                child: const Center(
-                  child: CircularProgressIndicator(
-                    color: Color(0xFFa78bfa),
-                  ),
-                ),
-              ),
-            // Back button - positioned at the end for highest z-index
-            Positioned(
-              top: 16,
-              left: 16,
-              child: SafeArea(
-                bottom: false,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.9),
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.08),
-                        blurRadius: 12,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Color(0xFF1f2937)),
-                    onPressed: () => Navigator.pop(context),
-                  ),
+          ),
+          if (_isLoading)
+            Container(
+              color: Colors.white.withValues(alpha: 0.8),
+              child: const Center(
+                child: CircularProgressIndicator(
+                  color: Color(0xFFa78bfa),
                 ),
               ),
             ),
-          ],
-        ),
+          // Back button - positioned at the end for highest z-index
+          Positioned(
+            top: 16,
+            left: 16,
+            child: SafeArea(
+              bottom: false,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.9),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.08),
+                      blurRadius: 12,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.arrow_back, color: Color(0xFF1f2937)),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

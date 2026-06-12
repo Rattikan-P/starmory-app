@@ -77,17 +77,6 @@ class _OtpKeypadState extends State<OtpKeypad>
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            const Color(0xFFE8F4FD).withValues(alpha: 0.3),
-            const Color(0xFFF5EEF8).withValues(alpha: 0.3),
-            const Color(0xFFFDF4E8).withValues(alpha: 0.3),
-          ],
-        ),
-      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: List.generate(4, (row) {

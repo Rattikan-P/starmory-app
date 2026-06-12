@@ -4,6 +4,8 @@ import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import '../widgets/galaxy_screen_background.dart';
+import '../widgets/galaxy_paper_background.dart';
 import '../providers/providers.dart';
 import '../providers/streak_provider.dart' show streakProvider;
 import '../../data/models/vocabulary_model.dart';
@@ -387,8 +389,10 @@ class _InteractiveVocabularyScreenState
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
+    return TextureOverlay(
+      opacity: 0.4,
+      child: Scaffold(
+        appBar: AppBar(
         elevation: 0,
         scrolledUnderElevation: 0,
         backgroundColor: Colors.transparent,
@@ -481,6 +485,7 @@ class _InteractiveVocabularyScreenState
             fontWeight: FontWeight.w600,
           ),
         ),
+      ),
       ),
     );
   }

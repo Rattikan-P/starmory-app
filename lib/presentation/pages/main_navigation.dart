@@ -86,12 +86,14 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.transparent,
       body: IndexedStack(
         index: _currentIndex,
         children: _tabs,
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.95),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.1),
@@ -108,7 +110,7 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
             });
           },
           type: BottomNavigationBarType.fixed,
-          backgroundColor: Colors.white,
+          backgroundColor: Colors.transparent,
           selectedItemColor: const Color(0xFF6C63FF),
           unselectedItemColor: const Color(0xFF9E9E9E),
           selectedFontSize: 12,

@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/services/preference_service.dart';
 import '../../data/services/auth_service.dart';
 import '../../utils/snackbar_helper.dart';
+import '../widgets/galaxy_screen_background.dart';
 import 'auth/otp_verification_page.dart';
 import 'language_selection_page.dart';
 import 'main_navigation.dart';
@@ -31,7 +32,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
   final _emailController = TextEditingController();
   final _emailFormKey = GlobalKey<FormState>();
   bool _isEmailLoading = false;
-  final List<AnimationController> _starControllers = [];
+  late final List<AnimationController> _starControllers;
 
   final List<OnboardingItem> _items = const [
     OnboardingItem(
@@ -55,23 +56,26 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
   void initState() {
     super.initState();
 
-    // Skip to auth bottom sheet immediately if requested (for logout)
-    if (widget.skipToAuth) {
-      Future.microtask(() => _showAuthBottomSheet());
-      return;
-    }
-
-    // Normal onboarding animations
-    for (int i = 0; i < 3; i++) {
-      _starControllers.add(AnimationController(
+    // Initialize star animations first (needed for build method)
+    _starControllers = List.generate(3, (i) {
+      return AnimationController(
         duration: Duration(milliseconds: 2500 + i * 500),
         vsync: this,
-      ));
+      );
+    });
+    // Start animations with staggered delay
+    for (int i = 0; i < 3; i++) {
       Future.delayed(Duration(milliseconds: i * 1200), () {
         if (mounted) {
           _starControllers[i].repeat();
         }
       });
+    }
+
+    // Skip to auth bottom sheet immediately if requested (for logout)
+    if (widget.skipToAuth) {
+      Future.microtask(() => _showAuthBottomSheet());
+      return;
     }
   }
 
@@ -298,120 +302,10 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
   Widget build(BuildContext context) {
     return Scaffold(
       resizeToAvoidBottomInset: false,
-      body: Stack(
-        children: [
-          // Galaxy gradient background
-          Positioned.fill(
-            child: Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Color(0xFFE8F4FD),
-                    Color(0xFFF5EEF8),
-                    Color(0xFFFDF4E8),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          // Galaxy blobs
-          Positioned(
-            top: -100,
-            left: -80,
-            child: Container(
-              width: 350,
-              height: 350,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    const Color(0xFFC4B5FD).withValues(alpha: 0.5),
-                    const Color(0x00C4B5FD),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            top: 50,
-            right: -100,
-            child: Container(
-              width: 380,
-              height: 380,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    const Color(0xFF93C5FD).withValues(alpha: 0.5),
-                    const Color(0x0093C5FD),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: 100,
-            left: -60,
-            child: Container(
-              width: 350,
-              height: 350,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    const Color(0xFFF472B6).withValues(alpha: 0.55),
-                    const Color(0x00F472B6),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: -80,
-            right: -60,
-            child: Container(
-              width: 380,
-              height: 380,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    const Color(0xFFFCD34D).withValues(alpha: 0.35),
-                    const Color(0x00FCD34D),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          // Static stars
-          ...List.generate(40, (i) {
-            final r = Random(i * 42);
-            final s = 1.5 + r.nextDouble() * 3.5;
-            return Positioned(
-              top: r.nextDouble() * MediaQuery.of(context).size.height,
-              left: r.nextDouble() * MediaQuery.of(context).size.width,
-              child: Opacity(
-                opacity: 0.2 + r.nextDouble() * 0.6,
-                child: Container(
-                  width: s, height: s,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white,
-                    boxShadow: [BoxShadow(color: Colors.white54, blurRadius: 2)],
-                  ),
-                ),
-              ),
-            );
-          }),
-          // Falling stars
-          if (_starControllers.isNotEmpty && _starControllers.length >= 3) ...[
-            _FallingStar(animation: _starControllers[0], index: 0),
-            _FallingStar(animation: _starControllers[1], index: 1),
-            _FallingStar(animation: _starControllers[2], index: 2),
-          ],
-          SafeArea(
+      body: GalaxyScreenBackground(
+        showFallingStars: true,
+        starControllers: _starControllers,
+        child: SafeArea(
           child: Stack(
             children: [
               Column(
@@ -714,10 +608,9 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
                 ],
               ),
             ],
-          ),
         ),
-      ],
-    ),
+      ),
+      ),
     );
   }
 

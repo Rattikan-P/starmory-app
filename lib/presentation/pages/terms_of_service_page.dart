@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../widgets/galaxy_screen_background.dart';
 
 class TermsOfServicePage extends StatelessWidget {
   const TermsOfServicePage({super.key});
@@ -7,81 +8,10 @@ class TermsOfServicePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
-        children: [
-          // Gradient background
-          Positioned.fill(
-            child: Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Color(0xFFE8F4FD),
-                    Color(0xFFF5EEF8),
-                    Color(0xFFFDF4E8),
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          // Galaxy blobs
-          Positioned(
-            top: -100,
-            left: -80,
-            child: Container(
-              width: 350,
-              height: 350,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    const Color(0xFFC4B5FD).withValues(alpha: 0.5),
-                    const Color(0x00C4B5FD),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            top: 50,
-            right: -100,
-            child: Container(
-              width: 380,
-              height: 380,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    const Color(0xFF93C5FD).withValues(alpha: 0.5),
-                    const Color(0x0093C5FD),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: -80,
-            right: -60,
-            child: Container(
-              width: 350,
-              height: 350,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    const Color(0xFFFCD34D).withValues(alpha: 0.4),
-                    const Color(0x00FCD34D),
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          SafeArea(
-            child: Column(
-              children: [
+      body: GalaxyScreenBackground(
+        child: SafeArea(
+          child: Column(
+            children: [
                 // Top bar
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -388,8 +318,7 @@ For questions about these terms, please contact us through the app.
               ],
             ),
           ),
-        ],
-      ),
+        ),
     );
   }
 }

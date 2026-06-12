@@ -9,6 +9,7 @@ import '../providers/providers.dart';
 import 'image_preview_screen.dart';
 import 'auth/account_method_page.dart';
 import 'profile_tab.dart';
+import '../widgets/galaxy_screen_background.dart';
 
 /// Home Tab - Main screen with AI generation
 /// Redesigned to feel warm, welcoming, and pressure-free
@@ -92,151 +93,49 @@ class _HomeTabState extends ConsumerState<HomeTab>
     final quote = _quotes[DateTime.now().day % _quotes.length];
 
     return Scaffold(
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          // Galaxy gradient background (same as onboarding)
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Color(0xFFE8F4FD),  // Soft blue
-                  Color(0xFFF5EEF8),  // Soft purple
-                  Color(0xFFFDF4E8),  // Soft peach
-                ],
-              ),
+      body: GalaxyScreenBackground(
+        showFallingStars: true,
+        starControllers: _starControllers,
+        child: Column(
+          children: [
+            // Status bar spacer
+            SizedBox(
+              height: MediaQuery.of(context).padding.top,
             ),
-          ),
+            // Main content
+            Expanded(
+              child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 12),
 
-          // Galaxy blobs (matching onboarding)
-          Positioned(
-            top: -100,
-            left: -80,
-            child: Container(
-              width: 350,
-              height: 350,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    const Color(0xFFC4B5FD).withValues(alpha: 0.5),
-                    const Color(0x00C4B5FD),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            top: 50,
-            right: -100,
-            child: Container(
-              width: 380,
-              height: 380,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    const Color(0xFF93C5FD).withValues(alpha: 0.5),
-                    const Color(0x0093C5FD),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: 100,
-            left: -60,
-            child: Container(
-              width: 350,
-              height: 350,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    const Color(0xFFF472B6).withValues(alpha: 0.55),
-                    const Color(0x00F472B6),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: -80,
-            right: -60,
-            child: Container(
-              width: 380,
-              height: 380,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    const Color(0xFFFCD34D).withValues(alpha: 0.5),
-                    const Color(0x00FCD34D),
-                  ],
-                ),
-              ),
-            ),
-          ),
+                      // Header with warm greeting
+                      _buildHeader(context, userState),
 
-          // Static stars (like onboarding)
-          ...List.generate(40, (i) {
-            final r = Random(i * 42);
-            final s = 1.5 + r.nextDouble() * 3.5;
-            return Positioned(
-              top: r.nextDouble() * MediaQuery.of(context).size.height,
-              left: r.nextDouble() * MediaQuery.of(context).size.width,
-              child: Opacity(
-                opacity: 0.2 + r.nextDouble() * 0.6,
-                child: Container(
-                  width: s,
-                  height: s,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white,
-                    boxShadow: [BoxShadow(color: Colors.white54, blurRadius: 2)],
+                      const SizedBox(height: 20),
+
+                      // Daily motivation + Quick Actions combined
+                      _buildActionCard(context, quote),
+
+                      const SizedBox(height: 20),
+
+                      // Subtle quota indicator (only if needed)
+                      _buildSubtleQuotaIndicator(context),
+
+                      const SizedBox(height: 24),
+
+                      // Recent Scrapbook
+                      _buildRecentScrapbook(context),
+
+                      const SizedBox(height: 100), // Extra space at bottom
+                    ],
                   ),
                 ),
-              ),
-            );
-          }),
-
-          // Falling stars
-          ...List.generate(3, (i) => _FallingStar(animation: _starControllers[i], index: i)),
-
-          SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 12),
-
-                  // Header with warm greeting
-                  _buildHeader(context, userState),
-
-                  const SizedBox(height: 20),
-
-                  // Daily motivation + Quick Actions combined
-                  _buildActionCard(context, quote),
-
-                  const SizedBox(height: 20),
-
-                  // Subtle quota indicator (only if needed)
-                  _buildSubtleQuotaIndicator(context),
-
-                  const SizedBox(height: 24),
-
-                  // Recent Scrapbook
-                  _buildRecentScrapbook(context),
-
-                  const SizedBox(height: 100), // Extra space at bottom
-                ],
-              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
