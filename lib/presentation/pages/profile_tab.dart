@@ -3031,13 +3031,16 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
         final hiveService = ref.read(hiveServiceProvider);
         final navigator = Navigator.of(context);
 
-        // ⭐ Clear local vocabularies FIRST (before signOut to avoid ref dispose issue)
-        await hiveService.clearAllVocabulary();
+        // ⭐ Clear local data FIRST (before signout to avoid auth state listener interference)
+        await Future.wait([
+          hiveService.clearAllVocabulary(),
+          preferenceService.clearLocalPreferences(),
+          preferenceService.setGuestMode(false),
+          preferenceService.setOnboardingCompleted(false),
+        ]);
 
-        // Clear local preferences
-        await preferenceService.clearLocalPreferences();
-        await preferenceService.setGuestMode(false);
-        await preferenceService.setOnboardingCompleted(false);
+        // ⭐ Clear local streak state (NOT cloud) - will reload fresh from cloud on next login
+        ref.read(streakProvider.notifier).clearLocalState();
 
         // Sign out from Supabase LAST
         await client.auth.signOut();
@@ -3061,6 +3064,14 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
     BuildContext context,
     WidgetRef ref,
   ) async {
+    // ⭐ CRITICAL FIX: Capture all providers AND navigator BEFORE showing dialog
+    // This prevents "Cannot use ref after widget was disposed" error
+    final authService = ref.read(authServiceProvider);
+    final preferenceService = ref.read(onboardingServiceProvider);
+    final hiveService = ref.read(hiveServiceProvider);
+    final streakNotifier = ref.read(streakProvider.notifier);
+    final navigator = Navigator.of(context, rootNavigator: true);
+
     final confirmed = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
@@ -3222,22 +3233,37 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
       ),
     );
 
-    if (confirmed == true && context.mounted) {
+    if (confirmed == true) {
       try {
-        final authService = ref.read(authServiceProvider);
-        final preferenceService = ref.read(onboardingServiceProvider);
-        final navigator = Navigator.of(context);
+        print('🗑️ Starting account deletion...');
 
+        // ⭐ Clear local data FIRST (before delete to avoid auth state listener interference)
+        await Future.wait([
+          hiveService.clearAllVocabulary(),
+          preferenceService.clearLocalPreferences(),
+          preferenceService.setGuestMode(false),
+          preferenceService.setOnboardingCompleted(false),
+        ]);
+
+        // Clear local streak state
+        streakNotifier.reset();
+        print('✅ Local data cleared');
+
+        // Delete account (includes signOut)
         await authService.deleteAccount();
-        await preferenceService.clearLocalPreferences();
-        await preferenceService.setGuestMode(false);
-        await preferenceService.setOnboardingCompleted(false);
+        print('✅ Account deleted');
 
+        // Navigate to Onboarding using captured navigator
+        print('🚪 Navigating to onboarding...');
+        // Use captured navigator (with rootNavigator) to ensure navigation works
         navigator.pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const OnboardingPage()),
+          MaterialPageRoute(builder: (_) => const OnboardingPage(skipToAuth: true)),
           (route) => false,
         );
       } catch (e) {
+        print('❌ Delete account error: $e');
+
+        // Stay on profile page so user can try again (consistent with logout failure)
         if (context.mounted) {
           SnackBarHelper.error(context, AlertMessages.deleteAccountFailed);
         }

@@ -70,16 +70,38 @@ class AuthService {
     final userId = currentUserId;
     if (userId == null) throw Exception('No user logged in');
 
-    final response = await _client.functions.invoke(
-      'delete-account',
-      body: {'userId': userId},
-    );
+    try {
+      print('🗑️ [AuthService] Deleting account for user: $userId');
 
-    if (response.status != 200) {
-      throw Exception(response.data['error'] ?? 'Failed to delete account');
+      // Add timeout to prevent hanging if Edge Function is stuck
+      final response = await _client.functions.invoke(
+        'delete-account',
+        body: {'userId': userId},
+      ).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          print('⏱️ [AuthService] delete-account function timeout after 10s');
+          throw Exception('Delete account request timeout. Please try again.');
+        },
+      );
+
+      if (response.status != 200) {
+        final error = response.data['error'] ?? 'Failed to delete account';
+        print('❌ [AuthService] delete-account failed: $error (status: ${response.status})');
+        throw Exception(error);
+      }
+
+      print('✅ [AuthService] Account deleted successfully for user: $userId');
+    } catch (e) {
+      print('❌ [AuthService] deleteAccount error: $e');
+      // Re-throw to let caller handle the error
+      rethrow;
+    } finally {
+      // ⭐ CRITICAL: Always sign out, even if delete fails
+      // This ensures user is logged out regardless of backend result
+      print('🚪 [AuthService] Signing out after deleteAccount...');
+      await signOut();
     }
-
-    await signOut();
   }
 
   // Send OTP to email (for both login and signup)

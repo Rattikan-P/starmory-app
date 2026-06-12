@@ -5,6 +5,7 @@ import '../../data/services/auth_service.dart';
 import '../../data/models/user_model.dart';
 import '../../core/utils/quota_manager.dart';
 import 'providers.dart';
+import 'streak_provider.dart';
 
 /// Combined Auth + Quota State
 class AuthQuotaState {
@@ -107,6 +108,8 @@ class AuthQuotaNotifier extends StateNotifier<AuthQuotaState> {
       case AuthChangeEvent.signedIn:
         state = state.copyWith(isLoggedIn: true);
         _syncLocalUser();
+        // ⭐ CRITICAL: Refresh streak data after login to load cloud data
+        _refreshStreak();
         break;
       case AuthChangeEvent.signedOut:
         state = state.copyWith(isLoggedIn: false);
@@ -117,6 +120,16 @@ class AuthQuotaNotifier extends StateNotifier<AuthQuotaState> {
         break;
       default:
         break;
+    }
+  }
+
+  /// Refresh streak data after auth state changes
+  void _refreshStreak() {
+    try {
+      final streakNotifier = _ref.read(streakProvider.notifier);
+      streakNotifier.refresh();
+    } catch (e) {
+      // Ignore if refresh fails
     }
   }
 
@@ -143,11 +156,17 @@ class AuthQuotaNotifier extends StateNotifier<AuthQuotaState> {
           await userNotifier.updateUser(updatedUser);
           state = state.copyWith(localUser: updatedUser);
         }
-      } else if (!state.isLoggedIn && localUser?.isGuest == false) {
-        // User logged out - create guest user
-        await _createGuestUser();
+      } else if (!state.isLoggedIn) {
+        // Not logged in - check if we need to create guest user
+        if (localUser == null || localUser.isGuest == false) {
+          // No user or logged out from registered account - create guest user
+          await _createGuestUser();
+        } else {
+          // Guest user already exists - just update reference
+          state = state.copyWith(localUser: localUser);
+        }
       } else {
-        // Update local user reference
+        // Logged in with registered user - update reference
         state = state.copyWith(localUser: localUser);
       }
     } catch (e) {
@@ -158,6 +177,17 @@ class AuthQuotaNotifier extends StateNotifier<AuthQuotaState> {
   Future<void> _createGuestUser() async {
     try {
       final userNotifier = _ref.read(userStateProvider.notifier);
+
+      // ⭐ OPTIMIZATION: Check if guest user already exists before calling logout()
+      // This prevents unnecessary user creation during race conditions
+      final existingUser = _ref.read(userStateProvider).user;
+      if (existingUser != null && existingUser.isGuest) {
+        // Guest already exists - just use it
+        state = state.copyWith(localUser: existingUser);
+        return;
+      }
+
+      // No guest user exists - create one via logout
       await userNotifier.logout(); // This creates guest user
       final guestUser = _ref.read(userStateProvider).user;
       state = state.copyWith(localUser: guestUser);
