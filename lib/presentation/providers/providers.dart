@@ -4,13 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/services/gemini_service.dart';
 import '../../data/services/hive_service.dart';
-import '../../data/services/preference_service.dart';
 import '../../data/services/vocabulary_sync_service.dart';
 import '../../data/services/image_storage_service.dart';
 import '../../data/models/user_model.dart';
 import '../../data/models/vocabulary_model.dart';
 import '../../data/models/calendar_model.dart';
 import '../../core/utils/quota_manager.dart';
+import '../../constants/app_defaults.dart';
 import 'auth_quota_provider.dart';
 
 // ============= Service Providers =============
@@ -233,8 +233,8 @@ class UserNotifier extends StateNotifier<UserState> {
       ).copyWith(
         quotaManager: quotaManager,
         preferences: {
-          'defaultCefrLevel': languageLevel ?? 'A1',
-          'languageVariant': englishVariant ?? 'US',
+          'defaultCefrLevel': languageLevel ?? AppDefaults.defaultLanguageLevel,
+          'languageVariant': englishVariant ?? AppDefaults.defaultEnglishVariant,
         },
       );
 
@@ -256,8 +256,8 @@ class UserNotifier extends StateNotifier<UserState> {
         photoUrl: supabaseUser.userMetadata?['avatar_url'] as String?,
       ).copyWith(
         preferences: {
-          'defaultCefrLevel': languageLevel ?? 'A1',
-          'languageVariant': englishVariant ?? 'US',
+          'defaultCefrLevel': languageLevel ?? AppDefaults.defaultLanguageLevel,
+          'languageVariant': englishVariant ?? AppDefaults.defaultEnglishVariant,
         },
       );
       await _hiveService.saveUser(registeredUser);
@@ -350,25 +350,21 @@ class UserNotifier extends StateNotifier<UserState> {
     }
   }
 
-  /// Create guest user with preferences loaded from SharedPreferences
+  /// Create guest user with default preferences
+  /// Preferences are now stored in UserModel only (no more SharedPreferences)
   Future<UserModel> _createGuestUserWithPreferences() async {
-    final preferenceService = PreferenceService();
-    await preferenceService.init();
+    // Try to load existing guest user from Hive first
+    final existingUser = await _hiveService.getCurrentUser();
 
-    // Load guest preferences
-    final guestLanguageLevel = await preferenceService.getLanguageLevel();
-    final guestEnglishVariant = await preferenceService.getEnglishVariant();
+    // If guest user exists with preferences, return it
+    if (existingUser != null && existingUser.isGuest) {
+      print('👤 Loaded existing guest user with preferences');
+      return existingUser;
+    }
 
-    print('👤 Loading guest preferences: languageLevel=$guestLanguageLevel, englishVariant=$guestEnglishVariant');
-
-    // Create guest user with loaded preferences
-    final guestUser = UserModel.createGuest().copyWith(
-      preferences: {
-        'defaultCefrLevel': guestLanguageLevel ?? 'A1',
-        'languageVariant': guestEnglishVariant ?? 'US',
-      },
-    );
-
+    // Otherwise create new guest with defaults
+    print('👤 Creating new guest user with default preferences');
+    final guestUser = UserModel.createGuest();
     return guestUser;
   }
 
@@ -386,6 +382,62 @@ class UserNotifier extends StateNotifier<UserState> {
 
     final updatedUser = user.incrementWordsLearned();
     await updateUser(updatedUser);
+  }
+
+  /// Update user preferences (single source of truth pattern)
+  /// - Guest: Save to Hive only
+  /// - Cloud: Save to Hive + Sync to Supabase
+  Future<void> updatePreferences(Map<String, dynamic> newPrefs) async {
+    final user = state.user;
+    if (user == null) return;
+
+    try {
+      // 1. Update UserModel with new preferences
+      final updatedPrefs = Map<String, dynamic>.from(user.preferences);
+      updatedPrefs.addAll(newPrefs);
+      final updatedUser = user.copyWith(preferences: updatedPrefs);
+
+      // 2. Save to Hive (both guest and cloud)
+      await _hiveService.saveUser(updatedUser);
+
+      // 3. Sync to Supabase for cloud users
+      if (!user.isGuest) {
+        final client = Supabase.instance.client;
+        final userId = client.auth.currentUser?.id;
+        if (userId != null) {
+          try {
+            // Map preference keys to database columns
+            final dbData = <String, dynamic>{};
+            if (newPrefs.containsKey('defaultCefrLevel')) {
+              dbData['language_level'] = newPrefs['defaultCefrLevel'];
+            }
+            if (newPrefs.containsKey('languageVariant')) {
+              dbData['english_variant'] = newPrefs['languageVariant'];
+            }
+
+            if (dbData.isNotEmpty) {
+              // Update auth metadata
+              await client.auth.updateUser(
+                UserAttributes(data: dbData),
+              );
+              // Update users table
+              await client.from('users').update(dbData).eq('id', userId);
+              print('✅ Preferences synced to Supabase: $dbData');
+            }
+          } catch (e) {
+            print('⚠️ Failed to sync preferences to Supabase: $e');
+            // Continue anyway - local save succeeded
+          }
+        }
+      }
+
+      // 4. Update state
+      state = UserState(user: updatedUser);
+      print('✅ Preferences updated: $newPrefs');
+    } catch (e) {
+      print('❌ Error updating preferences: $e');
+      state = UserState(user: state.user, error: e.toString());
+    }
   }
 
   Future<bool> recordQuotaUsage({String? imageId, String? vocabularyId}) async {
@@ -495,9 +547,9 @@ class UserNotifier extends StateNotifier<UserState> {
         preferences: {
           // Preserve other preferences
           ...currentUser.preferences,
-          // Override with fresh values from database
-          'defaultCefrLevel': languageLevel ?? currentUser.preferences['defaultCefrLevel'] ?? 'A1',
-          'languageVariant': englishVariant ?? currentUser.preferences['languageVariant'] ?? 'US',
+          // Override with fresh values from Supabase
+          'defaultCefrLevel': languageLevel ?? currentUser.preferences['defaultCefrLevel'] ?? AppDefaults.defaultLanguageLevel,
+          'languageVariant': englishVariant ?? currentUser.preferences['languageVariant'] ?? AppDefaults.defaultEnglishVariant,
         },
       );
 

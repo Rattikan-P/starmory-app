@@ -168,6 +168,12 @@ class StreakNotifier extends StateNotifier<StreakData?> {
     }
   }
 
+  /// Clear local streak state without affecting cloud data
+  /// Use this when logging out to ensure fresh reload on next login
+  void clearLocalState() {
+    state = null;
+  }
+
   /// Set streak for testing/demo
   /// Automatically calculates appropriate shields for the streak value
   /// 7 days = 1 shield, 14 days = 2 shields, etc.

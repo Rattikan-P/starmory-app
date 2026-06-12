@@ -6,13 +6,12 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../constants/app_defaults.dart';
-
 class PreferenceService {
   static const String _onboardingKey = 'onboarding_completed';
   static const String _guestModeKey = 'is_guest_mode';
-  static const String _languageLevelKey = 'language_level';
-  static const String _englishVariantKey = 'english_variant';
+
+  // Note: language_level and english_variant keys removed
+  // Preferences now stored in UserModel only
 
   Box? _box;
 
@@ -48,27 +47,8 @@ class PreferenceService {
     await prefs.setBool(_guestModeKey, isGuest);
   }
 
-  // Language Level (local preferences for both guest and registered users)
-  Future<String?> getLanguageLevel() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_languageLevelKey); // null = ยังไม่ได้เลือก
-  }
-
-  Future<void> setLanguageLevel(String level) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_languageLevelKey, level);
-  }
-
-  // English Variant (local preferences for both guest and registered users)
-  Future<String?> getEnglishVariant() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_englishVariantKey) ?? AppDefaults.defaultEnglishVariant;
-  }
-
-  Future<void> setEnglishVariant(String variant) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_englishVariantKey, variant);
-  }
+  // Note: Language level and English variant methods removed
+  // Preferences now stored in UserModel only (via Hive)
 
   // Guest data storage
   Future<void> saveGuestData(String key, dynamic value) async {
@@ -84,9 +64,11 @@ class PreferenceService {
   }
 
   Future<void> clearLocalPreferences() async {
+    // Note: language_level and english_variant no longer stored here
+    // They are now in UserModel (Hive)
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_languageLevelKey);
-    await prefs.remove(_englishVariantKey);
+    // Only clear keys that are still stored in SharedPreferences
+    await prefs.remove(_guestModeKey);
   }
 
   // Guest Quota Tracking

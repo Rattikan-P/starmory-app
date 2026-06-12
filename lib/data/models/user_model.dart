@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 import '../../core/utils/quota_manager.dart';
+import '../../constants/app_defaults.dart';
 
 /// Represents user account information
 class UserModel extends Equatable {
@@ -69,8 +70,8 @@ class UserModel extends Equatable {
   /// Default user preferences
   static Map<String, dynamic> _defaultPreferences() {
     return {
-      'languageVariant': 'US', // US or UK
-      'defaultCefrLevel': 'A1',
+      'languageVariant': AppDefaults.defaultEnglishVariant, // US or UK
+      'defaultCefrLevel': AppDefaults.defaultLanguageLevel,
       'notificationEnabled': true,
       'reviewReminderTime': '19:00',
       'soundEnabled': true,
@@ -119,10 +120,28 @@ class UserModel extends Equatable {
     return copyWith(preferences: newPrefs);
   }
 
+  /// Update language level preference
+  UserModel updateLanguageLevel(String level) {
+    return updatePreference('defaultCefrLevel', level);
+  }
+
+  /// Update english variant preference
+  UserModel updateEnglishVariant(String variant) {
+    return updatePreference('languageVariant', variant);
+  }
+
   /// Get preference value
   T? getPreference<T>(String key) {
     return preferences[key] as T?;
   }
+
+  /// Get language level from preferences
+  String get languageLevel =>
+      getPreference<String>('defaultCefrLevel') ?? AppDefaults.defaultLanguageLevel;
+
+  /// Get english variant from preferences
+  String get englishVariant =>
+      getPreference<String>('languageVariant') ?? AppDefaults.defaultEnglishVariant;
 
   /// Check if user can generate more content
   bool get canGenerate => quotaManager.canGenerate();
