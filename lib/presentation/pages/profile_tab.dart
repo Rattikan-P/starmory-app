@@ -525,13 +525,12 @@ class _PreferencesSectionState extends ConsumerState<_PreferencesSection> {
 
   Future<void> _reloadFromSource() async {
     if (widget.isGuest) {
-      final preferenceService = ref.read(onboardingServiceProvider);
-      final level = await preferenceService.getLanguageLevel();
-      final variant = await preferenceService.getEnglishVariant();
-      if (mounted) {
+      // Load from UserModel instead of SharedPreferences
+      final currentUser = ref.read(userStateProvider).user;
+      if (currentUser != null && mounted) {
         setState(() {
-          _currentLevel = level ?? AppDefaults.defaultLanguageLevel;
-          _currentVariant = variant ?? AppDefaults.defaultEnglishVariant;
+          _currentLevel = currentUser.languageLevel;
+          _currentVariant = currentUser.englishVariant;
         });
       }
     }
@@ -1921,13 +1920,12 @@ class _NotLoggedInViewState extends ConsumerState<_NotLoggedInView> {
   }
 
   Future<void> _loadGuestPreferences() async {
-    final preferenceService = ref.read(onboardingServiceProvider);
-    final level = await preferenceService.getLanguageLevel();
-    final variant = await preferenceService.getEnglishVariant();
-    if (mounted) {
+    // Load from UserModel instead of SharedPreferences
+    final currentUser = ref.read(userStateProvider).user;
+    if (currentUser != null && mounted) {
       setState(() {
-        _guestLanguageLevel = level;
-        _guestEnglishVariant = variant;
+        _guestLanguageLevel = currentUser.languageLevel;
+        _guestEnglishVariant = currentUser.englishVariant;
       });
     }
   }

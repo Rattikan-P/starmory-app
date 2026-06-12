@@ -58,12 +58,11 @@ class _EnglishVariantPageState extends ConsumerState<EnglishVariantPage> {
 
     if (widget.forceSelection || widget.isInitialSetup) return;
 
-    final preferenceService = ref.read(onboardingServiceProvider);
-    final existingVariant = await preferenceService.getEnglishVariant();
-
-    if (existingVariant != null && mounted) {
+    // Load from UserModel instead of SharedPreferences
+    final currentUser = ref.read(userStateProvider).user;
+    if (currentUser != null && mounted) {
       setState(() {
-        _selectedVariant = existingVariant;
+        _selectedVariant = currentUser.englishVariant;
       });
     }
   }
@@ -457,42 +456,11 @@ class _EnglishVariantPageState extends ConsumerState<EnglishVariantPage> {
   }
 
   /// Flow 1: User editing preferences from Profile page
-  /// - Updates english_variant in Supabase (for registered users)
-  /// - Updates UserModel locally (for guest users)
-  /// - Returns to Profile on success/failure
+  /// Uses shared updatePreferences method (works for both Guest and Cloud)
   Future<void> _handleEditingFlow(String code) async {
-    if (widget.isGuest) {
-      // Guest mode editing - update UserModel locally
-      final userNotifier = ref.read(userStateProvider.notifier);
-      final currentUser = ref.read(userStateProvider).user;
-      if (currentUser != null) {
-        final updatedPrefs = Map<String, dynamic>.from(currentUser.preferences);
-        updatedPrefs['languageVariant'] = code;
-        final updatedUser = currentUser.copyWith(preferences: updatedPrefs);
-        await userNotifier.updateUser(updatedUser);
-        debugPrint('✅ Updated guest UserModel with new variant: $code');
-      }
-      if (mounted) Navigator.pop(context);
-      return;
-    }
-
-    final client = Supabase.instance.client;
-    final userId = client.auth.currentSession?.user.id;
-    if (userId != null) {
-      try {
-        await client.auth.updateUser(
-          UserAttributes(data: {'english_variant': code}),
-        );
-        // ⭐ IMPORTANT: Refresh session to get updated metadata
-        await client.auth.refreshSession();
-        await client
-            .from('users')
-            .update({'english_variant': code})
-            .eq('id', userId);
-      } catch (e) {
-        _handleSyncFailure(context);
-      }
-    }
+    final userNotifier = ref.read(userStateProvider.notifier);
+    await userNotifier.updatePreferences({'languageVariant': code});
+    debugPrint('✅ Updated english variant: $code');
     if (mounted) Navigator.pop(context);
   }
 
@@ -656,9 +624,6 @@ class _EnglishVariantPageState extends ConsumerState<EnglishVariantPage> {
     setState(() {
       _selectedVariant = code;
     });
-
-    final preferenceService = ref.read(onboardingServiceProvider);
-    await preferenceService.setEnglishVariant(code);
 
     // Route to appropriate flow based on widget flags
     if (widget.isEditing) {

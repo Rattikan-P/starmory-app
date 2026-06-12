@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'onboarding_page.dart';
 import 'main_navigation.dart';
 import 'english_variant_page.dart';
 import '../../constants/app_defaults.dart';
-import '../../utils/snackbar_helper.dart';
 import '../providers/providers.dart';
 
 class LanguageSelectionPage extends ConsumerStatefulWidget {
@@ -56,29 +53,24 @@ class _LanguageSelectionPageState extends ConsumerState<LanguageSelectionPage> {
 
     if (widget.forceSelection || widget.isInitialSetup) return;
 
-    final preferenceService = ref.read(onboardingServiceProvider);
-    final existingLevel = await preferenceService.getLanguageLevel();
-    final existingVariant = await preferenceService.getEnglishVariant();
+    // Load from UserModel instead of SharedPreferences
+    final currentUser = ref.read(userStateProvider).user;
+    if (currentUser != null && mounted) {
+      final existingLevel = currentUser.languageLevel;
 
-    // Store existing level for highlighting
-    if (existingLevel != null && mounted) {
+      // Store existing level for highlighting
       setState(() {
         _selectedLevel = existingLevel;
       });
-    }
 
-    // ถ้ามีทั้ง level และ variant แล้ว → ไปหน้าถัดไป (guest ไป home, register ไป login)
-    // ถ้ามีแค่ level แต่ไม่มี variant → ให้เลือก variant ต่อ (ไม่ skip)
-    if (existingLevel != null && existingVariant != null && mounted) {
+      // ถ้ามีทั้ง level และ variant แล้ว → ไปหน้าถัดไป (guest ไป home)
+      // Note: languageLevel and englishVariant always have defaults, never null
       if (widget.isGuest) {
-        await preferenceService.setGuestMode(true);
-        await preferenceService.setOnboardingCompleted(true);
-        if (mounted) {
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
-            (route) => false,
-          );
-        }
+        // Guest with complete preferences - skip to home
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
+          (route) => false,
+        );
       }
     }
     // ถ้ามี level แต่ไม่มี variant หรือไม่มีเลย → แสดงหน้า selection ให้เลือก
@@ -492,31 +484,18 @@ class _LanguageSelectionPageState extends ConsumerState<LanguageSelectionPage> {
       _selectedLevel = code;
     });
 
-    final preferenceService = ref.read(onboardingServiceProvider);
-    await preferenceService.setLanguageLevel(code);
-
     if (!context.mounted) return;
 
+    // EDITING MODE: Save preference immediately and return
     if (widget.isEditing) {
-      if (widget.isGuest) {
-        // Guest mode editing - update UserModel locally
-        final userNotifier = ref.read(userStateProvider.notifier);
-        final currentUser = ref.read(userStateProvider).user;
-        if (currentUser != null) {
-          final updatedPrefs = Map<String, dynamic>.from(currentUser.preferences);
-          updatedPrefs['defaultCefrLevel'] = code;
-          final updatedUser = currentUser.copyWith(preferences: updatedPrefs);
-          await userNotifier.updateUser(updatedUser);
-          debugPrint('✅ Updated guest UserModel with new level: $code');
-        }
-      } else {
-        await _updateLanguageLevelInSupabase(code);
-      }
+      final userNotifier = ref.read(userStateProvider.notifier);
+      await userNotifier.updatePreferences({'defaultCefrLevel': code});
+      debugPrint('✅ Updated language level: $code');
       _popIfMounted();
       return;
     }
 
-    // Go to English variant selection
+    // ONBOARDING MODE: Go to English variant selection
     if (!mounted) return;
     final result = await Navigator.push<bool>(
       context,
@@ -532,30 +511,6 @@ class _LanguageSelectionPageState extends ConsumerState<LanguageSelectionPage> {
     );
 
     _handleVariantSelectionResult(result);
-  }
-
-  Future<void> _updateLanguageLevelInSupabase(String code) async {
-    final client = Supabase.instance.client;
-    final userId = client.auth.currentSession?.user.id;
-    if (userId != null) {
-      try {
-        await client.auth.updateUser(
-          UserAttributes(data: {'language_level': code}),
-        );
-        // ⭐ IMPORTANT: Refresh session to get updated metadata
-        await client.auth.refreshSession();
-        await client
-            .from('users')
-            .update({'language_level': code})
-            .eq('id', userId);
-      } catch (e) {
-        // Local save already done, just notify user
-        if (mounted) {
-          SnackBarHelper.error(context, 'Failed to sync. Changes saved locally.');
-          setState(() => _selectedLevel = null);
-        }
-      }
-    }
   }
 
   void _popIfMounted() {

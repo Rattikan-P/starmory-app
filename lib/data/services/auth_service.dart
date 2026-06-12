@@ -106,8 +106,27 @@ class AuthService {
       type: OtpType.email,
     );
 
-    // เช็ค isNewUser จาก users table โดยตรง
+    // ⭐ IMPORTANT: Update user metadata IMMEDIATELY after verifyOTP
+    // This ensures auth state change picks up the correct preferences
+    // instead of default values from Supabase
     final userId = response.user?.id;
+    if (userId != null && (languageLevel != null || englishVariant != null || displayName != null)) {
+      try {
+        await updateUserPreferences(
+          userId: userId,
+          email: email,
+          displayName: displayName,
+          languageLevel: languageLevel,
+          englishVariant: englishVariant,
+        );
+        print('✅ [AuthService] Updated user preferences immediately after OTP verify: level=$languageLevel, variant=$englishVariant');
+      } catch (e) {
+        // Don't fail the login if preference update fails
+        print('⚠️ [AuthService] Failed to update preferences immediately: $e');
+      }
+    }
+
+    // เช็ค isNewUser จาก users table โดยตรง
     bool isNewUser = false;
     if (userId != null) {
       final userData = await _client

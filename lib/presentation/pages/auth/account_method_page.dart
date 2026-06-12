@@ -37,6 +37,22 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
 
   Future<void> _continueWithGoogle(BuildContext context) async {
     try {
+      final preferenceService = ref.read(onboardingServiceProvider);
+      await preferenceService.init();
+
+      // ⭐ IMPORTANT: Read guest preferences BEFORE sign in
+      // Otherwise, auth state change will convert guest → registered before we can read
+      final currentUserBeforeAuth = ref.read(userStateProvider).user;
+      final guestLevel = currentUserBeforeAuth?.languageLevel;
+      final guestVariant = currentUserBeforeAuth?.englishVariant;
+
+      // Check if user has non-default preferences (has guest data)
+      final hasGuestData = currentUserBeforeAuth != null &&
+          (currentUserBeforeAuth.languageLevel != AppDefaults.defaultLanguageLevel ||
+           currentUserBeforeAuth.englishVariant != AppDefaults.defaultEnglishVariant);
+
+      debugPrint('📝 Guest preferences captured BEFORE auth: level=$guestLevel, variant=$guestVariant, hasData=$hasGuestData');
+
       final authService = AuthService();
       // force ถาม account ใหม่ตอน guest สร้าง account
       final success = await authService.signInWithGoogle(
@@ -78,15 +94,8 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
             .join(' ');
       }
 
-      final preferenceService = ref.read(onboardingServiceProvider);
-      await preferenceService.init();
-
       // Auto-accept terms
       await preferenceService.setTermsVersion(preferenceService.getCurrentTermsVersion());
-
-      final guestLevel = await preferenceService.getLanguageLevel();
-      final guestVariant = await preferenceService.getEnglishVariant();
-      final hasGuestData = guestLevel != null || guestVariant != null;
 
       final userData = await client
           .from('users')
@@ -287,10 +296,13 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
     try {
       final email = _emailController.text.trim();
 
-      // Get guest preferences to carry over
-      final preferenceService = ref.read(onboardingServiceProvider);
-      final guestLevel = await preferenceService.getLanguageLevel();
-      final guestVariant = await preferenceService.getEnglishVariant();
+      // ⭐ IMPORTANT: Read guest preferences BEFORE send OTP
+      // Capture early to ensure we have guest data even if state changes later
+      final currentUser = ref.read(userStateProvider).user;
+      final guestLevel = currentUser?.languageLevel;
+      final guestVariant = currentUser?.englishVariant;
+
+      debugPrint('📝 Guest preferences captured for email flow: level=$guestLevel, variant=$guestVariant');
 
       // Send OTP first, then navigate
       final authService = ref.read(authServiceProvider);
