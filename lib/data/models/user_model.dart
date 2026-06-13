@@ -14,6 +14,8 @@ class UserModel extends Equatable {
   final int totalWordsLearned;
   final int currentStreak; // in days
   final int longestStreak;
+  final int shields; // streak shields (freeze protection)
+  final DateTime? lastStreakActivityDate; // last date user did streak activity
   final List<String> badges;
   final List<String> stickers;
   final QuotaManager quotaManager;
@@ -30,6 +32,8 @@ class UserModel extends Equatable {
     this.totalWordsLearned = 0,
     this.currentStreak = 0,
     this.longestStreak = 0,
+    this.shields = 0,
+    this.lastStreakActivityDate,
     this.badges = const [],
     this.stickers = const [],
     required this.quotaManager,
@@ -101,6 +105,65 @@ class UserModel extends Equatable {
     );
   }
 
+  /// Increment streak after activity
+  /// Returns updated user with incremented streak and potentially earned shields
+  /// Logic matches database trigger: update_streak_after_activity()
+  UserModel incrementStreak() {
+    final today = DateTime.now().toIso8601String().split('T')[0];
+
+    // First activity ever
+    if (lastStreakActivityDate == null) {
+      return copyWith(
+        currentStreak: 1,
+        longestStreak: longestStreak < 1 ? 1 : longestStreak,
+        lastStreakActivityDate: DateTime.now(),
+      );
+    }
+
+    // Check if already did activity today
+    final lastActivityStr = lastStreakActivityDate!.toIso8601String().split('T')[0];
+    if (lastActivityStr == today) {
+      return this; // Already updated today
+    }
+
+    // Check if consecutive day (yesterday)
+    final yesterday = DateTime.now().subtract(const Duration(days: 1)).toIso8601String().split('T')[0];
+    final newStreak = lastActivityStr == yesterday ? currentStreak + 1 : 1;
+    final newLongestStreak = newStreak > longestStreak ? newStreak : longestStreak;
+
+    // Earn shield every 7 days
+    int newShields = shields;
+    if (newStreak % 7 == 0 && newStreak > currentStreak) {
+      newShields = shields + 1;
+    }
+
+    return copyWith(
+      currentStreak: newStreak,
+      longestStreak: newLongestStreak,
+      shields: newShields,
+      lastStreakActivityDate: DateTime.now(),
+    );
+  }
+
+  /// Use a shield (freeze streak for one missed day)
+  UserModel useShield() {
+    if (shields <= 0) return this;
+    return copyWith(shields: shields - 1);
+  }
+
+  /// Add shields (for testing or rewards)
+  UserModel addShields(int count) {
+    return copyWith(shields: shields + count);
+  }
+
+  /// Check if already did streak activity today
+  bool get hasDoneStreakActivityToday {
+    if (lastStreakActivityDate == null) return false;
+    final today = DateTime.now().toIso8601String().split('T')[0];
+    final lastActivityStr = lastStreakActivityDate!.toIso8601String().split('T')[0];
+    return lastActivityStr == today;
+  }
+
   /// Add badge
   UserModel addBadge(String badgeId) {
     if (badges.contains(badgeId)) return this;
@@ -160,6 +223,8 @@ class UserModel extends Equatable {
     int? totalWordsLearned,
     int? currentStreak,
     int? longestStreak,
+    int? shields,
+    DateTime? lastStreakActivityDate,
     List<String>? badges,
     List<String>? stickers,
     QuotaManager? quotaManager,
@@ -176,6 +241,8 @@ class UserModel extends Equatable {
       totalWordsLearned: totalWordsLearned ?? this.totalWordsLearned,
       currentStreak: currentStreak ?? this.currentStreak,
       longestStreak: longestStreak ?? this.longestStreak,
+      shields: shields ?? this.shields,
+      lastStreakActivityDate: lastStreakActivityDate ?? this.lastStreakActivityDate,
       badges: badges ?? this.badges,
       stickers: stickers ?? this.stickers,
       quotaManager: quotaManager ?? this.quotaManager,

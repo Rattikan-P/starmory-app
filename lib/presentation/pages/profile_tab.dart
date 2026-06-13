@@ -3070,13 +3070,17 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
           preferenceService.setOnboardingCompleted(false),
         ]);
 
-        // Clear local streak state
-        streakNotifier.reset();
-        print('✅ Local data cleared');
+        // Clear UserModel from Hive (this will trigger creating fresh guest on logout)
+        await hiveService.clearCurrentUser();
+        print('✅ UserModel cleared from Hive');
 
-        // Delete account (includes signOut)
+        // Clear local streak state
+        streakNotifier.clearLocalState();
+        print('✅ Local streak state cleared');
+
+        // Delete account (includes signOut → logout → creates fresh guest)
         await authService.deleteAccount();
-        print('✅ Account deleted');
+        print('✅ Account deleted, new guest created');
 
         // Navigate to Onboarding using captured navigator
         print('🚪 Navigating to onboarding...');

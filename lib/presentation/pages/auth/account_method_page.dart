@@ -1,10 +1,10 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../data/services/auth_service.dart';
+import '../../../data/services/merge_service.dart';
 import '../../../utils/snackbar_helper.dart';
 import '../../widgets/galaxy_screen_background.dart';
 import '../main_navigation.dart';
@@ -169,6 +169,9 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
             final migrated = await streakNotifier.migrateGuestStreakToCloud();
             if (migrated) {
               print('✅ [Google Login] Streak migrated successfully');
+              // Refresh local state from cloud after migration
+              await streakNotifier.refresh();
+              print('✅ [Google Login] Streak refreshed from cloud');
             } else {
               print('ℹ️ [Google Login] No streak data to migrate');
             }
@@ -197,24 +200,95 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
           final shouldMerge = await _showMergeDialog(context, guestLevel, guestVariant);
 
           if (shouldMerge == true) {
-            // User เลือก merge → อัปเดต preferences เป็นของ guest
+            // User เลือก merge → ใช้ MergeService เพื่อ merge ข้อมูล
             try {
+              print('🔄 [Google Login] Starting merge with MergeService...');
+
+              // 1. Collect guest data
               final hiveService = ref.read(hiveServiceProvider);
-              final vocabSyncService = ref.read(vocabularySyncServiceProvider);
-              await authService.mergeGuestPreferences(
+              final guestStreakData = ref.read(streakProvider);
+              final localVocabs = await hiveService.getAllVocabulary();
+
+              final guestData = <String, dynamic>{
+                'currentStreak': guestStreakData?.currentStreak ?? 0,
+                'longestStreak': guestStreakData?.longestStreak ?? 0,
+                'lastStreakActivityDate': guestStreakData?.lastActivityDate?.toIso8601String(),
+                'shields': guestStreakData?.shieldsAvailable ?? 0,
+                'vocabulary': localVocabs,
+              };
+
+              print('📦 [Google Login] Guest data: streak=${guestStreakData?.currentStreak ?? 0}, vocab=${localVocabs.length}');
+
+              // 2. Get server data from Supabase
+              final serverUserData = await client
+                  .from('users')
+                  .select('id, current_streak, longest_streak, last_activity_date')
+                  .eq('id', userId)
+                  .maybeSingle();
+
+              final serverData = serverUserData != null ? <String, dynamic>{
+                'currentStreak': serverUserData['current_streak'] ?? 0,
+                'longestStreak': serverUserData['longest_streak'] ?? 0,
+                'lastStreakActivityDate': serverUserData['last_activity_date']?.toString(),
+              } : null;
+
+              print('☁️ [Google Login] Server data: ${serverData != null ? "found" : "not found"}');
+
+              // 3. Use MergeService to calculate merged result
+              final mergeService = MergeService();
+              final mergeResult = await mergeService.mergeUserData(
+                guestData,
+                serverData,
+              );
+
+              print('✅ [Google Login] Merge result: ${mergeResult.summary}');
+
+              // 4. Apply merged data back to services
+
+              // 4a. Update merged preferences to Supabase
+              await authService.updateUserPreferences(
                 userId: userId,
                 email: client.auth.currentUser?.email ?? '',
-                languageLevel: guestLevel,
+                displayName: displayName,
+                languageLevel: guestLevel, // For existing users, server wins in merge config, but we merge guest choice on dialog click
                 englishVariant: guestVariant,
-                hiveService: hiveService,
-                vocabularySyncService: vocabSyncService,
+                termsVersion: preferenceService.getCurrentTermsVersion(),
               );
+
+              // 4b. Upload guest vocabulary to cloud (deduplicated via mergeWithCloud)
+              final vocabSyncService = ref.read(vocabularySyncServiceProvider);
+              if (localVocabs.isNotEmpty) {
+                print('☁️ [Google Login] Merging vocabulary to cloud...');
+                final syncedVocabs = await vocabSyncService.mergeWithCloud(localVocabs);
+                // Clear local after successful sync
+                await hiveService.clearAllVocabulary();
+                print('✅ [Google Login] Vocabulary synced: ${syncedVocabs.length} total');
+              }
+
+              // 4c. Update merged streak to cloud
+              final mergedStreak = mergeResult.mergedData['currentStreak'] as int? ?? 0;
+              final mergedLongest = mergeResult.mergedData['longestStreak'] as int? ?? 0;
+              final mergedLastActivity = mergeResult.mergedData['lastStreakActivityDate'] as String?;
+
+              print('📊 [Google Login] Writing merged streak to cloud: current=$mergedStreak, longest=$mergedLongest');
+
+              await client.from('users').update({
+                'current_streak': mergedStreak,
+                'longest_streak': mergedLongest,
+                if (mergedLastActivity != null) 'last_activity_date': mergedLastActivity,
+              }).eq('id', userId);
+
+              print('✅ [Google Login] Streak merged and updated to cloud');
+
+              // Refresh local streak state from cloud after merge
+              final streakNotifier = ref.read(streakProvider.notifier);
+              await streakNotifier.refresh();
+              print('✅ [Google Login] Streak refreshed from cloud after merge');
 
               // Refresh UserModel with merged preferences from Supabase
               final userNotifier = ref.read(userStateProvider.notifier);
               final currentUser = ref.read(userStateProvider).user;
               if (currentUser != null) {
-                // Create updated user with merged preferences from Supabase metadata
                 final supabaseUser = client.auth.currentUser;
                 final mergedLevel = supabaseUser?.userMetadata?["language_level"] as String?;
                 final mergedVariant = supabaseUser?.userMetadata?["english_variant"] as String?;
@@ -231,27 +305,15 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
               }
             } catch (e) {
               // E3: Service unavailable when merging preferences
+              print('❌ [Google Login] Merge failed: $e');
               if (context.mounted) {
                 SnackBarHelper.error(context, AlertMessages.serviceUnavailable);
               }
               return; // Stay on page, user can retry
             }
-          }
-
-          // ถ้า shouldMerge == false → ใช้ข้อมูลเดิม preferences และ vocab
-          // แต่ STREAK ยัง migrate ให้ทั้ง 2 กรณี (เพราะคือความพยายามล่าสุด)
-          try {
-            print('🔄 [Google Login] Migrating guest streak...');
-            final streakNotifier = ref.read(streakProvider.notifier);
-            final migrated = await streakNotifier.migrateGuestStreakToCloud();
-            if (migrated) {
-              print('✅ [Google Login] Streak migrated successfully (guest: $shouldMerge)');
-            } else {
-              print('ℹ️ [Google Login] No streak data to migrate');
-            }
-          } catch (e) {
-            // Streak migration failed - continue with login
-            print('⚠️ [Google Login] Streak migration failed: $e');
+          } else {
+            // User chose "No" → Keep original server data, don't migrate anything
+            print('ℹ️ [Google Login] User chose to keep original data - skipping merge');
           }
         }
       }
@@ -374,284 +436,297 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
   ) async {
     return showDialog<bool>(
       context: context,
-      barrierDismissible: false,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Colors.white,
-                const Color(0xFFf8f9ff),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(28),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF8b5cf6).withValues(alpha: 0.15),
-                blurRadius: 30,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-              // Icon with glow effect
-              Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Color(0xFFf472b6), // Soft pink
-                      Color(0xFF60a5fa), // Soft blue
-                    ],
-                  ),
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFFf472b6).withValues(alpha: 0.3),
-                      blurRadius: 20,
-                      offset: const Offset(0, 8),
-                    ),
+      barrierDismissible: false, // We handle dismiss manually
+      builder: (context) => PopScope(
+        canPop: false, // Handle back button manually
+        onPopInvokedWithResult: (didPop, result) async {
+          // Return false (No) when back is pressed
+          if (context.mounted && !didPop) {
+            Navigator.of(context).pop(false);
+          }
+        },
+        child: GestureDetector(
+          onTap: () => Navigator.pop(context, false), // Tap outside = No
+          child: Dialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 340),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Colors.white,
+                    const Color(0xFFf8f9ff),
                   ],
                 ),
-                child: const Icon(
-                  Icons.merge_rounded,
-                  color: Colors.white,
-                  size: 40,
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // Title
-              Text(
-                'Account already exists',
-                style: GoogleFonts.lexend(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF1f2937),
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-
-              // Subtitle
-              Text(
-                'This email already has an account.',
-                style: GoogleFonts.lexend(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w400,
-                  color: const Color(0xFF6b7280),
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 20),
-
-              // Guest preferences card
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      const Color(0xFFf3f4f6),
-                      const Color(0xFFe8f0ff).withValues(alpha: 0.5),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: const Color(0xFF8b5cf6).withValues(alpha: 0.1),
-                    width: 1,
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 32,
-                          height: 32,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF8b5cf6).withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(
-                            Icons.person_outline,
-                            color: Color(0xFF8b5cf6),
-                            size: 18,
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Text(
-                          'Your guest preferences',
-                          style: GoogleFonts.lexend(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: const Color(0xFF8b5cf6),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    if (guestLevel != null)
-                      Padding(
-                        padding: const EdgeInsets.only(left: 8, bottom: 6),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 6,
-                              height: 6,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFF8b5cf6),
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Language Level: $guestLevel',
-                                style: GoogleFonts.lexend(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w400,
-                                  color: const Color(0xFF4b5563),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    if (guestVariant != null)
-                      Padding(
-                        padding: const EdgeInsets.only(left: 8),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 6,
-                              height: 6,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFF8b5cf6),
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'English Variant: $guestVariant',
-                                style: GoogleFonts.lexend(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w400,
-                                  color: const Color(0xFF4b5563),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // Question
-              Text(
-                'Would you like to add your guest data to this account?',
-                style: GoogleFonts.lexend(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xFF6b7280),
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-
-              // Buttons
-              Row(
-                children: [
-                  Expanded(
-                    child: SizedBox(
-                      height: 50,
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.pop(context, false),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF9ca3af),
-                          side: BorderSide(
-                            color: const Color(0xFF9ca3af).withValues(alpha: 0.3),
-                            width: 1.5,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                        ),
-                        child: Text(
-                          'Keep old',
-                          style: GoogleFonts.lexend(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: SizedBox(
-                      height: 50,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              Color(0xFF60a5fa),
-                              Color(0xFFa78bfa),
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(14),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFFa78bfa).withValues(alpha: 0.4),
-                              blurRadius: 15,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: () => Navigator.pop(context, true),
-                            borderRadius: BorderRadius.circular(14),
-                            child: const Center(
-                              child: Text(
-                                'Add guest data',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
+                borderRadius: BorderRadius.circular(28),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF8b5cf6).withValues(alpha: 0.15),
+                    blurRadius: 30,
+                    offset: const Offset(0, 10),
                   ),
                 ],
               ),
-            ],
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                  // Icon with glow effect
+                  Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Color(0xFFf472b6), // Soft pink
+                          Color(0xFF60a5fa), // Soft blue
+                        ],
+                      ),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFf472b6).withValues(alpha: 0.3),
+                          blurRadius: 20,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.merge_rounded,
+                      color: Colors.white,
+                      size: 40,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Title
+                  Text(
+                    'Account already exists',
+                    style: GoogleFonts.lexend(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF1f2937),
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Subtitle
+                  Text(
+                    'This email already has an account.',
+                    style: GoogleFonts.lexend(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                      color: const Color(0xFF6b7280),
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Guest preferences card
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          const Color(0xFFf3f4f6),
+                          const Color(0xFFe8f0ff).withValues(alpha: 0.5),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: const Color(0xFF8b5cf6).withValues(alpha: 0.1),
+                        width: 1,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF8b5cf6).withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(
+                                Icons.person_outline,
+                                color: Color(0xFF8b5cf6),
+                                size: 18,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              'Your guest preferences',
+                              style: GoogleFonts.lexend(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xFF8b5cf6),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        if (guestLevel != null)
+                          Padding(
+                            padding: const EdgeInsets.only(left: 8, bottom: 6),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 6,
+                                  height: 6,
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFF8b5cf6),
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Language Level: $guestLevel',
+                                    style: GoogleFonts.lexend(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w400,
+                                      color: const Color(0xFF4b5563),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        if (guestVariant != null)
+                          Padding(
+                            padding: const EdgeInsets.only(left: 8),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 6,
+                                  height: 6,
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFF8b5cf6),
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'English Variant: $guestVariant',
+                                    style: GoogleFonts.lexend(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w400,
+                                      color: const Color(0xFF4b5563),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Question
+                  Text(
+                    'Merge your guest progress with this account?',
+                    style: GoogleFonts.lexend(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: const Color(0xFF6b7280),
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Buttons
+                  Row(
+                    children: [
+                      Expanded(
+                        child: SizedBox(
+                          height: 50,
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFF9ca3af),
+                              side: BorderSide(
+                                color: const Color(0xFF9ca3af).withValues(alpha: 0.3),
+                                width: 1.5,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            child: Text(
+                              'Keep my account',
+                              style: GoogleFonts.lexend(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: SizedBox(
+                          height: 50,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  Color(0xFF60a5fa),
+                                  Color(0xFFa78bfa),
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(14),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFFa78bfa).withValues(alpha: 0.4),
+                                  blurRadius: 15,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: () => Navigator.pop(context, true),
+                                borderRadius: BorderRadius.circular(14),
+                                child: const Center(
+                                  child: Text(
+                                    'Combine my data',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),
-    ),
+      ),
     );
   }
 
@@ -1002,13 +1077,13 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
                     ],
                   ),
                 ),
-              ],
+                ],
+              ),
             ),
           ),
-            ),
-        ],
-      ),
-    ),
+            ],
+          ),
+        ),
       ),
     );
   }

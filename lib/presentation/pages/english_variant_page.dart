@@ -8,6 +8,7 @@ import 'main_navigation.dart';
 import '../../constants/app_defaults.dart';
 import '../../data/services/auth_service.dart';
 import '../../utils/snackbar_helper.dart';
+import '../../data/models/user_model.dart';
 import '../providers/providers.dart';
 import '../providers/auth_provider.dart' as auth;
 
@@ -389,17 +390,23 @@ class _EnglishVariantPageState extends ConsumerState<EnglishVariantPage> {
     // This ensures the guest user has their selected preferences immediately
     final userNotifier = ref.read(userStateProvider.notifier);
     final currentUser = ref.read(userStateProvider).user;
+
+    final selectedPreferences = {
+      'defaultCefrLevel': widget.languageLevel,
+      'languageVariant': _selectedVariant ?? AppDefaults.defaultEnglishVariant,
+    };
+
     if (currentUser != null) {
-      final updatedUser = currentUser.copyWith(
-        preferences: {
-          'defaultCefrLevel': widget.languageLevel,
-          'languageVariant': _selectedVariant ?? AppDefaults.defaultEnglishVariant,
-        },
-      );
+      // User exists, update with selected preferences
+      final updatedUser = currentUser.copyWith(preferences: selectedPreferences);
       await userNotifier.updateUser(updatedUser);
       debugPrint('✅ Updated UserModel with guest preferences: level=${widget.languageLevel}, variant=$_selectedVariant');
     } else {
-      debugPrint('⚠️ No UserModel found for guest, skipping preference update');
+      // User doesn't exist yet, create guest user WITH selected preferences
+      debugPrint('⚠️ No UserModel found, creating guest with selected preferences');
+      final guestUser = UserModel.createGuest().copyWith(preferences: selectedPreferences);
+      await userNotifier.updateUser(guestUser);
+      debugPrint('✅ Created and saved guest user with preferences: level=${widget.languageLevel}, variant=$_selectedVariant');
     }
 
     if (!mounted) return;

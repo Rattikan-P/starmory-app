@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/services/streak_service.dart';
 import '../../data/services/preference_service.dart';
+import 'providers.dart';
 
 /// Streak service provider
 final streakServiceProvider = Provider<StreakService>((ref) {
@@ -16,69 +18,79 @@ final preferenceServiceProvider = Provider<PreferenceService>((ref) {
 /// Streak data provider - fetches and caches streak data
 /// Works for both registered (cloud) and guest (local) users
 class StreakNotifier extends StateNotifier<StreakData?> {
-  StreakNotifier(this._service, this._prefService) : super(null) {
+  StreakNotifier(this._service, this._prefService, this._userNotifier) : super(null) {
     _init();
   }
 
   final StreakService _service;
   final PreferenceService _prefService;
+  final UserNotifier _userNotifier;
+  StreamSubscription<UserState>? _userStateSubscription;
 
   Future<void> _init() async {
+    // Listen to user state changes via stream
+    _userStateSubscription = _userNotifier.stream.listen((userState) {
+      // User changed - refresh streak data
+      if (!_userStateSubscription!.isPaused) {
+        refresh();
+      }
+    }, onError: (error) {
+      print('❌ Error in user state stream: $error');
+    });
     await refresh();
+  }
+
+  @override
+  void dispose() {
+    _userStateSubscription?.cancel();
+    super.dispose();
   }
 
   /// Refresh streak data from appropriate source (cloud or local)
   Future<void> refresh() async {
-    final isGuest = await _prefService.isGuestMode();
+    // Read from UserModel (SSOT)
+    final currentUser = _userNotifier.state.user;
 
-    if (isGuest) {
-      // Guest - load from local storage
-      await _loadGuestStreak();
-    } else {
+    if (currentUser != null && currentUser.isGuest) {
+      // Guest - load from UserModel
+      _loadFromUserModel(currentUser);
+      return;
+    }
+
+    // Fallback to check if registered user
+    final supabaseUser = Supabase.instance.client.auth.currentUser;
+    if (supabaseUser != null) {
       // Registered - load from cloud
-      final user = Supabase.instance.client.auth.currentUser;
-      if (user != null) {
-        final data = await _service.getStreakData();
-        state = data;
-      } else {
-        // Not logged in - try guest mode
-        await _loadGuestStreak();
-      }
+      final data = await _service.getStreakData();
+      state = data;
+    } else {
+      // No user - null state
+      state = null;
     }
   }
 
-  /// Load streak data from local storage (guest mode)
-  Future<void> _loadGuestStreak() async {
-    final currentStreak = await _prefService.getGuestCurrentStreak();
-    final shields = await _prefService.getGuestShields();
-    final longestStreak = await _prefService.getGuestLongestStreak();
-    final lastActivityStr = await _prefService.getGuestLastActivityDate();
-
-    DateTime? lastActivityDate;
-    if (lastActivityStr != null) {
-      try {
-        lastActivityDate = DateTime.parse(lastActivityStr);
-      } catch (e) {
-        lastActivityDate = null;
-      }
-    }
-
+  /// Load streak data from UserModel (SSOT - Single Source of Truth)
+  void _loadFromUserModel(dynamic user) {
     state = StreakData(
-      currentStreak: currentStreak,
-      shieldsAvailable: shields,
-      longestStreak: longestStreak,
-      lastActivityDate: lastActivityDate,
+      currentStreak: user.currentStreak,
+      shieldsAvailable: user.shields,
+      longestStreak: user.longestStreak,
+      lastActivityDate: user.lastStreakActivityDate,
     );
   }
 
   /// Update streak after activity
   Future<bool> updateAfterActivity() async {
-    final isGuest = await _prefService.isGuestMode();
+    final currentUser = _userNotifier.state.user;
 
-    if (isGuest) {
-      // Guest - update local
-      await _prefService.updateGuestStreakAfterActivity();
-      await _loadGuestStreak();
+    if (currentUser == null) return false;
+
+    if (currentUser.isGuest) {
+      // Guest - increment streak in UserModel (SSOT)
+      final updatedUser = currentUser.incrementStreak();
+      await _userNotifier.updateUser(updatedUser);
+      _loadFromUserModel(updatedUser);
+      print('✅ [Guest Streak] Updated UserModel: streak=${updatedUser.currentStreak}, shields=${updatedUser.shields}');
       return true;
     } else {
       // Registered - manual update (until trigger is ready)
@@ -93,17 +105,21 @@ class StreakNotifier extends StateNotifier<StreakData?> {
     int? currentStreak,
     int? shieldsAvailable,
   }) async {
-    final isGuest = await _prefService.isGuestMode();
+    final currentUser = _userNotifier.state.user;
 
-    if (isGuest) {
-      // Guest - update local
-      if (currentStreak != null) {
-        await _prefService.setGuestCurrentStreak(currentStreak);
-      }
-      if (shieldsAvailable != null) {
-        await _prefService.setGuestShields(shieldsAvailable);
-      }
-      await _loadGuestStreak();
+    if (currentUser == null) return false;
+
+    if (currentUser.isGuest) {
+      // Guest - update UserModel
+      final updatedUser = currentUser.copyWith(
+        currentStreak: currentStreak ?? currentUser.currentStreak,
+        longestStreak: currentStreak != null && currentStreak > currentUser.longestStreak
+            ? currentStreak
+            : currentUser.longestStreak,
+        shields: shieldsAvailable ?? currentUser.shields,
+      );
+      await _userNotifier.updateUser(updatedUser);
+      _loadFromUserModel(updatedUser);
       return true;
     } else {
       // Registered - update cloud
@@ -118,13 +134,15 @@ class StreakNotifier extends StateNotifier<StreakData?> {
 
   /// Add shields
   Future<bool> addShields(int count) async {
-    final isGuest = await _prefService.isGuestMode();
+    final currentUser = _userNotifier.state.user;
 
-    if (isGuest) {
-      // Guest - update local
-      final current = await _prefService.getGuestShields();
-      await _prefService.setGuestShields(current + count);
-      await _loadGuestStreak();
+    if (currentUser == null) return false;
+
+    if (currentUser.isGuest) {
+      // Guest - update UserModel
+      final updatedUser = currentUser.addShields(count);
+      await _userNotifier.updateUser(updatedUser);
+      _loadFromUserModel(updatedUser);
       return true;
     } else {
       // Registered - update cloud
@@ -136,14 +154,16 @@ class StreakNotifier extends StateNotifier<StreakData?> {
 
   /// Use a shield
   Future<bool> useShield() async {
-    final isGuest = await _prefService.isGuestMode();
+    final currentUser = _userNotifier.state.user;
 
-    if (isGuest) {
-      // Guest - update local
-      final current = await _prefService.getGuestShields();
-      if (current <= 0) return false;
-      await _prefService.setGuestShields(current - 1);
-      await _loadGuestStreak();
+    if (currentUser == null) return false;
+
+    if (currentUser.isGuest) {
+      // Guest - update UserModel
+      if (currentUser.shields <= 0) return false;
+      final updatedUser = currentUser.useShield();
+      await _userNotifier.updateUser(updatedUser);
+      _loadFromUserModel(updatedUser);
       return true;
     } else {
       // Registered - update cloud
@@ -155,11 +175,20 @@ class StreakNotifier extends StateNotifier<StreakData?> {
 
   /// Reset streak (testing)
   Future<bool> reset() async {
-    final isGuest = await _prefService.isGuestMode();
+    final currentUser = _userNotifier.state.user;
 
-    if (isGuest) {
-      await _prefService.resetGuestStreak();
-      await _loadGuestStreak();
+    if (currentUser == null) return false;
+
+    if (currentUser.isGuest) {
+      // Guest - reset UserModel
+      final updatedUser = currentUser.copyWith(
+        currentStreak: 0,
+        longestStreak: 0,
+        shields: 0,
+        lastStreakActivityDate: null,
+      );
+      await _userNotifier.updateUser(updatedUser);
+      _loadFromUserModel(updatedUser);
       return true;
     } else {
       final success = await _service.resetStreak();
@@ -178,18 +207,24 @@ class StreakNotifier extends StateNotifier<StreakData?> {
   /// Automatically calculates appropriate shields for the streak value
   /// 7 days = 1 shield, 14 days = 2 shields, etc.
   Future<bool> setStreak(int value, {int? shields}) async {
-    final isGuest = await _prefService.isGuestMode();
+    final currentUser = _userNotifier.state.user;
+
+    if (currentUser == null) return false;
 
     // Calculate appropriate shields if not explicitly provided
     final calculatedShields = shields ?? (value ~/ 7);
 
-    if (isGuest) {
-      await _prefService.setGuestCurrentStreak(value);
-      await _prefService.setGuestLongestStreak(value);
-      await _prefService.setGuestConsecutiveDays(value % 7);
-      await _prefService.setGuestLastActivityDate(DateTime.now().toIso8601String().split('T')[0]);
-      await _prefService.setGuestShields(calculatedShields);
-      await _loadGuestStreak();
+    if (currentUser.isGuest) {
+      // Guest - update UserModel
+      final today = DateTime.now();
+      final updatedUser = currentUser.copyWith(
+        currentStreak: value,
+        longestStreak: value > currentUser.longestStreak ? value : currentUser.longestStreak,
+        shields: calculatedShields,
+        lastStreakActivityDate: today,
+      );
+      await _userNotifier.updateUser(updatedUser);
+      _loadFromUserModel(updatedUser);
       return true;
     } else {
       // For registered users, use updateStreakData
@@ -315,7 +350,8 @@ class StreakNotifier extends StateNotifier<StreakData?> {
 final streakProvider = StateNotifierProvider<StreakNotifier, StreakData?>((ref) {
   final service = ref.watch(streakServiceProvider);
   final prefService = ref.watch(preferenceServiceProvider);
-  return StreakNotifier(service, prefService);
+  final userNotifier = ref.watch(userStateProvider.notifier);
+  return StreakNotifier(service, prefService, userNotifier);
 });
 
 /// Convenience provider for current streak value

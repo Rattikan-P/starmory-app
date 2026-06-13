@@ -6,6 +6,8 @@ import '../../data/services/gemini_service.dart';
 import '../../data/services/hive_service.dart';
 import '../../data/services/vocabulary_sync_service.dart';
 import '../../data/services/image_storage_service.dart';
+import '../../data/services/merge_service.dart';
+import '../../data/services/streak_service.dart';
 import '../../data/models/user_model.dart';
 import '../../data/models/vocabulary_model.dart';
 import '../../data/models/calendar_model.dart';
@@ -34,6 +36,11 @@ final vocabularySyncServiceProvider = Provider<VocabularySyncService>((ref) {
 /// Gemini Service Provider
 final geminiServiceProvider = Provider<GeminiService>((ref) {
   return GeminiService();
+});
+
+/// Merge Service Provider
+final mergeServiceProvider = Provider<MergeService>((ref) {
+  return MergeService();
 });
 
 // ============= App Initialization Provider =============
@@ -178,8 +185,9 @@ class UserNotifier extends StateNotifier<UserState> {
 
   Future<void> _convertToRegisteredUser(User supabaseUser) async {
     try {
-      // Get current user from Hive
+      // Get current user from Hive (might be guest or null)
       final currentUser = await _hiveService.getCurrentUser();
+      final hasGuestData = currentUser?.isGuest ?? false;
 
       // Fetch quota from Supabase using auto-reset function
       final client = Supabase.instance.client;
@@ -224,23 +232,139 @@ class UserNotifier extends StateNotifier<UserState> {
       final languageLevel = supabaseUser.userMetadata?['language_level'] as String?;
       final englishVariant = supabaseUser.userMetadata?['english_variant'] as String?;
 
-      // Create registered user with synced quota and preferences
-      final registeredUser = UserModel.createRegisteredUser(
-        id: supabaseUser.id,
-        email: supabaseUser.email ?? 'user@example.com',
-        displayName: supabaseUser.userMetadata?['display_name'] as String?,
-        photoUrl: supabaseUser.userMetadata?['avatar_url'] as String?,
-      ).copyWith(
-        quotaManager: quotaManager,
-        preferences: {
-          'defaultCefrLevel': languageLevel ?? AppDefaults.defaultLanguageLevel,
-          'languageVariant': englishVariant ?? AppDefaults.defaultEnglishVariant,
-        },
-      );
+      // Fetch existing user data from Supabase to preserve streak and progress
+      Map<String, dynamic>? serverUserData;
+      try {
+        final client = Supabase.instance.client;
+        final existingData = await client
+            .from('users')
+            .select()
+            .eq('id', supabaseUser.id)
+            .maybeSingle();
+        serverUserData = existingData as Map<String, dynamic>?;
+
+        if (serverUserData != null) {
+          print('📥 Loaded existing data from server:');
+          print('   - streak: ${serverUserData['current_streak']}');
+          print('   - longest_streak: ${serverUserData['longest_streak']}');
+        }
+      } catch (e) {
+        print('⚠️ Failed to fetch user data from server: $e');
+      }
+
+      // Use Merge Framework to merge guest data with server data
+      UserModel registeredUser;
+      if (hasGuestData) {
+        // Guest → Registered: Use Merge Framework
+        print('🔄 Migrating guest data to registered user...');
+
+        // Read guest streak from local database (Hive) - this is the source of truth for guests
+        final streakService = StreakService();
+        final guestStreakData = await streakService.getStreakData();
+
+        // Prepare guest data map
+        final guestDataMap = <String, dynamic>{
+          'currentStreak': guestStreakData?.currentStreak ?? 0,
+          'longestStreak': guestStreakData?.longestStreak ?? 0,
+          'lastStreakActivityDate': guestStreakData?.lastActivityDate?.toIso8601String(),
+          'shields': currentUser!.shields,
+          'totalWordsLearned': currentUser.totalWordsLearned,
+          'badges': currentUser.badges,
+          'stickers': currentUser.stickers,
+          'preferences': currentUser.preferences,
+        };
+
+        // Use Merge Service
+        final mergeService = MergeService();
+        final mergeResult = await mergeService.mergeUserData(
+          guestDataMap,
+          serverUserData,
+        );
+
+        print('📊 Merge result: ${mergeResult.summary}');
+
+        // Merge preferences with metadata
+        final mergedPrefs = Map<String, dynamic>.from(
+          mergeResult.mergedData['preferences'] as Map? ?? currentUser.preferences
+        );
+        if (languageLevel != null) mergedPrefs['defaultCefrLevel'] = languageLevel;
+        if (englishVariant != null) mergedPrefs['languageVariant'] = englishVariant;
+
+        // Parse last activity date
+        DateTime? lastActivityDate;
+        final lastActivityStr = mergeResult.mergedData['lastStreakActivityDate'] as String?;
+        if (lastActivityStr != null) {
+          lastActivityDate = DateTime.tryParse(lastActivityStr);
+        }
+
+        // Convert Set to List for badges/stickers if needed
+        final badgesValue = mergeResult.mergedData['badges'];
+        final stickersValue = mergeResult.mergedData['stickers'];
+        final badgesList = badgesValue is Set
+            ? badgesValue.toList()
+            : (badgesValue is List ? badgesValue : <String>[]);
+        final stickersList = stickersValue is Set
+            ? stickersValue.toList()
+            : (stickersValue is List ? stickersValue : <String>[]);
+
+        registeredUser = UserModel.createRegisteredUser(
+          id: supabaseUser.id,
+          email: supabaseUser.email ?? 'user@example.com',
+          displayName: supabaseUser.userMetadata?['display_name'] as String?,
+          photoUrl: supabaseUser.userMetadata?['avatar_url'] as String?,
+        ).copyWith(
+          quotaManager: quotaManager,
+          preferences: mergedPrefs,
+          // Use merged values from merge framework
+          totalWordsLearned: mergeResult.mergedData['total_words_learned'] as int? ?? 0,
+          currentStreak: mergeResult.mergedData['current_streak'] as int? ?? 0,
+          longestStreak: mergeResult.mergedData['longest_streak'] as int? ?? 0,
+          shields: mergeResult.mergedData['shields'] as int? ?? 0,
+          lastStreakActivityDate: lastActivityDate,
+          badges: badgesList.cast<String>(),
+          stickers: stickersList.cast<String>(),
+          createdAt: currentUser.createdAt, // Keep original join time
+        );
+
+        // Sync merged data to server if any guest values were used
+        if (mergeResult.mergeDetails.isNotEmpty) {
+          await _syncStreakToServer(
+            supabaseUser.id,
+            registeredUser.currentStreak,
+            registeredUser.longestStreak,
+          );
+          print('✅ Synced merged data to server: streak=${registeredUser.currentStreak}');
+        } else {
+          print('✅ Using server data (no guest values were better)');
+        }
+      } else {
+        // No guest data - use server data or defaults
+        final serverStreak = serverUserData?['current_streak'] as int? ?? 0;
+        final serverLongestStreak = serverUserData?['longest_streak'] as int? ?? 0;
+
+        registeredUser = UserModel.createRegisteredUser(
+          id: supabaseUser.id,
+          email: supabaseUser.email ?? 'user@example.com',
+          displayName: supabaseUser.userMetadata?['display_name'] as String?,
+          photoUrl: supabaseUser.userMetadata?['avatar_url'] as String?,
+        ).copyWith(
+          quotaManager: quotaManager,
+          preferences: {
+            'defaultCefrLevel': languageLevel ?? AppDefaults.defaultLanguageLevel,
+            'languageVariant': englishVariant ?? AppDefaults.defaultEnglishVariant,
+          },
+          // Use server data if available
+          currentStreak: serverStreak,
+          longestStreak: serverLongestStreak,
+        );
+        print('✅ Loaded existing user data from server: streak=$serverStreak');
+      }
 
       await _hiveService.saveUser(registeredUser);
       state = UserState(user: registeredUser);
       print('✅ Registered user saved: ${registeredUser.displayNameOrEmail}');
+      print('📊 Streak: ${registeredUser.currentStreak} days (longest: ${registeredUser.longestStreak})');
+      print('📚 Words learned: ${registeredUser.totalWordsLearned}');
       print('📊 Quota: ${quotaManager.getTodayUsage()}/${quotaManager.dailyLimit} today');
     } catch (e, stackTrace) {
       print('❌ Error converting to registered user: $e');
@@ -262,6 +386,21 @@ class UserNotifier extends StateNotifier<UserState> {
       );
       await _hiveService.saveUser(registeredUser);
       state = UserState(user: registeredUser);
+    }
+  }
+
+  /// Sync user streak to Supabase
+  Future<void> _syncStreakToServer(String userId, int currentStreak, int longestStreak) async {
+    try {
+      final client = Supabase.instance.client;
+      await client.from('users').upsert({
+        'id': userId,
+        'current_streak': currentStreak,
+        'longest_streak': longestStreak,
+      });
+      print('✅ Streak synced to server: current=$currentStreak, longest=$longestStreak');
+    } catch (e) {
+      print('⚠️ Failed to sync streak to server: $e');
     }
   }
 

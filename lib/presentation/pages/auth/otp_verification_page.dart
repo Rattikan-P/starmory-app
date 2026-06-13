@@ -1,11 +1,11 @@
 import 'dart:async';
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../data/services/auth_service.dart';
+import '../../../data/services/merge_service.dart';
 import '../../../utils/snackbar_helper.dart';
 import '../../../presentation/widgets/otp_keypad.dart';
 import '../../widgets/galaxy_screen_background.dart';
@@ -156,35 +156,110 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
           final shouldMerge = await _showMergeDialog(context);
 
           if (shouldMerge == true) {
-            // User เลือก merge → อัปเดต preferences เป็นของ guest
+            // User เลือก merge → ใช้ MergeService เพื่อ merge ข้อมูล
             try {
+              print('🔄 [OTP Login] Starting merge with MergeService...');
+
+              final client = Supabase.instance.client;
+
+              // 1. Collect guest data
               final hiveService = ref.read(hiveServiceProvider);
-              final vocabSyncService = ref.read(vocabularySyncServiceProvider);
-              await authService.mergeGuestPreferences(
-                userId: user!.id,
+              final guestStreakData = ref.read(streakProvider);
+              final localVocabs = await hiveService.getAllVocabulary();
+
+              final guestData = <String, dynamic>{
+                'currentStreak': guestStreakData?.currentStreak ?? 0,
+                'longestStreak': guestStreakData?.longestStreak ?? 0,
+                'lastStreakActivityDate': guestStreakData?.lastActivityDate?.toIso8601String(),
+                'vocabulary': localVocabs,
+              };
+
+              print('📦 [OTP Login] Guest data: streak=${guestStreakData?.currentStreak ?? 0}, vocab=${localVocabs.length}');
+
+              // 2. Get server data from Supabase
+              final serverUserData = await client
+                  .from('users')
+                  .select('id, current_streak, longest_streak, last_activity_date')
+                  .eq('id', user!.id)
+                  .maybeSingle();
+
+              final serverData = serverUserData != null ? <String, dynamic>{
+                'currentStreak': serverUserData['current_streak'] ?? 0,
+                'longestStreak': serverUserData['longest_streak'] ?? 0,
+                'lastStreakActivityDate': serverUserData['last_activity_date']?.toString(),
+              } : null;
+
+              print('☁️ [OTP Login] Server data: ${serverData != null ? "found" : "not found"}');
+
+              // 3. Use MergeService to calculate merged result
+              final mergeService = MergeService();
+              final mergeResult = await mergeService.mergeUserData(
+                guestData,
+                serverData,
+              );
+
+              print('✅ [OTP Login] Merge result: ${mergeResult.summary}');
+
+              // 4. Apply merged data back to services
+
+              // 4a. Update merged preferences to Supabase
+              await authService.updateUserPreferences(
+                userId: user.id,
                 email: widget.email,
                 displayName: widget.displayName ?? _getDisplayNameFromEmail(),
                 languageLevel: widget.languageLevel,
                 englishVariant: widget.englishVariant,
-                hiveService: hiveService,
-                vocabularySyncService: vocabSyncService,
+                termsVersion: preferenceService.getCurrentTermsVersion(),
               );
+
+              // 4b. Upload guest vocabulary to cloud (deduplicated via mergeWithCloud)
+              final vocabSyncService = ref.read(vocabularySyncServiceProvider);
+              if (localVocabs.isNotEmpty) {
+                print('☁️ [OTP Login] Merging vocabulary to cloud...');
+                final syncedVocabs = await vocabSyncService.mergeWithCloud(localVocabs);
+                // Clear local after successful sync
+                await hiveService.clearAllVocabulary();
+                print('✅ [OTP Login] Vocabulary synced: ${syncedVocabs.length} total');
+              }
+
+              // 4c. Update merged streak to cloud
+              final mergedStreak = mergeResult.mergedData['currentStreak'] as int? ?? 0;
+              final mergedLongest = mergeResult.mergedData['longestStreak'] as int? ?? 0;
+              final mergedLastActivity = mergeResult.mergedData['lastStreakActivityDate'] as String?;
+
+              print('📊 [OTP Login] Writing merged streak to cloud: current=$mergedStreak, longest=$mergedLongest');
+
+              await client.from('users').update({
+                'current_streak': mergedStreak,
+                'longest_streak': mergedLongest,
+                if (mergedLastActivity != null) 'last_activity_date': mergedLastActivity,
+              }).eq('id', user.id);
+
+              print('✅ [OTP Login] Streak merged and updated to cloud');
+
+              // Refresh local streak state from cloud after merge
+              final streakNotifier = ref.read(streakProvider.notifier);
+              await streakNotifier.refresh();
+              print('✅ [OTP Login] Streak refreshed from cloud after merge');
             } catch (e) {
               // E3: Service unavailable when merging preferences
+              print('❌ [OTP Login] Merge failed: $e');
               setState(() => _isLoading = false);
               if (mounted) {
                 SnackBarHelper.error(context, AlertMessages.serviceUnavailable, showAboveKeyboard: true);
               }
               return; // Stay on page
             }
+          } else {
+            // User chose "No" → Keep original server data, don't migrate anything
+            print('ℹ️ [OTP Login] User chose to keep original data - skipping merge');
           }
 
-          // ทั้ง 2 กรณี (merge หรือ keep old) ต้องอัปเดต UserModel ให้ sync กับ Supabase
+          // Sync UserModel with Supabase preferences (both merge and keep old cases)
           try {
             final userNotifier = ref.read(userStateProvider.notifier);
             final currentUser = ref.read(userStateProvider).user;
             if (currentUser != null) {
-              // ดึงค่า preferences ล่าสุดจาก Supabase metadata
               final supabaseUser = Supabase.instance.client.auth.currentUser;
               final cloudLevel = supabaseUser?.userMetadata?['language_level'] as String?;
               final cloudVariant = supabaseUser?.userMetadata?['english_variant'] as String?;
@@ -200,23 +275,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
               print('✅ [OTP Login] Synced UserModel with cloud preferences: level=$cloudLevel, variant=$cloudVariant (merged: $shouldMerge)');
             }
           } catch (e) {
-            // ไม่ต้องขัดจังหวะ login flow แค่ log error
             print('⚠️ [OTP Login] Failed to sync UserModel: $e');
-          }
-
-          // Migrate guest streak to cloud (ทั้ง 2 กรณี merge และ keep old)
-          try {
-            print('🔄 [OTP Login] Migrating guest streak...');
-            final streakNotifier = ref.read(streakProvider.notifier);
-            final migrated = await streakNotifier.migrateGuestStreakToCloud();
-            if (migrated) {
-              print('✅ [OTP Login] Streak migrated successfully (guest: $shouldMerge)');
-            } else {
-              print('ℹ️ [OTP Login] No streak data to migrate');
-            }
-          } catch (e) {
-            // Streak migration failed - continue with login
-            print('⚠️ [OTP Login] Streak migration failed: $e');
           }
         }
       } else if (isNewUser && user != null) {
@@ -263,6 +322,9 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
               final migrated = await streakNotifier.migrateGuestStreakToCloud();
               if (migrated) {
                 print('✅ [OTP Login] Streak migrated successfully');
+                // Refresh local state from cloud after migration
+                await streakNotifier.refresh();
+                print('✅ [OTP Login] Streak refreshed from cloud');
               } else {
                 print('ℹ️ [OTP Login] No streak data to migrate');
               }
