@@ -360,9 +360,9 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
 
       if (!mounted) return;
 
-      // Mark onboarding as completed and clear guest mode
+      // Mark onboarding as completed
       await preferenceService.setOnboardingCompleted(true);
-      await preferenceService.setGuestMode(false);
+      // Note: setGuestMode removed - UserModel.isGuest reflects actual auth state
 
       // Update database
       if (user != null) {

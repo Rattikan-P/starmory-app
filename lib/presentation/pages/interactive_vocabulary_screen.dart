@@ -389,9 +389,7 @@ class _InteractiveVocabularyScreenState
 
   @override
   Widget build(BuildContext context) {
-    return TextureOverlay(
-      opacity: 0.4,
-      child: Scaffold(
+    return Scaffold(
         appBar: AppBar(
         elevation: 0,
         scrolledUnderElevation: 0,
@@ -437,33 +435,24 @@ class _InteractiveVocabularyScreenState
           ),
         ],
       ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFF8F7FF), Color(0xFFF1EEFF)],
-          ),
-        ),
-        child: Stack(
-          children: [
-            // Image with Dots
-            Positioned.fill(
-              child: GestureDetector(
-                onTap: _selectedDotForOverlay != null ? _hideWordOverlay : null,
-                behavior: HitTestBehavior.translucent,
-                child: _buildImageWithDots(),
-              ),
+      body: Stack(
+        children: [
+          // Image with Dots
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: _selectedDotForOverlay != null ? _hideWordOverlay : null,
+              behavior: HitTestBehavior.translucent,
+              child: _buildImageWithDots(),
             ),
+          ),
 
-            // Word Overlay (before bottom sheet so bottom sheet can cover it)
-            if (_selectedDotForOverlay != null)
-              _buildWordOverlay(_selectedDotForOverlay!),
+          // Word Overlay (before bottom sheet so bottom sheet can cover it)
+          if (_selectedDotForOverlay != null)
+            _buildWordOverlay(_selectedDotForOverlay!),
 
-            // Bottom Sheet (on top of overlay)
-            Positioned.fill(child: _buildBottomSheet()),
-          ],
-        ),
+          // Bottom Sheet (on top of overlay)
+          Positioned.fill(child: _buildBottomSheet()),
+        ],
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: FilledButton(
@@ -485,7 +474,6 @@ class _InteractiveVocabularyScreenState
             fontWeight: FontWeight.w600,
           ),
         ),
-      ),
       ),
     );
   }
@@ -690,36 +678,23 @@ class _InteractiveVocabularyScreenState
               constraints.maxHeight,
             );
 
-            return Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Color(0xFFE8F4FD),
-                    Color(0xFFF5EEF8),
-                    Color(0xFFFDF4E8),
-                  ],
+            return Stack(
+              clipBehavior: Clip.none,
+              children: [
+                // เปลี่ยนจาก Center เป็น Align ชิดบน
+                Align(
+                  alignment: Alignment.topCenter,
+                  child: Image.file(
+                    File(widget.imagePath),
+                    fit: BoxFit.contain,
+                  ),
                 ),
-              ),
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  // เปลี่ยนจาก Center เป็น Align ชิดบน
-                  Align(
-                    alignment: Alignment.topCenter,
-                    child: Image.file(
-                      File(widget.imagePath),
-                      fit: BoxFit.contain,
-                    ),
-                  ),
-                  ..._buildVocabularyDots(
-                    constraints.maxWidth,
-                    constraints.maxHeight,
-                    imageSize,
-                  ),
-                ],
-              ),
+                ..._buildVocabularyDots(
+                  constraints.maxWidth,
+                  constraints.maxHeight,
+                  imageSize,
+                ),
+              ],
             );
           },
         );

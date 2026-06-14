@@ -1,21 +1,19 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../data/services/preference_service.dart';
+import '../../data/services/app_state_service.dart';
 import '../../data/services/auth_service.dart';
 import '../../utils/snackbar_helper.dart';
 import '../widgets/galaxy_screen_background.dart';
+import '../widgets/auth_widgets.dart';
 import 'auth/otp_verification_page.dart';
 import 'language_selection_page.dart';
 import 'main_navigation.dart';
-import 'privacy_policy_page.dart';
-import 'terms_of_service_page.dart';
 import '../providers/providers.dart' show hiveServiceProvider, vocabularySyncServiceProvider;
 
-final onboardingServiceProvider = Provider<PreferenceService>((ref) => PreferenceService());
+final onboardingServiceProvider = Provider<AppStateService>((ref) => AppStateService());
 
 class OnboardingPage extends ConsumerStatefulWidget {
   final bool skipToAuth;
@@ -105,8 +103,8 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
   Future<void> _continueWithGoogle() async {
     try {
       final authService = AuthService();
-      final preferenceService = PreferenceService();
-      await preferenceService.init();
+      final appStateService = AppStateService();
+      await appStateService.init();
 
       final success = await authService.signInWithGoogle(
         forceAccountSelection: true,
@@ -135,7 +133,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
       }
 
       // Auto-accept terms on signup
-      await preferenceService.setTermsVersion(preferenceService.getCurrentTermsVersion());
+      await appStateService.setTermsVersion(appStateService.getCurrentTermsVersion());
 
       final userData = await client
           .from('users')
@@ -165,7 +163,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
         return;
       } else {
         await prefService.setOnboardingCompleted(true);
-        await prefService.setGuestMode(false);
+        // Note: setGuestMode removed - UserModel.isGuest reflects actual auth state
 
         // Auto sync local vocabularies to cloud (for existing users)
         try {
@@ -734,281 +732,52 @@ class _AuthOptionsSheet extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-          // Handle bar
-          Container(
-            width: 48,
-            height: 5,
-            decoration: BoxDecoration(
-              color: const Color(0xFFd1d5db),
-              borderRadius: BorderRadius.circular(3),
-            ),
-          ),
-          const SizedBox(height: 28),
-
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.star, size: 20, color: Color(0xFFc4b5fd)),
-              const SizedBox(width: 8),
-              Text(
-                'Sign in or create account',
-                style: GoogleFonts.lexend(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w400,
-                  color: const Color(0xFF1f2937),
-                ),
+            // Handle bar
+            Container(
+              width: 48,
+              height: 5,
+              decoration: BoxDecoration(
+                color: const Color(0xFFd1d5db),
+                borderRadius: BorderRadius.circular(3),
               ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Choose your preferred method',
-            style: GoogleFonts.lexend(
-              fontSize: 14,
-              fontWeight: FontWeight.w400,
-              color: const Color(0xFF9ca3af),
             ),
-          ),
-          const SizedBox(height: 24),
+            const SizedBox(height: 28),
 
-          // Email input with continue button
-          Form(
-            key: emailFormKey,
-            child: Column(
+            // Header
+            Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                // Email input field
-                TextFormField(
-                  controller: emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  textInputAction: TextInputAction.done,
+                const Icon(Icons.star, size: 20, color: Color(0xFFc4b5fd)),
+                const SizedBox(width: 8),
+                Text(
+                  'Sign in or create account',
                   style: GoogleFonts.lexend(
-                    fontSize: 15,
+                    fontSize: 22,
                     fontWeight: FontWeight.w400,
-                  ),
-                  decoration: InputDecoration(
-                    hintText: 'your@email.com',
-                    hintStyle: GoogleFonts.lexend(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w400,
-                      color: const Color(0xFF9ca3af),
-                    ),
-                    prefixIcon: const Icon(Icons.email_outlined, size: 20, color: Color(0xFF9ca3af)),
-                    filled: true,
-                    fillColor: const Color(0xFFf3f4f6),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide.none,
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide.none,
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: const BorderSide(color: Color(0xFFc4b5fd), width: 2),
-                    ),
-                    errorBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: const BorderSide(color: Color(0xFFef4444), width: 1),
-                    ),
-                    focusedErrorBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: const BorderSide(color: Color(0xFFef4444), width: 2),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 18,
-                      vertical: 16,
-                    ),
-                  ),
-                  onFieldSubmitted: (_) => onEmailTap(),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return AlertMessages.emailRequired;
-                    }
-                    if (!SnackBarHelper.isValidEmail(value)) {
-                      return AlertMessages.invalidEmail;
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 10),
-
-                // Email Continue button
-                SizedBox(
-                  width: double.infinity,
-                  height: 52,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          Color(0xFF60a5fa), // soft blue
-                          Color(0xFF818cf8), // soft indigo
-                          Color(0xFFa78bfa), // soft violet
-                          Color(0xFFc084fc), // soft purple
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFFa78bfa).withValues(alpha: 0.4),
-                          blurRadius: 16,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: isEmailLoading ? null : onEmailTap,
-                        borderRadius: BorderRadius.circular(16),
-                        child: Center(
-                          child: isEmailLoading
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                  ),
-                                )
-                              : Text(
-                                  'Continue with Email',
-                                  style: GoogleFonts.lexend(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w500,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                        ),
-                      ),
-                    ),
+                    color: const Color(0xFF1f2937),
                   ),
                 ),
               ],
             ),
-          ),
-          const SizedBox(height: 24),
-
-          // OR divider
-          Row(
-            children: [
-              Expanded(
-                child: Container(
-                  height: 1,
-                  color: const Color(0xFFe5e7eb),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                child: Text(
-                  'OR',
-                  style: GoogleFonts.lexend(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: const Color(0xFF9ca3af),
-                    letterSpacing: 1.2,
-                  ),
-                ),
-              ),
-              Expanded(
-                child: Container(
-                  height: 1,
-                  color: const Color(0xFFe5e7eb),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-
-          // Google Button
-          SizedBox(
-            width: double.infinity,
-            height: 52,
-            child: OutlinedButton.icon(
-              onPressed: onGoogleTap,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF8b5cf6),
-                side: const BorderSide(color: Color(0xFFe5e7eb), width: 1.5),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-              ),
-              icon: SvgPicture.network(
-                'https://thesvg.org/icons/google/default.svg',
-                width: 20,
-                height: 20,
-              ),
-              label: Text(
-                'Continue with Google',
-                style: GoogleFonts.lexend(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xFF1f2937),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Terms notice
-          Text.rich(
-            TextSpan(
+            const SizedBox(height: 8),
+            Text(
+              'Choose your preferred method',
               style: GoogleFonts.lexend(
-                fontSize: 12,
+                fontSize: 14,
                 fontWeight: FontWeight.w400,
                 color: const Color(0xFF9ca3af),
               ),
-              children: [
-                const TextSpan(text: 'By signing up, you agree to our '),
-                WidgetSpan(
-                  alignment: PlaceholderAlignment.middle,
-                  child: GestureDetector(
-                    onTap: () {
-                      if (context.mounted) {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => const TermsOfServicePage()),
-                        );
-                      }
-                    },
-                    child: Text(
-                      'Terms',
-                      style: GoogleFonts.lexend(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w400,
-                        color: Color(0xFFa5b4fc),
-                      ),
-                    ),
-                  ),
-                ),
-                const TextSpan(text: ' & '),
-                WidgetSpan(
-                  alignment: PlaceholderAlignment.middle,
-                  child: GestureDetector(
-                    onTap: () {
-                      if (context.mounted) {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => const PrivacyPolicyPage()),
-                        );
-                      }
-                    },
-                    child: Text(
-                      'Privacy Policy',
-                      style: GoogleFonts.lexend(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w400,
-                        color: Color(0xFFa5b4fc),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
             ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 8),
+            const SizedBox(height: 24),
+
+            // Reusable AuthForm
+            AuthForm(
+              onGoogleTap: onGoogleTap,
+              onEmailTap: onEmailTap,
+              emailController: emailController,
+              emailFormKey: emailFormKey,
+              isEmailLoading: isEmailLoading,
+            ),
           ],
         ),
       ),

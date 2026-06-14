@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/services/streak_service.dart';
-import '../../data/services/preference_service.dart';
+import '../../data/services/app_state_service.dart';
 import 'providers.dart';
 
 /// Streak service provider
@@ -10,20 +10,20 @@ final streakServiceProvider = Provider<StreakService>((ref) {
   return StreakService();
 });
 
-/// Preference service provider for guest streak data
-final preferenceServiceProvider = Provider<PreferenceService>((ref) {
-  return PreferenceService();
+/// AppState service provider for guest streak migration
+final appStateServiceProvider = Provider<AppStateService>((ref) {
+  return AppStateService();
 });
 
 /// Streak data provider - fetches and caches streak data
 /// Works for both registered (cloud) and guest (local) users
 class StreakNotifier extends StateNotifier<StreakData?> {
-  StreakNotifier(this._service, this._prefService, this._userNotifier) : super(null) {
+  StreakNotifier(this._service, this._appStateService, this._userNotifier) : super(null) {
     _init();
   }
 
   final StreakService _service;
-  final PreferenceService _prefService;
+  final AppStateService _appStateService;
   final UserNotifier _userNotifier;
   StreamSubscription<UserState>? _userStateSubscription;
 
@@ -240,7 +240,7 @@ class StreakNotifier extends StateNotifier<StreakData?> {
   /// Migrate guest streak to cloud (when user registers)
   /// Uses MAX logic: keeps the better streak between guest and existing
   Future<bool> migrateGuestStreakToCloud() async {
-    final guestData = await _prefService.getGuestStreakDataForMigration();
+    final guestData = await _appStateService.getGuestStreakDataForMigration();
 
     // Only migrate if there's actual data
     if (guestData['current_streak'] == 0 &&
@@ -297,7 +297,7 @@ class StreakNotifier extends StateNotifier<StreakData?> {
 
     if (success) {
       // Clear local guest streak after successful migration
-      await _prefService.resetGuestStreak();
+      await _appStateService.resetGuestStreak();
       await refresh();
     }
 
@@ -349,9 +349,9 @@ class StreakNotifier extends StateNotifier<StreakData?> {
 /// Streak notifier provider
 final streakProvider = StateNotifierProvider<StreakNotifier, StreakData?>((ref) {
   final service = ref.watch(streakServiceProvider);
-  final prefService = ref.watch(preferenceServiceProvider);
+  final appStateService = ref.watch(appStateServiceProvider);
   final userNotifier = ref.watch(userStateProvider.notifier);
-  return StreakNotifier(service, prefService, userNotifier);
+  return StreakNotifier(service, appStateService, userNotifier);
 });
 
 /// Convenience provider for current streak value

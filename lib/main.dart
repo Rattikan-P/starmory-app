@@ -6,7 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'core/config/app_constants.dart';
 import 'data/services/hive_service.dart';
-import 'data/services/preference_service.dart';
+import 'data/services/app_state_service.dart';
 import 'presentation/providers/providers.dart';
 import 'presentation/pages/main_navigation.dart';
 import 'presentation/pages/onboarding_page.dart';
@@ -17,9 +17,9 @@ void main() async {
   // Load .env file
   await dotenv.load(fileName: '.env');
 
-  // Initialize Preference Service
-  final preferenceService = PreferenceService();
-  await preferenceService.init();
+  // Initialize AppState Service
+  final appStateService = AppStateService();
+  await appStateService.init();
 
   // Initialize Supabase (auto-handles JWT session persistence)
   await Supabase.initialize(
@@ -30,17 +30,17 @@ void main() async {
   runApp(
     ProviderScope(
       overrides: [
-        onboardingServiceProvider.overrideWithValue(preferenceService),
+        onboardingServiceProvider.overrideWithValue(appStateService),
       ],
-      child: MyApp(preferenceService: preferenceService),
+      child: MyApp(appStateService: appStateService),
     ),
   );
 }
 
 class MyApp extends ConsumerStatefulWidget {
-  final PreferenceService preferenceService;
+  final AppStateService appStateService;
 
-  const MyApp({super.key, required this.preferenceService});
+  const MyApp({super.key, required this.appStateService});
 
   @override
   ConsumerState<MyApp> createState() => _MyAppState();
@@ -77,7 +77,7 @@ class _MyAppState extends ConsumerState<MyApp> {
 
   Future<void> _checkOnboarding() async {
     // เช็คครั้งเดียวตอนเริ่มแอป
-    final completed = await widget.preferenceService.isOnboardingCompleted();
+    final completed = await widget.appStateService.isOnboardingCompleted();
     if (mounted) {
       setState(() => _onboardingCompleted = completed);
     }

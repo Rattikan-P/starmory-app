@@ -383,7 +383,6 @@ class _EnglishVariantPageState extends ConsumerState<EnglishVariantPage> {
   /// - Navigates to Home
   Future<void> _handleGuestFlow(WidgetRef ref) async {
     final preferenceService = ref.read(onboardingServiceProvider);
-    await preferenceService.setGuestMode(true);
     await preferenceService.setOnboardingCompleted(true);
 
     // Update the UserModel with the selected preferences
@@ -474,7 +473,7 @@ class _EnglishVariantPageState extends ConsumerState<EnglishVariantPage> {
 
     await preferenceService.clearLocalPreferences();
     await preferenceService.setOnboardingCompleted(true);
-    await preferenceService.setGuestMode(false);
+    // Note: setGuestMode removed - UserModel.isGuest reflects actual auth state
 
     if (!mounted) return;
     SnackBarHelper.success(context, 'Welcome to Starmory!');
@@ -528,7 +527,7 @@ class _EnglishVariantPageState extends ConsumerState<EnglishVariantPage> {
     }
 
     await preferenceService.setOnboardingCompleted(true);
-    await preferenceService.setGuestMode(false);
+    // Note: setGuestMode removed - UserModel.isGuest reflects actual auth state
 
     if (mounted) {
       Navigator.of(context).pushAndRemoveUntil(

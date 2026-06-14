@@ -22,6 +22,7 @@ import 'auth/account_method_page.dart';
 import 'privacy_policy_page.dart';
 import 'terms_of_service_page.dart';
 import '../widgets/galaxy_screen_background.dart';
+import '../widgets/common/profile_widgets.dart';
 
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
 
@@ -50,11 +51,11 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
   }
 
   Future<void> _checkGuestMode() async {
-    final preferenceService = ref.read(onboardingServiceProvider);
-    final isGuest = await preferenceService.isGuestMode();
+    // Check if user is guest from UserModel (single source of truth)
+    final user = ref.read(userStateProvider).user;
     if (mounted) {
       setState(() {
-        _isGuestMode = isGuest;
+        _isGuestMode = user?.isGuest ?? true; // Default to guest if no user
         _isCheckingGuest = false;
       });
     }
@@ -601,7 +602,7 @@ class _PreferencesSectionState extends ConsumerState<_PreferencesSection> {
           ),
 
           // Language Level
-          _buildCompactItem(
+          ProfileCompactItem(
             icon: Icons.school_outlined,
             title: 'Language Level',
             value: _currentLevel,
@@ -624,7 +625,7 @@ class _PreferencesSectionState extends ConsumerState<_PreferencesSection> {
           ),
 
           // English Variant
-          _buildCompactItem(
+          ProfileCompactItem(
             icon: Icons.public,
             iconText: variantFlag,
             title: 'English Variant',
@@ -648,98 +649,6 @@ class _PreferencesSectionState extends ConsumerState<_PreferencesSection> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildCompactItem({
-    required IconData icon,
-    String? iconText,
-    required String title,
-    required String value,
-    required bool showDivider,
-    required VoidCallback onTap,
-    Color? iconBgColor, // Kept for compatibility but not used
-  }) {
-    return Column(
-      children: [
-        Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(12),
-            splashColor: const Color(0xFF8B5CF6).withValues(alpha: 0.1),
-            highlightColor: const Color(0xFF8B5CF6).withValues(alpha: 0.05),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  // Minimal icon - no background
-                  Container(
-                    width: 40,
-                    height: 40,
-                    alignment: Alignment.center,
-                    child: iconText != null
-                        ? Text(iconText, style: const TextStyle(fontSize: 20))
-                        : Icon(icon, size: 24, color: const Color(0xFF1f2937)),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: const Color(
-                              0xFF1f2937,
-                            ).withValues(alpha: 0.65),
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          value,
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF1f2937),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  // Animated chevron
-                  Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(
-                      Icons.chevron_right,
-                      size: 18,
-                      color: const Color(0xFF8B5CF6),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-        if (showDivider)
-          Padding(
-            padding: const EdgeInsets.only(left: 70, right: 16),
-            child: Divider(
-              height: 1,
-              color: const Color(0xFFE5E7EB).withValues(alpha: 0.6),
-              thickness: 0.5,
-            ),
-          ),
-      ],
     );
   }
 }
@@ -807,7 +716,7 @@ class _GuestDataSection extends ConsumerWidget {
           ),
 
           // Start Over
-          _buildCompactItem(
+          ProfileCompactItem(
             icon: Icons.refresh,
             title: 'Start Over',
             subtitle: 'Reset learning progress (keep settings)',
@@ -826,10 +735,6 @@ class _GuestDataSection extends ConsumerWidget {
 
                   // Reset streak
                   await ref.read(streakProvider.notifier).reset();
-
-                  // Clear guest data (preferences but keep language level/variant)
-                  final preferenceService = ref.read(onboardingServiceProvider);
-                  await preferenceService.clearGuestData();
 
                   // Update UserModel to reset progress (keep preferences)
                   final userNotifier = ref.read(userStateProvider.notifier);
@@ -857,7 +762,7 @@ class _GuestDataSection extends ConsumerWidget {
           ),
 
           // Export Vocabulary
-          _buildCompactItem(
+          ProfileCompactItem(
             icon: Icons.download_outlined,
             title: 'Export Vocabulary',
             subtitle: 'Download your vocabulary list',
@@ -898,94 +803,6 @@ class _GuestDataSection extends ConsumerWidget {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildCompactItem({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required bool showDivider,
-    required VoidCallback onTap,
-    Color? iconBgColor, // Kept for compatibility but not used
-  }) {
-    return Column(
-      children: [
-        Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(12),
-            splashColor: const Color(0xFF8B5CF6).withValues(alpha: 0.1),
-            highlightColor: const Color(0xFF8B5CF6).withValues(alpha: 0.05),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  // Minimal icon - no background
-                  Container(
-                    width: 40,
-                    height: 40,
-                    alignment: Alignment.center,
-                    child: Icon(icon, size: 24, color: const Color(0xFF1f2937)),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF1f2937),
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          subtitle,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: const Color(
-                              0xFF1f2937,
-                            ).withValues(alpha: 0.65),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  // Animated chevron
-                  Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(
-                      Icons.chevron_right,
-                      size: 18,
-                      color: const Color(0xFF8B5CF6),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-        if (showDivider)
-          Padding(
-            padding: const EdgeInsets.only(left: 70, right: 16),
-            child: Divider(
-              height: 1,
-              color: const Color(0xFFE5E7EB).withValues(alpha: 0.6),
-              thickness: 0.5,
-            ),
-          ),
-      ],
     );
   }
 }
@@ -1070,25 +887,25 @@ class _ConfirmStartOverDialog extends StatelessWidget {
                 ),
                 child: Column(
                   children: [
-                    _buildConfirmInfoItem(
+                    ProfileConfirmInfoItem(
                       icon: Icons.menu_book_rounded,
                       title: 'Vocabulary Deleted',
                       description: 'All saved words will be removed',
                     ),
                     const SizedBox(height: 12),
-                    _buildConfirmInfoItem(
+                    ProfileConfirmInfoItem(
                       icon: Icons.analytics_rounded,
                       title: 'Progress Reset',
                       description: 'Learning progress will be reset to zero',
                     ),
                     const SizedBox(height: 12),
-                    _buildConfirmInfoItem(
+                    ProfileConfirmInfoItem(
                       icon: Icons.local_fire_department_rounded,
                       title: 'Streak Cleared',
                       description: 'Your streak and shields will be reset',
                     ),
                     const SizedBox(height: 12),
-                    _buildConfirmInfoItem(
+                    ProfileConfirmInfoItem(
                       icon: Icons.lightbulb_rounded,
                       title: 'Settings Kept',
                       description:
@@ -1177,51 +994,6 @@ class _ConfirmStartOverDialog extends StatelessWidget {
       ),
     );
   }
-
-  Widget _buildConfirmInfoItem({
-    required IconData icon,
-    required String title,
-    required String description,
-  }) {
-    return Row(
-      children: [
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: const Color(0xFFFEE2E2),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(icon, size: 20, color: const Color(0xFFDC2626)),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: GoogleFonts.lexend(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFFDC2626),
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                description,
-                style: GoogleFonts.lexend(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w400,
-                  color: const Color(0xFF6B7280),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
 }
 
 // ==================== CONFIRM RESET PROGRESS DIALOG ====================
@@ -1306,25 +1078,25 @@ class _ConfirmResetProgressDialog extends StatelessWidget {
                 ),
                 child: Column(
                   children: [
-                    _buildConfirmInfoItem(
+                    ProfileConfirmInfoItem(
                       icon: Icons.menu_book_rounded,
                       title: 'Vocabulary Deleted',
                       description: 'All saved words will be removed',
                     ),
                     const SizedBox(height: 12),
-                    _buildConfirmInfoItem(
+                    ProfileConfirmInfoItem(
                       icon: Icons.analytics_rounded,
                       title: 'Progress Reset',
                       description: 'Learning progress will be reset to zero',
                     ),
                     const SizedBox(height: 12),
-                    _buildConfirmInfoItem(
+                    ProfileConfirmInfoItem(
                       icon: Icons.local_fire_department_rounded,
                       title: 'Streak Cleared',
                       description: 'Your streak and shields will be reset',
                     ),
                     const SizedBox(height: 12),
-                    _buildConfirmInfoItem(
+                    ProfileConfirmInfoItem(
                       icon: Icons.lightbulb_rounded,
                       title: 'Account Kept',
                       description:
@@ -1413,51 +1185,6 @@ class _ConfirmResetProgressDialog extends StatelessWidget {
       ),
     );
   }
-
-  Widget _buildConfirmInfoItem({
-    required IconData icon,
-    required String title,
-    required String description,
-  }) {
-    return Row(
-      children: [
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: const Color(0xFFFEE2E2),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(icon, size: 20, color: const Color(0xFFDC2626)),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: GoogleFonts.lexend(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFFDC2626),
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                description,
-                style: GoogleFonts.lexend(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w400,
-                  color: const Color(0xFF6B7280),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
 }
 
 // ==================== DATA MANAGEMENT SECTION ====================
@@ -1523,7 +1250,7 @@ class _DataSection extends ConsumerWidget {
           ),
 
           // Start Over
-          _buildCompactItem(
+          ProfileCompactItem(
             icon: Icons.refresh,
             title: 'Start Over',
             subtitle: 'Reset learning progress (keep settings)',
@@ -1563,7 +1290,7 @@ class _DataSection extends ConsumerWidget {
           ),
 
           // Export Vocabulary
-          _buildCompactItem(
+          ProfileCompactItem(
             icon: Icons.download_outlined,
             title: 'Export Vocabulary',
             subtitle: 'Download your vocabulary list',
@@ -1614,7 +1341,7 @@ class _DataSection extends ConsumerWidget {
           ),
 
           // Clear Cache
-          _buildCompactItem(
+          ProfileCompactItem(
             icon: Icons.cleaning_services_outlined,
             title: 'Clear Cache',
             subtitle: 'Free up storage space',
@@ -1637,94 +1364,6 @@ class _DataSection extends ConsumerWidget {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildCompactItem({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required bool showDivider,
-    required VoidCallback onTap,
-    Color? iconBgColor, // Kept for compatibility but not used
-  }) {
-    return Column(
-      children: [
-        Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(12),
-            splashColor: const Color(0xFF8B5CF6).withValues(alpha: 0.1),
-            highlightColor: const Color(0xFF8B5CF6).withValues(alpha: 0.05),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  // Minimal icon - no background
-                  Container(
-                    width: 40,
-                    height: 40,
-                    alignment: Alignment.center,
-                    child: Icon(icon, size: 24, color: const Color(0xFF1f2937)),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF1f2937),
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          subtitle,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: const Color(
-                              0xFF1f2937,
-                            ).withValues(alpha: 0.65),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  // Animated chevron
-                  Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(
-                      Icons.chevron_right,
-                      size: 18,
-                      color: const Color(0xFF8B5CF6),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-        if (showDivider)
-          Padding(
-            padding: const EdgeInsets.only(left: 70, right: 16),
-            child: Divider(
-              height: 1,
-              color: const Color(0xFFE5E7EB).withValues(alpha: 0.6),
-              thickness: 0.5,
-            ),
-          ),
-      ],
     );
   }
 }
@@ -1902,9 +1541,10 @@ class _AboutSection extends ConsumerWidget {
           ),
 
           // About App
-          _buildCompactItem(
+          ProfileCompactItem(
             icon: Icons.info_outline,
             title: 'About App',
+            subtitle: 'App information',
             showDivider: true,
             onTap: () {
               _showAboutDialog(context);
@@ -1913,9 +1553,10 @@ class _AboutSection extends ConsumerWidget {
           ),
 
           // Privacy Policy
-          _buildCompactItem(
+          ProfileCompactItem(
             icon: Icons.privacy_tip_outlined,
             title: 'Privacy Policy',
+            subtitle: 'How we handle your data',
             showDivider: true,
             onTap: () {
               Navigator.push(
@@ -1927,9 +1568,10 @@ class _AboutSection extends ConsumerWidget {
           ),
 
           // Terms of Service
-          _buildCompactItem(
+          ProfileCompactItem(
             icon: Icons.description_outlined,
             title: 'Terms of Service',
+            subtitle: 'Rules and guidelines',
             showDivider: false,
             onTap: () {
               Navigator.push(
@@ -1941,78 +1583,6 @@ class _AboutSection extends ConsumerWidget {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildCompactItem({
-    required IconData icon,
-    required String title,
-    required bool showDivider,
-    required VoidCallback onTap,
-    Color? iconBgColor, // Kept for compatibility but not used
-  }) {
-    return Column(
-      children: [
-        Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(12),
-            splashColor: const Color(0xFF8B5CF6).withValues(alpha: 0.1),
-            highlightColor: const Color(0xFF8B5CF6).withValues(alpha: 0.05),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  // Minimal icon - no background
-                  Container(
-                    width: 40,
-                    height: 40,
-                    alignment: Alignment.center,
-                    child: Icon(icon, size: 24, color: const Color(0xFF1f2937)),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF1f2937),
-                      ),
-                    ),
-                  ),
-                  // Animated chevron
-                  Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(
-                      Icons.chevron_right,
-                      size: 18,
-                      color: const Color(0xFF8B5CF6),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-        if (showDivider)
-          Padding(
-            padding: const EdgeInsets.only(left: 70, right: 16),
-            child: Divider(
-              height: 1,
-              color: const Color(0xFFE5E7EB).withValues(alpha: 0.6),
-              thickness: 0.5,
-            ),
-          ),
-      ],
     );
   }
 
@@ -3143,8 +2713,8 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
         await Future.wait([
           hiveService.clearAllVocabulary(),
           preferenceService.clearLocalPreferences(),
-          preferenceService.setGuestMode(false),
           preferenceService.setOnboardingCompleted(false),
+          // Note: setGuestMode removed - UserModel.isGuest is single source of truth
         ]);
 
         // Clear local streak state (NOT cloud)
@@ -3375,8 +2945,8 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
         await Future.wait([
           hiveService.clearAllVocabulary(),
           preferenceService.clearLocalPreferences(),
-          preferenceService.setGuestMode(false),
           preferenceService.setOnboardingCompleted(false),
+          // Note: setGuestMode removed - UserModel.isGuest is single source of truth
         ]);
 
         // Clear local streak state (NOT cloud)

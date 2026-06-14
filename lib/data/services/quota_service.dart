@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'hive_service.dart';
+import '../../core/config/app_constants.dart';
 
 class QuotaService {
   final SupabaseClient _client = Supabase.instance.client;
@@ -7,8 +8,9 @@ class QuotaService {
 
   QuotaService() : _hiveService = HiveService();
 
-  static const int guestDailyPhotoLimit = 3;
-  static const int registeredDailyGenLimit = 15;
+  // Note: Using AppConstants for quota limits (single source of truth)
+  // AppConstants.guestDailyLimit → AppConstants.guestDailyLimit
+  // AppConstants.registeredDailyLimit → AppConstants.registeredDailyLimit
   static const String _quotasTable = 'user_quotas';
 
   Future<QuotaStatus> getStatus() async {
@@ -24,10 +26,10 @@ class QuotaService {
       // No guest user exists - return default status
       return QuotaStatus(
         generationsRemaining: 10, // guest total limit
-        photoUploadsRemaining: guestDailyPhotoLimit,
+        photoUploadsRemaining: AppConstants.guestDailyLimit,
         isGuest: true,
         lifetimeLimit: 10,
-        dailyPhotoLimit: guestDailyPhotoLimit,
+        dailyPhotoLimit: AppConstants.guestDailyLimit,
       );
     }
 
@@ -39,10 +41,10 @@ class QuotaService {
 
     return QuotaStatus(
       generationsRemaining: guestTotalLimit - totalUsed,
-      photoUploadsRemaining: guestDailyPhotoLimit - todayUsage,
+      photoUploadsRemaining: AppConstants.guestDailyLimit - todayUsage,
       isGuest: true,
       lifetimeLimit: guestTotalLimit,
-      dailyPhotoLimit: guestDailyPhotoLimit,
+      dailyPhotoLimit: AppConstants.guestDailyLimit,
       totalUsed: totalUsed,
     );
   }
@@ -63,10 +65,10 @@ class QuotaService {
       // Create quota record if not exists
       await _client.from(_quotasTable).insert({'user_id': user.id});
       return QuotaStatus(
-        generationsRemaining: registeredDailyGenLimit,
-        photoUploadsRemaining: registeredDailyGenLimit,
+        generationsRemaining: AppConstants.registeredDailyLimit,
+        photoUploadsRemaining: AppConstants.registeredDailyLimit,
         isGuest: false,
-        dailyGenLimit: registeredDailyGenLimit,
+        dailyGenLimit: AppConstants.registeredDailyLimit,
       );
     }
 
@@ -82,10 +84,10 @@ class QuotaService {
     }
 
     return QuotaStatus(
-      generationsRemaining: registeredDailyGenLimit - currentCount,
-      photoUploadsRemaining: registeredDailyGenLimit - currentCount,
+      generationsRemaining: AppConstants.registeredDailyLimit - currentCount,
+      photoUploadsRemaining: AppConstants.registeredDailyLimit - currentCount,
       isGuest: false,
-      dailyGenLimit: registeredDailyGenLimit,
+      dailyGenLimit: AppConstants.registeredDailyLimit,
       totalUsed: totalCount,
     );
   }
@@ -146,7 +148,7 @@ class QuotaService {
     // Check if needs reset
     int newDailyCount = (lastReset == today) ? genCount + 1 : 1;
 
-    if (newDailyCount > registeredDailyGenLimit) return false;
+    if (newDailyCount > AppConstants.registeredDailyLimit) return false;
 
     // Update quota
     await _client
