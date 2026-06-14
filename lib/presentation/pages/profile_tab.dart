@@ -14,6 +14,7 @@ import '../../data/services/auth_service.dart';
 import '../../data/models/user_model.dart';
 import '../../data/models/vocabulary_model.dart';
 import '../../utils/csv_export_helper.dart';
+import '../../core/utils/quota_manager.dart';
 import 'onboarding_page.dart';
 import 'language_selection_page.dart';
 import 'english_variant_page.dart';
@@ -838,6 +839,8 @@ class _GuestDataSection extends ConsumerWidget {
                       preferences: currentUser.preferences, // Keep language level/variant
                     );
                     await userNotifier.updateUser(updatedUser);
+                    // Update guest quota backup to fresh state
+                    await hiveService.saveGuestQuotaBackup(updatedUser.quotaManager);
                   }
 
                   if (context.mounted) {
@@ -1221,6 +1224,242 @@ class _ConfirmStartOverDialog extends StatelessWidget {
   }
 }
 
+// ==================== CONFIRM RESET PROGRESS DIALOG ====================
+class _ConfirmResetProgressDialog extends StatelessWidget {
+  const _ConfirmResetProgressDialog();
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Colors.white, Color(0xFFf8f9ff)],
+          ),
+          borderRadius: BorderRadius.circular(28),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF8b5cf6).withValues(alpha: 0.15),
+              blurRadius: 30,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFFFF6B6B), Color(0xFFFF8E53)],
+                  ),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFFF6B6B).withValues(alpha: 0.3),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.refresh_rounded,
+                  color: Colors.white,
+                  size: 40,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'Start Over',
+                style: GoogleFonts.lexend(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF1f2937),
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'This will reset your learning progress.',
+                style: GoogleFonts.lexend(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w400,
+                  color: const Color(0xFF6b7280),
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEE2E2).withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  children: [
+                    _buildConfirmInfoItem(
+                      icon: Icons.menu_book_rounded,
+                      title: 'Vocabulary Deleted',
+                      description: 'All saved words will be removed',
+                    ),
+                    const SizedBox(height: 12),
+                    _buildConfirmInfoItem(
+                      icon: Icons.analytics_rounded,
+                      title: 'Progress Reset',
+                      description: 'Learning progress will be reset to zero',
+                    ),
+                    const SizedBox(height: 12),
+                    _buildConfirmInfoItem(
+                      icon: Icons.local_fire_department_rounded,
+                      title: 'Streak Cleared',
+                      description: 'Your streak and shields will be reset',
+                    ),
+                    const SizedBox(height: 12),
+                    _buildConfirmInfoItem(
+                      icon: Icons.lightbulb_rounded,
+                      title: 'Account Kept',
+                      description:
+                          'Your account and settings will be preserved',
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: 50,
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF9ca3af),
+                          side: BorderSide(
+                            color: const Color(
+                              0xFF9ca3af,
+                            ).withValues(alpha: 0.3),
+                            width: 1.5,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        child: Text(
+                          'Cancel',
+                          style: GoogleFonts.lexend(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: SizedBox(
+                      height: 50,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [Color(0xFFFF6B6B), Color(0xFFFF8E53)],
+                          ),
+                          borderRadius: BorderRadius.circular(14),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(
+                                0xFFFF6B6B,
+                              ).withValues(alpha: 0.4),
+                              blurRadius: 15,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () => Navigator.pop(context, true),
+                            borderRadius: BorderRadius.circular(14),
+                            child: Center(
+                              child: Text(
+                                'Start Over',
+                                style: GoogleFonts.lexend(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildConfirmInfoItem({
+    required IconData icon,
+    required String title,
+    required String description,
+  }) {
+    return Row(
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: const Color(0xFFFEE2E2),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, size: 20, color: const Color(0xFFDC2626)),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: GoogleFonts.lexend(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFFDC2626),
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                description,
+                style: GoogleFonts.lexend(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w400,
+                  color: const Color(0xFF6B7280),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 // ==================== DATA MANAGEMENT SECTION ====================
 class _DataSection extends ConsumerWidget {
   const _DataSection();
@@ -1281,6 +1520,46 @@ class _DataSection extends ConsumerWidget {
                 ),
               ],
             ),
+          ),
+
+          // Start Over
+          _buildCompactItem(
+            icon: Icons.refresh,
+            title: 'Start Over',
+            subtitle: 'Reset learning progress (keep settings)',
+            showDivider: true,
+            onTap: () async {
+              final confirmed = await showDialog<bool>(
+                context: context,
+                builder: (context) => const _ConfirmResetProgressDialog(),
+              );
+
+              if (confirmed == true && context.mounted) {
+                try {
+                  // Clear all vocabulary (local + cloud)
+                  final hiveService = ref.read(hiveServiceProvider);
+                  final vocabSyncService = ref.read(vocabularySyncServiceProvider);
+
+                  // Clear local vocabulary
+                  await hiveService.clearAllVocabulary();
+
+                  // Clear cloud vocabulary for registered users
+                  await vocabSyncService.clearCloud();
+
+                  // Reset streak (sync with cloud)
+                  await ref.read(streakProvider.notifier).reset();
+
+                  if (context.mounted) {
+                    SnackBarHelper.success(context, 'Learning progress reset');
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    SnackBarHelper.error(context, 'Failed to reset progress');
+                  }
+                }
+              }
+            },
+            iconBgColor: const Color(0xFFF3F4F6),
           ),
 
           // Export Vocabulary
@@ -2856,7 +3135,11 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
         final hiveService = ref.read(hiveServiceProvider);
         final navigator = Navigator.of(context);
 
-        // ⭐ Clear local data FIRST (before signout to avoid auth state listener interference)
+        // ⭐ CRITICAL: Get GUEST QUOTA BACKUP (persists across login/logout)
+        // This is the device-based trial quota that survives login/logout cycles
+        final guestQuotaBackup = await hiveService.getGuestQuotaBackup();
+
+        // ⭐ Clear ALL local data (vocabulary, preferences, photos, streak)
         await Future.wait([
           hiveService.clearAllVocabulary(),
           preferenceService.clearLocalPreferences(),
@@ -2864,8 +3147,30 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
           preferenceService.setOnboardingCompleted(false),
         ]);
 
-        // ⭐ Clear local streak state (NOT cloud) - will reload fresh from cloud on next login
+        // Clear local streak state (NOT cloud)
         ref.read(streakProvider.notifier).clearLocalState();
+
+        // Clear cache (photos, temporary files)
+        await preferenceService.clearCache();
+
+        // ⭐ CREATE GUEST WITH PRESERVED QUOTA FROM BACKUP
+        // Device-based trial: quota persists in backup regardless of login state
+        final guestUser = UserModel.createGuest();
+
+        if (guestQuotaBackup != null) {
+          // Use preserved quota from backup
+          final preservedGuest = guestUser.copyWith(quotaManager: guestQuotaBackup);
+          await hiveService.saveUser(preservedGuest);
+          final totalUsed = guestQuotaBackup.usageHistory.length;
+          final todayUsed = guestQuotaBackup.getTodayUsage();
+          print('✅ Guest quota restored from backup: $todayUsed/3 today, $totalUsed/10 total');
+        } else {
+          // Fresh trial (0/10) - first time using app on this device
+          await hiveService.saveUser(guestUser);
+          // Also save as initial backup
+          await hiveService.saveGuestQuotaBackup(guestUser.quotaManager);
+          print('✅ Fresh guest created (0/10 quota, 3 daily)');
+        }
 
         // Sign out from Supabase LAST
         await client.auth.signOut();
@@ -3062,7 +3367,11 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
       try {
         print('🗑️ Starting account deletion...');
 
-        // ⭐ Clear local data FIRST (before delete to avoid auth state listener interference)
+        // ⭐ CRITICAL: Get GUEST QUOTA BACKUP (persists across login/logout/delete)
+        // This is the device-based trial quota that survives account deletion
+        final guestQuotaBackup = await hiveService.getGuestQuotaBackup();
+
+        // ⭐ Clear ALL local data (vocabulary, preferences, photos, streak)
         await Future.wait([
           hiveService.clearAllVocabulary(),
           preferenceService.clearLocalPreferences(),
@@ -3070,17 +3379,36 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
           preferenceService.setOnboardingCompleted(false),
         ]);
 
-        // Clear UserModel from Hive (this will trigger creating fresh guest on logout)
-        await hiveService.clearCurrentUser();
-        print('✅ UserModel cleared from Hive');
-
-        // Clear local streak state
+        // Clear local streak state (NOT cloud)
         streakNotifier.clearLocalState();
-        print('✅ Local streak state cleared');
 
-        // Delete account (includes signOut → logout → creates fresh guest)
+        // Clear cache (photos, temporary files)
+        await preferenceService.clearCache();
+
+        // ⭐ CREATE GUEST WITH PRESERVED QUOTA FROM BACKUP
+        // Device-based trial: quota persists in backup regardless of account status
+        final guestUser = UserModel.createGuest();
+
+        if (guestQuotaBackup != null) {
+          // Use preserved quota from backup
+          final preservedGuest = guestUser.copyWith(quotaManager: guestQuotaBackup);
+          await hiveService.saveUser(preservedGuest);
+          final totalUsed = guestQuotaBackup.usageHistory.length;
+          final todayUsed = guestQuotaBackup.getTodayUsage();
+          print('✅ Guest quota restored from backup: $todayUsed/3 today, $totalUsed/10 total');
+        } else {
+          // Fresh trial (0/10) - first time using app on this device
+          await hiveService.saveUser(guestUser);
+          // Also save as initial backup
+          await hiveService.saveGuestQuotaBackup(guestUser.quotaManager);
+          print('✅ Fresh guest created (0/10 quota, 3 daily)');
+        }
+
+        print('✅ All user data cleared, quota preserved');
+
+        // Delete account (includes signOut → logout → will use preserved guest in Hive)
         await authService.deleteAccount();
-        print('✅ Account deleted, new guest created');
+        print('✅ Account deleted');
 
         // Navigate to Onboarding using captured navigator
         print('🚪 Navigating to onboarding...');

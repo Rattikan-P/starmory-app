@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:starmory_app/data/services/quota_service.dart';
-import 'package:starmory_app/presentation/pages/onboarding_page.dart';
 
 final quotaServiceProvider = Provider<QuotaService>((ref) {
-  return QuotaService(ref.watch(onboardingServiceProvider));
+  return QuotaService();
 });
 
 final quotaStatusProvider = FutureProvider<QuotaStatus>((ref) async {

@@ -425,16 +425,27 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
     } catch (e) {
       // This catch is for OTP verification errors only
       if (mounted) {
-        // Increment failed attempts
-        setState(() => _failedAttempts++);
+        // Check if it's a Supabase exception with status code
+        final isOtpInvalid = e.toString().contains('403') ||
+                          e.toString().contains('Invalid OTP') ||
+                          e.toString().contains('expired');
 
-        // Supabase returns 403 for both invalid and expired OTP
-        if (_failedAttempts >= 3) {
-          // Show dialog suggesting new OTP after 3 failed attempts
-          _showAttemptLimitDialog(context);
+        if (isOtpInvalid) {
+          // Invalid or expired OTP
+          setState(() => _failedAttempts++);
+
+          if (_failedAttempts >= 3) {
+            // Show dialog suggesting new OTP after 3 failed attempts
+            _showAttemptLimitDialog(context);
+          } else {
+            // Show normal error message for first 2 attempts
+            SnackBarHelper.error(context, AlertMessages.otpInvalid, showAboveKeyboard: true);
+            _clearOtp();
+          }
         } else {
-          // Show normal error message for first 2 attempts
-          SnackBarHelper.error(context, AlertMessages.otpInvalid, showAboveKeyboard: true);
+          // Service unavailable, network error, or other errors
+          // Don't increment failed attempts for service errors
+          SnackBarHelper.error(context, AlertMessages.serviceUnavailable, showAboveKeyboard: true);
           _clearOtp();
         }
       }

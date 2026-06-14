@@ -4,6 +4,7 @@ import '../models/vocabulary_model.dart';
 import '../models/user_model.dart';
 import '../../core/config/app_constants.dart';
 import '../../core/error/failures.dart';
+import '../../core/utils/quota_manager.dart';
 
 /// Hive Local Storage Service
 /// Handles all local data persistence for Guest Mode and cache
@@ -157,6 +158,78 @@ class HiveService {
       await box.delete(AppConstants.keyUserSession);
     } catch (e) {
       throw CacheFailure('Failed to clear user: ${e.toString()}');
+    }
+  }
+
+  // ============= Guest Quota Backup Operations =============
+  // These persist guest quota across login/logout cycles (device-based trial)
+
+  /// Save guest quota backup - stores usage history that survives login/logout
+  Future<void> saveGuestQuotaBackup(QuotaManager quotaManager) async {
+    try {
+      final box = Hive.box<String>(AppConstants.boxUser);
+      await box.put(
+        AppConstants.keyGuestQuotaBackup,
+        jsonEncode(quotaManager.toJson()),
+      );
+      print('💾 Guest quota backup saved: ${quotaManager.usageHistory.length}/10 used');
+    } catch (e) {
+      throw CacheFailure('Failed to save guest quota backup: ${e.toString()}');
+    }
+  }
+
+  /// Get guest quota backup - returns null if no backup exists
+  Future<QuotaManager?> getGuestQuotaBackup() async {
+    try {
+      final box = Hive.box<String>(AppConstants.boxUser);
+      final jsonString = box.get(AppConstants.keyGuestQuotaBackup);
+      if (jsonString == null) return null;
+      final quotaData = jsonDecode(jsonString) as Map<String, dynamic>;
+
+      // ⭐ CRITICAL: Filter usageHistory to only include today's entries
+      // This ensures daily limit resets properly
+      final today = DateTime.now();
+      final todayStr = '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+
+      final allHistory = (quotaData['usageHistory'] as List<dynamic>?)
+              ?.map((e) {
+                try {
+                  return QuotaEntry.fromJson(e as Map<String, dynamic>);
+                } catch (_) {
+                  return null; // Skip corrupted entries
+                }
+              })
+              .whereType<QuotaEntry>()
+              .toList() ??
+          [];
+
+      // Filter to only today's entries for daily limit calculation
+      final todayHistory = allHistory.where((entry) {
+        final entryStr = '${entry.timestamp.year}-${entry.timestamp.month.toString().padLeft(2, '0')}-${entry.timestamp.day.toString().padLeft(2, '0')}';
+        return entryStr == todayStr;
+      }).toList();
+
+      // For total limit, we keep all history
+      // But we also store today's entries separately for daily limit
+      final filteredQuotaData = Map<String, dynamic>.from(quotaData);
+      filteredQuotaData['usageHistory'] = allHistory.map((e) => e.toJson()).toList();
+
+      print('📦 Guest quota backup loaded: total=${allHistory.length}/10, today=${todayHistory.length}/3');
+      return QuotaManager.fromJson(filteredQuotaData);
+    } catch (e) {
+      print('⚠️ Failed to load guest quota backup: $e');
+      return null;
+    }
+  }
+
+  /// Clear guest quota backup - use when app is uninstalled or user explicitly resets
+  Future<void> clearGuestQuotaBackup() async {
+    try {
+      final box = Hive.box<String>(AppConstants.boxUser);
+      await box.delete(AppConstants.keyGuestQuotaBackup);
+      print('🗑️ Guest quota backup cleared');
+    } catch (e) {
+      throw CacheFailure('Failed to clear guest quota backup: ${e.toString()}');
     }
   }
 

@@ -406,6 +406,9 @@ class _EnglishVariantPageState extends ConsumerState<EnglishVariantPage> {
       debugPrint('⚠️ No UserModel found, creating guest with selected preferences');
       final guestUser = UserModel.createGuest().copyWith(preferences: selectedPreferences);
       await userNotifier.updateUser(guestUser);
+      // Save initial quota backup for device-based trial
+      final hiveService = ref.read(hiveServiceProvider);
+      await hiveService.saveGuestQuotaBackup(guestUser.quotaManager);
       debugPrint('✅ Created and saved guest user with preferences: level=${widget.languageLevel}, variant=$_selectedVariant');
     }
 

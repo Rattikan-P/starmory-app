@@ -1,13 +1,12 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'preference_service.dart';
+import 'hive_service.dart';
 
 class QuotaService {
   final SupabaseClient _client = Supabase.instance.client;
-  final PreferenceService _preferenceService;
+  final HiveService _hiveService;
 
-  QuotaService(this._preferenceService);
+  QuotaService() : _hiveService = HiveService();
 
-  static const int guestLifetimeLimit = 10;
   static const int guestDailyPhotoLimit = 3;
   static const int registeredDailyGenLimit = 15;
   static const String _quotasTable = 'user_quotas';
@@ -18,15 +17,33 @@ class QuotaService {
   }
 
   Future<QuotaStatus> _getGuestStatus() async {
-    final lifetimeUsed = (await _preferenceService.getGuestLifetimeGenCount()) ?? 0;
-    final photoToday = (await _preferenceService.getGuestDailyPhotoCount()) ?? 0;
+    // Get guest user from Hive (SSOT for quota data)
+    final user = await _hiveService.getCurrentUser();
+
+    if (user == null || !user.isGuest) {
+      // No guest user exists - return default status
+      return QuotaStatus(
+        generationsRemaining: 10, // guest total limit
+        photoUploadsRemaining: guestDailyPhotoLimit,
+        isGuest: true,
+        lifetimeLimit: 10,
+        dailyPhotoLimit: guestDailyPhotoLimit,
+      );
+    }
+
+    // Read quota from UserModel.quotaManager
+    final quota = user.quotaManager;
+    final totalUsed = quota.usageHistory.length;
+    final guestTotalLimit = 10; // From AppConstants.guestTotalLimit
+    final todayUsage = quota.getTodayUsage();
 
     return QuotaStatus(
-      generationsRemaining: guestLifetimeLimit - lifetimeUsed,
-      photoUploadsRemaining: guestDailyPhotoLimit - photoToday,
+      generationsRemaining: guestTotalLimit - totalUsed,
+      photoUploadsRemaining: guestDailyPhotoLimit - todayUsage,
       isGuest: true,
-      lifetimeLimit: guestLifetimeLimit,
+      lifetimeLimit: guestTotalLimit,
       dailyPhotoLimit: guestDailyPhotoLimit,
+      totalUsed: totalUsed,
     );
   }
 
@@ -84,9 +101,28 @@ class QuotaService {
   }
 
   Future<bool> _incrementGuestGen() async {
-    final current = (await _preferenceService.getGuestLifetimeGenCount()) ?? 0;
-    if (current >= guestLifetimeLimit) return false;
-    await _preferenceService.incrementGuestLifetimeGenCount();
+    // Get guest user from Hive
+    final user = await _hiveService.getCurrentUser();
+
+    if (user == null || !user.isGuest) {
+      return false;
+    }
+
+    final quota = user.quotaManager;
+    final guestTotalLimit = 10;
+
+    // Check if limit reached
+    if (quota.usageHistory.length >= guestTotalLimit) {
+      return false;
+    }
+
+    // Record usage in UserModel
+    final updatedUser = user.copyWith(
+      quotaManager: quota.recordUsage(),
+    );
+
+    // Save updated user back to Hive
+    await _hiveService.saveUser(updatedUser);
     return true;
   }
 
@@ -132,18 +168,9 @@ class QuotaService {
   }
 
   Future<bool> _incrementGuestPhoto() async {
-    final today = DateTime.now().toIso8601String().split('T')[0];
-    final lastReset = await _preferenceService.getGuestDailyPhotoResetDate();
-
-    if (lastReset != today) {
-      await _preferenceService.resetGuestDailyPhoto();
-    }
-
-    final current = (await _preferenceService.getGuestDailyPhotoCount()) ?? 0;
-    if (current >= guestDailyPhotoLimit) return false;
-
-    await _preferenceService.incrementGuestDailyPhotoCount();
-    return true;
+    // For guests, photo upload counts as generation
+    // Reuse the same quota tracking
+    return await _incrementGuestGen();
   }
 
   Future<void> _resetDailyQuota(String userId) async {

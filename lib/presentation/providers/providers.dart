@@ -478,11 +478,26 @@ class UserNotifier extends StateNotifier<UserState> {
   Future<void> logout() async {
     try {
       state = state.copyWith(isLoading: true);
+
+      // ⭐ CRITICAL: Check if guest user already exists BEFORE clearing
+      // This preserves guest quota (device-based quota persistence)
+      final existingUser = await _hiveService.getCurrentUser();
+
+      if (existingUser != null && existingUser.isGuest) {
+        // Guest already exists - just use it (preserves quota!)
+        print('👤 Preserving existing guest user with quota');
+        state = UserState(user: existingUser);
+        return;
+      }
+
+      // No guest user exists - need to create one
       await _hiveService.clearCurrentUser();
 
-      // Create new guest user with preferences from SharedPreferences
-      final guestUser = await _createGuestUserWithPreferences();
+      // Create new guest user
+      final guestUser = UserModel.createGuest();
       await _hiveService.saveUser(guestUser);
+      // Save initial quota backup for device-based trial
+      await _hiveService.saveGuestQuotaBackup(guestUser.quotaManager);
       state = UserState(user: guestUser);
     } catch (e) {
       state = UserState(user: state.user, error: e.toString());
@@ -504,6 +519,8 @@ class UserNotifier extends StateNotifier<UserState> {
     // Otherwise create new guest with defaults
     print('👤 Creating new guest user with default preferences');
     final guestUser = UserModel.createGuest();
+    // Save initial quota backup for device-based trial
+    await _hiveService.saveGuestQuotaBackup(guestUser.quotaManager);
     return guestUser;
   }
 
@@ -642,6 +659,18 @@ class UserNotifier extends StateNotifier<UserState> {
 
     final updatedUser = user.copyWith(quotaManager: updatedQuotaManager);
     await updateUser(updatedUser);
+
+    // ⭐ CRITICAL: Save guest quota to backup (persists across login/logout)
+    // This ensures device-based trial quota is preserved
+    if (user.isGuest) {
+      try {
+        await _hiveService.saveGuestQuotaBackup(updatedQuotaManager);
+        print('💾 Guest quota backup updated: ${updatedQuotaManager.usageHistory.length}/10');
+      } catch (e) {
+        print('⚠️ Failed to save guest quota backup: $e');
+        // Continue anyway - local update succeeded
+      }
+    }
 
     debugPrint('✅ recordQuotaUsage completed - new daily: ${updatedQuotaManager.getTodayUsage()}/${updatedQuotaManager.dailyLimit}');
     return true;

@@ -48,6 +48,7 @@ class AppConstants {
   static const String keyVocabularyCache = 'vocabulary_cache';
   static const String keyCalendarData = 'calendar_data';
   static const String keyQuotaCount = 'quota_count';
+  static const String keyGuestQuotaBackup = 'guest_quota_backup'; // Guest quota that persists across login/logout
 
   // Hive Box Names
   static const String boxVocabulary = 'vocabulary_box';
