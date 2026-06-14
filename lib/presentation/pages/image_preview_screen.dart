@@ -387,14 +387,9 @@ class _ImagePreviewScreenState extends ConsumerState<ImagePreviewScreen> {
             onPressed: () {
               Navigator.pop(context);
               setState(() => _isProcessing = false);
-              // Navigate to sign up screen
+              // Show sign up bottom sheet
               if (isGuest) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const AccountMethodPage(),
-                  ),
-                );
+                AccountMethodPage.show(context);
               }
             },
             style: ElevatedButton.styleFrom(

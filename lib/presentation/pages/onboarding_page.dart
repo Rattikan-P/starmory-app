@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -30,7 +29,6 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
   final _emailController = TextEditingController();
   final _emailFormKey = GlobalKey<FormState>();
   bool _isEmailLoading = false;
-  late final List<AnimationController> _starControllers;
 
   final List<OnboardingItem> _items = const [
     OnboardingItem(
@@ -54,22 +52,6 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
   void initState() {
     super.initState();
 
-    // Initialize star animations first (needed for build method)
-    _starControllers = List.generate(3, (i) {
-      return AnimationController(
-        duration: Duration(milliseconds: 2500 + i * 500),
-        vsync: this,
-      );
-    });
-    // Start animations with staggered delay
-    for (int i = 0; i < 3; i++) {
-      Future.delayed(Duration(milliseconds: i * 1200), () {
-        if (mounted) {
-          _starControllers[i].repeat();
-        }
-      });
-    }
-
     // Skip to auth bottom sheet immediately if requested (for logout)
     if (widget.skipToAuth) {
       Future.microtask(() => _showAuthBottomSheet());
@@ -79,9 +61,6 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
 
   @override
   void dispose() {
-    for (var controller in _starControllers) {
-      controller.dispose();
-    }
     _pageController.dispose();
     _emailController.dispose();
     super.dispose();
@@ -293,8 +272,6 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
     return Scaffold(
       resizeToAvoidBottomInset: false,
       body: GalaxyScreenBackground(
-        showFallingStars: true,
-        starControllers: _starControllers,
         child: SafeArea(
           child: Stack(
             children: [
@@ -615,74 +592,6 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
 }
 
 // Simple falling star widget
-class _FallingStar extends StatelessWidget {
-  final Animation<double> animation;
-  final int index;
-
-  const _FallingStar({
-    required this.animation,
-    this.index = 0,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-
-    return AnimatedBuilder(
-      animation: animation,
-      builder: (context, child) {
-        final p = animation.value;
-
-        // Trajectories
-        final paths = [
-          (0.05, 0.05, 0.85, 0.7),   // Star 0
-          (0.3, 0.0, 0.95, 0.6),     // Star 1
-          (0.0, 0.15, 0.6, 0.85),    // Star 2
-        ];
-        final path = paths[index % 3];
-
-        final x = size.width * path.$1 + (size.width * path.$3 - size.width * path.$1) * p;
-        final y = size.height * path.$2 + (size.height * path.$4 - size.height * path.$2) * p;
-        final angle = atan2(size.height * (path.$4 - path.$2), size.width * (path.$3 - path.$1));
-
-        return Positioned(
-          left: x,
-          top: y,
-          child: Transform.rotate(
-            angle: angle,
-            child: Opacity(
-              opacity: p > 0.85 ? (1 - p) * 6.5 : 1.0,
-              child: Container(
-                width: 80,
-                height: 2,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.centerRight,
-                    end: Alignment.centerLeft,
-                    colors: [
-                      Colors.white,
-                      Colors.white.withValues(alpha: 0.5),
-                      Colors.white.withValues(alpha: 0.1),
-                      Colors.transparent,
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(1),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.white.withValues(alpha: 0.5),
-                      blurRadius: 4,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
 class OnboardingItem {
   final IconData icon;
   final String title;

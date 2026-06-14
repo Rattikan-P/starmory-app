@@ -5,7 +5,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../data/services/merge_service.dart';
 import '../../../utils/snackbar_helper.dart';
-import '../../widgets/galaxy_screen_background.dart';
 import '../../widgets/auth_widgets.dart';
 import '../main_navigation.dart';
 import '../onboarding_page.dart';
@@ -22,6 +21,16 @@ class AccountMethodPage extends ConsumerStatefulWidget {
 
   @override
   ConsumerState<AccountMethodPage> createState() => _AccountMethodPageState();
+
+  /// Show the create account bottom sheet
+  static Future<void> show(BuildContext context) {
+    return showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => const AccountMethodPage(),
+    );
+  }
 }
 
 class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
@@ -115,16 +124,22 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
 
         if (!hasGuestData) {
           // ไม่มีข้อมูล guest → ถาม level/variant
-          // EnglishVariantPage จะจัดการทุกอย่าง (บันทึกข้อมูล, navigate) เมื่อ isInitialSetup
-          await Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => const LanguageSelectionPage(
-                isGuest: false,
-                isInitialSetup: true,
-                returnAfterSelection: false,
+          // Close bottom sheet first, then navigate
+          if (context.mounted) {
+            Navigator.of(context).pop(); // Close bottom sheet
+          }
+          // LanguageSelectionPage จะจัดการทุกอย่าง (บันทึกข้อมูล, navigate) เมื่อ isInitialSetup
+          if (context.mounted) {
+            await Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const LanguageSelectionPage(
+                  isGuest: false,
+                  isInitialSetup: true,
+                  returnAfterSelection: false,
+                ),
               ),
-            ),
-          );
+            );
+          }
           // Context will be unmounted here since EnglishVariantPage handles full navigation
           return;
         }
@@ -367,7 +382,8 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
 
       if (!context.mounted) return;
 
-      Navigator.of(context).pushAndRemoveUntil(
+      // Navigate using rootNavigator (same as onboarding)
+      Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
         MaterialPageRoute(
           builder: (_) => const MainNavigationScreen(),
         ),
@@ -403,19 +419,26 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
       if (!context.mounted) return;
       SnackBarHelper.success(context, 'OTP sent to $email');
 
+      // Close bottom sheet before navigating
+      if (context.mounted) {
+        Navigator.of(context).pop(); // Close bottom sheet
+      }
+
       // Navigate to OTP page after successful send (with guest preferences)
-      await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => OtpVerificationPage(
-            email: email,
-            displayName: null,
-            languageLevel: guestLevel,
-            englishVariant: guestVariant,
-            isGuestCreatingAccount: true,
+      if (context.mounted) {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => OtpVerificationPage(
+              email: email,
+              displayName: null,
+              languageLevel: guestLevel,
+              englishVariant: guestVariant,
+              isGuestCreatingAccount: true,
+            ),
           ),
-        ),
-      );
+        );
+      }
     } catch (e) {
       if (context.mounted) {
         SnackBarHelper.error(context, AlertMessages.otpSendFailed);
@@ -730,128 +753,71 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: GalaxyScreenBackground(
-        child: SafeArea(
-          child: Stack(
-                children: [
-                  // Back button - outside card
-                  Positioned(
-                    top: 16,
-                    left: 16,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.9),
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.08),
-                            blurRadius: 12,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: IconButton(
-                        icon: const Icon(Icons.arrow_back, color: Color(0xFF1f2937)),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                    ),
-                  ),
-                  // Card content
-                  Center(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.only(top: 80, bottom: 24, left: 24, right: 24),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Container(
-                            constraints: const BoxConstraints(maxWidth: 400),
-                            padding: const EdgeInsets.all(24),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(24),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.05),
-                                  blurRadius: 20,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
+    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
 
-                    // Icon
-                    Container(
-                      width: 100,
-                      height: 100,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            Color(0xFFf472b6), // Soft pink
-                            Color(0xFF60a5fa), // Soft blue
-                          ],
-                        ),
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFFf472b6).withValues(alpha: 0.3),
-                            blurRadius: 20,
-                            offset: const Offset(0, 8),
-                          ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.person_add_rounded,
-                        size: 50,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-
-                    Text(
-                      'Create an account',
-                      style: GoogleFonts.lexend(
-                        fontSize: 26,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF1f2937),
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 4),
-
-                    Text(
-                      'Continue with your progress',
-                      style: GoogleFonts.lexend(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w400,
-                        color: const Color(0xFF9ca3af),
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 24),
-
-                    // Reusable AuthForm
-                    AuthForm(
-                      onGoogleTap: () => _continueWithGoogle(context),
-                      onEmailTap: () => _continueWithEmail(context),
-                      emailController: _emailController,
-                      emailFormKey: _emailFormKey,
-                      isEmailLoading: _isEmailLoading,
-                    ),
-                    ],
-                  ),
-                ),
-                ],
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+      ),
+      padding: EdgeInsets.only(
+        left: 28,
+        right: 28,
+        top: 28,
+        bottom: 28 + keyboardHeight,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle bar
+            Container(
+              width: 48,
+              height: 5,
+              decoration: BoxDecoration(
+                color: const Color(0xFFd1d5db),
+                borderRadius: BorderRadius.circular(3),
               ),
             ),
-          ),
-            ],
-          ),
+            const SizedBox(height: 28),
+
+            // Header
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.star, size: 20, color: Color(0xFFc4b5fd)),
+                const SizedBox(width: 8),
+                Text(
+                  'Create an account',
+                  style: GoogleFonts.lexend(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w400,
+                    color: const Color(0xFF1f2937),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+
+            Text(
+              'Continue with your progress',
+              style: GoogleFonts.lexend(
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+                color: const Color(0xFF9ca3af),
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Reusable AuthForm
+            AuthForm(
+              onGoogleTap: () => _continueWithGoogle(context),
+              onEmailTap: () => _continueWithEmail(context),
+              emailController: _emailController,
+              emailFormKey: _emailFormKey,
+              isEmailLoading: _isEmailLoading,
+            ),
+          ],
         ),
       ),
     );

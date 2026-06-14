@@ -10,7 +10,6 @@ import '../../data/services/auth_service.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../data/models/user_model.dart';
 import '../providers/providers.dart';
-import '../providers/auth_provider.dart' as auth;
 
 class EnglishVariantPage extends ConsumerStatefulWidget {
   final bool isGuest;

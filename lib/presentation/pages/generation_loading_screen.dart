@@ -36,7 +36,6 @@ class _GenerationLoadingScreenState
     extends ConsumerState<GenerationLoadingScreen>
     with TickerProviderStateMixin {
   int _currentPhase = 1;
-  String? _errorMessage;
   bool _isProcessing = true;
   bool _quotaDeducted = false; // Track if quota was deducted in this session
 
@@ -168,13 +167,8 @@ class _GenerationLoadingScreenState
             ElevatedButton(
               onPressed: () {
                 Navigator.pop(context); // Close dialog
-                // Navigate to sign up screen
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const AccountMethodPage(),
-                  ),
-                );
+                // Show sign up bottom sheet
+                AccountMethodPage.show(context);
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF8b5cf6),
@@ -309,7 +303,6 @@ class _GenerationLoadingScreenState
     } on _ImageAnalysisException catch (e) {
       if (mounted) {
         setState(() {
-          _errorMessage = e.message;
           _isProcessing = false;
         });
         _handleImageError(e.errorCode, e.message);
@@ -317,7 +310,6 @@ class _GenerationLoadingScreenState
     } on TimeoutException catch (e) {
       if (mounted) {
         setState(() {
-          _errorMessage = e.message;
           _isProcessing = false;
         });
         _handleNetworkError('Request timed out. Please check your connection and try again.');
@@ -340,7 +332,6 @@ class _GenerationLoadingScreenState
           await _refundQuota();
 
           setState(() {
-            _errorMessage = 'Starmory needs a rest today 😴\nNew lessons will be ready again tomorrow!';
             _isProcessing = false;
           });
           _handleNetworkError('Starmory needs a rest today 😴\nNew lessons will be ready again tomorrow!');
@@ -358,7 +349,6 @@ class _GenerationLoadingScreenState
         }
 
         setState(() {
-          _errorMessage = 'Error: $errorMessage';
           _isProcessing = false;
         });
 
@@ -735,47 +725,6 @@ class _GenerationLoadingScreenState
             ),
           ),
         ),
-    );
-  }
-
-  Widget _buildCurrentPhaseIndicator() {
-    String label;
-    switch (_currentPhase) {
-      case 1:
-        label = 'Scene Analysis...';
-        break;
-      case 2:
-        label = 'Detect Words...';
-        break;
-      case 3:
-        label = 'Finalizing...';
-        break;
-      default:
-        label = 'Processing...';
-    }
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        SizedBox(
-          width: 20,
-          height: 20,
-          child: CircularProgressIndicator(
-            strokeWidth: 2,
-            valueColor:
-                const AlwaysStoppedAnimation<Color>(Color(0xFF6C63FF)),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Text(
-          label,
-          style: GoogleFonts.lexend(
-            fontSize: 16,
-            color: const Color(0xFF1f2937),
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
     );
   }
 

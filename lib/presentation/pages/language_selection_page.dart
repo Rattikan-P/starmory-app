@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../widgets/galaxy_screen_background.dart';
-import 'onboarding_page.dart';
 import 'main_navigation.dart';
 import 'english_variant_page.dart';
 import '../../constants/app_defaults.dart';

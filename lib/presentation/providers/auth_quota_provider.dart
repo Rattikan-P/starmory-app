@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/services/auth_service.dart';
 import '../../data/models/user_model.dart';
-import '../../core/utils/quota_manager.dart';
 import 'providers.dart';
 import 'streak_provider.dart';
 

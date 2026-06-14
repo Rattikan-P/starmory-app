@@ -5,7 +5,6 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'core/config/app_constants.dart';
-import 'data/services/hive_service.dart';
 import 'data/services/app_state_service.dart';
 import 'presentation/providers/providers.dart';
 import 'presentation/pages/main_navigation.dart';

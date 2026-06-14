@@ -14,7 +14,6 @@ import '../../data/services/auth_service.dart';
 import '../../data/models/user_model.dart';
 import '../../data/models/vocabulary_model.dart';
 import '../../utils/csv_export_helper.dart';
-import '../../core/utils/quota_manager.dart';
 import 'onboarding_page.dart';
 import 'language_selection_page.dart';
 import 'english_variant_page.dart';
@@ -1930,13 +1929,7 @@ class _NotLoggedInViewState extends ConsumerState<_NotLoggedInView> {
                                   color: Colors.transparent,
                                   child: InkWell(
                                     onTap: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (_) =>
-                                              const AccountMethodPage(),
-                                        ),
-                                      );
+                                      AccountMethodPage.show(context);
                                     },
                                     borderRadius: BorderRadius.circular(14),
                                     child: const Row(

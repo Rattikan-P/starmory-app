@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -23,7 +22,6 @@ class HomeTab extends ConsumerStatefulWidget {
 class _HomeTabState extends ConsumerState<HomeTab>
     with TickerProviderStateMixin {
   final ImagePicker _imagePicker = ImagePicker();
-  late final List<AnimationController> _starControllers;
 
   // Daily motivational quotes
   final List<DailyQuote> _quotes = const [
@@ -55,28 +53,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
   ];
 
   @override
-  void initState() {
-    super.initState();
-    // Create falling star animations like onboarding
-    _starControllers = List.generate(3, (i) {
-      return AnimationController(
-        duration: Duration(milliseconds: 2500 + i * 500),
-        vsync: this,
-      );
-    });
-    // Start animations with staggered delay
-    for (int i = 0; i < 3; i++) {
-      Future.delayed(Duration(milliseconds: i * 1200), () {
-        if (mounted) _starControllers[i].repeat();
-      });
-    }
-  }
-
-  @override
   void dispose() {
-    for (var controller in _starControllers) {
-      controller.dispose();
-    }
     super.dispose();
   }
 
@@ -94,8 +71,6 @@ class _HomeTabState extends ConsumerState<HomeTab>
 
     return Scaffold(
       body: GalaxyScreenBackground(
-        showFallingStars: true,
-        starControllers: _starControllers,
         child: Column(
           children: [
             // Status bar spacer
@@ -587,12 +562,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
           if (isGuest && !canGenerate && totalReached)
             GestureDetector(
               onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const AccountMethodPage(),
-                  ),
-                );
+                AccountMethodPage.show(context);
               },
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -858,74 +828,6 @@ class _HomeTabState extends ConsumerState<HomeTab>
 }
 
 // Falling star widget (from onboarding)
-class _FallingStar extends StatelessWidget {
-  final Animation<double> animation;
-  final int index;
-
-  const _FallingStar({
-    required this.animation,
-    this.index = 0,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-
-    return AnimatedBuilder(
-      animation: animation,
-      builder: (context, child) {
-        final p = animation.value;
-
-        // Trajectories
-        final paths = [
-          (0.05, 0.05, 0.85, 0.7),   // Star 0
-          (0.3, 0.0, 0.95, 0.6),     // Star 1
-          (0.0, 0.15, 0.6, 0.85),    // Star 2
-        ];
-        final path = paths[index % 3];
-
-        final x = size.width * path.$1 + (size.width * path.$3 - size.width * path.$1) * p;
-        final y = size.height * path.$2 + (size.height * path.$4 - size.height * path.$2) * p;
-        final angle = atan2(size.height * (path.$4 - path.$2), size.width * (path.$3 - path.$1));
-
-        return Positioned(
-          left: x,
-          top: y,
-          child: Transform.rotate(
-            angle: angle,
-            child: Opacity(
-              opacity: p > 0.85 ? (1 - p) * 6.5 : 1.0,
-              child: Container(
-                width: 80,
-                height: 2,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.centerRight,
-                    end: Alignment.centerLeft,
-                    colors: [
-                      Colors.white,
-                      Colors.white.withValues(alpha: 0.5),
-                      Colors.white.withValues(alpha: 0.1),
-                      Colors.transparent,
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(1),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.white.withValues(alpha: 0.5),
-                      blurRadius: 4,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
 // Daily quote data class
 class DailyQuote {
   final String emoji;

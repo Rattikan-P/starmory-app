@@ -5,14 +5,10 @@ import 'package:flutter/material.dart';
 /// Used across all pages for consistent visual design
 class GalaxyScreenBackground extends StatefulWidget {
   final Widget child;
-  final bool showFallingStars;
-  final List<AnimationController>? starControllers;
 
   const GalaxyScreenBackground({
     super.key,
     required this.child,
-    this.showFallingStars = false,
-    this.starControllers,
   });
 
   @override
@@ -95,17 +91,6 @@ class _GalaxyScreenBackgroundState extends State<GalaxyScreenBackground> {
             ),
           );
         }),
-        // Falling stars (optional animation)
-        if (widget.showFallingStars &&
-            widget.starControllers != null &&
-            widget.starControllers!.length >= 3)
-          ...List.generate(
-            3,
-            (i) => _FallingStar(
-              animation: widget.starControllers![i],
-              index: i,
-            ),
-          ),
         // Texture overlay
         Positioned.fill(
           child: IgnorePointer(
@@ -157,73 +142,6 @@ class _GalaxyScreenBackgroundState extends State<GalaxyScreenBackground> {
           ),
         ),
       ),
-    );
-  }
-}
-
-/// Falling star animation widget
-class _FallingStar extends StatelessWidget {
-  final Animation<double> animation;
-  final int index;
-
-  const _FallingStar({
-    required this.animation,
-    this.index = 0,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-
-    return AnimatedBuilder(
-      animation: animation,
-      builder: (context, child) {
-        final progress = animation.value;
-
-        // Calculate position (falling from top-right to bottom-left)
-        final startX = size.width * (0.7 + index * 0.1);
-        final startY = -50.0;
-        final endX = size.width * (0.3 - index * 0.05);
-        final endY = size.height + 50.0;
-
-        final x = startX + (endX - startX) * progress;
-        final y = startY + (endY - startY) * progress;
-
-        // Calculate opacity (fade in then out)
-        final fadeInEnd = 0.2;
-        final fadeOutStart = 0.8;
-        double opacity;
-        if (progress < fadeInEnd) {
-          opacity = progress / fadeInEnd;
-        } else if (progress > fadeOutStart) {
-          opacity = (1.0 - progress) / (1.0 - fadeOutStart);
-        } else {
-          opacity = 1.0;
-        }
-
-        return Positioned(
-          left: x,
-          top: y,
-          child: Opacity(
-            opacity: opacity * 0.7,
-            child: Container(
-              width: 4,
-              height: 4,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.white.withValues(alpha: 0.8),
-                    blurRadius: 8,
-                    spreadRadius: 2,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
     );
   }
 }

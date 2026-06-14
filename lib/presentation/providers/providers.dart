@@ -10,10 +10,8 @@ import '../../data/services/merge_service.dart';
 import '../../data/services/streak_service.dart';
 import '../../data/models/user_model.dart';
 import '../../data/models/vocabulary_model.dart';
-import '../../data/models/calendar_model.dart';
 import '../../core/utils/quota_manager.dart';
 import '../../constants/app_defaults.dart';
-import 'auth_quota_provider.dart';
 
 // ============= Service Providers =============
 
