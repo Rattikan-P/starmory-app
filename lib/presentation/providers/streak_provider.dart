@@ -38,6 +38,8 @@ class StreakNotifier extends StateNotifier<StreakData?> {
       print('❌ Error in user state stream: $error');
     });
     await refresh();
+    // Auto-check and reset streak if expired (on app open)
+    await checkAndResetStreakIfExpired();
   }
 
   @override
@@ -48,12 +50,16 @@ class StreakNotifier extends StateNotifier<StreakData?> {
 
   /// Refresh streak data from appropriate source (cloud or local)
   Future<void> refresh() async {
+    print('🔄 [Streak] refresh() called');
+
     // Read from UserModel (SSOT)
     final currentUser = _userNotifier.state.user;
 
     if (currentUser != null && currentUser.isGuest) {
       // Guest - load from UserModel
+      print('🟢 [Streak] Loading guest streak from UserModel...');
       _loadFromUserModel(currentUser);
+      print('✅ [Streak] Guest streak loaded: streak=${state?.currentStreak ?? 0}');
       return;
     }
 
@@ -61,10 +67,13 @@ class StreakNotifier extends StateNotifier<StreakData?> {
     final supabaseUser = Supabase.instance.client.auth.currentUser;
     if (supabaseUser != null) {
       // Registered - load from cloud
+      print('🔵 [Streak] Loading cloud streak...');
       final data = await _service.getStreakData();
       state = data;
+      print('✅ [Streak] Cloud streak loaded: streak=${data?.currentStreak ?? 0}, shields=${data?.shieldsAvailable ?? 0}');
     } else {
       // No user - null state
+      print('⚠️ [Streak] No user found - setting streak to null');
       state = null;
     }
   }
@@ -83,20 +92,29 @@ class StreakNotifier extends StateNotifier<StreakData?> {
   Future<bool> updateAfterActivity() async {
     final currentUser = _userNotifier.state.user;
 
-    if (currentUser == null) return false;
+    if (currentUser == null) {
+      print('❌ [Streak] No current user');
+      return false;
+    }
+
+    print('📝 [Streak] updateAfterActivity() called - isGuest=${currentUser.isGuest}');
 
     if (currentUser.isGuest) {
       // Guest - increment streak in UserModel (SSOT)
+      print('🟢 [Guest Streak] Calling incrementStreak()...');
       final updatedUser = currentUser.incrementStreak();
       await _userNotifier.updateUser(updatedUser);
       _loadFromUserModel(updatedUser);
       print('✅ [Guest Streak] Updated UserModel: streak=${updatedUser.currentStreak}, shields=${updatedUser.shields}');
       return true;
     } else {
-      // Registered - manual update (until trigger is ready)
-      final success = await _service.manualStreakUpdate();
-      if (success) await refresh();
-      return success;
+      // Registered - SQL trigger handles this automatically when vocabulary is inserted
+      // Just refresh from cloud to get updated values
+      print('🔵 [Cloud Streak] Refreshing from cloud (trigger should have fired)...');
+      await refresh();
+      final updated = state;
+      print('✅ [Cloud Streak] Refreshed: streak=${updated?.currentStreak ?? 0}, shields=${updated?.shieldsAvailable ?? 0}');
+      return true;
     }
   }
 
@@ -319,12 +337,16 @@ class StreakNotifier extends StateNotifier<StreakData?> {
   /// Record vocabulary acquisition and update streak if not already done today
   /// Returns true if streak was updated (first vocabulary of the day)
   Future<bool> recordVocabularyAcquired() async {
+    print('📝 [Streak] recordVocabularyAcquired() called');
+
     // Check if already acquired vocabulary today
     if (await hasAcquiredVocabularyToday()) {
+      print('ℹ️ [Streak] Already acquired vocabulary today → skipping');
       // Already updated today, no need to update again
       return false;
     }
 
+    print('✅ [Streak] First vocabulary of the day → updating streak');
     // First vocabulary of the day - update streak
     return await updateAfterActivity();
   }
@@ -343,6 +365,56 @@ class StreakNotifier extends StateNotifier<StreakData?> {
   Future<bool> recordLearningActivity() async {
     // Both new words and reviews count towards streak
     return await recordVocabularyAcquired();
+  }
+
+  /// Check if streak should be reset due to inactivity (called on app open)
+  /// Grace period: 48 hours (2 days) - if gap > 48 hours, streak is expired
+  Future<void> checkAndResetStreakIfExpired() async {
+    print('🔍 [Streak] checkAndResetStreakIfExpired() called');
+
+    final currentUser = _userNotifier.state.user;
+
+    if (currentUser == null) {
+      print('⚠️ [Streak] No current user - skipping reset check');
+      return;
+    }
+
+    if (currentUser.isGuest) {
+      // Guest - check local streak
+      print('🟢 [Guest Streak] Checking expiration...');
+      if (currentUser.lastStreakActivityDate == null) {
+        print('ℹ️ [Guest Streak] No previous activity - nothing to check');
+        return;
+      }
+
+      final now = DateTime.now();
+      final lastActivity = currentUser.lastStreakActivityDate!;
+      final hoursSince = now.difference(lastActivity).inHours;
+
+      print('   [Guest Streak] Hours since last activity: $hoursSince');
+
+      // Grace period: 48 hours (2 days)
+      if (hoursSince > 48) {
+        print('🔥 [Guest Streak] Expired! Last activity was $hoursSince hours ago. Resetting...');
+        final updatedUser = currentUser.copyWith(
+          currentStreak: 0,
+          longestStreak: 0,  // Also reset longest
+          shields: 0,         // Also reset shields
+          lastStreakActivityDate: null,
+        );
+        await _userNotifier.updateUser(updatedUser);
+        _loadFromUserModel(updatedUser);
+        print('✅ [Guest Streak] Reset complete');
+      } else {
+        print('✅ [Guest Streak] Still active (within grace period)');
+      }
+    } else {
+      // Registered - check cloud streak
+      print('🔵 [Cloud Streak] Checking expiration in cloud...');
+      await _service.checkAndResetStreakIfExpired();
+      await refresh();
+      print('✅ [Cloud Streak] Expiration check complete');
+    }
   }
 }
 
@@ -392,13 +464,28 @@ extension StreakStatusExtension on StreakStatus {
       case StreakStatus.unknown:
         return 'Loading...';
       case StreakStatus.inactive:
-        return 'Start your streak!';
+        return 'Start your streak today! 🌟';
       case StreakStatus.active:
-        return 'Keep going!';
+        return 'Keep the streak alive! 🔥';
       case StreakStatus.atRisk:
-        return 'Shield protecting you';
+        return 'Shield is protecting you 🛡️';
       case StreakStatus.broken:
-        return 'Streak lost';
+        return 'Streak lost - Start fresh! 💪';
+    }
+  }
+
+  String get message {
+    switch (this) {
+      case StreakStatus.unknown:
+        return 'Loading your streak...';
+      case StreakStatus.inactive:
+        return 'Begin your learning journey today!';
+      case StreakStatus.active:
+        return 'You\'re on fire! Keep it up!';
+      case StreakStatus.atRisk:
+        return 'Your shield protected your streak!';
+      case StreakStatus.broken:
+        return 'No worries! Start a new streak today.';
     }
   }
 
@@ -413,7 +500,7 @@ extension StreakStatusExtension on StreakStatus {
       case StreakStatus.atRisk:
         return '🛡️';
       case StreakStatus.broken:
-        return '💔';
+        return '💪';
     }
   }
 }

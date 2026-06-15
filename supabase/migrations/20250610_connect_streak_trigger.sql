@@ -39,12 +39,16 @@ BEGIN
       last_activity_date = CURRENT_DATE
     WHERE id = NEW.user_id;
 
-  -- If activity on same day - do nothing (already counted today)
+  -- If activity on same day - update date only (don't increment streak again)
   ELSIF last_date = CURRENT_DATE THEN
-    NULL; -- Already updated today, don't increment
+    -- Already incremented today, just update the timestamp
+    UPDATE public.users
+    SET last_activity_date = CURRENT_DATE
+    WHERE id = NEW.user_id;
 
-  -- If activity on consecutive day (yesterday)
-  ELSIF last_date = CURRENT_DATE - INTERVAL '1 day' THEN
+  -- If activity within grace period (within 48 hours = 2 days)
+  -- This handles edge case: activity at 23:59 yesterday and 00:01 today
+  ELSIF AGE(CURRENT_DATE, last_date) <= INTERVAL '48 hours' THEN
     current_streak_val := current_streak_val + 1;
 
     -- Earn shield every 7 consecutive days
@@ -61,11 +65,11 @@ BEGIN
       last_activity_date = CURRENT_DATE
     WHERE id = NEW.user_id;
 
-  -- If missed a day (gap of 2+ days) - use shield if available
+  -- If missed more than grace period (gap of 3+ days) - use shield if available
   ELSE
     -- Check if we have shields to protect the streak
     IF shields_val > 0 THEN
-      -- Use one shield (protect streak for 1 missed day)
+      -- Use one shield (protect streak - keeps same value)
       shields_val := shields_val - 1;
 
       UPDATE public.users

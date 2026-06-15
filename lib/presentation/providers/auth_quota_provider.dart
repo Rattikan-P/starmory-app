@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/services/auth_service.dart';
+import '../../data/services/quota_service.dart';
 import '../../data/models/user_model.dart';
 import 'providers.dart';
 import 'streak_provider.dart';
@@ -100,6 +101,26 @@ class AuthQuotaNotifier extends StateNotifier<AuthQuotaState> {
 
     // Sync with local user
     await _syncLocalUser();
+
+    // Auto-check quota reset on app open
+    await _checkAndResetQuotaIfNeeded();
+  }
+
+  /// Check and reset quota if new day (called on app open)
+  Future<void> _checkAndResetQuotaIfNeeded() async {
+    try {
+      final quotaService = QuotaService();
+
+      if (state.isLoggedIn) {
+        // Check registered user quota
+        await quotaService.checkAndResetQuotaIfNeeded();
+      } else {
+        // Check guest quota
+        await quotaService.checkAndResetGuestQuotaIfNeeded();
+      }
+    } catch (e) {
+      print('❌ [AuthQuota] Error checking quota reset: $e');
+    }
   }
 
   void _handleAuthChange(AuthChangeEvent event) {

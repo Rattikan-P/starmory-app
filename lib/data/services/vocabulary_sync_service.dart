@@ -25,16 +25,21 @@ class VocabularySyncService {
 
   /// Save vocabulary to Supabase (for registered users only)
   /// Returns true if saved successfully, false if guest or error
+  /// Uses INSERT (not upsert) so the streak trigger fires properly
   Future<bool> saveToCloud(VocabularyModel vocabulary) async {
     if (!isLoggedIn) {
       // Guest user - don't sync to cloud
+      print('ℹ️ [Cloud Sync] Guest user - skipping cloud sync');
       return false;
     }
 
     try {
       final userId = currentUserId!;
+      print('☁️ [Cloud Sync] Inserting vocabulary "${vocabulary.word}" (trigger will fire)...');
 
-      await _client.from('vocabularies').upsert({
+      // Use INSERT (not upsert) so the streak trigger fires on new vocabulary
+      // If vocabulary already exists (duplicate id), this will fail silently
+      await _client.from('vocabularies').insert({
         'id': vocabulary.id,
         'user_id': userId,
         'word': vocabulary.word,
@@ -52,8 +57,12 @@ class VocabularySyncService {
         'updated_at': vocabulary.updatedAt?.toIso8601String() ?? vocabulary.createdAt.toIso8601String(),
       });
 
+      print('✅ [Cloud Sync] Vocabulary inserted successfully - streak trigger fired');
       return true;
     } catch (e) {
+      // Vocabulary might already exist (duplicate key) - that's OK
+      print('⚠️ [Cloud Sync] Insert failed (likely duplicate): $e');
+      // The streak trigger would have fired on first insert
       return false;
     }
   }

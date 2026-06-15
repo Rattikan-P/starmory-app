@@ -1,6 +1,8 @@
+import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'hive_service.dart';
 import '../../core/config/app_constants.dart';
+import '../../core/utils/quota_manager.dart';
 
 class QuotaService {
   final SupabaseClient _client = Supabase.instance.client;
@@ -145,8 +147,16 @@ class QuotaService {
     final genCount = response['daily_gen_count'] as int? ?? 0;
     final totalCount = response['total_gen_count'] as int? ?? 0;
 
-    // Check if needs reset
-    int newDailyCount = (lastReset == today) ? genCount + 1 : 1;
+    // Check if needs reset first (before increment)
+    int newDailyCount;
+    if (lastReset == today) {
+      // Same day - just increment
+      newDailyCount = genCount + 1;
+    } else {
+      // New day - reset first, then increment to 1
+      await _resetDailyQuota(user.id);
+      newDailyCount = 1;
+    }
 
     if (newDailyCount > AppConstants.registeredDailyLimit) return false;
 
@@ -185,6 +195,87 @@ class QuotaService {
           'updated_at': DateTime.now().toIso8601String(),
         })
         .eq('user_id', userId);
+  }
+
+  /// Check and reset quota if new day (for registered users)
+  /// Call this when app opens to ensure quota is up-to-date
+  Future<bool> checkAndResetQuotaIfNeeded() async {
+    final isGuest = _client.auth.currentUser == null;
+    if (isGuest) return false; // Guests handled separately
+
+    final user = _client.auth.currentUser;
+    if (user == null) return false;
+
+    final today = DateTime.now().toIso8601String().split('T')[0];
+
+    try {
+      final response = await _client
+          .from(_quotasTable)
+          .select('daily_gen_reset_date')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+      if (response == null) return false;
+
+      final lastReset = response['daily_gen_reset_date'] as String?;
+
+      // If new day, reset quota
+      if (lastReset != today) {
+        await _resetDailyQuota(user.id);
+        return true; // Was reset
+      }
+
+      return false; // No reset needed
+    } catch (e) {
+      print('❌ [QuotaService] Error checking quota reset: $e');
+      return false;
+    }
+  }
+
+  /// Check and reset guest quota if new day
+  /// Updates UserModel if reset is needed
+  Future<bool> checkAndResetGuestQuotaIfNeeded() async {
+    try {
+      // Get guest user from Hive
+      final user = await _hiveService.getCurrentUser();
+
+      if (user == null || !user.isGuest) return false;
+
+      final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      final quota = user.quotaManager;
+
+      // Check if any usage is from yesterday or older
+      bool hasOldEntries = quota.usageHistory.any((entry) {
+        final entryDate = DateFormat('yyyy-MM-dd').format(entry.timestamp);
+        return entryDate != today;
+      });
+
+      if (hasOldEntries) {
+        // Filter out old entries, keep only today's
+        final todayEntries = quota.usageHistory.where((entry) {
+          final entryDate = DateFormat('yyyy-MM-dd').format(entry.timestamp);
+          return entryDate == today;
+        }).toList();
+
+        // Update UserModel with filtered history
+        final updatedQuota = QuotaManager(
+          totalLimit: quota.totalLimit,
+          dailyLimit: quota.dailyLimit,
+          usageHistory: todayEntries,
+        );
+
+        final updatedUser = user.copyWith(quotaManager: updatedQuota);
+        await _hiveService.saveUser(updatedUser);
+
+        print('✅ [QuotaService] Guest quota reset - cleared old entries');
+        return true;
+      }
+
+      return false;
+    } catch (e) {
+      print('❌ [QuotaService] Error checking guest quota reset: $e');
+      return false;
+    }
   }
 }
 

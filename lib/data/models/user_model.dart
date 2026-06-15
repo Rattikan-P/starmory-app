@@ -108,11 +108,17 @@ class UserModel extends Equatable {
   /// Increment streak after activity
   /// Returns updated user with incremented streak and potentially earned shields
   /// Logic matches database trigger: update_streak_after_activity()
+  /// Grace Period: Allow 48 hours (2 days) gap without breaking streak
   UserModel incrementStreak() {
     final today = DateTime.now().toIso8601String().split('T')[0];
 
+    print('🔥 [Guest Streak] incrementStreak() called');
+    print('   Current: streak=$currentStreak, longest=$longestStreak, shields=$shields');
+    print('   Last activity: ${lastStreakActivityDate?.toIso8601String().split('T')[0] ?? "null"}');
+
     // First activity ever
     if (lastStreakActivityDate == null) {
+      print('   ✅ First activity ever → streak=1');
       return copyWith(
         currentStreak: 1,
         longestStreak: longestStreak < 1 ? 1 : longestStreak,
@@ -123,26 +129,61 @@ class UserModel extends Equatable {
     // Check if already did activity today
     final lastActivityStr = lastStreakActivityDate!.toIso8601String().split('T')[0];
     if (lastActivityStr == today) {
+      print('   ℹ️ Already updated today → no change');
       return this; // Already updated today
     }
 
-    // Check if consecutive day (yesterday)
-    final yesterday = DateTime.now().subtract(const Duration(days: 1)).toIso8601String().split('T')[0];
-    final newStreak = lastActivityStr == yesterday ? currentStreak + 1 : 1;
-    final newLongestStreak = newStreak > longestStreak ? newStreak : longestStreak;
+    // Check if within grace period (within 48 hours = 2 days)
+    // This handles edge case: activity at 23:59 yesterday and 00:01 today
+    final now = DateTime.now();
+    final lastActivity = lastStreakActivityDate!;
+    final hoursSince = now.difference(lastActivity).inHours;
 
-    // Earn shield every 7 days
-    int newShields = shields;
-    if (newStreak % 7 == 0 && newStreak > currentStreak) {
-      newShields = shields + 1;
+    print('   Hours since last activity: $hoursSince');
+
+    // Grace period: 48 hours (2 days)
+    if (hoursSince <= 48) {
+      // Within grace period - increment streak
+      final newStreak = currentStreak + 1;
+      final newLongestStreak = newStreak > longestStreak ? newStreak : longestStreak;
+
+      // Earn shield every 7 days
+      int newShields = shields;
+      bool earnedShield = false;
+      if (newStreak % 7 == 0 && newStreak > currentStreak) {
+        newShields = shields + 1;
+        earnedShield = true;
+      }
+
+      print('   ✅ Within grace period → streak=$newStreak (earnedShield=$earnedShield)');
+      return copyWith(
+        currentStreak: newStreak,
+        longestStreak: newLongestStreak,
+        shields: newShields,
+        lastStreakActivityDate: DateTime.now(),
+      );
+    } else {
+      // Outside grace period - use shield if available, otherwise reset
+      int newShields = shields;
+      int newStreak = currentStreak; // Keep streak if shield used
+
+      if (shields > 0) {
+        // Use one shield - protect streak
+        newShields = shields - 1;
+        print('   🛡️ Outside grace period → using shield (shields=$newShields)');
+        // Don't reset streak - shield protects it
+      } else {
+        // No shields - reset streak to 1
+        newStreak = 1;
+        print('   💀 Outside grace period, no shields → streak reset to 1');
+      }
+
+      return copyWith(
+        currentStreak: newStreak,
+        shields: newShields,
+        lastStreakActivityDate: DateTime.now(),
+      );
     }
-
-    return copyWith(
-      currentStreak: newStreak,
-      longestStreak: newLongestStreak,
-      shields: newShields,
-      lastStreakActivityDate: DateTime.now(),
-    );
   }
 
   /// Use a shield (freeze streak for one missed day)
@@ -263,6 +304,8 @@ class UserModel extends Equatable {
       'totalWordsLearned': totalWordsLearned,
       'currentStreak': currentStreak,
       'longestStreak': longestStreak,
+      'shields': shields,
+      'lastStreakActivityDate': lastStreakActivityDate?.toIso8601String(),
       'badges': badges,
       'stickers': stickers,
       'quotaManager': quotaManager.toJson(),
@@ -285,6 +328,10 @@ class UserModel extends Equatable {
       totalWordsLearned: json['totalWordsLearned'] as int? ?? 0,
       currentStreak: json['currentStreak'] as int? ?? 0,
       longestStreak: json['longestStreak'] as int? ?? 0,
+      shields: json['shields'] as int? ?? 0,
+      lastStreakActivityDate: json['lastStreakActivityDate'] != null
+          ? DateTime.parse(json['lastStreakActivityDate'] as String)
+          : null,
       badges: (json['badges'] as List<dynamic>?)?.cast<String>() ?? [],
       stickers: (json['stickers'] as List<dynamic>?)?.cast<String>() ?? [],
       quotaManager: QuotaManager.fromJson(

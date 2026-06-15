@@ -1806,8 +1806,12 @@ class _InteractiveVocabularyScreenState
         createdAt: DateTime.now(),
       );
 
-      ref.read(vocabularyStateProvider.notifier).addVocabulary(vocabulary);
+      // Wait for vocabulary to be saved to cloud first (trigger needs to fire)
+      await ref.read(vocabularyStateProvider.notifier).addVocabulary(vocabulary);
     }
+
+    // Check if widget is still mounted before updating streak
+    if (!mounted) return;
 
     // Update streak when saving vocabulary (only once per day)
     final streakNotifier = ref.read(streakProvider.notifier);

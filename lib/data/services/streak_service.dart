@@ -186,6 +186,47 @@ class StreakService {
     );
   }
 
+  /// Check if streak should be reset due to inactivity
+  /// Grace period: 48 hours (2 days) - if gap > 48 hours, streak is expired
+  /// Returns true if streak was reset, false otherwise
+  Future<bool> checkAndResetStreakIfExpired() async {
+    print('🔍 [StreakService] checkAndResetStreakIfExpired() called');
+
+    final current = await getStreakData();
+    if (current == null) {
+      print('⚠️ [StreakService] No streak data found');
+      return false;
+    }
+
+    print('   [StreakService] Current: streak=${current.currentStreak}, lastActivity=${current.lastActivityDate}');
+
+    // No activity date - nothing to check
+    if (current.lastActivityDate == null) {
+      print('ℹ️ [StreakService] No previous activity - nothing to check');
+      return false;
+    }
+
+    // Calculate hours since last activity
+    final now = DateTime.now();
+    final lastActivity = current.lastActivityDate!;
+    final hoursSince = now.difference(lastActivity).inHours;
+
+    print('   [StreakService] Hours since last activity: $hoursSince');
+
+    // Grace period: 48 hours allowed
+    // If hoursSince > 48, streak is expired
+    if (hoursSince > 48) {
+      print('🔥 [StreakService] Expired! Last activity was $hoursSince hours ago. Resetting...');
+      return await updateStreakData(
+        currentStreak: 0,
+        lastActivityDate: null,
+      );
+    }
+
+    print('✅ [StreakService] Streak still active (within grace period)');
+    return false;
+  }
+
   /// Set streak to specific value (for testing/demo)
   Future<bool> setStreak(int streakValue, {int shields = 0}) async {
     return await updateStreakData(
