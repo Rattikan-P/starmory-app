@@ -177,14 +177,14 @@ void main() {
 
         // Expected output for Test Record
         final expected = {
-          'quotaRefunded': true,
+          'quotaDeducted': false,
           'error': 'API timeout after 90s',
           'message': 'Error occurred. Please try again.',
           'navigateTo': 'Home',
         };
 
         final actual = {
-          'quotaRefunded': true,
+          'quotaDeducted': false,
           'error': 'API timeout after 90s',
           'message': 'Error occurred. Please try again.',
           'navigateTo': 'Home',
@@ -221,14 +221,14 @@ void main() {
 
         // Expected output for Test Record
         final expected = {
-          'quotaRefunded': true,
+          'quotaDeducted': false,
           'error': 'NetworkException',
           'message': 'Error occurred. Please try again.',
           'navigateTo': 'Home',
         };
 
         final actual = {
-          'quotaRefunded': true,
+          'quotaDeducted': false,
           'error': 'NetworkException',
           'message': 'Error occurred. Please try again.',
           'navigateTo': 'Home',

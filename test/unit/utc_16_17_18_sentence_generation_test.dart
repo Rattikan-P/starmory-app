@@ -243,14 +243,14 @@ void main() {
 
         // Expected output for Test Record
         final expected = {
-          'quotaRefunded': true,
+          'quotaDeducted': false,
           'error': 'SentenceGenTimeout',
           'message': 'Error occurred. Please try again.',
           'navigateTo': 'Home',
         };
 
         final actual = {
-          'quotaRefunded': true,
+          'quotaDeducted': false,
           'error': 'SentenceGenTimeout',
           'message': 'Error occurred. Please try again.',
           'navigateTo': 'Home',

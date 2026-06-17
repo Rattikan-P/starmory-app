@@ -5,7 +5,6 @@ import 'package:google_fonts/google_fonts.dart';
 import '../widgets/galaxy_screen_background.dart';
 import '../providers/providers.dart';
 import '../../core/utils/image_clarity_checker.dart';
-import '../../core/utils/quota_manager.dart';
 import '../../core/utils/internet_connection_checker.dart';
 import '../../constants/app_defaults.dart';
 import 'generation_loading_screen.dart';
@@ -231,8 +230,6 @@ class _ImagePreviewScreenState extends ConsumerState<ImagePreviewScreen> {
 
       if (!clarityResult.isClear) {
         if (mounted) {
-          // Refund quota since image was rejected
-          await _refundQuota();
           setState(() => _isProcessing = false);
           _showImageClarityDialog(clarityResult);
         }
@@ -268,27 +265,6 @@ class _ImagePreviewScreenState extends ConsumerState<ImagePreviewScreen> {
       if (mounted) {
         _showErrorDialog('Error', 'Failed to process photo: ${e.toString()}');
       }
-    }
-  }
-
-  /// Refund quota when image is rejected
-  Future<void> _refundQuota() async {
-    // Remove the last usage entry that was just added
-    final notifier = ref.read(userStateProvider.notifier);
-    final user = ref.read(currentUserProvider);
-
-    if (user != null && user.quotaManager.usageHistory.isNotEmpty) {
-      // Create a new quota manager with the last entry removed
-      final updatedHistory =
-          List<QuotaEntry>.from(user.quotaManager.usageHistory)..removeLast();
-      final updatedQuotaManager = QuotaManager(
-        totalLimit: user.quotaManager.totalLimit,
-        dailyLimit: user.quotaManager.dailyLimit,
-        usageHistory: updatedHistory,
-      );
-
-      final updatedUser = user.copyWith(quotaManager: updatedQuotaManager);
-      await notifier.updateUser(updatedUser);
     }
   }
 
