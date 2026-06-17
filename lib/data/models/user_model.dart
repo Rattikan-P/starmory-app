@@ -44,7 +44,7 @@ class UserModel extends Equatable {
   factory UserModel.createGuest() {
     return UserModel(
       id: 'guest_${DateTime.now().millisecondsSinceEpoch}',
-      email: 'guest@starmory.app',
+      email: 'guest@starmory.com',
       isGuest: true,
       createdAt: DateTime.now(),
       quotaManager: QuotaManager.guestMode(),

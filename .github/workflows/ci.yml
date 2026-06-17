@@ -1,0 +1,40 @@
+name: CI
+
+# Run on push and pull requests
+on:
+  push:
+    branches: [ dev, main ]
+  pull_request:
+    branches: [ dev, main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Setup Flutter
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.19.0'
+          channel: 'stable'
+          cache: true
+
+      # Get dependencies
+      - name: Install dependencies
+        run: flutter pub get
+
+      # Run tests
+      - name: Run tests
+        run: flutter test --coverage
+
+      # Upload coverage to Codecov (optional)
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          files: coverage/lcov.info
+          fail_ci_if_error: false

@@ -2,68 +2,20 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:starmory_app/data/services/google_auth_service.dart';
 
 class AuthService {
-  final SupabaseClient _client = Supabase.instance.client;
-  final GoogleAuthService _googleAuthService = GoogleAuthService();
+  final SupabaseClient _client;
+  final GoogleAuthService _googleAuthService;
+
+  /// Create AuthService with optional SupabaseClient for testing
+  /// If no client provided, uses the default Supabase instance
+  AuthService({SupabaseClient? client, GoogleAuthService? googleAuthService})
+      : _client = client ?? Supabase.instance.client,
+        _googleAuthService = googleAuthService ?? GoogleAuthService();
 
   bool get isLoggedIn => _client.auth.currentSession != null;
   String? get currentUserId => _client.auth.currentSession?.user.id;
 
-  Future<AuthResponse> signUp({
-    required String email,
-    required String password,
-    String? displayName,
-    String? languageLevel,
-    String? englishVariant,
-  }) async {
-    final response = await _client.auth.signUp(
-      email: email,
-      password: password,
-      data: {
-        'display_name': displayName,
-        'language_level': languageLevel,
-        'english_variant': englishVariant,
-      }..removeWhere((key, value) => value == null),
-    );
-
-    if (response.user != null) {
-      await _client
-          .from('users')
-          .upsert(
-            {
-              'id': response.user!.id,
-              'email': email,
-              'display_name': displayName,
-              'language_level': languageLevel,
-              'english_variant': englishVariant,
-            }..removeWhere((key, value) => value == null),
-          );
-
-      await signIn(email: email, password: password);
-    }
-
-    return response;
-  }
-
-  Future<AuthResponse> signIn({
-    required String email,
-    required String password,
-  }) async {
-    return await _client.auth.signInWithPassword(
-      email: email,
-      password: password,
-    );
-  }
-
   Future<void> signOut() async {
     await _client.auth.signOut();
-  }
-
-  Future<void> sendPasswordResetEmail(String email) async {
-    await _client.auth.resetPasswordForEmail(email);
-  }
-
-  Future<void> updatePassword(String newPassword) async {
-    await _client.auth.updateUser(UserAttributes(password: newPassword));
   }
 
   Future<void> deleteAccount() async {
