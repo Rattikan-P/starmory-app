@@ -51,8 +51,9 @@ class GeminiService {
             '❌ Max retries ($attempts) reached or non-retryable error: $e',
           );
 
-          // Check if it's a quota exceeded error (429)
           final errorStr = e.toString().toLowerCase();
+
+          // Check if it's a quota exceeded error (429)
           if (errorStr.contains('429') ||
               errorStr.contains('quota') ||
               errorStr.contains('rate limit') ||
@@ -60,6 +61,15 @@ class GeminiService {
             // debugPrint('✅ Detected quota error, throwing QuotaExceededFailure');
             throw QuotaExceededFailure(
               'Starmory needs a rest today 😴\nNew lessons will be ready again tomorrow!',
+            );
+          }
+
+          // Check if it's a service unavailable error (503)
+          if (errorStr.contains('503') ||
+              errorStr.contains('unavailable') ||
+              errorStr.contains('high demand')) {
+            throw AIServiceFailure(
+              'AI service is temporarily busy 😅\nPlease wait a moment and try again!',
             );
           }
 

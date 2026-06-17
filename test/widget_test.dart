@@ -1,34 +1,50 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import 'package:starmory_app/main.dart';
 import 'package:starmory_app/data/services/app_state_service.dart';
 import 'package:starmory_app/presentation/pages/onboarding_page.dart' show onboardingServiceProvider;
+import 'test_helpers.dart';
 
+/// Widget Tests
+/// Test Function: Widget integration tests
+///
+/// Description: This test verifies that the app's widgets load correctly
+/// and integrate properly with Riverpod providers.
 void main() {
-  testWidgets('App loads without crashing', (WidgetTester tester) async {
-    // Create a mock AppStateService for testing
-    final appStateService = AppStateService();
+  printTestHeader('Widget Tests');
 
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          onboardingServiceProvider.overrideWithValue(appStateService),
-        ],
-        child: MyApp(appStateService: appStateService),
-      ),
-    );
+  group('Widget Tests', () {
+    testWidgets('WT-01: App loads without crashing', (WidgetTester tester) async {
+      // Arrange
+      final appStateService = AppStateService();
+      final expected = {'appLoaded': true, 'materialAppFound': true};
 
-    // Verify that the app builds successfully
-    expect(find.byType(MaterialApp), findsOneWidget);
+      // Act
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            onboardingServiceProvider.overrideWithValue(appStateService),
+          ],
+          child: MyApp(appStateService: appStateService),
+        ),
+      );
+
+      final materialAppFound = find.byType(MaterialApp);
+
+      // Assert
+      expect(materialAppFound, findsOneWidget);
+
+      printTestOutputSimple(
+        testId: 'WT-01',
+        description: 'App loads without crashing',
+        input: 'ProviderScope with onboardingServiceProvider override',
+        expectedOutput: expected,
+        actualOutput: {
+          'appLoaded': true,
+          'materialAppFound': materialAppFound.evaluate().isNotEmpty,
+        },
+      );
+    });
   });
 }
