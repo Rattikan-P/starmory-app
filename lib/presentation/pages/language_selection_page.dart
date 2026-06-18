@@ -6,6 +6,7 @@ import 'main_navigation.dart';
 import 'english_variant_page.dart';
 import '../../constants/app_defaults.dart';
 import '../providers/providers.dart';
+import '../../utils/snackbar_helper.dart';
 
 class LanguageSelectionPage extends ConsumerStatefulWidget {
   final bool isGuest;
@@ -400,10 +401,17 @@ class _LanguageSelectionPageState extends ConsumerState<LanguageSelectionPage> {
 
     // EDITING MODE: Save preference immediately and return
     if (widget.isEditing) {
-      final userNotifier = ref.read(userStateProvider.notifier);
-      await userNotifier.updatePreferences({'defaultCefrLevel': code});
-      debugPrint('✅ Updated language level: $code');
-      _popIfMounted();
+      try {
+        final userNotifier = ref.read(userStateProvider.notifier);
+        await userNotifier.updatePreferences({'defaultCefrLevel': code});
+        debugPrint('✅ Updated language level: $code');
+        if (mounted) Navigator.pop(context);
+      } catch (e) {
+        debugPrint('❌ Failed to update language level: $e');
+        if (mounted) {
+          SnackBarHelper.error(context, 'Failed to update preference. Please try again.');
+        }
+      }
       return;
     }
 
@@ -423,10 +431,6 @@ class _LanguageSelectionPageState extends ConsumerState<LanguageSelectionPage> {
     );
 
     _handleVariantSelectionResult(result);
-  }
-
-  void _popIfMounted() {
-    if (mounted) Navigator.pop(context);
   }
 
   void _handleVariantSelectionResult(bool? result) {

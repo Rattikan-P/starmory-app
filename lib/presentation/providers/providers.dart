@@ -173,7 +173,7 @@ class UserNotifier extends StateNotifier<UserState> {
 
       case AuthChangeEvent.userUpdated:
         print('🔄 User updated - refreshing preferences from Supabase');
-        await _refreshUserFromSupabase();
+        await refreshUserFromSupabase();
         break;
 
       default:
@@ -482,9 +482,16 @@ class UserNotifier extends StateNotifier<UserState> {
       final existingUser = await _hiveService.getCurrentUser();
 
       if (existingUser != null && existingUser.isGuest) {
-        // Guest already exists - just use it (preserves quota!)
-        print('👤 Preserving existing guest user with quota');
-        state = UserState(user: existingUser);
+        // Guest already exists - preserve quota but reset streak
+        print('👤 Preserving existing guest user with quota, resetting streak');
+        final resetUser = existingUser.copyWith(
+          currentStreak: 0,
+          longestStreak: 0,
+          shields: 0,
+          lastStreakActivityDate: null,
+        );
+        await _hiveService.saveUser(resetUser);
+        state = UserState(user: resetUser);
         return;
       }
 
@@ -508,10 +515,17 @@ class UserNotifier extends StateNotifier<UserState> {
     // Try to load existing guest user from Hive first
     final existingUser = await _hiveService.getCurrentUser();
 
-    // If guest user exists with preferences, return it
+    // If guest user exists with preferences, preserve quota but reset streak
     if (existingUser != null && existingUser.isGuest) {
-      print('👤 Loaded existing guest user with preferences');
-      return existingUser;
+      print('👤 Loaded existing guest user with preferences, resetting streak');
+      final resetUser = existingUser.copyWith(
+        currentStreak: 0,
+        longestStreak: 0,
+        shields: 0,
+        lastStreakActivityDate: null,
+      );
+      await _hiveService.saveUser(resetUser);
+      return resetUser;
     }
 
     // Otherwise create new guest with defaults
@@ -677,7 +691,7 @@ class UserNotifier extends StateNotifier<UserState> {
   bool get canGenerate => state.user?.canGenerate ?? false;
 
   /// Refresh user preferences from Supabase when user metadata is updated
-  Future<void> _refreshUserFromSupabase() async {
+  Future<void> refreshUserFromSupabase() async {
     try {
       final currentUser = state.user;
       if (currentUser == null || currentUser.isGuest) {

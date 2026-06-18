@@ -370,10 +370,17 @@ class _EnglishVariantPageState extends ConsumerState<EnglishVariantPage> {
   /// Flow 1: User editing preferences from Profile page
   /// Uses shared updatePreferences method (works for both Guest and Cloud)
   Future<void> _handleEditingFlow(String code) async {
-    final userNotifier = ref.read(userStateProvider.notifier);
-    await userNotifier.updatePreferences({'languageVariant': code});
-    debugPrint('✅ Updated english variant: $code');
-    if (mounted) Navigator.pop(context);
+    try {
+      final userNotifier = ref.read(userStateProvider.notifier);
+      await userNotifier.updatePreferences({'languageVariant': code});
+      debugPrint('✅ Updated english variant: $code');
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      debugPrint('❌ Failed to update english variant: $e');
+      if (mounted) {
+        SnackBarHelper.error(context, 'Failed to update preference. Please try again.');
+      }
+    }
   }
 
   /// Flow 2: Guest user completing onboarding

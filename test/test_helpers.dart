@@ -48,6 +48,7 @@ class TestData {
 
   // Preference test data
   static const String languageLevelA1 = "A1";
+  static const String languageLevelA2 = "A2";
   static const String languageLevelB1 = "B1";
   static const String languageLevelB2 = "B2";
   static const String englishVariantUS = "US";
@@ -72,6 +73,153 @@ class TestData {
   // Vocabulary test data (Starmory themed)
   static const List<String> guestVocabulary = ["star", "galaxy"];
   static const List<String> cloudVocabulary = ["star"];
+
+  // ============================================================================
+  // DISPLAY NAME TEST DATA (UTC-20: Edit Display Name)
+  // ============================================================================
+
+  // Display name validation test data
+  static const String displayNameSingleChar = "A"; // TD02: < 2 chars (fails)
+  static const String displayNameEmpty = ""; // TD03: Empty (fails)
+  static const String displayNameWhitespace = " "; // TD04: Whitespace only (fails)
+  static const String displayNameTwoChars = "AB"; // TD07: Exactly 2 chars (passes)
+  static const String displayName40Chars =
+      "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"; // TD08: Exactly 40 chars (passes)
+  static const String displayName41Chars =
+      "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"; // TD09: 41 chars (fails)
+  static const String displayNameLongName =
+      "Nuanwan Starmory Very Long Name That Exceeds"; // TD09: 41 chars with text (fails)
+  static const String displayNameTruncated =
+      "Nuanwan Starmory Very Lo..."; // Truncated display text
+
+  // ============================================================================
+  // PROFILE PHOTO TEST DATA (UTC-21/22: Manage Profile Photo)
+  // ============================================================================
+
+  // Photo format test data (using real files from test/test_data/images/)
+  static const String validJpegPhoto = "profile-valid.jpg"; // TD01: Valid JPEG
+  static const String validJpegPhoto2 = "profile-valid.jpg"; // Alternative (same file)
+  static const String validJpgPhoto = "profile-valid.jpg"; // Uppercase extension
+  static const String validPngPhoto = "profile-valid.png"; // TD02: Valid PNG
+  static const String validPngPhotoUpper = "profile-valid.png"; // Uppercase extension
+  static const String invalidGifPhoto = "profile-invalid.gif"; // TD03: Invalid GIF
+  static const String invalidWebpPhoto = "invalid2.webp"; // Invalid WebP (if needed)
+  static const String blurryPhoto = "blurry.jpg"; // Low quality image (if needed)
+  static const String lowResPhoto = "low_resolution.png"; // Low resolution image (if needed)
+
+  // Photo URL test data
+  static const String oldPhotoUrl =
+      "https://storage.starmory.com/avatars/old_avatar.jpg"; // TD05: Existing photo URL
+
+  // ============================================================================
+  // START OVER TEST DATA (UTC-25/26: Start Over)
+  // ============================================================================
+
+  // Guest start over test data (TD01 UTC-25)
+  static const int guestVocabularyForStartOver = 15; // Guest vocabulary count
+  static const int guestStreakForStartOver = 7; // Guest streak
+  static const int guestQuotaUsed = 2; // Guest quota used (2/10)
+  static const int guestQuotaTotal = 10; // Guest quota total
+
+  // Registered start over test data (TD01 UTC-26)
+  static const int registeredVocabularyForStartOver = 20; // Registered vocabulary count
+  static const int registeredStreakForStartOver = 10; // Registered streak
+
+  // ============================================================================
+  // EXPORT VOCABULARY TEST DATA (UTC-27/28: Export Vocabulary)
+  // ============================================================================
+
+  // Guest export test data (TD01 UTC-27)
+  static const int guestVocabularyForExport = 5; // Guest vocabulary count
+
+  // Registered export test data (TD01 UTC-28)
+  static const int cloudVocabularyForExport = 10; // Cloud vocabulary count
+  static const int localVocabularyForExport = 5; // Local vocabulary fallback count
+
+  // CSV headers (TD04 UTC-27/28)
+  static const List<String> csvHeaders = [
+    "Word",
+    "Part of Speech",
+    "Thai Translation",
+    "English Sentence",
+    "Thai Sentence",
+    "CEFR Level",
+    "Communicative Function",
+    "Language Variant",
+    "Tags",
+    "Created Date"
+  ];
+
+  // ============================================================================
+  // SAMPLE VOCABULARY DATA (UTC-27/28: Export Vocabulary)
+  // ============================================================================
+
+  // Sample vocabulary words for export testing (Starmory themed)
+  static const List<Map<String, dynamic>> sampleVocabularyData = [
+    {
+      'word': 'star',
+      'partOfSpeech': 'noun',
+      'thaiTranslation': 'ดาว',
+      'englishSentence': 'The stars shine brightly in the night sky.',
+      'thaiSentence': 'ดาวส่องแสงสว่างบนท้องฟ้ายามค่ำคืน',
+      'cefrLevel': 'A1',
+      'communicativeFunction': 'describing',
+      'languageVariant': 'US',
+      'tags': 'space,nature',
+    },
+    {
+      'word': 'galaxy',
+      'partOfSpeech': 'noun',
+      'thaiTranslation': 'ดาราจักรวาล',
+      'englishSentence': 'Our galaxy contains billions of stars.',
+      'thaiSentence': 'ดาราจักรวาลของเรามีดาวหลายพันล้านดวง',
+      'cefrLevel': 'B1',
+      'communicativeFunction': 'describing',
+      'languageVariant': 'US',
+      'tags': 'space,science',
+    },
+    {
+      'word': 'orbit',
+      'partOfSpeech': 'noun',
+      'thaiTranslation': 'วงโคจร',
+      'englishSentence': 'The Earth orbits around the Sun.',
+      'thaiSentence': 'โลกโคจรรอบดวงอาทิตย์',
+      'cefrLevel': 'A2',
+      'communicativeFunction': 'describing',
+      'languageVariant': 'UK',
+      'tags': 'space,astronomy',
+    },
+    {
+      'word': 'launch',
+      'partOfSpeech': 'verb',
+      'thaiTranslation': 'ปล่อย',
+      'englishSentence': 'They will launch the rocket tomorrow.',
+      'thaiSentence': 'พวกเขาจะปล่อยจรวดในวันพรุ่งนี้',
+      'cefrLevel': 'B1',
+      'communicativeFunction': 'describing',
+      'languageVariant': 'US',
+      'tags': 'space,action',
+    },
+    {
+      'word': 'astronaut',
+      'partOfSpeech': 'noun',
+      'thaiTranslation': 'นักบินอวกาศ',
+      'englishSentence': 'She trained for years to become an astronaut.',
+      'thaiSentence': 'เธอฝึกมาหลายปีเพื่อเป็นนักบินอวกาศ',
+      'cefrLevel': 'B2',
+      'communicativeFunction': 'describing',
+      'languageVariant': 'UK',
+      'tags': 'space,profession',
+    },
+  ];
+
+  // Sample CSV output for verification (formatted as it would appear in export)
+  static const String sampleCsvOutput = '''Word,Part of Speech,Thai Translation,English Sentence,Thai Sentence,CEFR Level,Communicative Function,Language Variant,Tags,Created Date
+star,noun,ดาว,"The stars shine brightly in the night sky.","ดาวส่องแสงสว่างบนท้องฟ้ายามค่ำคืน",A1,describing,US,"space,nature",
+galaxy,noun,ดาราจักรวาล,"Our galaxy contains billions of stars.","ดาราจักรวาลของเรามีดาวหลายพันล้านดวง",B1,describing,US,"space,science"
+orbit,noun,วงโคจร,"The Earth orbits around the Sun.","โลกโคจรรอบดวงอาทิตย์",A2,describing,UK,"space,astronomy"
+launch,verb,ปล่อย,"They will launch the rocket tomorrow.","พวกเขาจะปล่อยจรวดในวันพรุ่งนี้",B1,describing,US,"space,action"
+astronaut,noun,นักบินอวกาศ,"She trained for years to become an astronaut.","เธอฝึกมาหลายปีเพื่อเป็นนักบินอวกาศ",B2,describing,UK,"space,profession"''';
 }
 
 // ============================================================================

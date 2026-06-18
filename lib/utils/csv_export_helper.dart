@@ -4,18 +4,51 @@ import 'package:share_plus/share_plus.dart';
 import '../data/models/vocabulary_model.dart';
 
 /// Result of CSV export operation
-enum CsvExportResult {
-  success,
-  dismissed,
-  unavailable,
-  error,
+class CsvExportResult {
+  final bool success;
+  final bool dismissed;
+  final int? wordCount;
+  final String? error;
+
+  const CsvExportResult({
+    required this.success,
+    this.dismissed = false,
+    this.wordCount,
+    this.error,
+  });
+
+  /// Create a success result
+  factory CsvExportResult.success(int wordCount) {
+    return CsvExportResult(
+      success: true,
+      dismissed: false,
+      wordCount: wordCount,
+    );
+  }
+
+  /// Create a dismissed result (user cancelled)
+  factory CsvExportResult.dismissed() {
+    return const CsvExportResult(
+      success: false,
+      dismissed: true,
+    );
+  }
+
+  /// Create a failure result with error
+  factory CsvExportResult.failure(String error) {
+    return CsvExportResult(
+      success: false,
+      dismissed: false,
+      error: error,
+    );
+  }
 }
 
 /// Helper class for exporting vocabulary data to CSV format
 class CsvExportHelper {
   /// Export vocabulary list to CSV file and share it
-  /// Returns ShareResult to track if user successfully shared or dismissed
-  static Future<ShareResult> exportVocabularyToCsv(List<VocabularyModel> vocabularyList) async {
+  /// Returns CsvExportResult to track if user successfully shared or dismissed
+  static Future<CsvExportResult> exportVocabularyToCsv(List<VocabularyModel> vocabularyList) async {
     if (vocabularyList.isEmpty) {
       throw Exception('No vocabulary to export');
     }
@@ -46,17 +79,23 @@ class CsvExportHelper {
 
       // Share the file and get result
       print('📤 Opening share dialog...');
-      final result = await Share.shareXFiles(
+      final shareResult = await Share.shareXFiles(
         [XFile(file.path)],
         text: 'My vocabulary list from Starmory (${vocabularyList.length} words)',
         subject: 'Starmory Vocabulary Export',
       );
-      print('✅ Share dialog closed - status: ${result.status}');
+      print('✅ Share dialog closed - status: ${shareResult.status}');
 
-      return result;
+      // Check if user dismissed the share sheet
+      if (shareResult.status == ShareResultStatus.dismissed) {
+        return CsvExportResult.dismissed();
+      }
+
+      // Success - user shared the file
+      return CsvExportResult.success(vocabularyList.length);
     } catch (e) {
       print('❌ Export failed: $e');
-      throw Exception('Failed to export vocabulary: ${e.toString()}');
+      return CsvExportResult.failure('Failed to export vocabulary: ${e.toString()}');
     }
   }
 

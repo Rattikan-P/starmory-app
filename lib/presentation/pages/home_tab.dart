@@ -23,6 +23,29 @@ class _HomeTabState extends ConsumerState<HomeTab>
     with TickerProviderStateMixin {
   final ImagePicker _imagePicker = ImagePicker();
 
+  @override
+  void initState() {
+    super.initState();
+    // Refresh user data when home page is opened
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _refreshUserData();
+    });
+  }
+
+  Future<void> _refreshUserData() async {
+    final userNotifier = ref.read(userStateProvider.notifier);
+    final currentUser = ref.read(userStateProvider).user;
+    // Only refresh if user is logged in (not guest)
+    if (currentUser != null && !currentUser.isGuest) {
+      try {
+        await userNotifier.refreshUserFromSupabase();
+        print('✅ Home page: User data refreshed');
+      } catch (e) {
+        print('⚠️ Home page: Failed to refresh user data: $e');
+      }
+    }
+  }
+
   // Daily motivational quotes
   final List<DailyQuote> _quotes = const [
     DailyQuote(
@@ -185,13 +208,19 @@ class _HomeTabState extends ConsumerState<HomeTab>
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  userName,
+                  (() {
+                    final display = userName.length > 11
+                        ? '${userName.substring(0, 11)}...'
+                        : userName;
+                    return display;
+                  })(),
                   style: GoogleFonts.lexend(
                     fontSize: 24,
                     fontWeight: FontWeight.w600,
                     color: Colors.white,
                     height: 1.2,
                   ),
+                  overflow: TextOverflow.visible,
                 ),
               ],
             ),
@@ -307,8 +336,8 @@ class _HomeTabState extends ConsumerState<HomeTab>
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      Color(0xFFFCD34D),
-                      Color(0xFFF472B6),
+                      Color(0xFFFDE68A), // ส้มเหลืองอ่อนกว่า
+                      Color(0xFFFBCFE8), // ชมพู่อ่อนกว่า
                     ],
                   ),
                   borderRadius: BorderRadius.circular(16),
@@ -468,11 +497,6 @@ class _HomeTabState extends ConsumerState<HomeTab>
     final totalReached = totalUsage >= totalLimit;
     final canGenerate = user.canGenerate;
     final remainingDaily = dailyLimit - todayUsage;
-
-    // Always show (for both guest and registered)
-    final shouldShow = true;
-
-    if (!shouldShow) return const SizedBox.shrink();
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
@@ -756,7 +780,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
             ),
             GestureDetector(
               onTap: () {
-                // TODO: Navigate to Scrapbook tab
+                // Navigate to Scrapbook tab
               },
               child: Text(
                 'See all',

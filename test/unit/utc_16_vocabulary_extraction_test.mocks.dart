@@ -25,14 +25,24 @@ import 'package:starmory_app/data/services/gemini_service.dart' as _i2;
 
 class _FakeVocabularyExtractionResult_0 extends _i1.SmartFake
     implements _i2.VocabularyExtractionResult {
-  _FakeVocabularyExtractionResult_0(Object parent, Invocation parentInvocation)
-    : super(parent, parentInvocation);
+  _FakeVocabularyExtractionResult_0(
+    Object parent,
+    Invocation parentInvocation,
+  ) : super(
+          parent,
+          parentInvocation,
+        );
 }
 
 class _FakeSentenceGenerationResult_1 extends _i1.SmartFake
     implements _i2.SentenceGenerationResult {
-  _FakeSentenceGenerationResult_1(Object parent, Invocation parentInvocation)
-    : super(parent, parentInvocation);
+  _FakeSentenceGenerationResult_1(
+    Object parent,
+    Invocation parentInvocation,
+  ) : super(
+          parent,
+          parentInvocation,
+        );
 }
 
 /// A class which mocks [GeminiService].
@@ -51,25 +61,31 @@ class MockGeminiService extends _i1.Mock implements _i2.GeminiService {
     String? englishVariant = 'US',
   }) =>
       (super.noSuchMethod(
-            Invocation.method(#extractVocabulary, [], {
+        Invocation.method(
+          #extractVocabulary,
+          [],
+          {
+            #imageData: imageData,
+            #level: level,
+            #category: category,
+            #englishVariant: englishVariant,
+          },
+        ),
+        returnValue: _i3.Future<_i2.VocabularyExtractionResult>.value(
+            _FakeVocabularyExtractionResult_0(
+          this,
+          Invocation.method(
+            #extractVocabulary,
+            [],
+            {
               #imageData: imageData,
               #level: level,
               #category: category,
               #englishVariant: englishVariant,
-            }),
-            returnValue: _i3.Future<_i2.VocabularyExtractionResult>.value(
-              _FakeVocabularyExtractionResult_0(
-                this,
-                Invocation.method(#extractVocabulary, [], {
-                  #imageData: imageData,
-                  #level: level,
-                  #category: category,
-                  #englishVariant: englishVariant,
-                }),
-              ),
-            ),
-          )
-          as _i3.Future<_i2.VocabularyExtractionResult>);
+            },
+          ),
+        )),
+      ) as _i3.Future<_i2.VocabularyExtractionResult>);
 
   @override
   _i3.Future<_i2.SentenceGenerationResult> generateSentences({
@@ -82,7 +98,26 @@ class MockGeminiService extends _i1.Mock implements _i2.GeminiService {
     String? englishVariant = 'US',
   }) =>
       (super.noSuchMethod(
-            Invocation.method(#generateSentences, [], {
+        Invocation.method(
+          #generateSentences,
+          [],
+          {
+            #imageData: imageData,
+            #words: words,
+            #level: level,
+            #tones: tones,
+            #category: category,
+            #combined: combined,
+            #englishVariant: englishVariant,
+          },
+        ),
+        returnValue: _i3.Future<_i2.SentenceGenerationResult>.value(
+            _FakeSentenceGenerationResult_1(
+          this,
+          Invocation.method(
+            #generateSentences,
+            [],
+            {
               #imageData: imageData,
               #words: words,
               #level: level,
@@ -90,21 +125,8 @@ class MockGeminiService extends _i1.Mock implements _i2.GeminiService {
               #category: category,
               #combined: combined,
               #englishVariant: englishVariant,
-            }),
-            returnValue: _i3.Future<_i2.SentenceGenerationResult>.value(
-              _FakeSentenceGenerationResult_1(
-                this,
-                Invocation.method(#generateSentences, [], {
-                  #imageData: imageData,
-                  #words: words,
-                  #level: level,
-                  #tones: tones,
-                  #category: category,
-                  #combined: combined,
-                  #englishVariant: englishVariant,
-                }),
-              ),
-            ),
-          )
-          as _i3.Future<_i2.SentenceGenerationResult>);
+            },
+          ),
+        )),
+      ) as _i3.Future<_i2.SentenceGenerationResult>);
 }

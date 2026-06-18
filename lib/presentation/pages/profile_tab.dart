@@ -1,10 +1,11 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:share_plus/share_plus.dart';
 import '../../constants/app_defaults.dart';
 import '../../utils/snackbar_helper.dart';
 import '../providers/auth_provider.dart' as auth;
@@ -12,8 +13,7 @@ import '../providers/streak_provider.dart';
 import '../providers/providers.dart';
 import '../../data/services/auth_service.dart';
 import '../../data/models/user_model.dart';
-import '../../data/models/vocabulary_model.dart';
-import '../../utils/csv_export_helper.dart';
+import '../../data/repositories/profile_repository.dart';
 import 'onboarding_page.dart';
 import 'language_selection_page.dart';
 import 'english_variant_page.dart';
@@ -24,6 +24,18 @@ import '../widgets/galaxy_screen_background.dart';
 import '../widgets/common/profile_widgets.dart';
 
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
+
+// ProfileRepository provider
+final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
+  return ProfileRepository(
+    authService: ref.watch(authServiceProvider),
+    hiveService: ref.watch(hiveServiceProvider),
+    vocabSyncService: ref.watch(vocabularySyncServiceProvider),
+    streakService: ref.watch(streakServiceProvider),
+    appStateService: ref.watch(appStateServiceProvider),
+    supabaseClient: Supabase.instance.client,
+  );
+});
 
 class ProfileTab extends ConsumerStatefulWidget {
   const ProfileTab({super.key});
@@ -727,32 +739,20 @@ class _GuestDataSection extends ConsumerWidget {
               );
 
               if (confirmed == true && context.mounted) {
-                try {
-                  // Clear all vocabulary
-                  final hiveService = ref.read(hiveServiceProvider);
-                  await hiveService.clearAllVocabulary();
+                final repository = ref.read(profileRepositoryProvider);
+                final result = await repository.startOver(UserType.guest);
 
-                  // Reset streak
-                  await ref.read(streakProvider.notifier).reset();
-
-                  // Update UserModel to reset progress (keep preferences)
-                  final userNotifier = ref.read(userStateProvider.notifier);
-                  final currentUser = ref.read(userStateProvider).user;
-                  if (currentUser != null && currentUser.isGuest) {
-                    final updatedUser = UserModel.createGuest().copyWith(
-                      preferences: currentUser.preferences, // Keep language level/variant
-                    );
-                    await userNotifier.updateUser(updatedUser);
-                    // Update guest quota backup to fresh state
-                    await hiveService.saveGuestQuotaBackup(updatedUser.quotaManager);
-                  }
-
-                  if (context.mounted) {
+                if (context.mounted) {
+                  if (result.success && result.data != null) {
+                    // Update user state with fresh guest user
+                    await ref.read(userStateProvider.notifier).updateUser(result.data!);
+                    // Refresh streak to update UI after reset
+                    await ref.read(streakProvider.notifier).refresh();
                     SnackBarHelper.success(context, 'Learning progress reset');
-                  }
-                } catch (e) {
-                  if (context.mounted) {
-                    SnackBarHelper.error(context, 'Failed to reset progress');
+                  } else if (result.error?.contains('Streak reset failed') == true) {
+                    SnackBarHelper.warning(context, result.error ?? 'Reset failed. Please try again.');
+                  } else {
+                    SnackBarHelper.error(context, result.error ?? 'Failed to reset progress. Please try again.');
                   }
                 }
               }
@@ -768,33 +768,14 @@ class _GuestDataSection extends ConsumerWidget {
             showDivider: false,
             onTap: () async {
               print('🔘 Export Vocabulary button pressed');
-              try {
-                final hiveService = ref.read(hiveServiceProvider);
-                print('📦 Getting vocabulary list...');
-                final vocabularyList = await hiveService.getAllVocabulary();
-                print('📦 Got ${vocabularyList.length} vocabularies');
+              final repository = ref.read(profileRepositoryProvider);
+              final result = await repository.exportVocabulary(UserType.guest);
 
-                if (vocabularyList.isEmpty) {
-                  print('⚠️ No vocabulary to export');
-                  if (context.mounted) {
-                    SnackBarHelper.info(context, 'No vocabulary to export yet');
-                  }
-                  return;
-                }
-
-                print('📤 Starting CSV export...');
-                final result = await CsvExportHelper.exportVocabularyToCsv(vocabularyList);
-
-                // Only show success message if user actually shared (not dismissed)
-                if (result.status == ShareResultStatus.success) {
-                  if (context.mounted) {
-                    SnackBarHelper.success(context, 'Vocabulary exported (${vocabularyList.length} words)');
-                  }
-                }
-              } catch (e) {
-                print('❌ Export error: $e');
-                if (context.mounted) {
-                  SnackBarHelper.error(context, 'Failed to export vocabulary');
+              if (context.mounted) {
+                if (result.success) {
+                  SnackBarHelper.success(context, 'Vocabulary exported (${result.data} words)');
+                } else if (result.error != 'Export cancelled.') {
+                  SnackBarHelper.info(context, result.error ?? 'No vocabulary to export yet');
                 }
               }
             },
@@ -1261,26 +1242,21 @@ class _DataSection extends ConsumerWidget {
               );
 
               if (confirmed == true && context.mounted) {
-                try {
-                  // Clear all vocabulary (local + cloud)
-                  final hiveService = ref.read(hiveServiceProvider);
-                  final vocabSyncService = ref.read(vocabularySyncServiceProvider);
+                final repository = ref.read(profileRepositoryProvider);
+                final result = await repository.startOver(UserType.registered);
 
-                  // Clear local vocabulary
-                  await hiveService.clearAllVocabulary();
-
-                  // Clear cloud vocabulary for registered users
-                  await vocabSyncService.clearCloud();
-
-                  // Reset streak (sync with cloud)
-                  await ref.read(streakProvider.notifier).reset();
-
-                  if (context.mounted) {
+                if (context.mounted) {
+                  if (result.success && result.data != null) {
+                    // Update user state with updated user
+                    await ref.read(userStateProvider.notifier).updateUser(result.data!);
+                    // Refresh streak to update UI after reset
+                    await ref.read(streakProvider.notifier).refresh();
                     SnackBarHelper.success(context, 'Learning progress reset');
-                  }
-                } catch (e) {
-                  if (context.mounted) {
-                    SnackBarHelper.error(context, 'Failed to reset progress');
+                  } else if (result.error?.contains('Streak reset failed') == true ||
+                             result.error?.contains('Cloud sync') == true) {
+                    SnackBarHelper.warning(context, result.error ?? 'Reset failed. Please try again.');
+                  } else {
+                    SnackBarHelper.error(context, result.error ?? 'Failed to reset progress. Please try again.');
                   }
                 }
               }
@@ -1296,43 +1272,14 @@ class _DataSection extends ConsumerWidget {
             showDivider: true,
             onTap: () async {
               print('🔘 Export Vocabulary button pressed (registered)');
-              try {
-                List<VocabularyModel> vocabularyList;
-                final vocabSyncService = ref.read(vocabularySyncServiceProvider);
-                final hiveService = ref.read(hiveServiceProvider);
+              final repository = ref.read(profileRepositoryProvider);
+              final result = await repository.exportVocabulary(UserType.registered);
 
-                print('📦 Fetching vocabulary from cloud...');
-                vocabularyList = await vocabSyncService.fetchFromCloud();
-                print('📦 Got ${vocabularyList.length} vocabularies from cloud');
-
-                // Fallback to local if cloud is empty
-                if (vocabularyList.isEmpty) {
-                  print('☁️ Cloud empty, trying local...');
-                  vocabularyList = await hiveService.getAllVocabulary();
-                  print('📦 Got ${vocabularyList.length} vocabularies from local');
-                }
-
-                if (vocabularyList.isEmpty) {
-                  print('⚠️ No vocabulary to export');
-                  if (context.mounted) {
-                    SnackBarHelper.info(context, 'No vocabulary to export yet');
-                  }
-                  return;
-                }
-
-                print('📤 Starting CSV export...');
-                final result = await CsvExportHelper.exportVocabularyToCsv(vocabularyList);
-
-                // Only show success message if user actually shared (not dismissed)
-                if (result.status == ShareResultStatus.success) {
-                  if (context.mounted) {
-                    SnackBarHelper.success(context, 'Vocabulary exported (${vocabularyList.length} words)');
-                  }
-                }
-              } catch (e) {
-                print('❌ Export error: $e');
-                if (context.mounted) {
-                  SnackBarHelper.error(context, 'Failed to export vocabulary');
+              if (context.mounted) {
+                if (result.success) {
+                  SnackBarHelper.success(context, 'Vocabulary exported (${result.data} words)');
+                } else if (result.error != 'Export cancelled.') {
+                  SnackBarHelper.info(context, result.error ?? 'No vocabulary to export yet');
                 }
               }
             },
@@ -1346,16 +1293,14 @@ class _DataSection extends ConsumerWidget {
             subtitle: 'Free up storage space',
             showDivider: false,
             onTap: () async {
-              try {
-                final preferenceService = ref.read(onboardingServiceProvider);
-                await preferenceService.clearCache();
+              final repository = ref.read(profileRepositoryProvider);
+              final result = await repository.clearCache();
 
-                if (context.mounted) {
+              if (context.mounted) {
+                if (result.success) {
                   SnackBarHelper.success(context, 'Cache cleared successfully');
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  SnackBarHelper.error(context, 'Failed to clear cache');
+                } else {
+                  SnackBarHelper.error(context, result.error ?? 'Failed to clear cache');
                 }
               }
             },
@@ -2216,12 +2161,19 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(
-                              displayName,
-                              style: GoogleFonts.cormorantUnicase(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                                color: const Color(0xFF1f2937),
+                            Flexible(
+                              child: Text(
+                                displayName.length > 11
+                                    ? '${displayName.substring(0, 11)}...'
+                                    : displayName,
+                                style: GoogleFonts.cormorantUnicase(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                  color: const Color(0xFF1f2937),
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                                textAlign: TextAlign.center,
                               ),
                             ),
                             const SizedBox(width: 6),
@@ -2325,26 +2277,17 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
     if (result == true && formKey.currentState?.validate() == true) {
       final newName = controller.text.trim();
       if (newName.isNotEmpty && newName != currentDisplayName) {
-        try {
-          final client = Supabase.instance.client;
-          final userId = widget.user.id;
+        final repository = ref.read(profileRepositoryProvider);
+        final updateResult = await repository.updateDisplayName(newName);
 
-          await client.auth.updateUser(
-            UserAttributes(data: {'display_name': newName}),
-          );
-          await client
-              .from('users')
-              .update({'display_name': newName})
-              .eq('id', userId);
-
-          if (context.mounted) {
+        if (context.mounted) {
+          if (updateResult.success) {
             SnackBarHelper.success(context, AlertMessages.changesSaved);
-          }
-
-          _fetchUserData();
-        } catch (e) {
-          if (context.mounted) {
-            SnackBarHelper.error(context, AlertMessages.saveFailed);
+            // Refresh userState so home page shows updated name
+            await ref.read(userStateProvider.notifier).refreshUserFromSupabase();
+            _fetchUserData();
+          } else {
+            SnackBarHelper.error(context, updateResult.error ?? AlertMessages.saveFailed);
           }
         }
       }
@@ -2386,155 +2329,92 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
     BuildContext context,
     ImageSource source,
   ) async {
-    try {
-      final picker = ImagePicker();
-      final pickedFile = await picker.pickImage(
-        source: source,
-        maxWidth: 512,
-        maxHeight: 512,
-        imageQuality: 85,
-      );
-
-      if (pickedFile == null) return;
-      if (!context.mounted) return;
-
-      // Show loading indicator
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(child: CircularProgressIndicator()),
-      );
-
-      // Upload to Supabase Storage
-      final client = Supabase.instance.client;
-      final userId = widget.user.id;
-      final fileNameOnly = pickedFile.name;
-      final fileExt = fileNameOnly.split('.').last.toLowerCase();
-
-      String getContentType(String ext) {
-        switch (ext) {
-          case 'jpg':
-          case 'jpeg':
-            return 'image/jpeg';
-          case 'png':
-            return 'image/png';
-          case 'gif':
-            return 'image/gif';
-          case 'webp':
-            return 'image/webp';
-          case 'bmp':
-            return 'image/bmp';
-          default:
-            return 'image/jpeg';
+    // Request permissions before opening camera/gallery
+    if (source == ImageSource.camera) {
+      final cameraStatus = await Permission.camera.request();
+      if (!cameraStatus.isGranted) {
+        if (context.mounted) {
+          _showPermissionDialog(context, 'Camera');
         }
+        return;
       }
-
-      final validExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'];
-      final safeExt = validExtensions.contains(fileExt) ? fileExt : 'jpg';
-      // Use same filename so it overwrites (no storage waste)
-      final fileName = '${userId}_avatar.$safeExt';
-
-      // Delete old avatar files with different extensions first
-      try {
-        final oldAvatarUrl = widget.user.userMetadata?['avatar_url'] as String?;
-        if (oldAvatarUrl != null) {
-          final urlWithoutParams = oldAvatarUrl.split('?').first;
-          final oldFileName = urlWithoutParams.split('/').last;
-          // Only delete if it's a different file (different extension)
-          if (oldFileName != fileName) {
-            try {
-              await client.storage.from('avatars').remove([oldFileName]);
-            } catch (e) {
-              // Ignore if old file doesn't exist
-            }
-          }
+    } else if (source == ImageSource.gallery) {
+      final photoStatus = await Permission.photos.request();
+      if (!photoStatus.isGranted) {
+        if (context.mounted) {
+          _showPermissionDialog(context, 'Photo Library');
         }
-      } catch (e) {
-        // Ignore if metadata fetch fails
+        return;
       }
+    }
 
-      final fileBytes = await pickedFile.readAsBytes();
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(
+      source: source,
+      maxWidth: 512,
+      maxHeight: 512,
+      imageQuality: 85,
+    );
 
-      try {
-        await client.storage
-            .from('avatars')
-            .uploadBinary(
-              fileName,
-              fileBytes,
-              fileOptions: FileOptions(
-                upsert: true,
-                contentType: getContentType(fileExt),
-              ),
-            );
-      } catch (uploadError) {
-        rethrow;
-      }
+    if (pickedFile == null) return;
+    if (!context.mounted) return;
 
-      // Add version parameter to URL for cache busting
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final baseUrl = client.storage.from('avatars').getPublicUrl(fileName);
-      final avatarUrl = '$baseUrl?v=$timestamp';
-
-      try {
-        await client.auth.updateUser(
-          UserAttributes(data: {'avatar_url': avatarUrl}),
-        );
-      } catch (authError) {
-        rethrow;
-      }
-
-      try {
-        await client
-            .from('users')
-            .update({'avatar_url': avatarUrl})
-            .eq('id', userId);
-      } catch (dbError) {
-        rethrow;
-      }
-
+    // Validate file format - only JPEG and PNG supported
+    final pathLower = pickedFile.path.toLowerCase();
+    if (pathLower.endsWith('.gif') ||
+        pathLower.endsWith('.webp') ||
+        pathLower.endsWith('.bmp') ||
+        pickedFile.mimeType == 'image/gif' ||
+        pickedFile.mimeType == 'image/webp' ||
+        pickedFile.mimeType == 'image/bmp') {
       if (context.mounted) {
-        Navigator.of(context).pop();
+        _showUnsupportedFormatDialog(context);
+      }
+      return;
+    }
+
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    final imageFile = File(pickedFile.path);
+    final repository = ref.read(profileRepositoryProvider);
+    final result = await repository.uploadProfilePhoto(imageFile, source);
+
+    if (context.mounted) {
+      Navigator.of(context).pop();
+      if (result.success) {
         SnackBarHelper.success(context, AlertMessages.changesSaved);
-      }
-
-      _fetchUserData();
-    } catch (e) {
-      if (context.mounted) {
-        Navigator.of(context).pop();
-        SnackBarHelper.error(context, AlertMessages.saveFailed);
+        _fetchUserData();
+        // Wait for database update to complete, then refresh userState
+        await Future.delayed(const Duration(milliseconds: 500));
+        if (mounted) {
+          await ref.read(userStateProvider.notifier).refreshUserFromSupabase();
+        }
+      } else {
+        SnackBarHelper.error(context, result.error ?? AlertMessages.saveFailed);
       }
     }
   }
 
   Future<void> _removeAvatar(BuildContext context) async {
-    try {
-      final client = Supabase.instance.client;
-      final userId = widget.user.id;
+    final repository = ref.read(profileRepositoryProvider);
+    final result = await repository.removeProfilePhoto();
 
-      final currentAvatarUrl =
-          widget.user.userMetadata?['avatar_url'] as String?;
-      if (currentAvatarUrl != null) {
-        try {
-          // Remove query parameters (e.g., ?v=123456) before getting file name
-          final urlWithoutParams = currentAvatarUrl.split('?').first;
-          final fileName = urlWithoutParams.split('/').last;
-          await client.storage.from('avatars').remove([fileName]);
-        } catch (e) {
-          // Ignore if file doesn't exist
-        }
-      }
-
-      await client.auth.updateUser(UserAttributes(data: {'avatar_url': null}));
-      await client.from('users').update({'avatar_url': null}).eq('id', userId);
-
-      if (context.mounted) {
+    if (context.mounted) {
+      if (result.success) {
         SnackBarHelper.success(context, AlertMessages.changesSaved);
-      }
-
-      _fetchUserData();
-    } catch (e) {
-      if (context.mounted) {
-        SnackBarHelper.error(context, AlertMessages.saveFailed);
+        _fetchUserData();
+        // Wait for database update to complete, then refresh userState
+        await Future.delayed(const Duration(milliseconds: 500));
+        if (mounted) {
+          await ref.read(userStateProvider.notifier).refreshUserFromSupabase();
+        }
+      } else {
+        SnackBarHelper.error(context, result.error ?? AlertMessages.saveFailed);
       }
     }
   }
@@ -2990,6 +2870,102 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
       }
     }
   }
+
+  void _showPermissionDialog(BuildContext context, String type) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          '$type Permission Required',
+          style: GoogleFonts.lexend(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            color: const Color(0xFF1f2937),
+          ),
+        ),
+        content: Text(
+          'Please grant $type permission to continue.',
+          style: GoogleFonts.lexend(
+            fontSize: 14,
+            fontWeight: FontWeight.w400,
+            color: const Color(0xFF6b7280),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFF9ca3af),
+            ),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.lexend(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              openAppSettings();
+              Navigator.pop(context);
+            },
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFF8b5cf6),
+            ),
+            child: Text(
+              'Settings',
+              style: GoogleFonts.lexend(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showUnsupportedFormatDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          'Unsupported Format',
+          style: GoogleFonts.lexend(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            color: const Color(0xFF1f2937),
+          ),
+        ),
+        content: Text(
+          'Only JPEG and PNG images are supported. Please select a different photo.',
+          style: GoogleFonts.lexend(
+            fontSize: 14,
+            fontWeight: FontWeight.w400,
+            color: const Color(0xFF6b7280),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFF8b5cf6),
+            ),
+            child: Text(
+              'OK',
+              style: GoogleFonts.lexend(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 // ==================== DISPLAY NAME DIALOG ====================
@@ -3094,6 +3070,7 @@ class _DisplayNameDialogState extends State<_DisplayNameDialog> {
                 child: TextFormField(
                   controller: widget.controller,
                   autofocus: true,
+                  maxLength: 40,
                   textCapitalization: TextCapitalization.words,
                   onTap: () {
                     // Select all text when tapped for easy editing
