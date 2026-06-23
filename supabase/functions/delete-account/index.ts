@@ -9,7 +9,10 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const BUCKETS = ['vocabulary-images', 'avatars']
+const BUCKETS = [
+  { name: 'vocabulary-images', useFolder: true },
+  { name: 'avatars', useFolder: false }
+]
 
 serve(async (req) => {
   // Handle CORS preflight request
@@ -65,28 +68,53 @@ serve(async (req) => {
     // Step 1: Delete from all storage buckets
     for (const bucket of BUCKETS) {
       try {
-        const { data: files, error: listError } = await supabaseAdmin
-          .storage
-          .from(bucket)
-          .list(userId)
+        let filePaths: string[] = []
 
-        if (!listError && files && files.length > 0) {
-          const filePaths = files.map((f: { name: string }) => `${userId}/${f.name}`)
+        if (bucket.useFolder) {
+          // vocabulary-images: files are in userId/{timestamp}.jpg format
+          const { data: files, error: listError } = await supabaseAdmin
+            .storage
+            .from(bucket.name)
+            .list(userId)
+
+          if (!listError && files && files.length > 0) {
+            filePaths = files.map((f: { name: string }) => `${userId}/${f.name}`)
+          } else {
+            console.log(`No files found in ${bucket.name} folder for user ${userId}`)
+          }
+        } else {
+          // avatars: files are in root as {userId}_avatar.jpg format (no folder)
+          const { data: files, error: listError } = await supabaseAdmin
+            .storage
+            .from(bucket.name)
+            .list('')
+
+          if (!listError && files && files.length > 0) {
+            // Filter files that belong to this user (start with userId_)
+            const userFiles = files.filter((f: { name: string }) =>
+              f.name.startsWith(`${userId}_`)
+            )
+            filePaths = userFiles.map((f: { name: string }) => f.name)
+          } else {
+            console.log(`No files found in ${bucket.name} for user ${userId}`)
+          }
+        }
+
+        // Delete files if found
+        if (filePaths.length > 0) {
           const { error: deleteError } = await supabaseAdmin
             .storage
-            .from(bucket)
+            .from(bucket.name)
             .remove(filePaths)
 
           if (deleteError) {
-            console.error(`Error deleting files from ${bucket}:`, deleteError)
+            console.error(`Error deleting files from ${bucket.name}:`, deleteError)
           } else {
-            console.log(`✅ Deleted ${filePaths.length} files from ${bucket}`)
+            console.log(`✅ Deleted ${filePaths.length} files from ${bucket.name}`)
           }
-        } else {
-          console.log(`No files found in ${bucket} for this user`)
         }
       } catch (storageError) {
-        console.error(`Error accessing ${bucket}:`, storageError)
+        console.error(`Error accessing ${bucket.name}:`, storageError)
         // Continue with other buckets even if one fails
       }
     }

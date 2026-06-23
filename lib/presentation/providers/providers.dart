@@ -308,8 +308,10 @@ class UserNotifier extends StateNotifier<UserState> {
         registeredUser = UserModel.createRegisteredUser(
           id: supabaseUser.id,
           email: supabaseUser.email ?? 'user@example.com',
-          displayName: supabaseUser.userMetadata?['display_name'] as String?,
-          photoUrl: supabaseUser.userMetadata?['avatar_url'] as String?,
+          displayName: (serverUserData?['display_name'] as String?) ?? supabaseUser.userMetadata?['display_name'] as String?,
+          photoUrl: (serverUserData?['avatar_url'] as String?) ??
+                    (supabaseUser.userMetadata?['avatar_url'] as String?) ??
+                    (supabaseUser.userMetadata?['picture'] as String?),
         ).copyWith(
           quotaManager: quotaManager,
           preferences: mergedPrefs,
@@ -343,8 +345,10 @@ class UserNotifier extends StateNotifier<UserState> {
         registeredUser = UserModel.createRegisteredUser(
           id: supabaseUser.id,
           email: supabaseUser.email ?? 'user@example.com',
-          displayName: supabaseUser.userMetadata?['display_name'] as String?,
-          photoUrl: supabaseUser.userMetadata?['avatar_url'] as String?,
+          displayName: (serverUserData?['display_name'] as String?) ?? supabaseUser.userMetadata?['display_name'] as String?,
+          photoUrl: (serverUserData?['avatar_url'] as String?) ??
+                    (supabaseUser.userMetadata?['avatar_url'] as String?) ??
+                    (supabaseUser.userMetadata?['picture'] as String?),
         ).copyWith(
           quotaManager: quotaManager,
           preferences: {
@@ -375,7 +379,8 @@ class UserNotifier extends StateNotifier<UserState> {
         id: supabaseUser.id,
         email: supabaseUser.email ?? 'user@example.com',
         displayName: supabaseUser.userMetadata?['display_name'] as String?,
-        photoUrl: supabaseUser.userMetadata?['avatar_url'] as String?,
+        photoUrl: (supabaseUser.userMetadata?['avatar_url'] as String?) ??
+                  (supabaseUser.userMetadata?['picture'] as String?),
       ).copyWith(
         preferences: {
           'defaultCefrLevel': languageLevel ?? AppDefaults.defaultLanguageLevel,
@@ -718,12 +723,39 @@ class UserNotifier extends StateNotifier<UserState> {
       final languageLevel = userData['language_level'] as String?;
       final englishVariant = userData['english_variant'] as String?;
 
+      // Fetch fresh quota from database (same logic as _convertToRegisteredUser)
+      final quotaResponse = await client
+          .rpc('get_user_quota_with_reset', params: {'p_user_id': supabaseUser.id})
+          .maybeSingle();
+
+      QuotaManager updatedQuotaManager = currentUser.quotaManager;
+      if (quotaResponse != null) {
+        final dailyCount = quotaResponse['daily_gen_count'] as int? ?? 0;
+        final totalCount = quotaResponse['total_gen_count'] as int? ?? 0;
+
+        // Build usage history from total count
+        final usageHistory = List<QuotaEntry>.generate(
+          totalCount,
+          (_) => QuotaEntry(timestamp: DateTime.now()),
+        );
+
+        updatedQuotaManager = QuotaManager(
+          totalLimit: 999999,
+          dailyLimit: 15,
+          usageHistory: usageHistory,
+        );
+        print('📊 Refreshed quota: daily=$dailyCount, total=$totalCount');
+      } else {
+        print('⚠️ No quota data found, keeping current quota');
+      }
+
       print('📥 Refreshing from database: displayName=$displayName, photoUrl=$photoUrl');
 
       // Update UserModel with fresh data from database
       final updatedUser = currentUser.copyWith(
         displayName: displayName ?? currentUser.displayName,
         photoUrl: photoUrl ?? currentUser.photoUrl,
+        quotaManager: updatedQuotaManager,
         preferences: {
           // Preserve other preferences
           ...currentUser.preferences,
@@ -735,6 +767,8 @@ class UserNotifier extends StateNotifier<UserState> {
 
       print('📝 OLD: ${currentUser.displayName} → NEW: ${updatedUser.displayName}');
       print('📝 OLD: ${currentUser.photoUrl} → NEW: ${updatedUser.photoUrl}');
+      print('📝 OLD quota: ${currentUser.quotaManager.getTodayUsage()}/${currentUser.quotaManager.dailyLimit}');
+      print('📝 NEW quota: ${updatedUser.quotaManager.getTodayUsage()}/${updatedUser.quotaManager.dailyLimit}');
 
       await _hiveService.saveUser(updatedUser);
       state = UserState(user: updatedUser);
