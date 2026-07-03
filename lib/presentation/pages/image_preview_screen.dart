@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../widgets/galaxy_screen_background.dart';
 import '../providers/providers.dart';
 import '../../core/utils/image_clarity_checker.dart';
+import '../../core/utils/image_validator.dart';
 import '../../core/utils/internet_connection_checker.dart';
 import '../../constants/app_defaults.dart';
 import 'generation_loading_screen.dart';
@@ -224,7 +225,17 @@ class _ImagePreviewScreenState extends ConsumerState<ImagePreviewScreen> {
         return;
       }
 
-      // Step 2: Check image clarity
+      // Step 2: Check image format
+      final validationResult = ImageValidator.validateFromFile(widget.imagePath);
+      if (!validationResult.valid) {
+        if (mounted) {
+          setState(() => _isProcessing = false);
+          _showImageFormatDialog(validationResult.error ?? 'Invalid image format');
+        }
+        return;
+      }
+
+      // Step 3: Check image clarity
       final clarityResult =
           await ImageClarityChecker.checkFromFile(widget.imagePath);
 
@@ -478,6 +489,106 @@ class _ImagePreviewScreenState extends ConsumerState<ImagePreviewScreen> {
             ),
             child: Text(
               'Try Again',
+              style: GoogleFonts.lexend(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showImageFormatDialog(String errorMessage) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.image_not_supported_rounded,
+                color: Colors.red,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Unsupported Image Format',
+                style: GoogleFonts.lexend(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF1f2937),
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              errorMessage,
+              style: GoogleFonts.lexend(
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+                color: const Color(0xFF6b7280),
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Supported formats: JPEG (.jpg, .jpeg) and PNG (.png)',
+              style: GoogleFonts.lexend(
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+                color: const Color(0xFF9ca3af),
+                height: 1.5,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+            },
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFF9ca3af),
+            ),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.lexend(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _retakePhoto();
+            },
+            style: ElevatedButton.styleFrom(
+              elevation: 0,
+              backgroundColor: const Color(0xFF8b7cf6),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: Text(
+              'Choose Another Photo',
               style: GoogleFonts.lexend(
                 fontSize: 15,
                 fontWeight: FontWeight.w600,

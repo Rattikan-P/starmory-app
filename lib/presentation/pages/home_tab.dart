@@ -1,9 +1,12 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as path;
 import '../providers/providers.dart';
 import 'image_preview_screen.dart';
 import 'auth/account_method_page.dart';
@@ -655,15 +658,51 @@ class _HomeTabState extends ConsumerState<HomeTab>
           return;
         }
 
+        // Save the image to permanent storage to prevent OS from deleting it
+        final permanentPath = await _saveImagePermanently(image.path);
+
+        if (!mounted) return;
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => ImagePreviewScreen(imagePath: image.path),
+            builder: (context) => ImagePreviewScreen(imagePath: permanentPath),
           ),
         );
       }
     } catch (e) {
       _showErrorDialog('Error', 'Failed to pick image: ${e.toString()}');
+    }
+  }
+
+  /// Save the picked image to the app's permanent documents directory
+  /// This prevents the image from being deleted when the OS clears the cache
+  Future<String> _saveImagePermanently(String sourcePath) async {
+    try {
+      // Get the app's documents directory
+      final appDir = await getApplicationDocumentsDirectory();
+
+      // Create a subdirectory for vocabulary images
+      final vocabDir = Directory('${appDir.path}/vocabulary_images');
+      if (!await vocabDir.exists()) {
+        await vocabDir.create(recursive: true);
+      }
+
+      // Generate a unique filename using timestamp
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final extension = path.extension(sourcePath);
+      final fileName = 'vocab_$timestamp$extension';
+      final targetPath = '${vocabDir.path}/$fileName';
+
+      // Copy the file to the permanent location
+      final sourceFile = File(sourcePath);
+      await sourceFile.copy(targetPath);
+
+      debugPrint('✅ Image saved permanently to: $targetPath');
+      return targetPath;
+    } catch (e) {
+      debugPrint('❌ Error saving image permanently: $e');
+      // Return the original path if copying fails
+      return sourcePath;
     }
   }
 

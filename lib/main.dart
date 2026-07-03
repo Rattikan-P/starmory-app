@@ -87,6 +87,7 @@ class _MyAppState extends ConsumerState<MyApp> {
     final initializationState = ref.watch(appInitializationProvider);
 
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       title: 'Starmory - Personalized Vocabulary Learning',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(

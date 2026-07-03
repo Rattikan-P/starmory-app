@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/error/failures.dart';
+import '../../core/utils/image_validator.dart';
 
 /// Image Storage Service
 /// Handles uploading images to Supabase Storage
@@ -17,6 +18,14 @@ class ImageStorageService {
     required String userId,
   }) async {
     try {
+      // Validate image format before uploading
+      final validationResult = ImageValidator.validateFromFile(imageFile.path);
+      if (!validationResult.valid) {
+        throw ValidationFailure(
+          validationResult.error ?? 'Invalid image format',
+        );
+      }
+
       // Generate unique filename
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final extension = _getFileExtension(imageFile.path);

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'dart:io';
 import 'dart:typed_data';
@@ -658,11 +659,120 @@ class _InteractiveVocabularyScreenState
   Widget _buildImageWithDots() {
     return LayoutBuilder(
       builder: (context, constraints) {
-        return FutureBuilder<Size>(
+        return FutureBuilder<Size?>(
           future: _getImageDimensions(),
           builder: (context, snapshot) {
-            if (!snapshot.hasData) {
+            // Show loading while waiting
+            if (!snapshot.hasData && !snapshot.hasError) {
               return const Center(child: CircularProgressIndicator());
+            }
+
+            // Handle error or null result
+            if (snapshot.hasError || snapshot.data == null) {
+              // Check if file exists before trying fallback
+              final file = File(widget.imagePath);
+              final fileExists = file.existsSync();
+
+              if (!fileExists) {
+                // File doesn't exist - show error with action buttons
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.broken_image_outlined, size: 64, color: Colors.red),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Image Not Found',
+                          style: GoogleFonts.lexend(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF2D2A4A),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'The image file may have been deleted or moved.',
+                          style: GoogleFonts.lexend(
+                            fontSize: 14,
+                            color: Colors.grey[600],
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 24),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            OutlinedButton.icon(
+                              onPressed: () => Navigator.pop(context),
+                              icon: const Icon(Icons.arrow_back),
+                              label: const Text('Go Back'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: const Color(0xFF6C63FF),
+                                side: const BorderSide(color: Color(0xFF6C63FF)),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            ElevatedButton.icon(
+                              onPressed: () => _showRescanConfirmation(),
+                              icon: const Icon(Icons.refresh),
+                              label: const Text('Rescan'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF6C63FF),
+                                foregroundColor: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }
+
+              // Fallback: show image directly without dimension calculation
+              debugPrint('⚠️ Using fallback image display due to error');
+              _containerSize = Size(constraints.maxWidth, constraints.maxHeight);
+
+              return Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Align(
+                    alignment: Alignment.topCenter,
+                    child: Image.file(
+                      file,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Failed to load image',
+                                style: GoogleFonts.lexend(color: Colors.grey[700]),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Please try rescanning',
+                                style: GoogleFonts.lexend(fontSize: 12, color: Colors.grey[500]),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  // Show dots without precise positioning (will use normalized coordinates directly)
+                  if (_vocabularyDots.isNotEmpty)
+                    ..._buildVocabularyDotsFallback(
+                      constraints.maxWidth,
+                      constraints.maxHeight,
+                    ),
+                ],
+              );
             }
 
             final imageSize = snapshot.data!;
@@ -685,6 +795,21 @@ class _InteractiveVocabularyScreenState
                   child: Image.file(
                     File(widget.imagePath),
                     fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Failed to load image',
+                              style: GoogleFonts.lexend(color: Colors.grey[700]),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                   ),
                 ),
                 ..._buildVocabularyDots(
@@ -703,13 +828,13 @@ class _InteractiveVocabularyScreenState
   Widget _buildBottomSheet() {
     return LayoutBuilder(
       builder: (context, constraints) {
-        return FutureBuilder<Size>(
+        return FutureBuilder<Size?>(
           future: _getImageDimensions(),
           builder: (context, snapshot) {
             double minChildSize = 0.15;
             double maxChildSize = 0.85;
 
-            if (snapshot.hasData) {
+            if (snapshot.hasData && snapshot.data != null) {
               final imageSize = snapshot.data!;
               final screenHeight = constraints.maxHeight;
               final screenWidth = constraints.maxWidth;
@@ -968,11 +1093,38 @@ class _InteractiveVocabularyScreenState
     );
   }
 
-  /// Get original image dimensions
-  Future<Size> _getImageDimensions() async {
-    final bytes = await File(widget.imagePath).readAsBytes();
-    final decodedImage = await decodeImageFromList(bytes);
-    return Size(decodedImage.width.toDouble(), decodedImage.height.toDouble());
+  /// Get original image dimensions with timeout and error handling
+  Future<Size?> _getImageDimensions() async {
+    try {
+      // Check if file exists first
+      final file = File(widget.imagePath);
+      if (!await file.exists()) {
+        debugPrint('❌ File not found: ${widget.imagePath}');
+        throw FileSystemException('File not found', widget.imagePath);
+      }
+
+      // Add timeout to prevent infinite loading
+      final bytes = await file.readAsBytes().timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          debugPrint('⏱️ Image reading timeout');
+          throw TimeoutException('Image reading timeout');
+        },
+      );
+
+      final decodedImage = await decodeImageFromList(bytes).timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          debugPrint('⏱️ Image decoding timeout');
+          throw TimeoutException('Image decoding timeout');
+        },
+      );
+
+      return Size(decodedImage.width.toDouble(), decodedImage.height.toDouble());
+    } catch (e) {
+      debugPrint('❌ Error getting image dimensions: $e');
+      return null;
+    }
   }
 
   /// Load image data from file for AI generation
@@ -1095,7 +1247,76 @@ class _InteractiveVocabularyScreenState
     }).toList();
   }
 
-  
+  /// Fallback method to build vocabulary dots when image dimensions are unavailable
+  /// Uses normalized coordinates directly (assumes container is the display area)
+  List<Widget> _buildVocabularyDotsFallback(
+    double containerWidth,
+    double containerHeight,
+  ) {
+    return _vocabularyDots.map((dot) {
+      final isSelected = _selectedWordIds.contains(dot.id);
+
+      // Use normalized coordinates directly (0-1 range mapped to container)
+      final displayedX = dot.x * containerWidth;
+      final displayedY = dot.y * containerHeight;
+
+      const dotSize = 34.0;
+
+      return Positioned(
+        left: displayedX - dotSize / 2,
+        top: displayedY - dotSize / 2,
+        child: GestureDetector(
+          onTap: () => _showWordOverlay(dot),
+          child: Container(
+            width: dotSize,
+            height: dotSize,
+            padding: const EdgeInsets.all(8),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 280),
+              curve: Curves.easeOutCubic,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isSelected
+                    ? const Color(0xFF7B6EF6).withValues(alpha: 0.7)
+                    : Colors.white.withValues(alpha: 0.6),
+                border: Border.all(
+                  color: isSelected
+                      ? const Color(0xFF7B6EF6)
+                      : Colors.white,
+                  width: 3,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF7B6EF6).withValues(alpha: isSelected ? 0.35 : 0.15),
+                    blurRadius: isSelected ? 16 : 8,
+                    spreadRadius: 1,
+                  ),
+                  BoxShadow(
+                    color: isSelected
+                        ? const Color(0xFF7B6EF6).withValues(alpha: 0.3)
+                        : Colors.white.withValues(alpha: 0.6),
+                    blurRadius: 0,
+                    spreadRadius: 2,
+                  ),
+                ],
+              ),
+              child: const Center(
+                child: Text(
+                  '',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }).toList();
+  }
+
   Widget _buildSelectedWordsChips() {
     final selectedDots = _vocabularyDots
         .where((dot) => _selectedWordIds.contains(dot.id))
@@ -1293,11 +1514,12 @@ class _InteractiveVocabularyScreenState
           // Context Tags & +Context Button
           Row(
             children: [
-              // Show all unique tones
-              ...uniqueTones.take(2).map((tone) => Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: _ContextChip(label: tone, icon: Icons.tune),
-              )),
+              // Show only first tone (all selected words should share the same tone after combined context is applied)
+              if (uniqueTones.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: _ContextChip(label: uniqueTones.first, icon: Icons.tune),
+                ),
               // Show first category
               if (uniqueCategories.isNotEmpty)
                 _ContextChip(label: uniqueCategories.first, icon: Icons.category),
