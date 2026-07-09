@@ -5,7 +5,7 @@ import 'package:starmory_app/core/utils/image_validator.dart';
 import '../test_helpers.dart';
 
 /// UTC-12: Validate Image Format
-/// Test Function: validateImageFormat(File imageFile)
+/// Test Function: ImageValidator.validateFromFile(String filePath)
 ///
 /// Description: This test verifies that the system correctly validates
 /// image file formats, accepting only .jpg, .jpeg, and .png files

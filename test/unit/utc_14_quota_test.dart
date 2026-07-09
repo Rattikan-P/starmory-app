@@ -5,7 +5,7 @@ import 'package:starmory_app/data/services/quota_service.dart';
 import '../test_helpers.dart';
 
 /// UTC-14: Check User Quota Before Generation
-/// Test Function: checkUserQuota(UserType userType)
+/// Test Function: QuotaManager.canGenerate()
 ///
 /// Description: This test verifies that the system correctly validates
 /// whether the user has remaining generation quota before initiating AI processing.

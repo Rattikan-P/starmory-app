@@ -14,7 +14,7 @@ import '../test_helpers.dart';
 import 'utc_16_vocabulary_extraction_test.mocks.dart';
 
 /// UTC-16: Deduct Quota and Call Gemini AI for Vocabulary Extraction
-/// Test Function: extractVocabularyFromImage(File imageFile, String languageLevel)
+/// Test Function: GeminiService.extractVocabulary({ required Uint8List imageData, required String level, required String category, String englishVariant })
 ///
 /// Description: This test verifies that the system deducts 1 generation from quota,
 /// calls Gemini AI with the image, and extracts vocabulary items with bounding boxes

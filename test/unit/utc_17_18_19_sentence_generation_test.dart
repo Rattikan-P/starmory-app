@@ -13,20 +13,20 @@ import '../test_helpers.dart';
 import 'utc_17_18_19_sentence_generation_test.mocks.dart';
 
 /// UTC-17: Generate Default Sentences with Indicative Tone
-/// Test Function: generateDefaultSentences(List<VocabItem> vocabulary, String languageLevel, String englishVariant)
+/// Test Function: GeminiService.generateSentences({ required List<String> words, required String level, required List<String> tones, required String category, bool combined = false, String englishVariant })
 ///
 /// Description: This test verifies that the system generates Indicative-tone sentences
 /// for all extracted vocabulary words using the user's language level and English variant,
 /// within the 60-second timeout.
 ///
 /// UTC-18: Regenerate Sentence with Custom Context
-/// Test Function: regenerateSentence(VocabItem word, String tone, String category, String languageLevel, String englishVariant)
+/// Test Function: GeminiService.generateSentences() with custom tone/category parameters
 ///
 /// Description: This test verifies that the system correctly regenerates a sentence when
 /// the user applies a custom tone and category through the Context Selector.
 ///
 /// UTC-19: Generate Combined Sentence for Selected Words
-/// Test Function: generateCombinedSentence(List<VocabItem> selectedWords, String tone, String category, String languageLevel, String englishVariant)
+/// Test Function: GeminiService.generateSentences({ combined = true, required List<String> words })
 ///
 /// Description: This test verifies that the system generates a single sentence containing
 /// all user-selected vocabulary words when the Combined Sentence toggle is enabled.

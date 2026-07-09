@@ -6,7 +6,7 @@ import 'package:starmory_app/core/utils/image_clarity_checker.dart';
 import '../test_helpers.dart';
 
 /// UTC-15: Validate Image Quality (Blur Detection)
-/// Test Function: validateImageQuality(File imageFile)
+/// Test Function: ImageClarityChecker.checkFromFile(String imagePath)
 ///
 /// Description: This test verifies that the system correctly detects
 /// blurry or low-resolution images and prevents AI processing without deducting quota.
