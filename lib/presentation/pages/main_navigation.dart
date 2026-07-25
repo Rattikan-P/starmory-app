@@ -6,6 +6,7 @@ import 'review_tab.dart';
 import 'scrapbook_tab.dart';
 import 'progress_tab.dart';
 import '../providers/providers.dart';
+import '../providers/navigation_provider.dart';
 
 // Sync only once per app session (from launch, not resume)
 bool _hasSyncedThisSession = false;
@@ -21,8 +22,6 @@ class MainNavigationScreen extends ConsumerStatefulWidget {
 }
 
 class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
-  int _currentIndex = 0;
-
   final List<Widget> _tabs = const [
     HomeTab(),
     ReviewTab(),
@@ -85,10 +84,12 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final currentIndex = ref.watch(navigationProvider).currentIndex;
+
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: IndexedStack(
-        index: _currentIndex,
+        index: currentIndex,
         children: _tabs,
       ),
       bottomNavigationBar: Container(
@@ -103,11 +104,9 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
           ],
         ),
         child: BottomNavigationBar(
-          currentIndex: _currentIndex,
+          currentIndex: currentIndex,
           onTap: (index) {
-            setState(() {
-              _currentIndex = index;
-            });
+            ref.read(navigationProvider.notifier).setIndex(index);
           },
           type: BottomNavigationBarType.fixed,
           backgroundColor: Colors.transparent,

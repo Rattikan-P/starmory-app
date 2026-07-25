@@ -14,6 +14,7 @@ import '../../data/models/scrapbook_model.dart';
 import '../../core/utils/quota_manager.dart';
 import '../../constants/app_defaults.dart';
 import 'scrapbook_provider.dart';
+import 'navigation_provider.dart';
 
 // ============= Service Providers =============
 

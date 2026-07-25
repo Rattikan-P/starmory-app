@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import '../providers/providers.dart';
 import '../providers/scrapbook_provider.dart';
+import '../providers/navigation_provider.dart';
 import '../../data/models/scrapbook_model.dart';
 import 'image_preview_screen.dart';
 import 'edit_scrapbook_screen.dart';
@@ -825,18 +826,33 @@ class _HomeTabState extends ConsumerState<HomeTab>
             ),
             GestureDetector(
               onTap: () {
-                // Navigate to Scrapbook tab - will need to implement tab switching
-                // For now, just show a snackbar
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Go to Scrapbook tab to see all memories')),
-                );
+                // Navigate to Scrapbook tab using navigation provider
+                ref.read(navigationProvider.notifier).goScrapbook();
               },
-              child: Text(
-                'See all',
-                style: GoogleFonts.lexend(
-                  fontSize: 14,
-                  color: const Color(0xFF8b5cf6),
-                  fontWeight: FontWeight.w500,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF8b5cf6).withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'See all',
+                      style: GoogleFonts.lexend(
+                        fontSize: 13,
+                        color: const Color(0xFF8b5cf6),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(
+                      Icons.arrow_forward_ios,
+                      size: 12,
+                      color: Color(0xFF8b5cf6),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -844,216 +860,255 @@ class _HomeTabState extends ConsumerState<HomeTab>
         ),
         const SizedBox(height: 16),
         recentScrapbooks.isEmpty
-            ? Container(
-                height: 120,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
-                      blurRadius: 20,
-                      offset: const Offset(0, 4),
-                    ),
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.04),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                  border: Border.all(
-                    color: const Color(0xFFE2D1F9).withValues(alpha: 0.3),
-                    width: 1,
-                  ),
-                ),
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF3F4F6),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: const Icon(
-                          Icons.photo_library_outlined,
-                          size: 24,
-                          color: Color(0xFF9ca3af),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        'No memories yet',
-                        style: GoogleFonts.lexend(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: const Color(0xFF6b7280),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              )
-            : SizedBox(
-                height: 140,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  padding: EdgeInsets.zero,
-                  itemCount: recentScrapbooks.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 12),
-                  itemBuilder: (context, index) {
-                    final scrapbook = recentScrapbooks[index];
-                    return _buildScrapbookCard(context, scrapbook);
-                  },
-                ),
-              ),
+            ? _buildEmptyScrapbookState(context)
+            : _buildScrapbookList(context, recentScrapbooks),
       ],
     );
   }
 
-  Widget _buildScrapbookCard(BuildContext context, ScrapbookModel scrapbook) {
+  /// Empty state for when no scrapbooks exist
+  Widget _buildEmptyScrapbookState(BuildContext context) {
+    return Container(
+      height: 140,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+        border: Border.all(
+          color: const Color(0xFFE2D1F9).withValues(alpha: 0.3),
+          width: 1,
+        ),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    const Color(0xFFF3F4F6),
+                    const Color(0xFFE5E7EB).withValues(alpha: 0.5),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Icon(
+                Icons.photo_library_outlined,
+                size: 28,
+                color: Color(0xFF9ca3af),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'No memories yet',
+              style: GoogleFonts.lexend(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF6b7280),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Start capturing moments today',
+              style: GoogleFonts.lexend(
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+                color: const Color(0xFF9ca3af),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Horizontal list of scrapbook cards
+  Widget _buildScrapbookList(BuildContext context, List<ScrapbookModel> scrapbooks) {
+    return SizedBox(
+      height: 160,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        itemCount: scrapbooks.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        itemBuilder: (context, index) {
+          final scrapbook = scrapbooks[index];
+          return _buildScrapbookCard(context, scrapbook, index);
+        },
+      ),
+    );
+  }
+
+  Widget _buildScrapbookCard(BuildContext context, ScrapbookModel scrapbook, int index) {
+    return TweenAnimationBuilder<double>(
+      duration: Duration(milliseconds: 300 + (index * 50)),
+      tween: Tween(begin: 0.0, end: 1.0),
+      curve: Curves.easeOutQuart,
+      builder: (context, value, child) {
+        return Transform.translate(
+          offset: Offset(30 * (1 - value), 0),
+          child: Opacity(
+            opacity: value,
+            child: _buildScrapbookCardInteractive(context, scrapbook),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildScrapbookCardInteractive(BuildContext context, ScrapbookModel scrapbook) {
+    final vocabCount = scrapbook.vocabularyWords.length;
+
     return GestureDetector(
       onTap: () => _showScrapbookBottomSheet(context, scrapbook),
       child: Container(
-        width: 160,
+        width: 140,
+        height: 160,
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(8),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
-              blurRadius: 15,
+              color: Colors.black.withValues(alpha: 0.08),
+              blurRadius: 12,
               offset: const Offset(0, 4),
             ),
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
           ],
-          border: Border.all(
-            color: const Color(0xFFE2D1F9).withValues(alpha: 0.3),
-            width: 1,
-          ),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Stack(
+          clipBehavior: Clip.none,
           children: [
-            // Image thumbnail
-            Expanded(
-              flex: 3,
-              child: Stack(
-                children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: scrapbook.imagePath.startsWith('http')
-                        ? Image.network(
-                            scrapbook.imagePath,
-                            fit: BoxFit.cover,
-                            width: double.infinity,
-                            height: double.infinity,
-                            errorBuilder: (context, error, stackTrace) {
-                              return Container(
-                                color: Colors.grey.shade200,
-                                child: const Icon(Icons.broken_image),
-                              );
-                            },
-                          )
-                        : Image.file(
-                            File(scrapbook.imagePath),
-                            fit: BoxFit.cover,
-                            width: double.infinity,
-                            height: double.infinity,
-                            errorBuilder: (context, error, stackTrace) {
-                              return Container(
-                                color: Colors.grey.shade200,
-                                child: const Icon(Icons.broken_image),
-                              );
-                            },
-                          ),
+            // Polaroid frame
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.06),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
                   ),
-                  // Emoji badge
-                  Positioned(
-                    top: 8,
-                    right: 8,
+                ],
+              ),
+              child: Column(
+                children: [
+                  // Photo area
+                  Flexible(
+                    flex: 5,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: scrapbook.imagePath.startsWith('http')
+                          ? CachedNetworkImage(
+                              imageUrl: scrapbook.imagePath,
+                              fit: BoxFit.cover,
+                              width: double.infinity,
+                              height: double.infinity,
+                              placeholder: (context, url) => Container(
+                                color: const Color(0xFFF3F4F6),
+                                child: const Center(
+                                  child: SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        Color(0xFF8b5cf6),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              errorWidget: (context, url, error) {
+                                return Container(
+                                  color: const Color(0xFFE5E7EB),
+                                  child: const Icon(
+                                    Icons.broken_image,
+                                    size: 24,
+                                    color: Color(0xFF9ca3af),
+                                  ),
+                                );
+                              },
+                            )
+                          : Image.file(
+                              File(scrapbook.imagePath),
+                              fit: BoxFit.cover,
+                              width: double.infinity,
+                              height: double.infinity,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Container(
+                                  color: const Color(0xFFE5E7EB),
+                                  child: const Icon(
+                                    Icons.broken_image,
+                                    size: 24,
+                                    color: Color(0xFF9ca3af),
+                                  ),
+                                );
+                              },
+                            ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  // White bottom area (polaroid style)
+                  Flexible(
+                    flex: 1,
                     child: Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.9),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Center(
-                        child: Text(
-                          scrapbook.selectedEmoji,
-                          style: const TextStyle(fontSize: 20),
-                        ),
-                      ),
+                      width: double.infinity,
+                      color: Colors.white,
                     ),
                   ),
                 ],
               ),
             ),
-            // Info section
-            Expanded(
-              flex: 2,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+            // Star badge on top-right
+            Positioned(
+              top: -4,
+              right: -4,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFBBF24),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFFBBF24).withValues(alpha: 0.4),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Date
+                    const Text(
+                      '⭐',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                    const SizedBox(width: 2),
                     Text(
-                      _formatDate(scrapbook.date),
+                      '$vocabCount',
                       style: GoogleFonts.lexend(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        color: const Color(0xFF9ca3af),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF1F2937),
                       ),
-                    ),
-                    const SizedBox(height: 2),
-                    // Sentence preview
-                    Flexible(
-                      child: Text(
-                        scrapbook.englishSentence.isNotEmpty
-                            ? scrapbook.englishSentence
-                            : 'No sentence',
-                        style: GoogleFonts.lexend(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFF1f2937),
-                          height: 1.2,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    // Word count
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.menu_book,
-                          size: 12,
-                          color: Color(0xFF8b5cf6),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${scrapbook.vocabularyWords.length} words',
-                          style: GoogleFonts.lexend(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w500,
-                            color: const Color(0xFF8b5cf6),
-                          ),
-                        ),
-                      ],
                     ),
                   ],
                 ),
