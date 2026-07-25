@@ -1,13 +1,26 @@
 import 'dart:io';
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../providers/scrapbook_provider.dart';
 import '../../data/models/scrapbook_model.dart';
+import '../../constants/design_tokens.dart';
 import '../widgets/galaxy_screen_background.dart';
+
+/// Helper class for background color options
+class _BackgroundColorOption {
+  final int color;
+  final String name;
+
+  const _BackgroundColorOption({
+    required this.color,
+    required this.name,
+  });
+}
 
 /// Edit Scrapbook Screen
 /// Allows users to customize their scrapbook before saving
@@ -32,7 +45,8 @@ class EditScrapbookScreen extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<EditScrapbookScreen> createState() => _EditScrapbookScreenState();
+  ConsumerState<EditScrapbookScreen> createState() =>
+      _EditScrapbookScreenState();
 }
 
 class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
@@ -41,13 +55,15 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
   // Editable state
   late List<ScrapbookTextOverlay> _textOverlays;
   late List<ScrapbookSticker> _stickers;
-  late List<ScrapbookPhoto> _additionalPhotos; // Store additional photos with positions
+  late List<ScrapbookPhoto>
+      _additionalPhotos; // Store additional photos with positions
   late int _backgroundColor;
   late String _selectedEmoji;
 
   // UI state
   bool _isSaving = false;
-  int _selectedToolbarIndex = -1; // -1 = none, 0 = text, 1 = sticker, 2 = photo, 3 = background
+  int _selectedToolbarIndex =
+      -1; // -1 = none, 0 = text, 1 = sticker, 2 = photo, 3 = background
 
   // Dragging state
   String? _draggingId; // ID of item being dragged
@@ -61,27 +77,84 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
 
   // Available emojis for selection
   static const List<String> _availableEmojis = [
-    '😊', '😍', '🥰', '😎', '🤩', '😇', '🥳', '😋', '🤗', '😌',
-    '🌟', '⭐', '✨', '💫', '🌙', '☀️', '🌈', '🎨', '🎭', '🎪',
-    '❤️', '💜', '💙', '💚', '💛', '🧡', '🤍', '🖤', '💕', '💞',
-    '🎀', '🎈', '🎁', '🎉', '🎊', '🏆', '🥇', '🎯', '💎', '👑',
-    '🍀', '🌸', '🌺', '🌻', '🌹', '🍄', '🌲', '🌳', '🍁', '🍂',
-    '☕', '🍵', '🧸', '🎹', '🎸', '🎧', '📚', '✏️', '🖊️', '📷',
+    '😊',
+    '😍',
+    '🥰',
+    '😎',
+    '🤩',
+    '😇',
+    '🥳',
+    '😋',
+    '🤗',
+    '😌',
+    '🌟',
+    '⭐',
+    '✨',
+    '💫',
+    '🌙',
+    '☀️',
+    '🌈',
+    '🎨',
+    '🎭',
+    '🎪',
+    '❤️',
+    '💜',
+    '💙',
+    '💚',
+    '💛',
+    '🧡',
+    '🤍',
+    '🖤',
+    '💕',
+    '💞',
+    '🎀',
+    '🎈',
+    '🎁',
+    '🎉',
+    '🎊',
+    '🏆',
+    '🥇',
+    '🎯',
+    '💎',
+    '👑',
+    '🍀',
+    '🌸',
+    '🌺',
+    '🌻',
+    '🌹',
+    '🍄',
+    '🌲',
+    '🌳',
+    '🍁',
+    '🍂',
+    '☕',
+    '🍵',
+    '🧸',
+    '🎹',
+    '🎸',
+    '🎧',
+    '📚',
+    '✏️',
+    '🖊️',
+    '📷',
   ];
 
-  // Background colors
-  static const List<int> _backgroundColorOptions = [
-    0xFFFFFFFF, // White
-    0xFFFFF8E1, // Cream
-    0xFFF3E5F5, // Light Purple
-    0xFFE8F5E9, // Light Green
-    0xFFFFEBEE, // Light Pink
-    0xFFE3F2FD, // Light Blue
-    0xFFFFF3E0, // Light Orange
-    0xFFF5F5F5, // Light Gray
-    0xFF263238, // Dark
-    0xFF000000, // Black
+  // Background colors with semantic naming
+  static const List<_BackgroundColorOption> _backgroundColorOptions = [
+    _BackgroundColorOption(color: 0xFFFFFFFF, name: 'White'),
+    _BackgroundColorOption(color: 0xFFFFF8E1, name: 'Cream'),
+    _BackgroundColorOption(color: 0xFFF3E5F5, name: 'Lavender'),
+    _BackgroundColorOption(color: 0xFFE8F5E9, name: 'Mint'),
+    _BackgroundColorOption(color: 0xFFFFEBEE, name: 'Blush'),
+    _BackgroundColorOption(color: 0xFFE3F2FD, name: 'Sky'),
+    _BackgroundColorOption(color: 0xFFFFF3E0, name: 'Peach'),
+    _BackgroundColorOption(color: 0xFFF5F5F5, name: 'Gray'),
+    _BackgroundColorOption(color: 0xFF263238, name: 'Charcoal'),
+    _BackgroundColorOption(color: 0xFF000000, name: 'Black'),
   ];
+
+  // Touch sandbox extension (pixels beyond canvas edge for touch targets)
+  static const double _touchSandbox = 100.0;
 
   @override
   void initState() {
@@ -140,7 +213,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                           _buildScrapbookCanvas(),
 
                           // Sentences
-                          if (widget.englishSentence.isNotEmpty || widget.thaiSentence.isNotEmpty)
+                          if (widget.englishSentence.isNotEmpty ||
+                              widget.thaiSentence.isNotEmpty)
                             _buildSentences(),
 
                           // Vocabulary Words
@@ -169,32 +243,18 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
 
   Widget _buildTopBar() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      padding: const EdgeInsets.fromLTRB(
+        DesignTokens.spacingLarge,
+        DesignTokens.spacingMedium,
+        DesignTokens.spacingLarge,
+        DesignTokens.spacingSmall,
+      ),
       child: Row(
         children: [
           // Back Button
-          GestureDetector(
+          _TopBarButton(
+            icon: Icons.arrow_back_ios_rounded,
             onTap: () => Navigator.pop(context),
-            child: Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.9),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.08),
-                    blurRadius: 10,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: const Icon(
-                Icons.arrow_back_ios_rounded,
-                color: Color(0xFF1f2937),
-                size: 18,
-              ),
-            ),
           ),
 
           const Spacer(),
@@ -203,53 +263,18 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
           Text(
             'Edit',
             style: GoogleFonts.lexend(
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
-              color: const Color(0xFF1f2937),
+              fontSize: DesignTokens.fontSizeHeading,
+              fontWeight: DesignTokens.weightSemiBold,
+              color: DesignTokens.textPrimary,
             ),
           ),
 
           const Spacer(),
 
           // Save Button
-          GestureDetector(
+          _SaveButton(
+            isSaving: _isSaving,
             onTap: _isSaving ? null : _saveScrapbook,
-            child: Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: _isSaving
-                    ? Colors.grey.shade300
-                    : const Color(0xFF8b5cf6),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF8b5cf6).withValues(alpha: 0.3),
-                    blurRadius: 10,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Center(
-                child: _isSaving
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Text(
-                        'Save',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
-                        ),
-                      ),
-              ),
-            ),
           ),
         ],
       ),
@@ -264,14 +289,17 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     final year = date.year;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(
+        horizontal: DesignTokens.spacingLarge,
+        vertical: DesignTokens.spacingMedium,
+      ),
       child: Text(
         '$weekday, $day $month $year',
         style: GoogleFonts.lexend(
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-          color: const Color(0xFF6b7280),
-          letterSpacing: 1.0,
+          fontSize: DesignTokens.fontSizeSubtitle,
+          fontWeight: DesignTokens.weightSemiBold,
+          color: DesignTokens.textSecondary,
+          letterSpacing: DesignTokens.letterSpacingHeading,
         ),
       ),
     );
@@ -279,9 +307,11 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
 
   Widget _buildScrapbookCanvas() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(
+        horizontal: DesignTokens.spacingLarge,
+      ),
       child: SizedBox(
-        height: 400,
+        height: DesignTokens.scrapbookCanvasHeight,
         child: Stack(
           clipBehavior: Clip.none,
           children: [
@@ -294,17 +324,13 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
               child: Container(
                 decoration: BoxDecoration(
                   color: Color(_backgroundColor),
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.08),
-                      blurRadius: 20,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
+                  borderRadius:
+                      BorderRadius.circular(DesignTokens.radiusCircular),
+                  boxShadow: DesignTokens.shadowMedium,
                 ),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(24),
+                  borderRadius:
+                      BorderRadius.circular(DesignTokens.radiusCircular),
                   child: Image.file(
                     File(widget.imagePath),
                     fit: BoxFit.contain,
@@ -314,67 +340,81 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
             ),
 
             // Layout area for items (extends beyond canvas for touch events)
-            // Oversized container to capture taps on items outside canvas
-            Positioned(
-              left: -100, // Allow items on left to be tappable
-              right: -100, // Allow items on right to be tappable
-              top: -100, // Allow items on top to be tappable
-              bottom: -100, // Allow items on bottom to be tappable
-              child: SizedBox(
-                width: 600, // 400 canvas + 100 each side
-                height: 600,
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    // Update canvas size for positioning calculations (use original canvas size 400)
-                    _canvasSize = const Size(400, 400);
-
-                    return Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        // Emoji overlay (stays inside canvas)
-                        Positioned(
-                          left: 116, // Offset to account for oversized container (600-400)/2 + 16
-                          top: 116,
-                          child: GestureDetector(
-                            onTap: _showEmojiPicker,
-                            child: Container(
-                              width: 48,
-                              height: 48,
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.9),
-                                borderRadius: BorderRadius.circular(24),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.1),
-                                    blurRadius: 8,
-                                  ),
-                                ],
-                              ),
-                              child: Center(
-                                child: Text(
-                                  _selectedEmoji,
-                                  style: const TextStyle(fontSize: 28),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-
-                        // Text Overlays (can extend outside canvas and be tappable)
-                        ..._textOverlays.map((overlay) => _buildTextOverlay(overlay)),
-
-                        // Stickers (can extend outside canvas and be tappable)
-                        ..._stickers.map((sticker) => _buildSticker(sticker)),
-
-                        // Additional Photos (can extend outside canvas and be tappable)
-                        ..._additionalPhotos.map((photo) => _buildAdditionalPhoto(photo)),
-                      ],
-                    );
-                  },
-                ),
-              ),
-            ),
+            _buildTouchSandbox(),
           ],
+        ),
+      ),
+    );
+  }
+
+  /// Build touch sandbox - oversized area for drag interactions
+  Widget _buildTouchSandbox() {
+    const touchSandbox = _touchSandbox;
+    const canvasSize = DesignTokens.scrapbookCanvasHeight;
+
+    return Positioned(
+      left: -touchSandbox,
+      right: -touchSandbox,
+      top: -touchSandbox,
+      bottom: -touchSandbox,
+      child: SizedBox(
+        width: canvasSize + (touchSandbox * 2),
+        height: canvasSize + (touchSandbox * 2),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            // Update canvas size for positioning calculations
+            _canvasSize = const Size(canvasSize, canvasSize);
+
+            return Stack(
+              clipBehavior: Clip.none,
+              children: [
+                // Emoji overlay (centered in canvas)
+                _buildEmojiSelector(),
+
+                // Draggable items
+                ..._textOverlays.map((overlay) => _buildTextOverlay(overlay)),
+                ..._stickers.map((sticker) => _buildSticker(sticker)),
+                ..._additionalPhotos
+                    .map((photo) => _buildAdditionalPhoto(photo)),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  /// Build emoji selector button
+  Widget _buildEmojiSelector() {
+    const touchSandbox = _touchSandbox;
+    // Position emoji button in top-left area of canvas (accounting for sandbox offset)
+    const emojiOffset = touchSandbox + DesignTokens.spacingLarge;
+
+    return Positioned(
+      left: emojiOffset,
+      top: emojiOffset,
+      child: GestureDetector(
+        onTap: _showEmojiPicker,
+        child: Container(
+          width: DesignTokens.emojiButtonSize,
+          height: DesignTokens.emojiButtonSize,
+          decoration: BoxDecoration(
+            color:
+                DesignTokens.whiteWithOpacity(DesignTokens.opacityMostlyOpaque),
+            borderRadius: BorderRadius.circular(DesignTokens.radiusCircular),
+            boxShadow: [
+              BoxShadow(
+                color: DesignTokens.blackWithOpacity(0.1),
+                blurRadius: 8,
+              ),
+            ],
+          ),
+          child: Center(
+            child: Text(
+              _selectedEmoji,
+              style: const TextStyle(fontSize: 28),
+            ),
+          ),
         ),
       ),
     );
@@ -409,17 +449,21 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
             final newOffset = _itemStartOffset! + delta;
 
             // Check if over delete zone
-            _isOverDeleteZone = _isPositionOverDeleteZone(details.globalPosition);
+            _isOverDeleteZone =
+                _isPositionOverDeleteZone(details.globalPosition);
 
             // Only update position if NOT over delete zone
             if (!_isOverDeleteZone) {
               // Allow dragging outside canvas bounds (-0.3 to 1.3 = 30% overflow on each side)
-              final clampedX = (newOffset.dx / _canvasSize!.width).clamp(-0.3, 1.3);
-              final clampedY = (newOffset.dy / _canvasSize!.height).clamp(-0.3, 1.3);
+              final clampedX =
+                  (newOffset.dx / _canvasSize!.width).clamp(-0.3, 1.3);
+              final clampedY =
+                  (newOffset.dy / _canvasSize!.height).clamp(-0.3, 1.3);
 
               final index = _textOverlays.indexWhere((o) => o.id == overlay.id);
               if (index != -1) {
-                _textOverlays[index] = overlay.copyWith(x: clampedX, y: clampedY);
+                _textOverlays[index] =
+                    overlay.copyWith(x: clampedX, y: clampedY);
               }
             }
           });
@@ -453,7 +497,9 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
             borderRadius: BorderRadius.circular(8),
             border: _draggingId == overlay.id
                 ? Border.all(
-                    color: _isOverDeleteZone ? Colors.red : const Color(0xFF8b5cf6),
+                    color: _isOverDeleteZone
+                        ? Colors.red
+                        : const Color(0xFF8b5cf6),
                     width: 2,
                   )
                 : null,
@@ -499,13 +545,16 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
             final newOffset = _itemStartOffset! + delta;
 
             // Check if over delete zone
-            _isOverDeleteZone = _isPositionOverDeleteZone(details.globalPosition);
+            _isOverDeleteZone =
+                _isPositionOverDeleteZone(details.globalPosition);
 
             // Only update position if NOT over delete zone
             if (!_isOverDeleteZone) {
               // Allow dragging outside canvas bounds (-0.3 to 1.3 = 30% overflow on each side)
-              final clampedX = (newOffset.dx / _canvasSize!.width).clamp(-0.3, 1.3);
-              final clampedY = (newOffset.dy / _canvasSize!.height).clamp(-0.3, 1.3);
+              final clampedX =
+                  (newOffset.dx / _canvasSize!.width).clamp(-0.3, 1.3);
+              final clampedY =
+                  (newOffset.dy / _canvasSize!.height).clamp(-0.3, 1.3);
 
               final index = _stickers.indexWhere((s) => s.id == sticker.id);
               if (index != -1) {
@@ -540,7 +589,9 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
           decoration: _draggingId == sticker.id
               ? BoxDecoration(
                   border: Border.all(
-                    color: _isOverDeleteZone ? Colors.red : const Color(0xFF8b5cf6),
+                    color: _isOverDeleteZone
+                        ? Colors.red
+                        : const Color(0xFF8b5cf6),
                     width: 2,
                   ),
                   borderRadius: BorderRadius.circular(8),
@@ -587,17 +638,22 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
             final newOffset = _itemStartOffset! + delta;
 
             // Check if over delete zone
-            _isOverDeleteZone = _isPositionOverDeleteZone(details.globalPosition);
+            _isOverDeleteZone =
+                _isPositionOverDeleteZone(details.globalPosition);
 
             // Only update position if NOT over delete zone
             if (!_isOverDeleteZone) {
               // Allow dragging outside canvas bounds (-0.3 to 1.3 = 30% overflow on each side)
-              final clampedX = (newOffset.dx / _canvasSize!.width).clamp(-0.3, 1.3);
-              final clampedY = (newOffset.dy / _canvasSize!.height).clamp(-0.3, 1.3);
+              final clampedX =
+                  (newOffset.dx / _canvasSize!.width).clamp(-0.3, 1.3);
+              final clampedY =
+                  (newOffset.dy / _canvasSize!.height).clamp(-0.3, 1.3);
 
-              final index = _additionalPhotos.indexWhere((p) => p.id == photo.id);
+              final index =
+                  _additionalPhotos.indexWhere((p) => p.id == photo.id);
               if (index != -1) {
-                _additionalPhotos[index] = photo.copyWith(x: clampedX, y: clampedY);
+                _additionalPhotos[index] =
+                    photo.copyWith(x: clampedX, y: clampedY);
               }
             }
           });
@@ -638,7 +694,10 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
             boxShadow: _draggingId == photo.id
                 ? [
                     BoxShadow(
-                      color: (_isOverDeleteZone ? Colors.red : const Color(0xFF8b5cf6)).withValues(alpha: 0.3),
+                      color: (_isOverDeleteZone
+                              ? Colors.red
+                              : const Color(0xFF8b5cf6))
+                          .withValues(alpha: 0.3),
                       blurRadius: 12,
                       offset: const Offset(0, 4),
                     ),
@@ -657,19 +716,16 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
 
   Widget _buildSentences() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(
+        horizontal: DesignTokens.spacingLarge,
+        vertical: DesignTokens.spacingMedium,
+      ),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(DesignTokens.spacingLarge),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.9),
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 2),
-            ),
-          ],
+          color: DesignTokens.surfacePrimary90.withValues(alpha: 0.9),
+          borderRadius: BorderRadius.circular(DesignTokens.radiusXLarge),
+          boxShadow: DesignTokens.shadowSubtle,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -678,21 +734,22 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
               Text(
                 widget.englishSentence,
                 style: GoogleFonts.lexend(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xFF1f2937),
+                  fontSize: DesignTokens.fontSizeBodyLarge,
+                  fontWeight: DesignTokens.weightMedium,
+                  color: DesignTokens.textPrimary,
                   height: 1.4,
                 ),
               ),
-              if (widget.thaiSentence.isNotEmpty) const SizedBox(height: 8),
+              if (widget.thaiSentence.isNotEmpty)
+                const SizedBox(height: DesignTokens.spacingSmall),
             ],
             if (widget.thaiSentence.isNotEmpty)
               Text(
                 widget.thaiSentence,
                 style: GoogleFonts.lexend(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w400,
-                  color: const Color(0xFF6b7280),
+                  fontSize: DesignTokens.fontSizeBody,
+                  fontWeight: DesignTokens.weightRegular,
+                  color: DesignTokens.textSecondary,
                   height: 1.4,
                 ),
               ),
@@ -704,42 +761,39 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
 
   Widget _buildVocabularyWords() {
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(DesignTokens.spacingLarge),
       child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
+        spacing: DesignTokens.spacingSmall,
+        runSpacing: DesignTokens.spacingSmall,
         children: widget.vocabularyWords.map((vocab) {
           return Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            padding: const EdgeInsets.symmetric(
+              horizontal: DesignTokens.spacingLarge,
+              vertical: 10,
+            ),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
                 colors: [Color(0xFFFDE68A), Color(0xFFFBCFE8)],
               ),
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF8b5cf6).withValues(alpha: 0.15),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
+              borderRadius: BorderRadius.circular(DesignTokens.radiusXLarge),
+              boxShadow: DesignTokens.shadowBrand,
             ),
             child: Column(
               children: [
                 Text(
                   vocab.word,
                   style: GoogleFonts.lexend(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF1f2937),
+                    fontSize: DesignTokens.fontSizeSubtitle,
+                    fontWeight: DesignTokens.weightBold,
+                    color: DesignTokens.textPrimary,
                   ),
                 ),
                 Text(
                   vocab.thaiTranslation,
                   style: GoogleFonts.lexend(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: const Color(0xFF6b7280),
+                    fontSize: DesignTokens.fontSizeSmall,
+                    fontWeight: DesignTokens.weightMedium,
+                    color: DesignTokens.textSecondary,
                   ),
                 ),
               ],
@@ -757,11 +811,14 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
       right: 0,
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.95),
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          color:
+              DesignTokens.whiteWithOpacity(DesignTokens.opacityMostlyOpaque),
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(DesignTokens.radiusCircular),
+          ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.08),
+              color: DesignTokens.blackWithOpacity(0.08),
               blurRadius: 20,
               offset: const Offset(0, -4),
             ),
@@ -769,7 +826,10 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
         ),
         child: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            padding: const EdgeInsets.symmetric(
+              horizontal: DesignTokens.spacingXLarge,
+              vertical: DesignTokens.spacingLarge,
+            ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
@@ -821,17 +881,20 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
         if (!isSelected) onTap();
       },
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        duration: const Duration(
+          milliseconds: DesignTokens.durationMedium,
+        ),
+        padding: const EdgeInsets.symmetric(
+          horizontal: DesignTokens.spacingMedium,
+          vertical: DesignTokens.spacingSmall,
+        ),
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color(0xFF8b5cf6).withValues(alpha: 0.1)
+              ? DesignTokens.brandWithOpacity(DesignTokens.opacityVerySubtle)
               : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(DesignTokens.radiusLarge),
           border: Border.all(
-            color: isSelected
-                ? const Color(0xFF8b5cf6)
-                : Colors.transparent,
+            color: isSelected ? DesignTokens.brandColor : Colors.transparent,
             width: 2,
           ),
         ),
@@ -840,19 +903,19 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
             Icon(
               icon,
               color: isSelected
-                  ? const Color(0xFF8b5cf6)
-                  : const Color(0xFF6b7280),
+                  ? DesignTokens.brandColor
+                  : DesignTokens.textSecondary,
               size: 24,
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: DesignTokens.spacingBase),
             Text(
               label,
               style: GoogleFonts.lexend(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
+                fontSize: DesignTokens.fontSizeCaption,
+                fontWeight: DesignTokens.weightSemiBold,
                 color: isSelected
-                    ? const Color(0xFF8b5cf6)
-                    : const Color(0xFF6b7280),
+                    ? DesignTokens.brandColor
+                    : DesignTokens.textSecondary,
               ),
             ),
           ],
@@ -868,16 +931,23 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
       right: 0,
       child: Center(
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          duration: const Duration(
+            milliseconds: DesignTokens.durationMedium,
+          ),
+          padding: const EdgeInsets.symmetric(
+            horizontal: DesignTokens.spacingXLarge,
+            vertical: DesignTokens.spacingMedium,
+          ),
           decoration: BoxDecoration(
             color: _isOverDeleteZone
-                ? Colors.red.withValues(alpha: 0.95)
-                : Colors.red.withValues(alpha: 0.7),
-            borderRadius: BorderRadius.circular(20),
+                ? DesignTokens.error.withValues(alpha: 0.95)
+                : DesignTokens.error.withValues(alpha: 0.7),
+            borderRadius: BorderRadius.circular(DesignTokens.radiusXLarge),
             boxShadow: [
               BoxShadow(
-                color: Colors.red.withValues(alpha: _isOverDeleteZone ? 0.4 : 0.2),
+                color: DesignTokens.error.withValues(
+                  alpha: _isOverDeleteZone ? 0.4 : 0.2,
+                ),
                 blurRadius: 15,
                 offset: const Offset(0, 4),
               ),
@@ -891,12 +961,12 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                 color: Colors.white,
                 size: _isOverDeleteZone ? 28 : 24,
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: DesignTokens.spacingMedium),
               Text(
                 _isOverDeleteZone ? 'Release to delete' : 'Drag here to delete',
                 style: GoogleFonts.lexend(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
+                  fontSize: DesignTokens.fontSizeBody,
+                  fontWeight: DesignTokens.weightSemiBold,
                   color: Colors.white,
                 ),
               ),
@@ -916,11 +986,13 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
       builder: (context) => Container(
         height: 400,
         decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          color: DesignTokens.surfacePrimary,
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(DesignTokens.radiusCircular),
+          ),
         ),
         child: GridView.builder(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(DesignTokens.spacingLarge),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 6,
             childAspectRatio: 1,
@@ -928,18 +1000,31 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
           itemCount: _availableEmojis.length,
           itemBuilder: (context, index) {
             final emoji = _availableEmojis[index];
+            final isSelected = _selectedEmoji == emoji;
             return GestureDetector(
               onTap: () {
                 setState(() => _selectedEmoji = emoji);
                 Navigator.pop(context);
+                // Add haptic feedback
+                HapticFeedback.lightImpact();
               },
               child: Container(
-                margin: const EdgeInsets.all(4),
+                margin: const EdgeInsets.all(DesignTokens.spacingBase),
                 decoration: BoxDecoration(
-                  color: _selectedEmoji == emoji
-                      ? const Color(0xFF8b5cf6).withValues(alpha: 0.1)
+                  color: isSelected
+                      ? DesignTokens.brandWithOpacity(
+                          DesignTokens.opacityVerySubtle,
+                        )
                       : Colors.transparent,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(
+                    DesignTokens.radiusMedium,
+                  ),
+                  border: isSelected
+                      ? Border.all(
+                          color: DesignTokens.brandColor,
+                          width: 2,
+                        )
+                      : null,
                 ),
                 child: Center(
                   child: Text(
@@ -961,13 +1046,15 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(DesignTokens.radiusXLarge),
+        ),
         title: Text(
           'Add Text',
           style: GoogleFonts.lexend(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: const Color(0xFF1f2937),
+            fontSize: DesignTokens.fontSizeTitle,
+            fontWeight: DesignTokens.weightSemiBold,
+            color: DesignTokens.textPrimary,
           ),
         ),
         content: TextField(
@@ -975,7 +1062,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
           decoration: InputDecoration(
             hintText: 'Enter text...',
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
             ),
           ),
           autofocus: true,
@@ -983,7 +1070,12 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.lexend(
+                color: DesignTokens.textSecondary,
+              ),
+            ),
           ),
           ElevatedButton(
             onPressed: () {
@@ -996,12 +1088,16 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                     y: 0.2 + (_textOverlays.length * 0.1),
                   ));
                 });
+                HapticFeedback.lightImpact();
               }
               Navigator.pop(context);
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF8b5cf6),
+              backgroundColor: DesignTokens.brandColor,
               foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
+              ),
             ),
             child: const Text('Add'),
           ),
@@ -1016,13 +1112,15 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(DesignTokens.radiusXLarge),
+        ),
         title: Text(
           'Edit Text',
           style: GoogleFonts.lexend(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: const Color(0xFF1f2937),
+            fontSize: DesignTokens.fontSizeTitle,
+            fontWeight: DesignTokens.weightSemiBold,
+            color: DesignTokens.textPrimary,
           ),
         ),
         content: TextField(
@@ -1030,7 +1128,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
           decoration: InputDecoration(
             hintText: 'Enter text...',
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
             ),
           ),
           autofocus: true,
@@ -1038,7 +1136,12 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.lexend(
+                color: DesignTokens.textSecondary,
+              ),
+            ),
           ),
           IconButton(
             onPressed: () {
@@ -1046,25 +1149,32 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                 _removeTextOverlay(overlay.id);
               });
               Navigator.pop(context);
+              HapticFeedback.mediumImpact();
             },
-            icon: const Icon(Icons.delete, color: Colors.red),
+            icon: const Icon(Icons.delete, color: DesignTokens.error),
             tooltip: 'Delete',
           ),
           ElevatedButton(
             onPressed: () {
               if (controller.text.isNotEmpty) {
                 setState(() {
-                  final index = _textOverlays.indexWhere((o) => o.id == overlay.id);
+                  final index =
+                      _textOverlays.indexWhere((o) => o.id == overlay.id);
                   if (index != -1) {
-                    _textOverlays[index] = overlay.copyWith(text: controller.text);
+                    _textOverlays[index] =
+                        overlay.copyWith(text: controller.text);
                   }
                 });
+                HapticFeedback.lightImpact();
               }
               Navigator.pop(context);
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF8b5cf6),
+              backgroundColor: DesignTokens.brandColor,
               foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
+              ),
             ),
             child: const Text('Save'),
           ),
@@ -1080,11 +1190,13 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
       builder: (context) => Container(
         height: 400,
         decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          color: DesignTokens.surfacePrimary,
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(DesignTokens.radiusCircular),
+          ),
         ),
         child: GridView.builder(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(DesignTokens.spacingLarge),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 6,
             childAspectRatio: 1,
@@ -1103,12 +1215,14 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                   ));
                 });
                 Navigator.pop(context);
+                HapticFeedback.lightImpact();
               },
               child: Container(
-                margin: const EdgeInsets.all(4),
+                margin: const EdgeInsets.all(DesignTokens.spacingBase),
                 decoration: BoxDecoration(
                   color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius:
+                      BorderRadius.circular(DesignTokens.radiusMedium),
                 ),
                 child: Center(
                   child: Text(
@@ -1146,7 +1260,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
             id: DateTime.now().millisecondsSinceEpoch.toString(),
             imagePath: image.path,
             x: 0.05 + (_additionalPhotos.length * 0.05), // Stagger horizontally
-            y: 0.60 + (_additionalPhotos.length * 0.05), // Start from bottom area
+            y: 0.60 +
+                (_additionalPhotos.length * 0.05), // Start from bottom area
             width: 0.25, // 25% of canvas width
             height: 0.25, // 25% of canvas height
           ));
@@ -1164,22 +1279,24 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
       builder: (context) => Container(
         height: 300,
         decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          color: DesignTokens.surfacePrimary,
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(DesignTokens.radiusCircular),
+          ),
         ),
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(DesignTokens.spacingLarge),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               'Background Color',
               style: GoogleFonts.lexend(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFF1f2937),
+                fontSize: DesignTokens.fontSizeTitle,
+                fontWeight: DesignTokens.weightSemiBold,
+                color: DesignTokens.textPrimary,
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: DesignTokens.spacingMedium),
             Expanded(
               child: GridView.builder(
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -1188,33 +1305,40 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                 ),
                 itemCount: _backgroundColorOptions.length,
                 itemBuilder: (context, index) {
-                  final color = _backgroundColorOptions[index];
-                  final isSelected = _backgroundColor == color;
+                  final option = _backgroundColorOptions[index];
+                  final isSelected = _backgroundColor == option.color;
 
                   return GestureDetector(
                     onTap: () {
-                      setState(() => _backgroundColor = color);
+                      setState(() => _backgroundColor = option.color);
                       Navigator.pop(context);
+                      HapticFeedback.lightImpact();
                     },
-                    child: Container(
-                      margin: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: Color(color),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: isSelected
-                              ? const Color(0xFF8b5cf6)
-                              : Colors.grey.shade300,
-                          width: isSelected ? 3 : 1,
+                    child: Semantics(
+                      label: 'Background color ${option.name}',
+                      selected: isSelected,
+                      child: Container(
+                        margin: const EdgeInsets.all(DesignTokens.spacingBase),
+                        decoration: BoxDecoration(
+                          color: Color(option.color),
+                          borderRadius: BorderRadius.circular(
+                            DesignTokens.radiusMedium,
+                          ),
+                          border: Border.all(
+                            color: isSelected
+                                ? DesignTokens.brandColor
+                                : Colors.grey.shade300,
+                            width: isSelected ? 3 : 1,
+                          ),
                         ),
+                        child: isSelected
+                            ? const Icon(
+                                Icons.check,
+                                color: Colors.white,
+                                size: 20,
+                              )
+                            : null,
                       ),
-                      child: isSelected
-                          ? const Icon(
-                              Icons.check,
-                              color: Colors.white,
-                              size: 20,
-                            )
-                          : null,
                     ),
                   );
                 },
@@ -1238,13 +1362,16 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     try {
       // Get existing scrapbook data to preserve createdAt
       final existingScrapbook = widget.scrapbookId != null
-          ? ref.read(scrapbookStateProvider).scrapbooks
+          ? ref
+              .read(scrapbookStateProvider)
+              .scrapbooks
               .where((s) => s.id == widget.scrapbookId)
               .firstOrNull
           : null;
 
       final scrapbook = ScrapbookModel(
-        id: widget.scrapbookId ?? DateTime.now().millisecondsSinceEpoch.toString(),
+        id: widget.scrapbookId ??
+            DateTime.now().millisecondsSinceEpoch.toString(),
         date: widget.date ?? DateTime.now(),
         imagePath: widget.imagePath,
         vocabularyWords: widget.vocabularyWords,
@@ -1261,7 +1388,9 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
 
       // Use update if editing existing scrapbook, add if new
       if (widget.scrapbookId != null) {
-        await ref.read(scrapbookStateProvider.notifier).updateScrapbook(scrapbook);
+        await ref
+            .read(scrapbookStateProvider.notifier)
+            .updateScrapbook(scrapbook);
       } else {
         await ref.read(scrapbookStateProvider.notifier).addScrapbook(scrapbook);
       }
@@ -1270,8 +1399,25 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(widget.scrapbookId != null ? '✓ Scrapbook updated!' : '✓ Scrapbook saved!'),
-          backgroundColor: Colors.green,
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle, color: Colors.white),
+              const SizedBox(width: DesignTokens.spacingSmall),
+              Text(
+                widget.scrapbookId != null
+                    ? 'Scrapbook updated!'
+                    : 'Scrapbook saved!',
+                style: GoogleFonts.lexend(
+                  fontWeight: DesignTokens.weightSemiBold,
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: DesignTokens.success,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
+          ),
         ),
       );
 
@@ -1282,8 +1428,23 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('✗ Failed to save: ${e.toString()}'),
-          backgroundColor: Colors.red,
+          content: Row(
+            children: [
+              const Icon(Icons.error_outline, color: Colors.white),
+              const SizedBox(width: DesignTokens.spacingSmall),
+              Expanded(
+                child: Text(
+                  'Failed to save: ${e.toString()}',
+                  style: GoogleFonts.lexend(),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: DesignTokens.error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
+          ),
         ),
       );
     } finally {
@@ -1299,27 +1460,34 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(DesignTokens.radiusXLarge),
+        ),
         title: Text(
           '$type Permission Required',
           style: GoogleFonts.lexend(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: const Color(0xFF1f2937),
+            fontSize: DesignTokens.fontSizeTitle,
+            fontWeight: DesignTokens.weightSemiBold,
+            color: DesignTokens.textPrimary,
           ),
         ),
         content: Text(
           'Please grant $type permission to continue.',
           style: GoogleFonts.lexend(
-            fontSize: 14,
-            fontWeight: FontWeight.w400,
-            color: const Color(0xFF6b7280),
+            fontSize: DesignTokens.fontSizeBody,
+            fontWeight: DesignTokens.weightRegular,
+            color: DesignTokens.textSecondary,
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.lexend(
+                color: DesignTokens.textSecondary,
+              ),
+            ),
           ),
           TextButton(
             onPressed: () {
@@ -1327,9 +1495,14 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
               openAppSettings();
             },
             style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFF8b5cf6),
+              foregroundColor: DesignTokens.brandColor,
             ),
-            child: const Text('Settings'),
+            child: Text(
+              'Settings',
+              style: GoogleFonts.lexend(
+                fontWeight: DesignTokens.weightSemiBold,
+              ),
+            ),
           ),
         ],
       ),
@@ -1340,30 +1513,37 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(DesignTokens.radiusXLarge),
+        ),
         title: Text(
           title,
           style: GoogleFonts.lexend(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: const Color(0xFF1f2937),
+            fontSize: DesignTokens.fontSizeTitle,
+            fontWeight: DesignTokens.weightSemiBold,
+            color: DesignTokens.textPrimary,
           ),
         ),
         content: Text(
           message,
           style: GoogleFonts.lexend(
-            fontSize: 14,
-            fontWeight: FontWeight.w400,
-            color: const Color(0xFF6b7280),
+            fontSize: DesignTokens.fontSizeBody,
+            fontWeight: DesignTokens.weightRegular,
+            color: DesignTokens.textSecondary,
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFF8b5cf6),
+              foregroundColor: DesignTokens.brandColor,
             ),
-            child: const Text('OK'),
+            child: Text(
+              'OK',
+              style: GoogleFonts.lexend(
+                fontWeight: DesignTokens.weightSemiBold,
+              ),
+            ),
           ),
         ],
       ),
@@ -1373,7 +1553,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
   // Check if a position is over the delete zone (bottom of screen)
   bool _isPositionOverDeleteZone(Offset globalPosition) {
     final screenHeight = MediaQuery.of(context).size.height;
-    final deleteZoneTop = screenHeight - 150; // Delete zone is in bottom 150px
+    final deleteZoneTop = screenHeight - DesignTokens.deleteZoneHeight;
     return globalPosition.dy > deleteZoneTop;
   }
 
@@ -1384,9 +1564,100 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
 
   String _getMonth(int month) {
     const months = [
-      'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
-      'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'
+      'JAN',
+      'FEB',
+      'MAR',
+      'APR',
+      'MAY',
+      'JUN',
+      'JUL',
+      'AUG',
+      'SEP',
+      'OCT',
+      'NOV',
+      'DEC'
     ];
     return months[month - 1];
+  }
+
+  // ============= Helper Widgets =============
+}
+
+/// Reusable top bar button widget
+class _TopBarButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _TopBarButton({
+    required this.icon,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: DesignTokens.iconButtonSize,
+        height: DesignTokens.iconButtonSize,
+        decoration: BoxDecoration(
+          color:
+              DesignTokens.whiteWithOpacity(DesignTokens.opacityMostlyOpaque),
+          borderRadius: BorderRadius.circular(DesignTokens.radiusLarge),
+          boxShadow: DesignTokens.shadowSubtle,
+        ),
+        child: Icon(
+          icon,
+          color: DesignTokens.textPrimary,
+          size: 18,
+        ),
+      ),
+    );
+  }
+}
+
+/// Reusable save button with loading state
+class _SaveButton extends StatelessWidget {
+  final bool isSaving;
+  final VoidCallback? onTap;
+
+  const _SaveButton({
+    required this.isSaving,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: DesignTokens.iconButtonSize,
+        height: DesignTokens.iconButtonSize,
+        decoration: BoxDecoration(
+          color: isSaving ? Colors.grey.shade300 : DesignTokens.brandColor,
+          borderRadius: BorderRadius.circular(DesignTokens.radiusLarge),
+          boxShadow: DesignTokens.shadowStrong,
+        ),
+        child: Center(
+          child: isSaving
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : const Text(
+                  'Save',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: DesignTokens.weightSemiBold,
+                    fontSize: 13,
+                  ),
+                ),
+        ),
+      ),
+    );
   }
 }

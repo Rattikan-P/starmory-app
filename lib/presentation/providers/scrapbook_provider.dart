@@ -244,6 +244,7 @@ class ScrapbookNotifier extends StateNotifier<ScrapbookState> {
         'background_color': scrapbook.backgroundColor,
         'text_overlays': scrapbook.textOverlays.map((t) => t.toJson()).toList(),
         'stickers': scrapbook.stickers.map((s) => s.toJson()).toList(),
+        'additional_photos': scrapbook.additionalPhotos.map((p) => p.toJson()).toList(),
         'created_at': scrapbook.createdAt.toIso8601String(),
         'updated_at': DateTime.now().toIso8601String(),
       };
@@ -289,6 +290,7 @@ class ScrapbookNotifier extends StateNotifier<ScrapbookState> {
         'background_color': scrapbook.backgroundColor,
         'text_overlays': scrapbook.textOverlays.map((t) => t.toJson()).toList(),
         'stickers': scrapbook.stickers.map((s) => s.toJson()).toList(),
+        'additional_photos': scrapbook.additionalPhotos.map((p) => p.toJson()).toList(),
         'updated_at': DateTime.now().toIso8601String(),
       };
 
