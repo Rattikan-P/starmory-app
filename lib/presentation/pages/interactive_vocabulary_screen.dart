@@ -8,8 +8,10 @@ import 'package:flutter_tts/flutter_tts.dart';
 import '../providers/providers.dart';
 import '../providers/streak_provider.dart' show streakProvider;
 import '../../data/models/vocabulary_model.dart';
+import '../../data/models/scrapbook_model.dart';
 import '../../data/services/gemini_service.dart';
 import 'generation_loading_screen.dart';
+import 'edit_scrapbook_screen.dart';
 import 'dart:ui';
 
 /// Interactive Vocabulary Result Screen
@@ -455,7 +457,7 @@ class _InteractiveVocabularyScreenState
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: FilledButton(
-        onPressed: _selectedWordIds.isEmpty ? null : _saveAllVocabularies,
+        onPressed: _selectedWordIds.isEmpty ? null : _navigateToEditScrapbook,
         style: FilledButton.styleFrom(
           backgroundColor: const Color(0xFF7B6EF6),
           foregroundColor: Colors.white,
@@ -1988,6 +1990,60 @@ class _InteractiveVocabularyScreenState
         setState(() => _playingWordId = null);
       }
     });
+  }
+
+  void _navigateToEditScrapbook() {
+    final selectedDots = _vocabularyDots
+        .where((dot) => _selectedWordIds.contains(dot.id))
+        .toList();
+
+    if (selectedDots.isEmpty) return;
+
+    // Get the sentence to display
+    String englishSentence = '';
+    String thaiSentence = '';
+
+    if (_useCombinedSentence && selectedDots.isNotEmpty) {
+      // Use combined sentence from first selected dot
+      englishSentence = selectedDots.first.englishSentence;
+      thaiSentence = selectedDots.first.thaiSentence;
+    } else if (selectedDots.isNotEmpty) {
+      // For individual sentences, we can either:
+      // 1. Show the first sentence
+      // 2. Combine all sentences with line breaks
+      // Let's combine them with line breaks
+      englishSentence = selectedDots
+          .map((dot) => dot.englishSentence)
+          .where((s) => s.isNotEmpty)
+          .join('\n');
+      thaiSentence = selectedDots
+          .map((dot) => dot.thaiSentence)
+          .where((s) => s.isNotEmpty)
+          .join('\n');
+    }
+
+    // Convert selected dots to ScrapbookVocabularyWord list
+    final vocabularyWords = selectedDots.map((dot) {
+      return ScrapbookVocabularyWord(
+        word: dot.word,
+        thaiTranslation: dot.thaiTranslation,
+        partOfSpeech: dot.partOfSpeech,
+      );
+    }).toList();
+
+    // Navigate to Edit Scrapbook Screen
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => EditScrapbookScreen(
+          imagePath: widget.imagePath,
+          vocabularyWords: vocabularyWords,
+          englishSentence: englishSentence,
+          thaiSentence: thaiSentence,
+          selectedEmoji: '😊', // Default emoji, user can change in edit screen
+        ),
+      ),
+    );
   }
 
   Future<void> _saveAllVocabularies() async {
