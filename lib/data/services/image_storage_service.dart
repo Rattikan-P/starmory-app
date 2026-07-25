@@ -105,6 +105,52 @@ class ImageStorageService {
     }
   }
 
+  /// Upload scrapbook image to Supabase Storage
+  /// Scrapbook images are stored in a separate folder: userId/scrapbooks/scrapbookId/timestamp.ext
+  /// Returns the public URL of the uploaded image
+  Future<String> uploadScrapbookImage({
+    required File imageFile,
+    required String userId,
+    required String scrapbookId,
+  }) async {
+    try {
+      // Validate image format before uploading
+      final validationResult = ImageValidator.validateFromFile(imageFile.path);
+      if (!validationResult.valid) {
+        throw ValidationFailure(
+          validationResult.error ?? 'Invalid image format',
+        );
+      }
+
+      // Generate unique filename
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final extension = _getFileExtension(imageFile.path);
+      final fileName = '$userId/scrapbooks/$scrapbookId/$timestamp.$extension';
+
+      // Upload file
+      await _client.storage.from(_bucketName).upload(
+        fileName,
+        imageFile,
+        fileOptions: FileOptions(
+          cacheControl: '3600',
+          upsert: false,
+        ),
+      );
+
+      // Get signed URL (valid for 1 year)
+      final imageUrl = await _client.storage.from(_bucketName).createSignedUrl(
+        fileName,
+        365 * 24 * 60 * 60,
+      );
+
+      print('✅ Scrapbook image uploaded: $imageUrl');
+      return imageUrl;
+    } catch (e) {
+      print('❌ Error uploading scrapbook image: $e');
+      throw CacheFailure('Failed to upload scrapbook image: ${e.toString()}');
+    }
+  }
+
   /// Get file extension from path
   String _getFileExtension(String filePath) {
     final parts = filePath.split('.');
