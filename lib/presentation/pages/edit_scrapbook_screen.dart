@@ -735,12 +735,17 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     if (_canvasSize == null) return const SizedBox.shrink();
 
     // Calculate actual position based on canvas size
-    final left = overlay.x * _canvasSize!.width;
-    final top = overlay.y * _canvasSize!.height;
+    // Add touchSandbox offset to position relative to canvas, not touch sandbox
+    final left = _touchSandbox + (overlay.x * _canvasSize!.width);
+    final top = _touchSandbox + (overlay.y * _canvasSize!.height);
+
+    // Offset to center the item (text overlays are ~60-80px wide)
+    final centerOffsetX = 50.0;
+    final centerOffsetY = 25.0;
 
     return Positioned(
-      left: left,
-      top: top,
+      left: left - centerOffsetX,
+      top: top - centerOffsetY,
       child: GestureDetector(
         onTap: () => _editTextOverlay(overlay),
         onPanStart: (details) {
@@ -748,7 +753,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
             _draggingId = overlay.id;
             _draggingType = 'text';
             _dragStartOffset = details.localPosition;
-            _itemStartOffset = Offset(left, top);
+            _itemStartOffset = Offset(left - centerOffsetX - _touchSandbox, top - centerOffsetY - _touchSandbox);
             _isOverDeleteZone = false;
           });
         },
@@ -848,19 +853,24 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     if (_canvasSize == null) return const SizedBox.shrink();
 
     // Calculate actual position based on canvas size
-    final left = sticker.x * _canvasSize!.width;
-    final top = sticker.y * _canvasSize!.height;
+    // Add touchSandbox offset to position relative to canvas, not touch sandbox
+    final left = _touchSandbox + (sticker.x * _canvasSize!.width);
+    final top = _touchSandbox + (sticker.y * _canvasSize!.height);
+
+    // Offset to center the item (stickers are ~40px with fontSize: 40 * scale)
+    final centerOffsetX = 20.0;
+    final centerOffsetY = 20.0;
 
     return Positioned(
-      left: left,
-      top: top,
+      left: left - centerOffsetX,
+      top: top - centerOffsetY,
       child: GestureDetector(
         onPanStart: (details) {
           setState(() {
             _draggingId = sticker.id;
             _draggingType = 'sticker';
             _dragStartOffset = details.localPosition;
-            _itemStartOffset = Offset(left, top);
+            _itemStartOffset = Offset(left - centerOffsetX - _touchSandbox, top - centerOffsetY - _touchSandbox);
             _isOverDeleteZone = false;
           });
         },
@@ -954,21 +964,26 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     if (_canvasSize == null) return const SizedBox.shrink();
 
     // Calculate actual position and size based on canvas size
-    final left = photo.x * _canvasSize!.width;
-    final top = photo.y * _canvasSize!.height;
+    // Add touchSandbox offset to position relative to canvas, not touch sandbox
+    final left = _touchSandbox + (photo.x * _canvasSize!.width);
+    final top = _touchSandbox + (photo.y * _canvasSize!.height);
     final width = photo.width * _canvasSize!.width;
     final height = photo.height * _canvasSize!.height;
 
+    // Offset to center the item (photos have known width/height)
+    final centerOffsetX = width / 2;
+    final centerOffsetY = height / 2;
+
     return Positioned(
-      left: left,
-      top: top,
+      left: left - centerOffsetX,
+      top: top - centerOffsetY,
       child: GestureDetector(
         onPanStart: (details) {
           setState(() {
             _draggingId = photo.id;
             _draggingType = 'photo';
             _dragStartOffset = details.localPosition;
-            _itemStartOffset = Offset(left, top);
+            _itemStartOffset = Offset(left - centerOffsetX - _touchSandbox, top - centerOffsetY - _touchSandbox);
             _isOverDeleteZone = false;
           });
         },
@@ -1522,28 +1537,13 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
             onPressed: () {
               if (controller.text.isNotEmpty) {
                 setState(() {
-                  // Calculate position inside Polaroid frame
-                  // Polaroid is centered and takes 65% of canvas width
-                  final canvasSize = DesignTokens.scrapbookCanvasHeight;
-                  final polaroidWidth = canvasSize * 0.65;
-                  final polaroidHeight = polaroidWidth * 1.2;
-                  final bottomArea = polaroidHeight * 0.18;
-                  final photoAreaHeight = polaroidHeight - bottomArea;
-
-                  // Position text in photo area with some offset for each new text
-                  // Use relative position within the Polaroid frame
-                  final offsetX = 0.15 + (_textOverlays.length * 0.12);
-                  final offsetY = 0.15 + (_textOverlays.length * 0.1);
-
-                  // Clamp to photo area (not the bottom writing area)
-                  final maxX = 0.85;
-                  final maxY = photoAreaHeight / polaroidHeight - 0.1;
-
+                  // Position text at center of canvas
+                  // x and y are normalized coordinates (0.0 to 1.0)
                   _textOverlays.add(ScrapbookTextOverlay(
                     id: DateTime.now().millisecondsSinceEpoch.toString(),
                     text: controller.text,
-                    x: offsetX.clamp(0.1, maxX),
-                    y: offsetY.clamp(0.1, maxY),
+                    x: 0.5, // Center horizontally
+                    y: 0.5, // Center vertically
                   ));
                 });
                 HapticFeedback.lightImpact();
@@ -1665,26 +1665,13 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
             return GestureDetector(
               onTap: () {
                 setState(() {
-                  // Calculate position inside Polaroid frame
-                  final canvasSize = DesignTokens.scrapbookCanvasHeight;
-                  final polaroidWidth = canvasSize * 0.65;
-                  final polaroidHeight = polaroidWidth * 1.2;
-                  final bottomArea = polaroidHeight * 0.18;
-                  final photoAreaHeight = polaroidHeight - bottomArea;
-
-                  // Position sticker in photo area with some offset for each new sticker
-                  final offsetX = 0.2 + (_stickers.length * 0.12);
-                  final offsetY = 0.2 + (_stickers.length * 0.1);
-
-                  // Clamp to photo area
-                  final maxX = 0.8;
-                  final maxY = photoAreaHeight / polaroidHeight - 0.1;
-
+                  // Position sticker at center of canvas
+                  // x and y are normalized coordinates (0.0 to 1.0)
                   _stickers.add(ScrapbookSticker(
                     id: DateTime.now().millisecondsSinceEpoch.toString(),
                     emoji: emoji,
-                    x: offsetX.clamp(0.1, maxX),
-                    y: offsetY.clamp(0.1, maxY),
+                    x: 0.5, // Center horizontally
+                    y: 0.5, // Center vertically
                   ));
                 });
                 Navigator.pop(context);
@@ -1728,26 +1715,13 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
 
       if (image != null && mounted) {
         setState(() {
-          // Calculate position inside Polaroid frame
-          final canvasSize = DesignTokens.scrapbookCanvasHeight;
-          final polaroidWidth = canvasSize * 0.65;
-          final polaroidHeight = polaroidWidth * 1.2;
-          final bottomArea = polaroidHeight * 0.18;
-          final photoAreaHeight = polaroidHeight - bottomArea;
-
-          // Add photo with a default position (staggered)
-          final offsetX = 0.15 + (_additionalPhotos.length * 0.1);
-          final offsetY = 0.15 + (_additionalPhotos.length * 0.08);
-
-          // Clamp to photo area
-          final maxX = 0.7;
-          final maxY = photoAreaHeight / polaroidHeight - 0.15;
-
+          // Position photo at center of canvas
+          // x and y are normalized coordinates (0.0 to 1.0)
           _additionalPhotos.add(ScrapbookPhoto(
             id: DateTime.now().millisecondsSinceEpoch.toString(),
             imagePath: image.path,
-            x: offsetX.clamp(0.1, maxX),
-            y: offsetY.clamp(0.1, maxY),
+            x: 0.5, // Center horizontally
+            y: 0.5, // Center vertically
             width: 0.25, // 25% of canvas width
             height: 0.25, // 25% of canvas height
           ));
