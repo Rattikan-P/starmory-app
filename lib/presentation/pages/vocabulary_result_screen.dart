@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../widgets/galaxy_screen_background.dart';
-import '../providers/providers.dart' show vocabularyStateProvider;
+import '../providers/providers.dart' show vocabularyStateProvider, reviewStateProvider;
 import '../providers/streak_provider.dart' show streakProvider;
 import '../../data/models/vocabulary_model.dart';
 
@@ -196,6 +196,9 @@ class VocabularyResultScreen extends ConsumerWidget {
     final notifier = ref.read(vocabularyStateProvider.notifier);
     // Wait for vocabulary to be saved to cloud first (trigger needs to fire)
     await notifier.addVocabulary(vocabulary);
+
+    // Refresh review session to show newly added card
+    ref.invalidate(reviewStateProvider);
 
     // Update streak when saving vocabulary (only once per day)
     final streakNotifier = ref.read(streakProvider.notifier);

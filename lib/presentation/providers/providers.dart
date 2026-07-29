@@ -8,6 +8,7 @@ import '../../data/services/vocabulary_sync_service.dart';
 import '../../data/services/image_storage_service.dart';
 import '../../data/services/merge_service.dart';
 import '../../data/services/streak_service.dart';
+import '../../data/services/review_service.dart';
 import '../../data/models/user_model.dart';
 import '../../data/models/vocabulary_model.dart';
 import '../../data/models/scrapbook_model.dart';
@@ -15,6 +16,7 @@ import '../../core/utils/quota_manager.dart';
 import '../../constants/app_defaults.dart';
 import 'scrapbook_provider.dart';
 import 'navigation_provider.dart';
+import 'review_provider.dart';
 
 // Export review providers
 export 'review_provider.dart';
@@ -839,6 +841,7 @@ final vocabularyStateProvider =
   return VocabularyNotifier(
     ref.read(hiveServiceProvider),
     ref.read(vocabularySyncServiceProvider),
+    ref.read(reviewServiceProvider),
   );
 });
 
@@ -846,8 +849,9 @@ final vocabularyStateProvider =
 class VocabularyNotifier extends StateNotifier<VocabularyState> {
   final HiveService _hiveService;
   final VocabularySyncService _syncService;
+  final ReviewService _reviewService;
 
-  VocabularyNotifier(this._hiveService, this._syncService)
+  VocabularyNotifier(this._hiveService, this._syncService, this._reviewService)
       : super(const VocabularyState(isLoading: true)) {
     _waitForInitializationAndLoad();
   }
@@ -888,6 +892,10 @@ class VocabularyNotifier extends StateNotifier<VocabularyState> {
         await _syncService.saveToCloud(vocabulary);
         print('✅ Vocabulary synced to cloud: ${vocabulary.word}');
       }
+
+      // Create word card for review system (works for both guest & registered)
+      await _reviewService.createCard(vocabulary.id);
+      print('✅ Word card created: ${vocabulary.word}');
 
       state = VocabularyState(
         vocabularies: [...state.vocabularies, vocabulary],
