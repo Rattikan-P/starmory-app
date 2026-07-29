@@ -113,12 +113,29 @@ class ReviewService {
       String userId, int limit) async {
     try {
       // Get vocabularies that don't have cards yet
-      final response = await _client
-          .from('vocabularies')
-          .select('id, word, part_of_speech, thai_translation, english_sentence, thai_sentence, cefr_level, communicative_function, language_variant, image_url, created_at, updated_at, tags, is_favorite')
-          .eq('user_id', userId)
-          .not('id', 'in', _client.from('word_cards').select('vocabulary_id').eq('user_id', userId))
-          .limit(limit);
+      // First, get IDs of vocabularies that already have cards
+      final existingCardsResponse = await _client
+          .from('word_cards')
+          .select('vocabulary_id')
+          .eq('user_id', userId);
+
+      final existingVocabIds = (existingCardsResponse as List<dynamic>?)
+          ?.map((row) => row['vocabulary_id'] as String)
+          .toList() ?? <String>[];
+
+      // Then get vocabularies NOT in that list
+      final response = existingVocabIds.isEmpty
+          ? await _client
+              .from('vocabularies')
+              .select('id, word, part_of_speech, thai_translation, english_sentence, thai_sentence, cefr_level, communicative_function, language_variant, image_url, created_at, updated_at, tags, is_favorite')
+              .eq('user_id', userId)
+              .limit(limit)
+          : await _client
+              .from('vocabularies')
+              .select('id, word, part_of_speech, thai_translation, english_sentence, thai_sentence, cefr_level, communicative_function, language_variant, image_url, created_at, updated_at, tags, is_favorite')
+              .eq('user_id', userId)
+              .not('id', 'in', existingVocabIds)
+              .limit(limit);
 
       if (response == null) return [];
 

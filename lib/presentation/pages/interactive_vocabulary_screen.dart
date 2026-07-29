@@ -2030,6 +2030,9 @@ class _InteractiveVocabularyScreenState
 
       // Wait for vocabulary to be saved to cloud first (trigger needs to fire)
       await ref.read(vocabularyStateProvider.notifier).addVocabulary(vocabulary);
+
+      // Refresh review session to show newly added card
+      ref.invalidate(reviewStateProvider);
     }
 
     // Check if widget is still mounted before updating streak
