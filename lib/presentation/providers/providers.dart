@@ -13,6 +13,9 @@ import '../../data/models/vocabulary_model.dart';
 import '../../core/utils/quota_manager.dart';
 import '../../constants/app_defaults.dart';
 
+// Export review providers
+export 'review_provider.dart';
+
 // ============= Service Providers =============
 
 /// Hive Service Provider

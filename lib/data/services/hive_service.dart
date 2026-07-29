@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../models/vocabulary_model.dart';
 import '../models/user_model.dart';
+import '../models/word_card_model.dart';
 import '../../core/config/app_constants.dart';
 import '../../core/error/failures.dart';
 import '../../core/utils/quota_manager.dart';
@@ -52,6 +53,7 @@ class HiveService {
     try {
       await Hive.openBox<String>(AppConstants.boxVocabulary);
       await Hive.openBox<String>(AppConstants.boxUser);
+      await Hive.openBox<String>(AppConstants.boxWordCards);
     } catch (e, stackTrace) {
       print('❌ Error opening boxes: $e');
       print('📚 Stack trace: $stackTrace');
@@ -124,6 +126,71 @@ class HiveService {
       await box.clear();
     } catch (e) {
       throw CacheFailure('Failed to clear vocabulary: ${e.toString()}');
+    }
+  }
+
+  // ============= Word Card Operations (Review System) =============
+
+  /// Save word card to local storage
+  Future<void> saveWordCard(WordCardModel card) async {
+    try {
+      final box = Hive.box<String>(AppConstants.boxWordCards);
+      await box.put(card.id, jsonEncode(card.toJson()));
+    } catch (e) {
+      throw CacheFailure('Failed to save word card: ${e.toString()}');
+    }
+  }
+
+  /// Get word card by ID
+  Future<WordCardModel?> getWordCard(String id) async {
+    try {
+      final box = Hive.box<String>(AppConstants.boxWordCards);
+      final jsonString = box.get(id);
+      if (jsonString == null) return null;
+      return WordCardModel.fromJson(jsonDecode(jsonString) as Map<String, dynamic>);
+    } catch (e) {
+      throw CacheFailure('Failed to get word card: ${e.toString()}');
+    }
+  }
+
+  /// Get all word cards
+  Future<List<WordCardModel>> getWordCards() async {
+    try {
+      final box = Hive.box<String>(AppConstants.boxWordCards);
+      final cards = <WordCardModel>[];
+
+      for (final jsonString in box.values) {
+        try {
+          cards.add(WordCardModel.fromJson(jsonDecode(jsonString) as Map<String, dynamic>));
+        } catch (e) {
+          // Skip corrupted entries
+          continue;
+        }
+      }
+
+      return cards;
+    } catch (e) {
+      throw CacheFailure('Failed to get all word cards: ${e.toString()}');
+    }
+  }
+
+  /// Delete word card
+  Future<void> deleteWordCard(String id) async {
+    try {
+      final box = Hive.box<String>(AppConstants.boxWordCards);
+      await box.delete(id);
+    } catch (e) {
+      throw CacheFailure('Failed to delete word card: ${e.toString()}');
+    }
+  }
+
+  /// Clear all word cards
+  Future<void> clearAllWordCards() async {
+    try {
+      final box = Hive.box<String>(AppConstants.boxWordCards);
+      await box.clear();
+    } catch (e) {
+      throw CacheFailure('Failed to clear word cards: ${e.toString()}');
     }
   }
 
@@ -240,6 +307,7 @@ class HiveService {
     try {
       await Hive.box<String>(AppConstants.boxVocabulary).clear();
       await Hive.box<String>(AppConstants.boxUser).clear();
+      await Hive.box<String>(AppConstants.boxWordCards).clear();
     } catch (e) {
       throw CacheFailure('Failed to clear all data: ${e.toString()}');
     }

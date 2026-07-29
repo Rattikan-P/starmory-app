@@ -1,0 +1,233 @@
+import 'package:equatable/equatable.dart';
+import 'vocabulary_model.dart';
+
+/// FSRS Card State
+enum CardState {
+  newCard,     // stored as 'new' in DB
+  learning,
+  review,
+  relearning;
+
+  static CardState fromString(String value) {
+    return CardState.values.firstWhere(
+      (e) => e.toValue() == value,
+      orElse: () => CardState.newCard,
+    );
+  }
+
+  /// Convert to database value (snake_case string)
+  String toValue() {
+    switch (this) {
+      case CardState.newCard:
+        return 'new';
+      case CardState.learning:
+        return 'learning';
+      case CardState.review:
+        return 'review';
+      case CardState.relearning:
+        return 'relearning';
+    }
+  }
+}
+
+/// Word Card Model for Spaced Repetition System
+/// Stores FSRS (Free Spaced Repetition Scheduler) state
+class WordCardModel extends Equatable {
+  final String id;
+  final String userId;
+  final String vocabularyId;
+  final double stability;
+  final double difficulty;
+  final CardState state;
+  final DateTime dueDate;
+  final DateTime? lastReview;
+  final int reps;
+  final int lapses;
+  final DateTime createdAt;
+  final DateTime? updatedAt;
+
+  // Joined vocabulary data (populated when needed)
+  final VocabularyModel? vocabulary;
+
+  const WordCardModel({
+    required this.id,
+    required this.userId,
+    required this.vocabularyId,
+    this.stability = 0,
+    this.difficulty = 0,
+    this.state = CardState.newCard,
+    required this.dueDate,
+    this.lastReview,
+    this.reps = 0,
+    this.lapses = 0,
+    required this.createdAt,
+    this.updatedAt,
+    this.vocabulary,
+  });
+
+  /// Create from Supabase JSON (snake_case from database)
+  factory WordCardModel.fromSupabaseJson(Map<String, dynamic> json) {
+    return WordCardModel(
+      id: json['id'] as String,
+      userId: json['user_id'] as String,
+      vocabularyId: json['vocabulary_id'] as String,
+      stability: (json['stability'] as num?)?.toDouble() ?? 0,
+      difficulty: (json['difficulty'] as num?)?.toDouble() ?? 0,
+      state: CardState.fromString(json['state'] as String? ?? 'new'),
+      dueDate: DateTime.parse(json['due_date'] as String),
+      lastReview: json['last_review'] != null
+          ? DateTime.parse(json['last_review'] as String)
+          : null,
+      reps: json['reps'] as int? ?? 0,
+      lapses: json['lapses'] as int? ?? 0,
+      createdAt: DateTime.parse(json['created_at'] as String),
+      updatedAt: json['updated_at'] != null
+          ? DateTime.parse(json['updated_at'] as String)
+          : null,
+    );
+  }
+
+  /// Create from local JSON (camelCase - for Hive storage)
+  factory WordCardModel.fromJson(Map<String, dynamic> json) {
+    return WordCardModel(
+      id: json['id'] as String,
+      userId: json['userId'] as String,
+      vocabularyId: json['vocabularyId'] as String,
+      stability: (json['stability'] as num?)?.toDouble() ?? 0,
+      difficulty: (json['difficulty'] as num?)?.toDouble() ?? 0,
+      state: CardState.fromString(json['state'] as String? ?? 'new'),
+      dueDate: DateTime.parse(json['dueDate'] as String),
+      lastReview: json['lastReview'] != null
+          ? DateTime.parse(json['lastReview'] as String)
+          : null,
+      reps: json['reps'] as int? ?? 0,
+      lapses: json['lapses'] as int? ?? 0,
+      createdAt: DateTime.parse(json['createdAt'] as String),
+      updatedAt: json['updatedAt'] != null
+          ? DateTime.parse(json['updatedAt'] as String)
+          : null,
+    );
+  }
+
+  /// Create from Supabase RPC function result (with joined vocabulary data)
+  factory WordCardModel.fromSupabaseWithVocabulary(Map<String, dynamic> json) {
+    final vocabJson = <String, dynamic>{
+      'id': json['vocabulary_id'] as String,
+      'word': json['word'] as String,
+      'part_of_speech': '',
+      'thai_translation': json['meaning'] as String,
+      'english_sentence': json['example_sentence'] as String,
+      'thai_sentence': '',
+      'cefr_level': 'A1',
+      'communicative_function': '',
+      'language_variant': 'US',
+      'image_url': json['photo_url'] as String,
+      'created_at': json['due_date'] as String, // fallback
+      'updated_at': null,
+      'tags': [],
+      'is_favorite': false,
+    };
+
+    return WordCardModel(
+      id: json['id'] as String,
+      userId: json['user_id'] as String,
+      vocabularyId: json['vocabulary_id'] as String,
+      stability: (json['stability'] as num?)?.toDouble() ?? 0,
+      difficulty: (json['difficulty'] as num?)?.toDouble() ?? 0,
+      state: CardState.fromString(json['state'] as String? ?? 'new'),
+      dueDate: DateTime.parse(json['due_date'] as String),
+      lastReview: json['last_review'] != null
+          ? DateTime.parse(json['last_review'] as String)
+          : null,
+      reps: json['reps'] as int? ?? 0,
+      lapses: json['lapses'] as int? ?? 0,
+      createdAt: DateTime.now(), // fallback
+      updatedAt: null,
+      vocabulary: VocabularyModel.fromSupabaseJson(vocabJson),
+    );
+  }
+
+  WordCardModel copyWith({
+    String? id,
+    String? userId,
+    String? vocabularyId,
+    double? stability,
+    double? difficulty,
+    CardState? state,
+    DateTime? dueDate,
+    DateTime? lastReview,
+    int? reps,
+    int? lapses,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    VocabularyModel? vocabulary,
+  }) {
+    return WordCardModel(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      vocabularyId: vocabularyId ?? this.vocabularyId,
+      stability: stability ?? this.stability,
+      difficulty: difficulty ?? this.difficulty,
+      state: state ?? this.state,
+      dueDate: dueDate ?? this.dueDate,
+      lastReview: lastReview ?? this.lastReview,
+      reps: reps ?? this.reps,
+      lapses: lapses ?? this.lapses,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      vocabulary: vocabulary ?? this.vocabulary,
+    );
+  }
+
+  /// Convert to JSON for local storage (Hive - camelCase)
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'userId': userId,
+      'vocabularyId': vocabularyId,
+      'stability': stability,
+      'difficulty': difficulty,
+      'state': state.toValue(),
+      'dueDate': dueDate.toIso8601String(),
+      'lastReview': lastReview?.toIso8601String(),
+      'reps': reps,
+      'lapses': lapses,
+      'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt?.toIso8601String(),
+    };
+  }
+
+  /// Convert to JSON for Supabase (snake_case)
+  Map<String, dynamic> toSupabaseJson() {
+    return {
+      'id': id,
+      'user_id': userId,
+      'vocabulary_id': vocabularyId,
+      'stability': stability,
+      'difficulty': difficulty,
+      'state': state.toValue(),
+      'due_date': dueDate.toIso8601String(),
+      'last_review': lastReview?.toIso8601String(),
+      'reps': reps,
+      'lapses': lapses,
+      'created_at': createdAt.toIso8601String(),
+      'updated_at': updatedAt?.toIso8601String(),
+    };
+  }
+
+  /// Check if card is due for review
+  bool get isDue => DateTime.now().isAfter(dueDate) || DateTime.now().isAtSameMomentAs(dueDate);
+
+  @override
+  List<Object?> get props => [
+        id,
+        userId,
+        vocabularyId,
+        stability,
+        difficulty,
+        state,
+        dueDate,
+        reps,
+        lapses,
+      ];
+}

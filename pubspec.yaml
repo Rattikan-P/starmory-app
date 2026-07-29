@@ -37,6 +37,7 @@ dependencies:
 
   # AI & Core
   google_generative_ai: ^0.4.6
+  fsrs: ^2.0.1
 
   # Auth & Backend
   supabase_flutter: ^2.12.4
