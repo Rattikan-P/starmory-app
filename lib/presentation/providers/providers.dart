@@ -16,6 +16,9 @@ import '../../constants/app_defaults.dart';
 import 'scrapbook_provider.dart';
 import 'navigation_provider.dart';
 
+// Export review providers
+export 'review_provider.dart';
+
 // ============= Service Providers =============
 
 /// Hive Service Provider

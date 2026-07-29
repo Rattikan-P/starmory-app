@@ -55,6 +55,7 @@ class AppConstants {
   static const String boxUser = 'user_box';
   static const String boxCalendar = 'calendar_box';
   static const String boxScrapbook = 'scrapbook_box';
+  static const String boxWordCards = 'word_cards_box';
 
   /// Initialize environment variables 
   static Future<void> initialize() async {
