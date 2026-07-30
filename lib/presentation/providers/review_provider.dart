@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/word_card_model.dart';
 import '../../data/services/review_service.dart';
-import '../../data/services/hive_service.dart';
 import '../../core/utils/fsrs_helper.dart';
 import 'providers.dart';
 
@@ -18,6 +17,9 @@ class ReviewState {
   final bool? lastRating; // true = remembered, false = forgot
   final int remainingDueCount; // Number of due cards remaining (for Continue button)
   final Set<String> reviewedCardIds; // Track cards already reviewed in this session
+  final DateTime? sessionStartTime; // Track when review session started
+  final int totalReviewsCompleted; // Total number of reviews completed by user
+  final double averageTimePerCard; // Average seconds per card (from historical data)
 
   const ReviewState({
     this.cards = const [],
@@ -29,6 +31,9 @@ class ReviewState {
     this.lastRating,
     this.remainingDueCount = 0,
     this.reviewedCardIds = const {},
+    this.sessionStartTime,
+    this.totalReviewsCompleted = 0,
+    this.averageTimePerCard = 7.0, // Default 7 seconds (FSRS team baseline)
   });
 
   ReviewState copyWith({
@@ -41,6 +46,9 @@ class ReviewState {
     bool? lastRating,
     int? remainingDueCount,
     Set<String>? reviewedCardIds,
+    DateTime? sessionStartTime,
+    int? totalReviewsCompleted,
+    double? averageTimePerCard,
   }) {
     return ReviewState(
       cards: cards ?? this.cards,
@@ -52,6 +60,9 @@ class ReviewState {
       lastRating: lastRating ?? this.lastRating,
       remainingDueCount: remainingDueCount ?? this.remainingDueCount,
       reviewedCardIds: reviewedCardIds ?? this.reviewedCardIds,
+      sessionStartTime: sessionStartTime ?? this.sessionStartTime,
+      totalReviewsCompleted: totalReviewsCompleted ?? this.totalReviewsCompleted,
+      averageTimePerCard: averageTimePerCard ?? this.averageTimePerCard,
     );
   }
 
@@ -110,6 +121,9 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
       // Check if there are more due cards remaining
       final remainingDue = await _reviewService.getRemainingDueCount();
 
+      // Load user stats for adaptive time estimation
+      final userStats = await _reviewService.hiveService.getUserStats();
+
       state = ReviewState(
         cards: sessionCards,
         currentIndex: 0,
@@ -117,6 +131,9 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
         sessionCount: sessionCards.length,
         remainingDueCount: remainingDue,
         reviewedCardIds: {}, // Clear reviewed cards on new session
+        sessionStartTime: DateTime.now(), // Track session start time
+        totalReviewsCompleted: userStats?.totalReviewsCompleted ?? 0,
+        averageTimePerCard: userStats?.averageTimePerCard ?? 7.0,
       );
     } catch (e) {
       state = ReviewState(
@@ -173,11 +190,21 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
     if (currentCard == null) return;
 
     try {
+      // Track time taken for this card
+      final now = DateTime.now();
+      final sessionStart = state.sessionStartTime ?? now;
+      final elapsedSeconds = now.difference(sessionStart).inSeconds;
+
       // Update card with FSRS
       final updatedCard = await FsrSHelper.reviewCard(currentCard, remembered);
 
       // Save to storage
       await _reviewService.updateCard(updatedCard);
+
+      // Calculate new average time per card
+      final totalReviews = state.totalReviewsCompleted + 1;
+      final currentAvg = state.averageTimePerCard;
+      final newAvg = ((currentAvg * state.totalReviewsCompleted) + elapsedSeconds) / totalReviews;
 
       // Add card ID to reviewed set
       final newReviewedIds = Set<String>.from(state.reviewedCardIds);
@@ -188,6 +215,14 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
         showFeedback: true,
         lastRating: remembered,
         reviewedCardIds: newReviewedIds,
+        totalReviewsCompleted: totalReviews,
+        averageTimePerCard: newAvg,
+      );
+
+      // Save user stats to storage (Hive for guest, Supabase for registered)
+      await _reviewService.saveUserStats(
+        totalReviewsCompleted: totalReviews,
+        averageTimePerCard: newAvg,
       );
     } catch (e) {
       state = state.copyWith(error: e.toString());
