@@ -1,24 +1,44 @@
-import 'package:fsrs/fsrs.dart' as fsrs;
+import 'package:fsrs/fsrs.dart';
 import '../../data/models/word_card_model.dart';
 
 /// FSRS (Free Spaced Repetition Scheduler) Helper
-/// Wraps FSRS algorithm for spaced repetition review system
+/// Uses official FSRS package for spaced repetition algorithm
 class FsrSHelper {
-  /// FSRS scheduler instance with default parameters
-  static fsrs.Scheduler scheduler = fsrs.Scheduler();
+  /// FSRS scheduler with default parameters
+  /// - desiredRetention: 0.9 (90% memory retention)
+  /// - learningSteps: [1min, 10min] for new cards
+  /// - relearningSteps: [10min] for forgot cards
+  static Scheduler scheduler = Scheduler(
+    desiredRetention: 0.9,
+    learningSteps: [
+      Duration(minutes: 1),
+      Duration(minutes: 10),
+    ],
+    relearningSteps: [
+      Duration(minutes: 10),
+    ],
+  );
 
   /// Map swipe gesture to FSRS rating
   /// - Swipe Left (Forgot) -> Rating.again
   /// - Swipe Right (Recalled) -> Rating.good
-  static fsrs.Rating getRatingFromSwipe(bool remembered) {
-    return remembered ? fsrs.Rating.good : fsrs.Rating.again;
+  static Rating getRatingFromSwipe(bool remembered) {
+    return remembered ? Rating.good : Rating.again;
   }
 
   /// Create FSRS Card from WordCardModel
-  static fsrs.Card createCardFromModel(WordCardModel model) {
-    return fsrs.Card(
-      cardId: DateTime.now().millisecondsSinceEpoch,
-      state: _mapCardStateToFsrs(model.state),
+  static Card _createFsrsCard(WordCardModel model) {
+    // Parse card ID as integer
+    int cardId;
+    try {
+      cardId = int.parse(model.id.split('_').last);
+    } catch (_) {
+      cardId = DateTime.now().millisecondsSinceEpoch;
+    }
+
+    return Card(
+      cardId: cardId,
+      state: _mapCardState(model.state),
       due: model.dueDate.toUtc(),
       stability: model.stability == 0 ? null : model.stability,
       difficulty: model.difficulty == 0 ? null : model.difficulty,
@@ -27,28 +47,28 @@ class FsrSHelper {
   }
 
   /// Map our CardState to FSRS State
-  static fsrs.State _mapCardStateToFsrs(CardState state) {
+  /// Note: FSRS doesn't have "New" state, so we map newCard to Learning
+  static State _mapCardState(CardState state) {
     switch (state) {
       case CardState.newCard:
-        // New cards start in learning state
-        return fsrs.State.learning;
+        return State.learning;
       case CardState.learning:
-        return fsrs.State.learning;
+        return State.learning;
       case CardState.review:
-        return fsrs.State.review;
+        return State.review;
       case CardState.relearning:
-        return fsrs.State.relearning;
+        return State.relearning;
     }
   }
 
   /// Map FSRS State to our CardState
-  static CardState _mapFsrsStateToCardState(fsrs.State state) {
+  static CardState _mapFsrsStateToCardState(State state) {
     switch (state) {
-      case fsrs.State.learning:
+      case State.learning:
         return CardState.learning;
-      case fsrs.State.review:
+      case State.review:
         return CardState.review;
-      case fsrs.State.relearning:
+      case State.relearning:
         return CardState.relearning;
     }
   }
@@ -60,31 +80,34 @@ class FsrSHelper {
     final rating = getRatingFromSwipe(remembered);
 
     // Create FSRS card from model
-    final fsrsCard = createCardFromModel(card);
+    final fsrsCard = _createFsrsCard(card);
 
-    // Review with FSRS
+    // Review with FSRS - this returns a record with (card, reviewLog)
     final result = scheduler.reviewCard(fsrsCard, rating);
 
-    // 🧠 DEBUG: Print FSRS calculation values
     final now = DateTime.now();
+
+    // 🧠 DEBUG: Print FSRS calculation values
     final minutesUntilDue = result.card.due.difference(now).inMinutes;
-    print('🧠 FSRS Calculation:');
+    print('🧠 FSRS Package Calculation:');
     print('   Input: rating=$rating, state=${fsrsCard.state}');
-    print('   Before: stability=${fsrsCard.stability?.toStringAsFixed(2) ?? '0.0'}, difficulty=${fsrsCard.difficulty?.toStringAsFixed(2) ?? '0.0'}');
-    print('   After: stability=${result.card.stability?.toStringAsFixed(2) ?? '0.0'}, difficulty=${result.card.difficulty?.toStringAsFixed(2) ?? '0.0'}');
+    print('   Before: stability=${fsrsCard.stability?.toStringAsFixed(2) ?? 'null'}, difficulty=${fsrsCard.difficulty?.toStringAsFixed(2) ?? 'null'}');
+    print('   After: stability=${result.card.stability?.toStringAsFixed(2) ?? 'null'}, difficulty=${result.card.difficulty?.toStringAsFixed(2) ?? 'null'}');
     print('   Next due: ${result.card.due.toLocal()} ($minutesUntilDue min from now)');
+    print('   State: ${fsrsCard.state} → ${result.card.state}');
     print('   ---');
 
-    // Update card with new values
+    // Update card with new values from FSRS
+    // Increment reps, and lapses if rating is Again
     return card.copyWith(
       state: _mapFsrsStateToCardState(result.card.state),
       stability: result.card.stability ?? 0,
       difficulty: result.card.difficulty ?? 0,
       dueDate: result.card.due.toLocal(),
-      lastReview: DateTime.now(),
-      reps: result.card.step ?? 0,
-      lapses: 0, // FSRS doesn't track lapses directly
-      updatedAt: DateTime.now(),
+      lastReview: now,
+      reps: card.reps + 1,
+      lapses: rating == Rating.again ? card.lapses + 1 : card.lapses,
+      updatedAt: now,
     );
   }
 

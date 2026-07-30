@@ -312,6 +312,120 @@ class ReviewService {
     return sessionCards;
   }
 
+  /// Check if there are more due cards available (for Continue button)
+  Future<int> getRemainingDueCount() async {
+    final userId = currentUserId;
+
+    if (userId == null) {
+      // Guest mode: count from Hive
+      return _getRemainingDueFromHive();
+    } else {
+      // Registered mode: count from Supabase
+      return _getRemainingDueFromSupabase(userId);
+    }
+  }
+
+  /// Get remaining due cards from Hive (Guest mode)
+  Future<int> _getRemainingDueFromHive() async {
+    try {
+      final allCards = await _hiveService.getWordCards();
+      final now = DateTime.now();
+
+      // Count due cards
+      final dueCards = allCards.where((card) => card.isDue).toList();
+      return dueCards.length;
+    } catch (e) {
+      print('❌ Error counting due cards from Hive: $e');
+      return 0;
+    }
+  }
+
+  /// Get remaining due cards from Supabase (Registered mode)
+  Future<int> _getRemainingDueFromSupabase(String userId) async {
+    try {
+      // Count all due cards (no limit)
+      final response = await _client
+          .rpc('get_due_cards', params: {'p_user_id': userId, 'p_limit': 999});
+
+      if (response == null) return 0;
+
+      final List<dynamic> data = response as List<dynamic>;
+      return data.length;
+    } catch (e) {
+      print('❌ Error counting due cards from Supabase: $e');
+      return 0;
+    }
+  }
+
+  /// Load more cards for review (when user clicks Continue)
+  Future<List<WordCardModel>> getMoreCards({int batchSize = 5, List<String>? excludeIds}) async {
+    final userId = currentUserId;
+
+    if (userId == null) {
+      // Guest mode: get from Hive
+      return _getMoreCardsFromHive(batchSize, excludeIds);
+    } else {
+      // Registered mode: get from Supabase
+      return _getMoreCardsFromSupabase(userId, batchSize, excludeIds);
+    }
+  }
+
+  /// Get more cards from Hive (Guest mode)
+  Future<List<WordCardModel>> _getMoreCardsFromHive(int batchSize, List<String>? excludeIds) async {
+    try {
+      final allCards = await _hiveService.getWordCards();
+      final now = DateTime.now();
+
+      // Filter due cards
+      var dueCards = allCards.where((card) => card.isDue).toList();
+
+      // Exclude already reviewed cards
+      if (excludeIds != null && excludeIds.isNotEmpty) {
+        dueCards = dueCards.where((card) => !excludeIds.contains(card.id)).toList();
+      }
+
+      // Sort by due date
+      dueCards.sort((a, b) => a.dueDate.compareTo(b.dueDate));
+
+      // Limit
+      return dueCards.take(batchSize).toList();
+    } catch (e) {
+      print('❌ Error getting more cards from Hive: $e');
+      return [];
+    }
+  }
+
+  /// Get more cards from Supabase (Registered mode)
+  Future<List<WordCardModel>> _getMoreCardsFromSupabase(String userId, int batchSize, List<String>? excludeIds) async {
+    try {
+      // Get due cards with higher limit to get more
+      final response = await _client
+          .rpc('get_due_cards', params: {'p_user_id': userId, 'p_limit': 100});
+
+      if (response == null) return [];
+
+      final List<dynamic> data = response as List<dynamic>;
+      var cards = data
+          .map((json) => WordCardModel.fromSupabaseWithVocabulary(
+              json as Map<String, dynamic>))
+          .toList();
+
+      // Exclude already reviewed cards
+      if (excludeIds != null && excludeIds.isNotEmpty) {
+        cards = cards.where((card) => !excludeIds.contains(card.id)).toList();
+      }
+
+      // Sort by due date (should already be sorted from RPC)
+      cards.sort((a, b) => a.dueDate.compareTo(b.dueDate));
+
+      // Limit
+      return cards.take(batchSize).toList();
+    } catch (e) {
+      print('❌ Error getting more cards from Supabase: $e');
+      return [];
+    }
+  }
+
   /// Generate unique ID for guest mode
   String _generateId() {
     return '${DateTime.now().millisecondsSinceEpoch}_${DateTime.now().microsecond}';

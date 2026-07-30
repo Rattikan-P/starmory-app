@@ -27,6 +27,10 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
   late AnimationController _flipController;
   late Animation<double> _flipAnimation;
 
+  // Swipe drag state
+  double _dragOffsetX = 0;
+  double _dragStartX = 0;
+
   @override
   void initState() {
     super.initState();
@@ -90,31 +94,68 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
     return GestureDetector(
       // Tap to flip (only when not revealed)
       onTap: _isRevealed ? null : _flip,
-      // Swipe gestures (only when revealed)
-      onHorizontalDragEnd: (details) {
-        if (!_isRevealed) return;
+      // Swipe drag start
+      onHorizontalDragStart: _isRevealed
+          ? (details) {
+              setState(() {
+                _dragStartX = details.globalPosition.dx;
+                _dragOffsetX = 0;
+              });
+            }
+          : null,
+      // Swipe drag update
+      onHorizontalDragUpdate: _isRevealed
+          ? (details) {
+              setState(() {
+                _dragOffsetX = details.globalPosition.dx - _dragStartX;
+              });
+            }
+          : null,
+      // Swipe drag end
+      onHorizontalDragEnd: _isRevealed
+          ? (details) {
+              if (details.primaryVelocity == null) return;
+              final velocity = details.primaryVelocity!;
 
-        if (details.primaryVelocity == null) return;
-        final velocity = details.primaryVelocity!;
-
-        // Swipe right = Know, Swipe left = Forgot
-        if (velocity > 300) {
-          _handleSwipe(true);
-        } else if (velocity < -300) {
-          _handleSwipe(false);
-        }
-      },
+              // Check threshold or velocity
+              if (_dragOffsetX.abs() > 100 || velocity.abs() > 500) {
+                // Swipe complete
+                setState(() {
+                  _dragOffsetX = 0;
+                });
+                // Swipe right = Know, Swipe left = Forgot
+                if (_dragOffsetX > 0 || velocity > 0) {
+                  _handleSwipe(true);
+                } else {
+                  _handleSwipe(false);
+                }
+              } else {
+                // Snap back
+                setState(() {
+                  _dragOffsetX = 0;
+                });
+              }
+            }
+          : null,
       child: AnimatedBuilder(
         animation: _flipAnimation,
         builder: (context, child) {
           // Calculate which side to show based on flip progress
           final showBack = _flipAnimation.value > 0.5;
 
+          // Calculate drag transform
+          final dragRotation = _dragOffsetX * 0.002;
+          final dragScale = 1 - (_dragOffsetX.abs() / 1000);
+          final clampedScale = dragScale.clamp(0.85, 1.0);
+
           return Transform(
             alignment: Alignment.center,
             transform: Matrix4.identity()
               ..setEntry(3, 2, 0.001) // Perspective
-              ..rotateY(_flipAnimation.value * 3.14159), // 180 degrees
+              ..rotateY(_flipAnimation.value * 3.14159) // Flip animation
+              ..translate(-_dragOffsetX, 0.0, 0.0) // Drag movement (inverted for flipX)
+              ..rotateZ(-dragRotation) // Drag rotation (inverted for flipX)
+              ..scale(clampedScale, clampedScale, 1.0), // Drag scale
             child: showBack
                 ? _buildBackSide(context, vocab)
                 : _buildFrontSide(context, vocab),
@@ -249,7 +290,7 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
     );
   }
 
-  // Back Side: Clear Image + Word + Meaning + Sentence + Swipe hints
+  // Back Side: Full Image + Black gradient at bottom + Readable text
   Widget _buildBackSide(BuildContext context, dynamic vocab) {
     return Transform.flip(
       flipX: true, // Flip content back since card is rotated 180
@@ -272,97 +313,72 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
           child: Stack(
             fit: StackFit.expand,
             children: [
-              // Background gradient
-              Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      const Color(0xFF3D3A5C),
-                      const Color(0xFF2D2A4C),
-                      const Color(0xFF1A1A2E),
-                    ],
-                  ),
-                ),
-              ),
-
-              // Clear image at top
+              // Full clear image (takes entire card)
               if (vocab.imageUrl.isNotEmpty)
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  height: 280,
-                  child: ClipRRect(
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(28),
-                      topRight: Radius.circular(28),
-                    ),
-                    child: Image.network(
-                      vocab.imageUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          color: const Color(0xFF3D3A5C),
-                          child: const Icon(Icons.broken_image, size: 64, color: Colors.white38),
-                        );
-                      },
-                    ),
+                Positioned.fill(
+                  child: Image.network(
+                    vocab.imageUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        color: const Color(0xFF3D3A5C),
+                        child: const Icon(Icons.broken_image, size: 64, color: Colors.white38),
+                      );
+                    },
                   ),
                 ),
 
-              // Gradient overlay from image to content
+              // Black gradient at bottom for text readability
               Positioned(
-                top: 200,
                 left: 0,
                 right: 0,
                 bottom: 0,
                 child: Container(
+                  height: 280,
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: [
                         Colors.transparent,
-                        const Color(0xFF3D3A5C).withValues(alpha: 0.85),
-                        const Color(0xFF2D2A4C).withValues(alpha: 0.92),
-                        const Color(0xFF1A1A2E),
+                        Colors.black.withValues(alpha: 0.3),
+                        Colors.black.withValues(alpha: 0.5),
+                        Colors.black.withValues(alpha: 0.7),
+                        Colors.black.withValues(alpha: 0.85),
                       ],
-                      stops: const [0.0, 0.3, 0.6, 1.0],
+                      stops: const [0.0, 0.2, 0.4, 0.7, 1.0],
                     ),
                   ),
                 ),
               ),
 
-              // Content section
+              // Content section at bottom
               Positioned(
-                top: 220,
                 left: 0,
                 right: 0,
                 bottom: 0,
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       // Word
                       Text(
                         vocab.word,
                         style: const TextStyle(
-                          fontSize: 32,
+                          fontSize: 36,
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
-                          height: 1.2,
+                          height: 1.1,
                           shadows: [
                             Shadow(
                               offset: Offset(0, 2),
                               blurRadius: 8,
-                              color: Colors.black54,
+                              color: Colors.black,
                             ),
                           ],
                         ),
-                        textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 8),
 
@@ -370,58 +386,55 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
                       Text(
                         'means',
                         style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.white.withValues(alpha: 0.6),
-                          letterSpacing: 1.5,
+                          fontSize: 14,
+                          color: Colors.white.withValues(alpha: 0.7),
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+
+                      // Meaning (prominent, readable)
+                      Text(
+                        vocab.thaiTranslation,
+                        style: const TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          height: 1.3,
+                          shadows: [
+                            Shadow(
+                              offset: Offset(0, 1),
+                              blurRadius: 6,
+                              color: Colors.black,
+                            ),
+                          ],
                         ),
                       ),
                       const SizedBox(height: 12),
 
-                      // Meaning
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              const Color(0xFF8B7CF6).withValues(alpha: 0.3),
-                              const Color(0xFF6C63FF).withValues(alpha: 0.2),
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.2),
-                            width: 1.5,
-                          ),
-                        ),
-                        child: Text(
-                          vocab.thaiTranslation,
-                          style: const TextStyle(
-                            fontSize: 26,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
                       // Example sentence
                       if (vocab.englishSentence.isNotEmpty)
                         Container(
-                          padding: const EdgeInsets.all(14),
+                          padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.06),
-                            borderRadius: BorderRadius.circular(12),
+                            color: Colors.white.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
-                            '"${vocab.englishSentence}"',
+                            vocab.englishSentence,
                             style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.white.withValues(alpha: 0.8),
+                              fontSize: 13,
+                              color: Colors.white.withValues(alpha: 0.9),
                               fontStyle: FontStyle.italic,
                               height: 1.4,
+                              shadows: [
+                                Shadow(
+                                  offset: Offset(0, 1),
+                                  blurRadius: 4,
+                                  color: Colors.black,
+                                ),
+                              ],
                             ),
-                            textAlign: TextAlign.center,
                           ),
                         ),
                     ],
@@ -440,12 +453,12 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
                       bottom: 0,
                       child: Center(
                         child: Opacity(
-                          opacity: 0.25,
+                          opacity: 0.3,
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.arrow_back, color: Colors.red, size: 32),
-                              Text('Forgot', style: TextStyle(color: Colors.red, fontSize: 12)),
+                              Icon(Icons.arrow_back, color: Colors.white, size: 28),
+                              Text('Forgot', style: TextStyle(color: Colors.white, fontSize: 11)),
                             ],
                           ),
                         ),
@@ -458,12 +471,12 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
                       bottom: 0,
                       child: Center(
                         child: Opacity(
-                          opacity: 0.25,
+                          opacity: 0.3,
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.arrow_forward, color: Colors.green, size: 32),
-                              Text('Know', style: TextStyle(color: Colors.green, fontSize: 12)),
+                              Icon(Icons.arrow_forward, color: Colors.white, size: 28),
+                              Text('Know', style: TextStyle(color: Colors.white, fontSize: 11)),
                             ],
                           ),
                         ),
@@ -478,7 +491,7 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
                 child: Container(
                   decoration: BoxDecoration(
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.15),
+                      color: Colors.white.withValues(alpha: 0.2),
                       width: 2,
                     ),
                     borderRadius: BorderRadius.circular(28),
