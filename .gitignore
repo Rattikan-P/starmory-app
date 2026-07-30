@@ -72,3 +72,6 @@ supabase.exe
 supabase/.branches/
 supabase/.temp/
 *.hprof
+
+# Claude Code
+.claude/

@@ -16,6 +16,8 @@ class ReviewState {
   final int sessionCount;
   final bool showFeedback;
   final bool? lastRating; // true = remembered, false = forgot
+  final int remainingDueCount; // Number of due cards remaining (for Continue button)
+  final Set<String> reviewedCardIds; // Track cards already reviewed in this session
 
   const ReviewState({
     this.cards = const [],
@@ -25,6 +27,8 @@ class ReviewState {
     this.sessionCount = 0,
     this.showFeedback = false,
     this.lastRating,
+    this.remainingDueCount = 0,
+    this.reviewedCardIds = const {},
   });
 
   ReviewState copyWith({
@@ -35,6 +39,8 @@ class ReviewState {
     int? sessionCount,
     bool? showFeedback,
     bool? lastRating,
+    int? remainingDueCount,
+    Set<String>? reviewedCardIds,
   }) {
     return ReviewState(
       cards: cards ?? this.cards,
@@ -44,6 +50,8 @@ class ReviewState {
       sessionCount: sessionCount ?? this.sessionCount,
       showFeedback: showFeedback ?? this.showFeedback,
       lastRating: lastRating ?? this.lastRating,
+      remainingDueCount: remainingDueCount ?? this.remainingDueCount,
+      reviewedCardIds: reviewedCardIds ?? this.reviewedCardIds,
     );
   }
 
@@ -99,14 +107,59 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
 
       final sessionCards = await _reviewService.getReviewSession();
 
+      // Check if there are more due cards remaining
+      final remainingDue = await _reviewService.getRemainingDueCount();
+
       state = ReviewState(
         cards: sessionCards,
         currentIndex: 0,
         isLoading: false,
         sessionCount: sessionCards.length,
+        remainingDueCount: remainingDue,
+        reviewedCardIds: {}, // Clear reviewed cards on new session
       );
     } catch (e) {
       state = ReviewState(
+        isLoading: false,
+        error: e.toString(),
+        reviewedCardIds: {},
+      );
+    }
+  }
+
+  /// Load more cards (when user clicks Continue)
+  Future<void> loadMore() async {
+    try {
+      state = state.copyWith(isLoading: true, error: null);
+
+      // Get more cards, excluding already reviewed ones
+      final moreCards = await _reviewService.getMoreCards(
+        excludeIds: state.reviewedCardIds.toList(),
+      );
+
+      if (moreCards.isEmpty) {
+        // No more cards
+        state = state.copyWith(isLoading: false, remainingDueCount: 0);
+        return;
+      }
+
+      // Add to current session
+      final currentCards = List<WordCardModel>.from(state.cards);
+      currentCards.addAll(moreCards);
+
+      // Update remaining count
+      final remainingDue = await _reviewService.getRemainingDueCount();
+
+      state = ReviewState(
+        cards: currentCards,
+        currentIndex: state.currentIndex, // Keep current position
+        isLoading: false,
+        sessionCount: currentCards.length,
+        remainingDueCount: remainingDue,
+        reviewedCardIds: state.reviewedCardIds, // Keep tracking
+      );
+    } catch (e) {
+      state = state.copyWith(
         isLoading: false,
         error: e.toString(),
       );
@@ -126,10 +179,15 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
       // Save to storage
       await _reviewService.updateCard(updatedCard);
 
+      // Add card ID to reviewed set
+      final newReviewedIds = Set<String>.from(state.reviewedCardIds);
+      newReviewedIds.add(currentCard.id);
+
       // Show feedback first
       state = state.copyWith(
         showFeedback: true,
         lastRating: remembered,
+        reviewedCardIds: newReviewedIds,
       );
     } catch (e) {
       state = state.copyWith(error: e.toString());

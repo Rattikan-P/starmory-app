@@ -5,7 +5,7 @@ import '../widgets/review_card_widget.dart';
 import '../widgets/galaxy_screen_background.dart';
 
 /// Review Session Page
-/// Main review interface with swipe cards and feedback
+/// Main review interface with flip cards and feedback
 class ReviewSessionPage extends ConsumerWidget {
   const ReviewSessionPage({super.key});
 
@@ -21,6 +21,32 @@ class ReviewSessionPage extends ConsumerWidget {
           backgroundColor: Colors.transparent,
           elevation: 0,
           actions: [
+            // Auto-saved hint
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.green.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.cloud_done, color: Colors.green, size: 12),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Auto-saved',
+                      style: TextStyle(
+                        color: Colors.green.withValues(alpha: 0.9),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
             if (!reviewState.isLoading && reviewState.cards.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.all(16),
@@ -120,6 +146,9 @@ class ReviewSessionPage extends ConsumerWidget {
             onPressed: () => Navigator.pop(context),
             icon: const Icon(Icons.home),
             label: const Text('Back to Review'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF8b7cf6),
+            ),
           ),
         ],
       ),
@@ -148,18 +177,6 @@ class ReviewSessionPage extends ConsumerWidget {
               onForgot: () => _handleSwipe(ref, false),
               onKnow: () => _handleSwipe(ref, true),
             ),
-          ),
-        ),
-        // Instructions
-        const Padding(
-          padding: EdgeInsets.all(24),
-          child: Text(
-            '← Swipe left if you forgot | Swipe right if you recalled →',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.white70,
-            ),
-            textAlign: TextAlign.center,
           ),
         ),
       ],
@@ -250,6 +267,9 @@ class ReviewSessionPage extends ConsumerWidget {
   }
 
   Widget _buildCompleteState(BuildContext context, WidgetRef ref) {
+    final reviewState = ref.watch(reviewStateProvider);
+    final remaining = reviewState.remainingDueCount;
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -267,12 +287,72 @@ class ReviewSessionPage extends ConsumerWidget {
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 16),
-          ElevatedButton.icon(
-            onPressed: () => Navigator.pop(context),
-            icon: const Icon(Icons.check),
-            label: const Text('Finish'),
+          const SizedBox(height: 8),
+          Text(
+            '${reviewState.sessionCount} cards reviewed',
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey[400],
+            ),
           ),
+          const SizedBox(height: 24),
+
+          // Show Continue button if there are more cards
+          if (remaining > 0) ...[
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 32),
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  ref.read(reviewStateProvider.notifier).loadMore();
+                },
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 32,
+                    vertical: 16,
+                  ),
+                  backgroundColor: const Color(0xFF8b7cf6),
+                ),
+                icon: const Icon(Icons.add_circle_outline, size: 22),
+                label: Text('Continue ($remaining more cards)'),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                'Skip for today',
+                style: TextStyle(
+                  color: Colors.grey[500],
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ] else ...[
+            // All caught up - just show Finish button
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 32),
+              child: ElevatedButton.icon(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 32,
+                    vertical: 16,
+                  ),
+                  backgroundColor: const Color(0xFF8b7cf6),
+                ),
+                icon: const Icon(Icons.check),
+                label: const Text('Finish'),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              '🎉 All caught up!',
+              style: TextStyle(
+                color: Colors.grey[500],
+                fontSize: 14,
+              ),
+            ),
+          ],
         ],
       ),
     );

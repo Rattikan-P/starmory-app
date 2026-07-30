@@ -6,12 +6,44 @@ import '../widgets/galaxy_screen_background.dart';
 
 /// Review Tab - Main review screen
 /// Shows review stats and start session button
-class ReviewTab extends ConsumerWidget {
+class ReviewTab extends ConsumerStatefulWidget {
   const ReviewTab({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ReviewTab> createState() => _ReviewTabState();
+}
+
+class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserver {
+  bool _hasInitialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Reload when app is resumed (e.g., returning from review session)
+    if (state == AppLifecycleState.resumed && _hasInitialized) {
+      ref.read(reviewStateProvider.notifier).loadSession();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final reviewState = ref.watch(reviewStateProvider);
+
+    // Mark as initialized after first build
+    if (!_hasInitialized) {
+      _hasInitialized = true;
+    }
 
     return GalaxyScreenBackground(
       child: Scaffold(
@@ -387,6 +419,9 @@ class ReviewTab extends ConsumerWidget {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const ReviewSessionPage()),
-    );
+    ).then((_) {
+      // Reload session data when returning from review
+      ref.read(reviewStateProvider.notifier).loadSession();
+    });
   }
 }
