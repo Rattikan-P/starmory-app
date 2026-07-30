@@ -9,6 +9,9 @@ class ScrapbookTextOverlay extends Equatable {
   final int color; // ARGB color
   final double fontSize;
   final String fontFamily;
+  final double scale; // Scale multiplier for resizing
+  final double rotation; // Rotation in radians
+  final bool flip; // Horizontal flip (mirror)
 
   const ScrapbookTextOverlay({
     required this.id,
@@ -18,6 +21,9 @@ class ScrapbookTextOverlay extends Equatable {
     this.color = 0xFF000000,
     this.fontSize = 16.0,
     this.fontFamily = 'Lexend',
+    this.scale = 1.0,
+    this.rotation = 0.0,
+    this.flip = false,
   });
 
   ScrapbookTextOverlay copyWith({
@@ -28,6 +34,9 @@ class ScrapbookTextOverlay extends Equatable {
     int? color,
     double? fontSize,
     String? fontFamily,
+    double? scale,
+    double? rotation,
+    bool? flip,
   }) {
     return ScrapbookTextOverlay(
       id: id ?? this.id,
@@ -37,6 +46,9 @@ class ScrapbookTextOverlay extends Equatable {
       color: color ?? this.color,
       fontSize: fontSize ?? this.fontSize,
       fontFamily: fontFamily ?? this.fontFamily,
+      scale: scale ?? this.scale,
+      rotation: rotation ?? this.rotation,
+      flip: flip ?? this.flip,
     );
   }
 
@@ -49,6 +61,9 @@ class ScrapbookTextOverlay extends Equatable {
       'color': color,
       'fontSize': fontSize,
       'fontFamily': fontFamily,
+      'scale': scale,
+      'rotation': rotation,
+      'flip': flip,
     };
   }
 
@@ -61,11 +76,14 @@ class ScrapbookTextOverlay extends Equatable {
       color: json['color'] as int? ?? 0xFF000000,
       fontSize: (json['fontSize'] as num?)?.toDouble() ?? 16.0,
       fontFamily: json['fontFamily'] as String? ?? 'Lexend',
+      scale: (json['scale'] as num?)?.toDouble() ?? 1.0,
+      rotation: (json['rotation'] as num?)?.toDouble() ?? 0.0,
+      flip: json['flip'] as bool? ?? false,
     );
   }
 
   @override
-  List<Object?> get props => [id, text, x, y, color];
+  List<Object?> get props => [id, text, x, y, color, scale, rotation, flip];
 }
 
 /// Sticker/emoji on a scrapbook page
@@ -75,6 +93,8 @@ class ScrapbookSticker extends Equatable {
   final double x; // Position 0.0 - 1.0
   final double y;
   final double scale;
+  final double rotation; // Rotation in radians
+  final bool flip; // Horizontal flip (mirror)
 
   const ScrapbookSticker({
     required this.id,
@@ -82,6 +102,8 @@ class ScrapbookSticker extends Equatable {
     required this.x,
     required this.y,
     this.scale = 1.0,
+    this.rotation = 0.0,
+    this.flip = false,
   });
 
   ScrapbookSticker copyWith({
@@ -90,6 +112,8 @@ class ScrapbookSticker extends Equatable {
     double? x,
     double? y,
     double? scale,
+    double? rotation,
+    bool? flip,
   }) {
     return ScrapbookSticker(
       id: id ?? this.id,
@@ -97,6 +121,8 @@ class ScrapbookSticker extends Equatable {
       x: x ?? this.x,
       y: y ?? this.y,
       scale: scale ?? this.scale,
+      rotation: rotation ?? this.rotation,
+      flip: flip ?? this.flip,
     );
   }
 
@@ -107,6 +133,8 @@ class ScrapbookSticker extends Equatable {
       'x': x,
       'y': y,
       'scale': scale,
+      'rotation': rotation,
+      'flip': flip,
     };
   }
 
@@ -117,11 +145,13 @@ class ScrapbookSticker extends Equatable {
       x: (json['x'] as num).toDouble(),
       y: (json['y'] as num).toDouble(),
       scale: (json['scale'] as num?)?.toDouble() ?? 1.0,
+      rotation: (json['rotation'] as num?)?.toDouble() ?? 0.0,
+      flip: json['flip'] as bool? ?? false,
     );
   }
 
   @override
-  List<Object?> get props => [id, emoji, x, y, scale];
+  List<Object?> get props => [id, emoji, x, y, scale, rotation, flip];
 }
 
 /// Additional photo on a scrapbook page
@@ -132,6 +162,8 @@ class ScrapbookPhoto extends Equatable {
   final double y;
   final double width; // Width as fraction of canvas width (0.0 - 1.0)
   final double height; // Height as fraction of canvas height (0.0 - 1.0)
+  final double rotation; // Rotation in radians
+  final bool flip; // Horizontal flip (mirror)
 
   const ScrapbookPhoto({
     required this.id,
@@ -140,6 +172,8 @@ class ScrapbookPhoto extends Equatable {
     required this.y,
     this.width = 0.25, // Default to 25% of canvas width
     this.height = 0.25, // Default to 25% of canvas height
+    this.rotation = 0.0,
+    this.flip = false,
   });
 
   ScrapbookPhoto copyWith({
@@ -149,6 +183,8 @@ class ScrapbookPhoto extends Equatable {
     double? y,
     double? width,
     double? height,
+    double? rotation,
+    bool? flip,
   }) {
     return ScrapbookPhoto(
       id: id ?? this.id,
@@ -157,6 +193,8 @@ class ScrapbookPhoto extends Equatable {
       y: y ?? this.y,
       width: width ?? this.width,
       height: height ?? this.height,
+      rotation: rotation ?? this.rotation,
+      flip: flip ?? this.flip,
     );
   }
 
@@ -168,6 +206,8 @@ class ScrapbookPhoto extends Equatable {
       'y': y,
       'width': width,
       'height': height,
+      'rotation': rotation,
+      'flip': flip,
     };
   }
 
@@ -179,11 +219,13 @@ class ScrapbookPhoto extends Equatable {
       y: (json['y'] as num).toDouble(),
       width: (json['width'] as num?)?.toDouble() ?? 0.25,
       height: (json['height'] as num?)?.toDouble() ?? 0.25,
+      rotation: (json['rotation'] as num?)?.toDouble() ?? 0.0,
+      flip: json['flip'] as bool? ?? false,
     );
   }
 
   @override
-  List<Object?> get props => [id, imagePath, x, y, width, height];
+  List<Object?> get props => [id, imagePath, x, y, width, height, rotation, flip];
 }
 
 /// Vocabulary word reference in a scrapbook

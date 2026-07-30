@@ -79,7 +79,24 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
   String? _draggingType; // 'text', 'sticker', or 'photo'
   Offset? _dragStartOffset;
   Offset? _itemStartOffset;
-  bool _isOverDeleteZone = false; // Track if dragged item is over delete zone
+
+  // Selection state (for showing resize/rotate controls)
+  String? _selectedId; // ID of selected item
+  String? _selectedType; // 'text', 'sticker', or 'photo'
+  Offset? _lastTapPosition; // Last tap position for control handle detection
+
+  // Resize/rotate state
+  String? _resizingId; // ID of item being resized/rotated
+  String? _resizingType; // 'text', 'sticker', or 'photo'
+  Offset? _resizeStartPos; // Initial pointer position for resize
+  double? _initialScale; // Initial scale for resize operation
+  double? _initialRotation; // Initial rotation for resize operation
+  double? _initialAngle; // Initial angle for rotation calculation
+
+  // Pinch gesture state
+  double? _initialPinchScale;
+  double? _initialItemScaleForPinch;
+  double? _initialItemRotationForPinch;
 
   // Canvas size for positioning calculations
   Size? _canvasSize;
@@ -204,6 +221,9 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                   y: overlay.y,
                   color: overlay.color,
                   fontSize: overlay.fontSize,
+                  scale: overlay.scale,
+                  rotation: overlay.rotation,
+                  flip: overlay.flip,
                 ))
             .toList();
         _stickers = existingScrapbook.stickers
@@ -213,6 +233,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                   x: sticker.x,
                   y: sticker.y,
                   scale: sticker.scale,
+                  rotation: sticker.rotation,
+                  flip: sticker.flip,
                 ))
             .toList();
         _additionalPhotos = existingScrapbook.additionalPhotos
@@ -223,6 +245,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                   y: photo.y,
                   width: photo.width,
                   height: photo.height,
+                  rotation: photo.rotation,
+                  flip: photo.flip,
                 ))
             .toList();
         _backgroundColor = existingScrapbook.backgroundColor;
@@ -237,6 +261,9 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                   y: overlay.y,
                   color: overlay.color,
                   fontSize: overlay.fontSize,
+                  scale: overlay.scale,
+                  rotation: overlay.rotation,
+                  flip: overlay.flip,
                 ))
             .toList();
         _originalStickers = _stickers
@@ -246,6 +273,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                   x: sticker.x,
                   y: sticker.y,
                   scale: sticker.scale,
+                  rotation: sticker.rotation,
+                  flip: sticker.flip,
                 ))
             .toList();
         _originalAdditionalPhotos = _additionalPhotos
@@ -256,6 +285,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                   y: photo.y,
                   width: photo.width,
                   height: photo.height,
+                  rotation: photo.rotation,
+                  flip: photo.flip,
                 ))
             .toList();
         _originalBackgroundColor = existingScrapbook.backgroundColor;
@@ -277,27 +308,34 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     for (int i = 0; i < _textOverlays.length; i++) {
       if (_textOverlays[i].x != _originalTextOverlays[i].x ||
           _textOverlays[i].y != _originalTextOverlays[i].y ||
-          _textOverlays[i].text != _originalTextOverlays[i].text) {
+          _textOverlays[i].text != _originalTextOverlays[i].text ||
+          _textOverlays[i].scale != _originalTextOverlays[i].scale ||
+          _textOverlays[i].rotation != _originalTextOverlays[i].rotation ||
+          _textOverlays[i].flip != _originalTextOverlays[i].flip) {
         return true;
       }
     }
 
-    // Check for position/scale changes in stickers
+    // Check for position/scale/rotation/flip changes in stickers
     for (int i = 0; i < _stickers.length; i++) {
       if (_stickers[i].x != _originalStickers[i].x ||
           _stickers[i].y != _originalStickers[i].y ||
           _stickers[i].scale != _originalStickers[i].scale ||
+          _stickers[i].rotation != _originalStickers[i].rotation ||
+          _stickers[i].flip != _originalStickers[i].flip ||
           _stickers[i].emoji != _originalStickers[i].emoji) {
         return true;
       }
     }
 
-    // Check for position changes in additional photos
+    // Check for position/size/rotation/flip changes in additional photos
     for (int i = 0; i < _additionalPhotos.length; i++) {
       if (_additionalPhotos[i].x != _originalAdditionalPhotos[i].x ||
           _additionalPhotos[i].y != _originalAdditionalPhotos[i].y ||
           _additionalPhotos[i].width != _originalAdditionalPhotos[i].width ||
-          _additionalPhotos[i].height != _originalAdditionalPhotos[i].height) {
+          _additionalPhotos[i].height != _originalAdditionalPhotos[i].height ||
+          _additionalPhotos[i].rotation != _originalAdditionalPhotos[i].rotation ||
+          _additionalPhotos[i].flip != _originalAdditionalPhotos[i].flip) {
         return true;
       }
     }
@@ -436,9 +474,6 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
 
                 // Bottom Toolbar (Positioned at bottom)
                 _buildBottomToolbar(),
-
-                // Delete Zone (appears when dragging)
-                if (_draggingId != null) _buildDeleteZone(),
               ],
             ),
           ),
@@ -656,28 +691,40 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
       right: -touchSandbox,
       top: -touchSandbox,
       bottom: -touchSandbox,
-      child: SizedBox(
-        width: canvasSize + (touchSandbox * 2),
-        height: canvasSize + (touchSandbox * 2),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            // Update canvas size for positioning calculations
-            _canvasSize = const Size(canvasSize, canvasSize);
+      child: GestureDetector(
+        onTap: () {
+          // Deselect when tapping outside elements
+          if (_selectedId != null) {
+            setState(() {
+              _selectedId = null;
+              _selectedType = null;
+            });
+          }
+        },
+        behavior: HitTestBehavior.opaque,
+        child: SizedBox(
+          width: canvasSize + (touchSandbox * 2),
+          height: canvasSize + (touchSandbox * 2),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              // Update canvas size for positioning calculations
+              _canvasSize = const Size(canvasSize, canvasSize);
 
-            return Stack(
-              clipBehavior: Clip.none,
-              children: [
-                // Emoji overlay (centered in canvas)
-                _buildEmojiSelector(),
+              return Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  // Emoji overlay (centered in canvas)
+                  _buildEmojiSelector(),
 
-                // Draggable items
-                ..._textOverlays.map((overlay) => _buildTextOverlay(overlay)),
-                ..._stickers.map((sticker) => _buildSticker(sticker)),
-                ..._additionalPhotos
-                    .map((photo) => _buildAdditionalPhoto(photo)),
-              ],
-            );
-          },
+                  // Draggable items
+                  ..._textOverlays.map((overlay) => _buildTextOverlay(overlay)),
+                  ..._stickers.map((sticker) => _buildSticker(sticker)),
+                  ..._additionalPhotos
+                      .map((photo) => _buildAdditionalPhoto(photo)),
+                ],
+              );
+            },
+          ),
         ),
       ),
     );
@@ -747,33 +794,85 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     final centerOffsetX = 50.0;
     final centerOffsetY = 25.0;
 
+    // Base font size with scale applied
+    final scaledFontSize = overlay.fontSize * overlay.scale;
+
+    final isSelected = _selectedId == overlay.id;
+
     return Positioned(
       left: left - centerOffsetX,
       top: top - centerOffsetY,
       child: GestureDetector(
-        onTap: () => _editTextOverlay(overlay),
-        onPanStart: (details) {
+        onTapDown: (details) {
+          // Store tap position for control handle detection
+          _lastTapPosition = details.localPosition;
+        },
+        onTap: () {
+          // If selected and tap is on control handle, don't toggle selection
+          if (isSelected && _lastTapPosition != null && _isOnControlHandle(_lastTapPosition!, Size(100, 50))) {
+            _lastTapPosition = null;
+            return;
+          }
+          _lastTapPosition = null;
+          // Toggle selection
           setState(() {
-            _draggingId = overlay.id;
-            _draggingType = 'text';
-            _dragStartOffset = details.localPosition;
-            // Store the initial normalized position (0.0 to 1.0)
-            _itemStartOffset = Offset(overlay.x, overlay.y);
-            _isOverDeleteZone = false;
+            if (_selectedId == overlay.id) {
+              _selectedId = null;
+              _selectedType = null;
+            } else {
+              _selectedId = overlay.id;
+              _selectedType = 'text';
+            }
           });
         },
-        onPanUpdate: (details) {
-          if (_draggingId != overlay.id || _draggingType != 'text') return;
+        onScaleStart: (details) {
+          if (details.pointerCount == 1) {
+            // Single finger - check if tapping on resize handle
+            if (isSelected && _isOnResizeHandle(details.localFocalPoint, Size(100, 50))) {
+              setState(() {
+                _resizingId = overlay.id;
+                _resizingType = 'text';
+                _resizeStartPos = details.localFocalPoint;
+                _initialScale = overlay.scale;
+                _initialRotation = overlay.rotation;
+                _initialAngle = _calculateAngle(details.localFocalPoint, Offset(left, top));
+              });
+            } else {
+              // Start dragging
+              setState(() {
+                _draggingId = overlay.id;
+                _draggingType = 'text';
+                _selectedId = overlay.id;
+                _selectedType = 'text';
+                _dragStartOffset = details.localFocalPoint;
+                _itemStartOffset = Offset(overlay.x, overlay.y);
+              });
+            }
+          } else if (details.pointerCount > 1) {
+            // Two-finger gesture started
+            setState(() {
+              _selectedId = overlay.id;
+              _selectedType = 'text';
+              _initialPinchScale = details.localFocalPoint.distance;
+              _initialItemScaleForPinch = overlay.scale;
+              _initialItemRotationForPinch = overlay.rotation;
+            });
+          }
+        },
+        onScaleUpdate: (details) {
+          if (_resizingId == overlay.id && _resizingType == 'text') {
+            // Handle resize/rotate from corner handle
+            _handleResizeRotateUpdate(
+              details.localFocalPoint,
+              overlay.id,
+              'text',
+            );
+          } else if (details.pointerCount == 1 && _draggingId == overlay.id) {
+            // Single finger drag
+            setState(() {
+              final delta = details.localFocalPoint - _dragStartOffset!;
 
-          setState(() {
-            final delta = details.localPosition - _dragStartOffset!;
-
-            // Check if over delete zone
-            _isOverDeleteZone =
-                _isPositionOverDeleteZone(details.globalPosition);
-
-            // Only update position if NOT over delete zone
-            if (!_isOverDeleteZone) {
+              // Update position
               // Convert delta to normalized coordinates and add to initial position
               final newX =
                   _itemStartOffset!.dx + (delta.dx / _canvasSize!.width);
@@ -789,19 +888,39 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                 _textOverlays[index] =
                     overlay.copyWith(x: clampedX, y: clampedY);
               }
-            }
-          });
-        },
-        onPanEnd: (details) {
-          if (_isOverDeleteZone) {
-            // Delete the item
+            });
+          } else if (details.pointerCount > 1 && _selectedId == overlay.id) {
+            // Two-finger gesture in progress - handle pinch and rotate
             setState(() {
-              _textOverlays.removeWhere((o) => o.id == overlay.id);
-              _draggingId = null;
-              _draggingType = null;
-              _dragStartOffset = null;
-              _itemStartOffset = null;
-              _isOverDeleteZone = false;
+              // Calculate new scale based on pinch distance
+              final currentDistance = details.localFocalPoint.distance;
+              final scaleFactor = _initialPinchScale != null && _initialPinchScale! > 0
+                  ? currentDistance / _initialPinchScale!
+                  : 1.0;
+              final newScale = (_initialItemScaleForPinch! * scaleFactor).clamp(0.5, 3.0);
+
+              // Calculate new rotation based on rotation gesture
+              final newRotation = _initialItemRotationForPinch! + details.rotation;
+
+              final index = _textOverlays.indexWhere((o) => o.id == overlay.id);
+              if (index != -1) {
+                _textOverlays[index] = _textOverlays[index].copyWith(
+                  scale: newScale,
+                  rotation: newRotation,
+                );
+              }
+            });
+          }
+        },
+        onScaleEnd: (details) {
+          if (_resizingId == overlay.id) {
+            setState(() {
+              _resizingId = null;
+              _resizingType = null;
+              _resizeStartPos = null;
+              _initialScale = null;
+              _initialRotation = null;
+              _initialAngle = null;
             });
           } else {
             // Just reset dragging state
@@ -810,47 +929,70 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
               _draggingType = null;
               _dragStartOffset = null;
               _itemStartOffset = null;
-              _isOverDeleteZone = false;
+              _initialPinchScale = null;
+              _initialItemScaleForPinch = null;
+              _initialItemRotationForPinch = null;
             });
           }
         },
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.95),
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 16,
-                offset: const Offset(0, 4),
-              ),
-            ],
-            border: _draggingId == overlay.id
-                ? Border.all(
-                    color: _isOverDeleteZone
-                        ? Colors.red
-                        : DesignTokens.brandColor,
-                    width: 2.5,
-                  )
-                : Border.all(
-                    color: Colors.white.withValues(alpha: 0.5),
-                    width: 1,
+        behavior: HitTestBehavior.opaque,
+        child: Transform.rotate(
+          angle: overlay.rotation,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              // Selection border and content
+              Container(
+                decoration: BoxDecoration(
+                  border: _draggingId == overlay.id
+                      ? Border.all(
+                          color: DesignTokens.brandColor,
+                          width: 2.5,
+                        )
+                      : Border.all(
+                          color: isSelected
+                              ? DesignTokens.brandColor
+                              : Colors.transparent,
+                          width: isSelected ? 2 : 0,
+                        ),
+                ),
+                padding: const EdgeInsets.all(8.0),
+                child: Transform.scale(
+                  scaleX: overlay.flip ? -overlay.scale : overlay.scale,
+                  scaleY: overlay.scale,
+                  alignment: Alignment.center,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.95),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.1),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 16,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                      overlay.text,
+                      style: TextStyle(
+                        color: Color(overlay.color),
+                        fontSize: scaledFontSize,
+                        fontWeight: FontWeight.w600,
+                        height: 1.2,
+                      ),
+                    ),
                   ),
-          ),
-          child: Text(
-            overlay.text,
-            style: TextStyle(
-              color: Color(overlay.color),
-              fontSize: overlay.fontSize,
-              fontWeight: FontWeight.w600,
-              height: 1.2,
-            ),
+                ),
+              ),
+              // Control handles (show when selected)
+              if (isSelected) ..._buildControlHandles(overlay.id, 'text', overlay.flip),
+            ],
           ),
         ),
       ),
@@ -869,32 +1011,85 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     final centerOffsetX = 50.0;
     final centerOffsetY = 50.0;
 
+    // Calculate size based on scale
+    final stickerSize = 100.0 * sticker.scale;
+
+    final isSelected = _selectedId == sticker.id;
+
     return Positioned(
       left: left - centerOffsetX,
       top: top - centerOffsetY,
       child: GestureDetector(
-        onPanStart: (details) {
+        onTapDown: (details) {
+          // Store tap position for control handle detection
+          _lastTapPosition = details.localPosition;
+        },
+        onTap: () {
+          // If selected and tap is on control handle, don't toggle selection
+          if (isSelected && _lastTapPosition != null && _isOnControlHandle(_lastTapPosition!, Size(stickerSize, stickerSize))) {
+            _lastTapPosition = null;
+            return;
+          }
+          _lastTapPosition = null;
+          // Toggle selection
           setState(() {
-            _draggingId = sticker.id;
-            _draggingType = 'sticker';
-            _dragStartOffset = details.localPosition;
-            // Store the initial normalized position (0.0 to 1.0)
-            _itemStartOffset = Offset(sticker.x, sticker.y);
-            _isOverDeleteZone = false;
+            if (_selectedId == sticker.id) {
+              _selectedId = null;
+              _selectedType = null;
+            } else {
+              _selectedId = sticker.id;
+              _selectedType = 'sticker';
+            }
           });
         },
-        onPanUpdate: (details) {
-          if (_draggingId != sticker.id || _draggingType != 'sticker') return;
+        onScaleStart: (details) {
+          if (details.pointerCount == 1) {
+            // Single finger - check if tapping on resize handle
+            if (isSelected && _isOnResizeHandle(details.localFocalPoint, Size(stickerSize, stickerSize))) {
+              setState(() {
+                _resizingId = sticker.id;
+                _resizingType = 'sticker';
+                _resizeStartPos = details.localFocalPoint;
+                _initialScale = sticker.scale;
+                _initialRotation = sticker.rotation;
+                _initialAngle = _calculateAngle(details.localFocalPoint, Offset(left, top));
+              });
+            } else {
+              // Start dragging
+              setState(() {
+                _draggingId = sticker.id;
+                _draggingType = 'sticker';
+                _selectedId = sticker.id;
+                _selectedType = 'sticker';
+                _dragStartOffset = details.localFocalPoint;
+                _itemStartOffset = Offset(sticker.x, sticker.y);
+              });
+            }
+          } else if (details.pointerCount > 1) {
+            // Two-finger gesture started
+            setState(() {
+              _selectedId = sticker.id;
+              _selectedType = 'sticker';
+              _initialPinchScale = details.localFocalPoint.distance;
+              _initialItemScaleForPinch = sticker.scale;
+              _initialItemRotationForPinch = sticker.rotation;
+            });
+          }
+        },
+        onScaleUpdate: (details) {
+          if (_resizingId == sticker.id && _resizingType == 'sticker') {
+            // Handle resize/rotate from corner handle
+            _handleResizeRotateUpdate(
+              details.localFocalPoint,
+              sticker.id,
+              'sticker',
+            );
+          } else if (details.pointerCount == 1 && _draggingId == sticker.id) {
+            // Single finger drag
+            setState(() {
+              final delta = details.localFocalPoint - _dragStartOffset!;
 
-          setState(() {
-            final delta = details.localPosition - _dragStartOffset!;
-
-            // Check if over delete zone
-            _isOverDeleteZone =
-                _isPositionOverDeleteZone(details.globalPosition);
-
-            // Only update position if NOT over delete zone
-            if (!_isOverDeleteZone) {
+              // Update position
               // Convert delta to normalized coordinates and add to initial position
               final newX =
                   _itemStartOffset!.dx + (delta.dx / _canvasSize!.width);
@@ -909,19 +1104,39 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
               if (index != -1) {
                 _stickers[index] = sticker.copyWith(x: clampedX, y: clampedY);
               }
-            }
-          });
-        },
-        onPanEnd: (details) {
-          if (_isOverDeleteZone) {
-            // Delete the item
+            });
+          } else if (details.pointerCount > 1 && _selectedId == sticker.id) {
+            // Two-finger gesture in progress - handle pinch and rotate
             setState(() {
-              _stickers.removeWhere((s) => s.id == sticker.id);
-              _draggingId = null;
-              _draggingType = null;
-              _dragStartOffset = null;
-              _itemStartOffset = null;
-              _isOverDeleteZone = false;
+              // Calculate new scale based on pinch distance
+              final currentDistance = details.localFocalPoint.distance;
+              final scaleFactor = _initialPinchScale != null && _initialPinchScale! > 0
+                  ? currentDistance / _initialPinchScale!
+                  : 1.0;
+              final newScale = (_initialItemScaleForPinch! * scaleFactor).clamp(0.5, 3.0);
+
+              // Calculate new rotation based on rotation gesture
+              final newRotation = _initialItemRotationForPinch! + details.rotation;
+
+              final index = _stickers.indexWhere((s) => s.id == sticker.id);
+              if (index != -1) {
+                _stickers[index] = _stickers[index].copyWith(
+                  scale: newScale,
+                  rotation: newRotation,
+                );
+              }
+            });
+          }
+        },
+        onScaleEnd: (details) {
+          if (_resizingId == sticker.id) {
+            setState(() {
+              _resizingId = null;
+              _resizingType = null;
+              _resizeStartPos = null;
+              _initialScale = null;
+              _initialRotation = null;
+              _initialAngle = null;
             });
           } else {
             // Just reset dragging state
@@ -930,50 +1145,49 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
               _draggingType = null;
               _dragStartOffset = null;
               _itemStartOffset = null;
-              _isOverDeleteZone = false;
+              _initialPinchScale = null;
+              _initialItemScaleForPinch = null;
+              _initialItemRotationForPinch = null;
             });
           }
         },
-        child: AnimatedScale(
-          scale: _draggingId == sticker.id ? 1.15 : 1.0,
-          duration: const Duration(milliseconds: 150),
-          curve: Curves.easeOut,
-          child: Container(
-            decoration: _draggingId == sticker.id
-                ? BoxDecoration(
-                    border: Border.all(
-                      color: _isOverDeleteZone
-                          ? const Color(0xFFEF4444)
-                          : DesignTokens.brandColor,
-                      width: 2.5,
-                    ),
-                    borderRadius: BorderRadius.circular(8),
-                    boxShadow: [
-                      BoxShadow(
-                        color: (_isOverDeleteZone
-                                ? const Color(0xFFEF4444)
-                                : DesignTokens.brandColor)
-                            .withValues(alpha: 0.2),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  )
-                : null,
-            child: Image.asset(
-              sticker.emoji,
-              width: 100 * sticker.scale,
-              height: 100 * sticker.scale,
-              errorBuilder: (context, error, stackTrace) {
-                // Fallback to text if image fails to load
-                return Text(
-                  sticker.emoji,
-                  style: TextStyle(
-                    fontSize: 40 * sticker.scale,
+        behavior: HitTestBehavior.opaque,
+        child: Transform.rotate(
+          angle: sticker.rotation,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              // Selection border and content
+              Container(
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: _draggingId == sticker.id
+                        ? DesignTokens.brandColor
+                        : (isSelected
+                            ? DesignTokens.brandColor
+                            : Colors.transparent),
+                    width: (_draggingId == sticker.id || isSelected) ? 2.5 : 0,
                   ),
-                );
-              },
-            ),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                padding: const EdgeInsets.all(8.0),
+                child: Transform.scale(
+                  scaleX: sticker.flip ? -sticker.scale : sticker.scale,
+                  scaleY: sticker.scale,
+                  alignment: Alignment.center,
+                  child: Image.asset(
+                    sticker.emoji,
+                    width: 100,
+                    height: 100,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Text(sticker.emoji, style: const TextStyle(fontSize: 40));
+                    },
+                  ),
+                ),
+              ),
+              // Control handles (show when selected)
+              if (isSelected) ..._buildControlHandles(sticker.id, 'sticker', sticker.flip),
+            ],
           ),
         ),
       ),
@@ -994,32 +1208,83 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     final centerOffsetX = width / 2;
     final centerOffsetY = height / 2;
 
+    final isSelected = _selectedId == photo.id;
+
     return Positioned(
       left: left - centerOffsetX,
       top: top - centerOffsetY,
       child: GestureDetector(
-        onPanStart: (details) {
+        onTapDown: (details) {
+          // Store tap position for control handle detection
+          _lastTapPosition = details.localPosition;
+        },
+        onTap: () {
+          // If selected and tap is on control handle, don't toggle selection
+          if (isSelected && _lastTapPosition != null && _isOnControlHandle(_lastTapPosition!, Size(width, height))) {
+            _lastTapPosition = null;
+            return;
+          }
+          _lastTapPosition = null;
+          // Toggle selection
           setState(() {
-            _draggingId = photo.id;
-            _draggingType = 'photo';
-            _dragStartOffset = details.localPosition;
-            // Store the initial normalized position (0.0 to 1.0)
-            _itemStartOffset = Offset(photo.x, photo.y);
-            _isOverDeleteZone = false;
+            if (_selectedId == photo.id) {
+              _selectedId = null;
+              _selectedType = null;
+            } else {
+              _selectedId = photo.id;
+              _selectedType = 'photo';
+            }
           });
         },
-        onPanUpdate: (details) {
-          if (_draggingId != photo.id || _draggingType != 'photo') return;
+        onScaleStart: (details) {
+          if (details.pointerCount == 1) {
+            // Single finger - check if tapping on resize handle
+            if (isSelected && _isOnResizeHandle(details.localFocalPoint, Size(width, height))) {
+              setState(() {
+                _resizingId = photo.id;
+                _resizingType = 'photo';
+                _resizeStartPos = details.localFocalPoint;
+                _initialScale = 1.0; // Store 1.0 as base for photo size calculation
+                _initialRotation = photo.rotation;
+                _initialAngle = _calculateAngle(details.localFocalPoint, Offset(left, top));
+              });
+            } else {
+              // Start dragging
+              setState(() {
+                _draggingId = photo.id;
+                _draggingType = 'photo';
+                _selectedId = photo.id;
+                _selectedType = 'photo';
+                _dragStartOffset = details.localFocalPoint;
+                _itemStartOffset = Offset(photo.x, photo.y);
+              });
+            }
+          } else if (details.pointerCount > 1) {
+            // Two-finger gesture started
+            setState(() {
+              _selectedId = photo.id;
+              _selectedType = 'photo';
+              _initialPinchScale = details.localFocalPoint.distance;
+              // For photos, store initial width/height
+              _initialItemScaleForPinch = photo.width; // Use width as scale reference
+              _initialItemRotationForPinch = photo.rotation;
+            });
+          }
+        },
+        onScaleUpdate: (details) {
+          if (_resizingId == photo.id && _resizingType == 'photo') {
+            // Handle resize/rotate from corner handle
+            _handleResizeRotateUpdate(
+              details.localFocalPoint,
+              photo.id,
+              'photo',
+            );
+          } else if (details.pointerCount == 1 && _draggingId == photo.id) {
+            // Single finger drag
+            setState(() {
+              final delta = details.localFocalPoint - _dragStartOffset!;
 
-          setState(() {
-            final delta = details.localPosition - _dragStartOffset!;
-
-            // Check if over delete zone
-            _isOverDeleteZone =
-                _isPositionOverDeleteZone(details.globalPosition);
-
-            // Only update position if NOT over delete zone
-            if (!_isOverDeleteZone) {
+              // Update position
               // Convert delta to normalized coordinates and add to initial position
               final newX =
                   _itemStartOffset!.dx + (delta.dx / _canvasSize!.width);
@@ -1036,19 +1301,46 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                 _additionalPhotos[index] =
                     photo.copyWith(x: clampedX, y: clampedY);
               }
-            }
-          });
-        },
-        onPanEnd: (details) {
-          if (_isOverDeleteZone) {
-            // Delete the item
+            });
+          } else if (details.pointerCount > 1 && _selectedId == photo.id) {
+            // Two-finger gesture in progress - handle pinch and rotate
             setState(() {
-              _additionalPhotos.removeWhere((p) => p.id == photo.id);
-              _draggingId = null;
-              _draggingType = null;
-              _dragStartOffset = null;
-              _itemStartOffset = null;
-              _isOverDeleteZone = false;
+              // Calculate new size based on pinch distance
+              final currentDistance = details.localFocalPoint.distance;
+              final scaleFactor = _initialPinchScale != null && _initialPinchScale! > 0
+                  ? currentDistance / _initialPinchScale!
+                  : 1.0;
+
+              // Calculate new rotation based on rotation gesture
+              final newRotation = _initialItemRotationForPinch! + details.rotation;
+
+              final index = _additionalPhotos.indexWhere((p) => p.id == photo.id);
+              if (index != -1) {
+                // Maintain aspect ratio when scaling
+                final originalWidth = _initialItemScaleForPinch!;
+                final newWidth = (originalWidth * scaleFactor).clamp(0.1, 0.8);
+                final originalHeight = _additionalPhotos[index].height;
+                final heightRatio = originalHeight / originalWidth;
+                final newHeight = newWidth * heightRatio;
+
+                _additionalPhotos[index] = _additionalPhotos[index].copyWith(
+                  width: newWidth,
+                  height: newHeight,
+                  rotation: newRotation,
+                );
+              }
+            });
+          }
+        },
+        onScaleEnd: (details) {
+          if (_resizingId == photo.id) {
+            setState(() {
+              _resizingId = null;
+              _resizingType = null;
+              _resizeStartPos = null;
+              _initialScale = null;
+              _initialRotation = null;
+              _initialAngle = null;
             });
           } else {
             // Just reset dragging state
@@ -1057,51 +1349,35 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
               _draggingType = null;
               _dragStartOffset = null;
               _itemStartOffset = null;
-              _isOverDeleteZone = false;
+              _initialPinchScale = null;
+              _initialItemScaleForPinch = null;
+              _initialItemRotationForPinch = null;
             });
           }
         },
-        child: AnimatedScale(
-          scale: _draggingId == photo.id ? 1.08 : 1.0,
-          duration: const Duration(milliseconds: 150),
-          curve: Curves.easeOut,
-          child: Container(
-            width: width,
-            height: height,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: _draggingId == photo.id
-                    ? (_isOverDeleteZone
-                        ? const Color(0xFFEF4444)
-                        : DesignTokens.brandColor)
-                    : Colors.white.withValues(alpha: 0.6),
-                width: _draggingId == photo.id ? 3 : 2,
+        behavior: HitTestBehavior.opaque,
+        child: Transform.rotate(
+          angle: photo.rotation,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              // Photo without decoration (original form)
+              Transform.scale(
+                scaleX: photo.flip ? -1.0 : 1.0,
+                scaleY: 1.0,
+                alignment: Alignment.center,
+                child: SizedBox(
+                  width: width,
+                  height: height,
+                  child: Image.file(
+                    File(photo.imagePath),
+                    fit: BoxFit.cover,
+                  ),
+                ),
               ),
-              boxShadow: _draggingId == photo.id
-                  ? [
-                      BoxShadow(
-                        color: (_isOverDeleteZone
-                                ? const Color(0xFFEF4444)
-                                : DesignTokens.brandColor)
-                            .withValues(alpha: 0.25),
-                        blurRadius: 16,
-                        offset: const Offset(0, 6),
-                      ),
-                    ]
-                  : [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.1),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: Image.file(
-              File(photo.imagePath),
-              fit: BoxFit.cover,
-            ),
+              // Control handles (show when selected) - positioned at corners
+              if (isSelected) ..._buildControlHandles(photo.id, 'photo', photo.flip),
+            ],
           ),
         ),
       ),
@@ -1386,89 +1662,6 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     );
   }
 
-  Widget _buildDeleteZone() {
-    return Positioned(
-      bottom: 80, // Above the toolbar
-      left: 0,
-      right: 0,
-      child: Center(
-        child: TweenAnimationBuilder<double>(
-          duration: const Duration(milliseconds: 200),
-          tween: Tween(begin: 0.0, end: 1.0),
-          curve: Curves.easeOut,
-          builder: (context, value, child) {
-            return Transform.scale(
-              scale: 0.9 + (value * 0.1),
-              child: Opacity(
-                opacity: value,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: DesignTokens.spacingXLarge,
-                    vertical: DesignTokens.spacingMedium,
-                  ),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: _isOverDeleteZone
-                          ? [
-                              const Color(0xFFEF4444),
-                              const Color(0xFFDC2626),
-                            ]
-                          : [
-                              const Color(0xFFEF4444).withValues(alpha: 0.9),
-                              const Color(0xFFEF4444).withValues(alpha: 0.7),
-                            ],
-                    ),
-                    borderRadius:
-                        BorderRadius.circular(DesignTokens.radiusXLarge),
-                    boxShadow: [
-                      BoxShadow(
-                        color: _isOverDeleteZone
-                            ? const Color(0xFFEF4444).withValues(alpha: 0.4)
-                            : const Color(0xFFEF4444).withValues(alpha: 0.2),
-                        blurRadius: _isOverDeleteZone ? 20 : 15,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      AnimatedRotation(
-                        turns: _isOverDeleteZone ? 0.15 : 0.0,
-                        duration: const Duration(milliseconds: 200),
-                        child: Icon(
-                          _isOverDeleteZone
-                              ? Icons.delete_forever_rounded
-                              : Icons.delete_outline_rounded,
-                          color: Colors.white,
-                          size: _isOverDeleteZone ? 28 : 24,
-                        ),
-                      ),
-                      const SizedBox(width: DesignTokens.spacingMedium),
-                      Text(
-                        _isOverDeleteZone
-                            ? 'Release to delete'
-                            : 'Drag here to delete',
-                        style: GoogleFonts.lexend(
-                          fontSize: DesignTokens.fontSizeBody,
-                          fontWeight: DesignTokens.weightSemiBold,
-                          color: Colors.white,
-                          letterSpacing: 0.3,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
-      ),
-    );
-  }
-
   // ============= Actions =============
 
   void _showEmojiPicker() {
@@ -1594,83 +1787,6 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
               ),
             ),
             child: const Text('Add'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _editTextOverlay(ScrapbookTextOverlay overlay) {
-    final controller = TextEditingController(text: overlay.text);
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(DesignTokens.radiusXLarge),
-        ),
-        title: Text(
-          'Edit Text',
-          style: GoogleFonts.lexend(
-            fontSize: DesignTokens.fontSizeTitle,
-            fontWeight: DesignTokens.weightSemiBold,
-            color: DesignTokens.textPrimary,
-          ),
-        ),
-        content: TextField(
-          controller: controller,
-          decoration: InputDecoration(
-            hintText: 'Enter text...',
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
-            ),
-          ),
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Cancel',
-              style: GoogleFonts.lexend(
-                color: DesignTokens.textSecondary,
-              ),
-            ),
-          ),
-          IconButton(
-            onPressed: () {
-              setState(() {
-                _removeTextOverlay(overlay.id);
-              });
-              Navigator.pop(context);
-              HapticFeedback.mediumImpact();
-            },
-            icon: const Icon(Icons.delete, color: DesignTokens.error),
-            tooltip: 'Delete',
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (controller.text.isNotEmpty) {
-                setState(() {
-                  final index =
-                      _textOverlays.indexWhere((o) => o.id == overlay.id);
-                  if (index != -1) {
-                    _textOverlays[index] =
-                        overlay.copyWith(text: controller.text);
-                  }
-                });
-                HapticFeedback.lightImpact();
-              }
-              Navigator.pop(context);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: DesignTokens.brandColor,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
-              ),
-            ),
-            child: const Text('Save'),
           ),
         ],
       ),
@@ -2050,12 +2166,6 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     );
   }
 
-  void _removeTextOverlay(String id) {
-    setState(() {
-      _textOverlays.removeWhere((overlay) => overlay.id == id);
-    });
-  }
-
   Future<void> _saveScrapbook() async {
     setState(() => _isSaving = true);
 
@@ -2250,11 +2360,345 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     );
   }
 
-  // Check if a position is over the delete zone (bottom of screen)
-  bool _isPositionOverDeleteZone(Offset globalPosition) {
-    final screenHeight = MediaQuery.of(context).size.height;
-    final deleteZoneTop = screenHeight - DesignTokens.deleteZoneHeight;
-    return globalPosition.dy > deleteZoneTop;
+  // Check if a local position is on the resize/rotate handle (bottom-right corner)
+  bool _isOnResizeHandle(Offset localPosition, Size itemSize) {
+    const handleSize = 30.0;
+    final handleArea = Rect.fromPoints(
+      Offset(itemSize.width - handleSize, itemSize.height - handleSize),
+      Offset(itemSize.width, itemSize.height),
+    );
+    return handleArea.contains(localPosition);
+  }
+
+  // Check if a local position is on any control handle
+  bool _isOnControlHandle(Offset localPosition, Size itemSize) {
+    const handleSize = 32.0;
+    const offset = 12.0;
+    const touchPadding = 4.0;
+    final totalHandleSize = handleSize + (touchPadding * 2);
+    final handleOffset = offset + touchPadding;
+
+    // Check all 4 corners
+    // Top-left (delete button)
+    final topLeftHandle = Rect.fromCircle(
+      center: Offset(-handleOffset, -handleOffset),
+      radius: totalHandleSize / 2,
+    );
+    if (topLeftHandle.contains(localPosition)) return true;
+
+    // Top-right (duplicate button)
+    final topRightHandle = Rect.fromCircle(
+      center: Offset(itemSize.width + handleOffset, -handleOffset),
+      radius: totalHandleSize / 2,
+    );
+    if (topRightHandle.contains(localPosition)) return true;
+
+    // Bottom-left (flip button)
+    final bottomLeftHandle = Rect.fromCircle(
+      center: Offset(-handleOffset, itemSize.height + handleOffset),
+      radius: totalHandleSize / 2,
+    );
+    if (bottomLeftHandle.contains(localPosition)) return true;
+
+    // Bottom-right (resize/rotate handle)
+    final bottomRightHandle = Rect.fromCircle(
+      center: Offset(itemSize.width + handleOffset, itemSize.height + handleOffset),
+      radius: totalHandleSize / 2,
+    );
+    if (bottomRightHandle.contains(localPosition)) return true;
+
+    return false;
+  }
+
+  // Calculate angle between two points
+  double _calculateAngle(Offset point1, Offset point2) {
+    return (point2 - point1).direction;
+  }
+
+  // Handle resize and rotate updates from drag gesture
+  void _handleResizeRotateUpdate(Offset globalPosition, String itemId, String type) {
+    if (_resizeStartPos == null || _initialScale == null || _initialRotation == null) return;
+
+    // Calculate distance change for scale
+    final currentDist = (globalPosition - (_canvasSize == null
+        ? Offset.zero
+        : Offset(_canvasSize!.width / 2, _canvasSize!.height / 2))).distance;
+    final initialDist = (_resizeStartPos! - (_canvasSize == null
+        ? Offset.zero
+        : Offset(_canvasSize!.width / 2, _canvasSize!.height / 2))).distance;
+    final scaleFactor = currentDist / initialDist;
+    final newScale = (_initialScale! * scaleFactor).clamp(0.5, 3.0);
+
+    // Calculate rotation change
+    final currentAngle = _calculateAngle(
+      globalPosition,
+      _canvasSize == null ? Offset.zero : Offset(_canvasSize!.width / 2, _canvasSize!.height / 2),
+    );
+    final angleDelta = currentAngle - (_initialAngle ?? 0.0);
+    final newRotation = _initialRotation! + angleDelta;
+
+    setState(() {
+      if (type == 'text') {
+        final index = _textOverlays.indexWhere((o) => o.id == itemId);
+        if (index != -1) {
+          _textOverlays[index] = _textOverlays[index].copyWith(
+            scale: newScale,
+            rotation: newRotation,
+          );
+        }
+      } else if (type == 'sticker') {
+        final index = _stickers.indexWhere((s) => s.id == itemId);
+        if (index != -1) {
+          _stickers[index] = _stickers[index].copyWith(
+            scale: newScale,
+            rotation: newRotation,
+          );
+        }
+      } else if (type == 'photo') {
+        final index = _additionalPhotos.indexWhere((p) => p.id == itemId);
+        if (index != -1) {
+          // For photos, we adjust width/height instead of scale
+          _additionalPhotos[index] = _additionalPhotos[index].copyWith(
+            width: (_additionalPhotos[index].width * scaleFactor).clamp(0.1, 0.8),
+            height: (_additionalPhotos[index].height * scaleFactor).clamp(0.1, 0.8),
+            rotation: newRotation,
+          );
+        }
+      }
+    });
+  }
+
+  // Build control handles for selected elements
+  List<Widget> _buildControlHandles(String itemId, String type, bool isFlipped) {
+    const handleSize = 32.0; // Larger touch target
+    const offset = 12.0; // Reduced spacing from element edge
+    const touchPadding = 4.0; // Extra padding for better touch recognition
+
+    return [
+      // Delete button (top-left)
+      Positioned(
+        left: -offset,
+        top: -offset,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTapDown: (_) {
+            // Prevent parent GestureDetector from handling this tap
+          },
+          onTap: () {
+            HapticFeedback.mediumImpact();
+            setState(() {
+              if (type == 'text') {
+                _textOverlays.removeWhere((o) => o.id == itemId);
+              } else if (type == 'sticker') {
+                _stickers.removeWhere((s) => s.id == itemId);
+              } else if (type == 'photo') {
+                _additionalPhotos.removeWhere((p) => p.id == itemId);
+              }
+              _selectedId = null;
+              _selectedType = null;
+            });
+          },
+          child: Padding(
+            padding: EdgeInsets.all(touchPadding),
+            child: Container(
+              width: handleSize,
+              height: handleSize,
+              decoration: BoxDecoration(
+                color: const Color(0xFFEF4444),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.2),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.close,
+                color: Colors.white,
+                size: 14,
+              ),
+            ),
+          ),
+        ),
+      ),
+
+      // Duplicate button (top-right)
+      Positioned(
+        right: -offset,
+        top: -offset,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTapDown: (_) {
+            // Prevent parent GestureDetector from handling this tap
+          },
+          onTap: () {
+            HapticFeedback.lightImpact();
+            setState(() {
+              if (type == 'text') {
+                final original = _textOverlays.firstWhere((o) => o.id == itemId);
+                _textOverlays.add(ScrapbookTextOverlay(
+                  id: DateTime.now().millisecondsSinceEpoch.toString(),
+                  text: original.text,
+                  x: original.x + 0.05,
+                  y: original.y + 0.05,
+                  color: original.color,
+                  fontSize: original.fontSize,
+                  scale: original.scale,
+                  rotation: original.rotation,
+                  flip: original.flip,
+                ));
+              } else if (type == 'sticker') {
+                final original = _stickers.firstWhere((s) => s.id == itemId);
+                _stickers.add(ScrapbookSticker(
+                  id: DateTime.now().millisecondsSinceEpoch.toString(),
+                  emoji: original.emoji,
+                  x: original.x + 0.05,
+                  y: original.y + 0.05,
+                  scale: original.scale,
+                  rotation: original.rotation,
+                  flip: original.flip,
+                ));
+              } else if (type == 'photo') {
+                final original = _additionalPhotos.firstWhere((p) => p.id == itemId);
+                _additionalPhotos.add(ScrapbookPhoto(
+                  id: DateTime.now().millisecondsSinceEpoch.toString(),
+                  imagePath: original.imagePath,
+                  x: original.x + 0.05,
+                  y: original.y + 0.05,
+                  width: original.width,
+                  height: original.height,
+                  rotation: original.rotation,
+                  flip: original.flip,
+                ));
+              }
+            });
+          },
+          child: Padding(
+            padding: EdgeInsets.all(touchPadding),
+            child: Container(
+              width: handleSize,
+              height: handleSize,
+              decoration: BoxDecoration(
+                color: const Color(0xFF3B82F6),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.2),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.copy,
+                color: Colors.white,
+                size: 14,
+              ),
+            ),
+          ),
+        ),
+      ),
+
+      // Flip button (bottom-left)
+      Positioned(
+        left: -offset,
+        bottom: -offset,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTapDown: (_) {
+            // Prevent parent GestureDetector from handling this tap
+          },
+          onTap: () {
+            HapticFeedback.lightImpact();
+            setState(() {
+              if (type == 'text') {
+                final index = _textOverlays.indexWhere((o) => o.id == itemId);
+                if (index != -1) {
+                  _textOverlays[index] = _textOverlays[index].copyWith(
+                    flip: !_textOverlays[index].flip,
+                  );
+                }
+              } else if (type == 'sticker') {
+                final index = _stickers.indexWhere((s) => s.id == itemId);
+                if (index != -1) {
+                  _stickers[index] = _stickers[index].copyWith(
+                    flip: !_stickers[index].flip,
+                  );
+                }
+              } else if (type == 'photo') {
+                final index = _additionalPhotos.indexWhere((p) => p.id == itemId);
+                if (index != -1) {
+                  _additionalPhotos[index] = _additionalPhotos[index].copyWith(
+                    flip: !_additionalPhotos[index].flip,
+                  );
+                }
+              }
+            });
+          },
+          child: Padding(
+            padding: EdgeInsets.all(touchPadding),
+            child: Container(
+              width: handleSize,
+              height: handleSize,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF59E0B),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.2),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Icon(
+                isFlipped ? Icons.flip_rounded : Icons.flip_to_back,
+                color: Colors.white,
+                size: 14,
+              ),
+            ),
+          ),
+        ),
+      ),
+
+      // Resize/Rotate handle (bottom-right)
+      Positioned(
+        right: -offset,
+        bottom: -offset,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {
+            // This is visual-only, actual resize/rotate handled by onScaleStart
+            HapticFeedback.lightImpact();
+          },
+          child: Padding(
+            padding: EdgeInsets.all(touchPadding),
+            child: Container(
+              width: handleSize,
+              height: handleSize,
+              decoration: BoxDecoration(
+                color: const Color(0xFF10B981),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.2),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.open_in_full,
+                color: Colors.white,
+                size: 14,
+              ),
+            ),
+          ),
+        ),
+      ),
+    ];
   }
 
   String _getWeekday(int day) {
