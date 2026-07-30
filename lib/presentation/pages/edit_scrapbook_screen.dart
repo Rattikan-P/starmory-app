@@ -10,6 +10,7 @@ import '../providers/scrapbook_provider.dart';
 import '../../data/models/scrapbook_model.dart';
 import '../../constants/design_tokens.dart';
 import '../widgets/galaxy_screen_background.dart';
+import '../../data/sticker_sets.dart';
 
 /// Helper class for background color options
 class _BackgroundColorOption {
@@ -71,6 +72,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
   bool _isSaving = false;
   int _selectedToolbarIndex =
       -1; // -1 = none, 0 = text, 1 = sticker, 2 = photo, 3 = background
+  String? _selectedStickerSetId; // For sticker picker
 
   // Dragging state
   String? _draggingId; // ID of item being dragged
@@ -857,9 +859,9 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     final left = _touchSandbox + (sticker.x * _canvasSize!.width);
     final top = _touchSandbox + (sticker.y * _canvasSize!.height);
 
-    // Offset to center the item (stickers are ~40px with fontSize: 40 * scale)
-    final centerOffsetX = 20.0;
-    final centerOffsetY = 20.0;
+    // Offset to center the item (PNG stickers are ~100x100 px)
+    final centerOffsetX = 50.0;
+    final centerOffsetY = 50.0;
 
     return Positioned(
       left: left - centerOffsetX,
@@ -948,11 +950,19 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                     ],
                   )
                 : null,
-            child: Text(
+            child: Image.asset(
               sticker.emoji,
-              style: TextStyle(
-                fontSize: 40 * sticker.scale,
-              ),
+              width: 100 * sticker.scale,
+              height: 100 * sticker.scale,
+              errorBuilder: (context, error, stackTrace) {
+                // Fallback to text if image fails to load
+                return Text(
+                  sticker.emoji,
+                  style: TextStyle(
+                    fontSize: 40 * sticker.scale,
+                  ),
+                );
+              },
             ),
           ),
         ),
@@ -1283,11 +1293,20 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
 
     return GestureDetector(
       onTap: () {
+        // Don't toggle selection - just highlight briefly then reset
         setState(() {
-          _selectedToolbarIndex = isSelected ? -1 : index;
+          _selectedToolbarIndex = index;
         });
-        if (!isSelected) onTap();
+        onTap();
         HapticFeedback.lightImpact();
+        // Reset after action completes
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (mounted) {
+            setState(() {
+              _selectedToolbarIndex = -1;
+            });
+          }
+        });
       },
       child: AnimatedContainer(
         duration: const Duration(
@@ -1642,59 +1661,268 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
   }
 
   void _showStickerPicker() {
+    // Initialize with first set if not set
+    if (_selectedStickerSetId == null) {
+      _selectedStickerSetId = stickerSets.first.id;
+    }
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        height: 400,
-        decoration: const BoxDecoration(
-          color: DesignTokens.surfacePrimary,
-          borderRadius: BorderRadius.vertical(
-            top: Radius.circular(DesignTokens.radiusCircular),
-          ),
-        ),
-        child: GridView.builder(
-          padding: const EdgeInsets.all(DesignTokens.spacingLarge),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 6,
-            childAspectRatio: 1,
-          ),
-          itemCount: _availableEmojis.length,
-          itemBuilder: (context, index) {
-            final emoji = _availableEmojis[index];
-            return GestureDetector(
-              onTap: () {
-                setState(() {
-                  // Position sticker at center of canvas
-                  // x and y are normalized coordinates (0.0 to 1.0)
-                  _stickers.add(ScrapbookSticker(
-                    id: DateTime.now().millisecondsSinceEpoch.toString(),
-                    emoji: emoji,
-                    x: 0.5, // Center horizontally
-                    y: 0.5, // Center vertically
-                  ));
-                });
-                Navigator.pop(context);
-                HapticFeedback.lightImpact();
-              },
-              child: Container(
-                margin: const EdgeInsets.all(DesignTokens.spacingBase),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius:
-                      BorderRadius.circular(DesignTokens.radiusMedium),
-                ),
-                child: Center(
-                  child: Text(
-                    emoji,
-                    style: const TextStyle(fontSize: 32),
+      isScrollControlled: true,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) {
+          // Use parent state instead
+          String? selectedSetId = _selectedStickerSetId;
+
+          return Container(
+            height: MediaQuery.of(context).size.height * 0.7,
+            decoration: const BoxDecoration(
+              color: DesignTokens.surfacePrimary,
+              borderRadius: BorderRadius.vertical(
+                top: Radius.circular(DesignTokens.radiusCircular),
+              ),
+            ),
+            child: Column(
+              children: [
+                // Header
+                Padding(
+                  padding: const EdgeInsets.all(DesignTokens.spacingLarge),
+                  child: Row(
+                    children: [
+                      Text(
+                        'Stickers',
+                        style: GoogleFonts.lexend(
+                          fontSize: DesignTokens.fontSizeTitle,
+                          fontWeight: DesignTokens.weightSemiBold,
+                          color: DesignTokens.textPrimary,
+                        ),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
                   ),
                 ),
-              ),
-            );
-          },
-        ),
+
+                // Set selector tabs
+                SizedBox(
+                  height: 60,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: DesignTokens.spacingLarge,
+                    ),
+                    itemCount: stickerSets.length,
+                    itemBuilder: (context, index) {
+                      final set = stickerSets[index];
+                      final isSelected = selectedSetId == set.id;
+
+                      return Padding(
+                        padding: const EdgeInsets.only(
+                          right: DesignTokens.spacingMedium,
+                        ),
+                        child: GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _selectedStickerSetId = set.id;
+                            });
+                            setModalState(() {
+                              selectedSetId = set.id;
+                            });
+                          },
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: DesignTokens.spacingLarge,
+                              vertical: DesignTokens.spacingSmall,
+                            ),
+                            decoration: BoxDecoration(
+                              gradient: isSelected
+                                  ? LinearGradient(
+                                      colors: [
+                                        DesignTokens.brandColor,
+                                        DesignTokens.brandAccent,
+                                      ],
+                                    )
+                                  : null,
+                              color: !isSelected
+                                  ? Colors.grey.shade100
+                                  : null,
+                              borderRadius: BorderRadius.circular(
+                                DesignTokens.radiusXLarge,
+                              ),
+                              border: Border.all(
+                                color: isSelected
+                                    ? DesignTokens.brandColor
+                                    : Colors.transparent,
+                                width: 2,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (set.isLocked) ...[
+                                  const Icon(
+                                    Icons.lock,
+                                    size: 16,
+                                    color: DesignTokens.textSecondary,
+                                  ),
+                                  const SizedBox(
+                                      width: DesignTokens.spacingSmall),
+                                ],
+                                Text(
+                                  set.name,
+                                  style: GoogleFonts.lexend(
+                                    fontSize: DesignTokens.fontSizeBody,
+                                    fontWeight: DesignTokens.weightSemiBold,
+                                    color: isSelected
+                                        ? Colors.white
+                                        : DesignTokens.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+
+                const Divider(height: 1),
+
+                // Stickers grid
+                Expanded(
+                  child: selectedSetId == null
+                      // Empty state - select a set first
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.collections_outlined,
+                                size: 64,
+                                color: DesignTokens.textSecondary
+                                    .withValues(alpha: 0.5),
+                              ),
+                              const SizedBox(
+                                  height: DesignTokens.spacingMedium),
+                              Text(
+                                'Select a sticker set',
+                                style: GoogleFonts.lexend(
+                                  fontSize: DesignTokens.fontSizeBody,
+                                  color: DesignTokens.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : _buildStickerGrid(
+                          stickerSets.firstWhere(
+                            (s) => s.id == selectedSetId,
+                          ),
+                        ),
+                ),
+              ],
+            ),
+          );
+        },
       ),
+    );
+  }
+
+  Widget _buildStickerGrid(StickerSet set) {
+    if (set.isLocked) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.lock_outline,
+              size: 64,
+              color: DesignTokens.textSecondary.withValues(alpha: 0.5),
+            ),
+            const SizedBox(height: DesignTokens.spacingMedium),
+            Text(
+              'Locked',
+              style: GoogleFonts.lexend(
+                fontSize: DesignTokens.fontSizeTitle,
+                fontWeight: DesignTokens.weightSemiBold,
+                color: DesignTokens.textSecondary,
+              ),
+            ),
+            const SizedBox(height: DesignTokens.spacingSmall),
+            Text(
+              'Collect for ${set.requiredStreakDays} days to unlock',
+              style: GoogleFonts.lexend(
+                fontSize: DesignTokens.fontSizeBody,
+                color: DesignTokens.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return GridView.builder(
+      padding: const EdgeInsets.all(DesignTokens.spacingLarge),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 4,
+        childAspectRatio: 1,
+        mainAxisSpacing: DesignTokens.spacingMedium,
+        crossAxisSpacing: DesignTokens.spacingMedium,
+      ),
+      itemCount: set.count,
+      itemBuilder: (context, index) {
+        final assetPath = getStickerAsset(set.id, index);
+
+        return GestureDetector(
+          onTap: () {
+            setState(() {
+              _stickers.add(ScrapbookSticker(
+                id: DateTime.now().millisecondsSinceEpoch.toString(),
+                emoji: assetPath, // Store asset path instead of emoji
+                x: 0.5,
+                y: 0.5,
+              ));
+            });
+            Navigator.pop(context);
+            HapticFeedback.lightImpact();
+          },
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius:
+                  BorderRadius.circular(DesignTokens.radiusMedium),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.5),
+                width: 1,
+              ),
+            ),
+            child: ClipRRect(
+              borderRadius:
+                  BorderRadius.circular(DesignTokens.radiusMedium),
+              child: Image.asset(
+                assetPath,
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) {
+                  return Center(
+                    child: Icon(
+                      Icons.image_not_supported_outlined,
+                      size: 32,
+                      color: DesignTokens.textSecondary
+                          .withValues(alpha: 0.3),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
