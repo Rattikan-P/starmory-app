@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import '../../data/models/word_card_model.dart';
 
 /// Review Card Widget with Active Recall
@@ -9,12 +10,18 @@ class ReviewCardWidget extends StatefulWidget {
   final WordCardModel card;
   final VoidCallback onForgot;
   final VoidCallback onKnow;
+  final bool canUndo;
+  final VoidCallback onUndo;
+  final String currentLanguageVariant; // User's current setting (US/UK)
 
   const ReviewCardWidget({
     super.key,
     required this.card,
     required this.onForgot,
     required this.onKnow,
+    this.canUndo = false,
+    required this.onUndo,
+    required this.currentLanguageVariant,
   });
 
   @override
@@ -31,9 +38,14 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
   double _dragOffsetX = 0;
   double _dragStartX = 0;
 
+  // TTS state
+  late FlutterTts _flutterTts;
+  bool _isPlaying = false;
+
   @override
   void initState() {
     super.initState();
+    _initTts();
     _flipController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
@@ -45,8 +57,99 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
 
   @override
   void dispose() {
+    _flutterTts.stop();
     _flipController.dispose();
     super.dispose();
+  }
+
+  /// Initialize Text-to-Speech
+  Future<void> _initTts() async {
+    _flutterTts = FlutterTts();
+
+    await _flutterTts.setSpeechRate(0.5);
+    await _flutterTts.setVolume(1.0);
+    await _flutterTts.setPitch(1.0);
+
+    _flutterTts.setCompletionHandler(() {
+      if (mounted) {
+        setState(() => _isPlaying = false);
+      }
+    });
+
+    _flutterTts.setErrorHandler((message) {
+      if (mounted) {
+        setState(() => _isPlaying = false);
+      }
+    });
+  }
+
+  /// Play or stop pronunciation
+  Future<void> _togglePronunciation() async {
+    final vocab = widget.card.vocabulary;
+    if (vocab == null) return;
+
+    if (_isPlaying) {
+      await _flutterTts.stop();
+      setState(() => _isPlaying = false);
+    } else {
+      HapticFeedback.lightImpact();
+      setState(() => _isPlaying = true);
+
+      try {
+        // Set language based on vocab's stored variant (word origin)
+        final language = widget.card.vocabulary?.languageVariant == 'UK' ? 'en-GB' : 'en-US';
+        await _flutterTts.setLanguage(language);
+
+        // Speak the word
+        await _flutterTts.speak(vocab.word);
+      } catch (e) {
+        debugPrint('TTS Error: $e');
+        setState(() => _isPlaying = false);
+      }
+
+      // Fallback: Auto-reset after estimated duration
+      final estimatedDuration = Duration(
+        milliseconds: (vocab.word.length * 150).clamp(500, 3000),
+      );
+      Future.delayed(estimatedDuration, () {
+        if (mounted && _isPlaying) {
+          setState(() => _isPlaying = false);
+        }
+      });
+    }
+  }
+
+  /// Build speaker button widget
+  Widget _buildSpeakerButton() {
+    return GestureDetector(
+      onTap: _togglePronunciation,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: _isPlaying
+              ? Colors.white.withValues(alpha: 0.25)
+              : Colors.white.withValues(alpha: 0.15),
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.5),
+            width: 2,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.3),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Icon(
+          _isPlaying ? Icons.stop : Icons.volume_up,
+          color: Colors.white.withValues(alpha: 0.95),
+          size: 24,
+        ),
+      ),
+    );
   }
 
   void _flip() {
@@ -75,7 +178,7 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
 
     return Column(
       children: [
-        // Card
+        // Card (speaker button now inside card)
         Expanded(
           child: Center(
             child: _buildCard(context, vocab),
@@ -83,7 +186,50 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
         ),
 
         // Rating buttons (only when revealed)
-        if (_isRevealed) _buildRatingButtons(context),
+        if (_isRevealed) ...[
+          // Undo button (if available)
+          if (widget.canUndo)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: GestureDetector(
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  widget.onUndo();
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.3),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.undo,
+                        color: Colors.white.withValues(alpha: 0.8),
+                        size: 18,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Undo',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.9),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          _buildRatingButtons(context),
+        ],
 
         const SizedBox(height: 24),
       ],
@@ -230,6 +376,7 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
+                  // Word
                   Text(
                     vocab.word,
                     style: const TextStyle(
@@ -283,6 +430,13 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
                   borderRadius: BorderRadius.circular(28),
                 ),
               ),
+            ),
+
+            // Speaker button (inside card, top-right corner)
+            Positioned(
+              top: 16,
+              right: 16,
+              child: _buildSpeakerButton(),
             ),
           ],
         ),
@@ -497,6 +651,13 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
                     borderRadius: BorderRadius.circular(28),
                   ),
                 ),
+              ),
+
+              // Speaker button (inside card, top-right corner)
+              Positioned(
+                top: 16,
+                right: 16,
+                child: _buildSpeakerButton(),
               ),
             ],
           ),

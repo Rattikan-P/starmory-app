@@ -12,6 +12,7 @@ class VocabularyModel extends Equatable {
   final String communicativeFunction; // Indicative, Imperative, Subjunctive/Wish, Conditionals
   final String languageVariant; // US, UK
   final String imageUrl;
+
   final DateTime createdAt;
   final DateTime? updatedAt;
   final List<String> tags;
