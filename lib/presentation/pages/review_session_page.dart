@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/review_provider.dart';
+import '../providers/providers.dart';
 import '../widgets/review_card_widget.dart';
 import '../widgets/galaxy_screen_background.dart';
 
@@ -176,6 +176,9 @@ class ReviewSessionPage extends ConsumerWidget {
               card: currentCard,
               onForgot: () => _handleSwipe(ref, false),
               onKnow: () => _handleSwipe(ref, true),
+              canUndo: ref.read(reviewStateProvider).canUndo,
+              onUndo: () => ref.read(reviewStateProvider.notifier).undoSwipe(),
+              currentLanguageVariant: ref.read(currentUserProvider)?.englishVariant ?? 'US',
             ),
           ),
         ),
@@ -248,6 +251,19 @@ class ReviewSessionPage extends ConsumerWidget {
                   ),
                 ),
               const SizedBox(height: 32),
+              // Undo button (if available)
+              if (state.canUndo)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: TextButton.icon(
+                    onPressed: () => ref.read(reviewStateProvider.notifier).undoSwipe(),
+                    icon: const Icon(Icons.undo, color: Colors.white54),
+                    label: const Text(
+                      'Undo',
+                      style: TextStyle(color: Colors.white70, fontSize: 14),
+                    ),
+                  ),
+                ),
               // Continue button
               ElevatedButton(
                 onPressed: () => ref.read(reviewStateProvider.notifier).nextCard(),

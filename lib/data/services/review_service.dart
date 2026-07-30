@@ -19,6 +19,18 @@ class ReviewService {
   /// Get current user ID (null for guest)
   String? get currentUserId => _client.auth.currentSession?.user.id;
 
+  /// Get user's English variant preference (US or UK)
+  /// Falls back to 'US' if not set
+  Future<String> _getUserEnglishVariant() async {
+    try {
+      final user = await _hiveService.getCurrentUser();
+      return user?.englishVariant ?? 'US';
+    } catch (e) {
+      print('❌ Error getting user preference: $e');
+      return 'US'; // Fallback to US
+    }
+  }
+
   /// Check if user is logged in (registered mode)
   bool get isLoggedIn => currentUserId != null;
 
@@ -48,8 +60,21 @@ class ReviewService {
       // Filter due cards
       final dueCards = allCards.where((card) => card.isDue).toList();
 
-      // Sort by due date
-      dueCards.sort((a, b) => a.dueDate.compareTo(b.dueDate));
+      // Get user preference for priority sorting
+      final userVariant = await _getUserEnglishVariant();
+
+      // Sort: match preference first, then by due date
+      dueCards.sort((a, b) {
+        final aMatches = a.vocabulary?.languageVariant == userVariant;
+        final bMatches = b.vocabulary?.languageVariant == userVariant;
+
+        // Priority: matching variant comes first
+        if (aMatches && !bMatches) return -1;
+        if (!aMatches && bMatches) return 1;
+
+        // Same priority: sort by due date
+        return a.dueDate.compareTo(b.dueDate);
+      });
 
       // Limit
       return dueCards.take(limit).toList();
@@ -68,10 +93,28 @@ class ReviewService {
       if (response == null) return [];
 
       final List<dynamic> data = response as List<dynamic>;
-      return data
+      final cards = data
           .map((json) => WordCardModel.fromSupabaseWithVocabulary(
               json as Map<String, dynamic>))
           .toList();
+
+      // Get user preference for priority sorting
+      final userVariant = await _getUserEnglishVariant();
+
+      // Sort: match preference first, then by due date
+      cards.sort((a, b) {
+        final aMatches = a.vocabulary?.languageVariant == userVariant;
+        final bMatches = b.vocabulary?.languageVariant == userVariant;
+
+        // Priority: matching variant comes first
+        if (aMatches && !bMatches) return -1;
+        if (!aMatches && bMatches) return 1;
+
+        // Same priority: sort by due date
+        return a.dueDate.compareTo(b.dueDate);
+      });
+
+      return cards;
     } catch (e) {
       print('❌ Error getting due cards from Supabase: $e');
       return [];
