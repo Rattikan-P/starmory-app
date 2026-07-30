@@ -163,6 +163,42 @@ class ReviewService {
     }
   }
 
+  /// Create a new word card with vocabulary data included
+  /// This ensures the card has vocabulary data immediately after creation
+  Future<WordCardModel?> createCardWithVocabulary(String vocabularyId, VocabularyModel vocabulary) async {
+    final userId = currentUserId;
+
+    if (userId == null) {
+      // Guest mode: create in Hive (already has vocab in _createCardInHive)
+      return _createCardInHive(vocabularyId);
+    } else {
+      // Registered mode: create in Supabase and include vocab
+      return _createCardInSupabaseWithVocabulary(userId, vocabularyId, vocabulary);
+    }
+  }
+
+  /// Create card in Supabase with vocabulary data included
+  Future<WordCardModel?> _createCardInSupabaseWithVocabulary(String userId, String vocabularyId, VocabularyModel vocabulary) async {
+    try {
+      final response = await _client.from('word_cards').insert({
+        'user_id': userId,
+        'vocabulary_id': vocabularyId,
+        'due_date': DateTime.now().toIso8601String(),
+      }).select();
+
+      if (response == null || response.isEmpty) return null;
+
+      final json = response.first as Map<String, dynamic>;
+      final card = WordCardModel.fromSupabaseJson(json);
+
+      // Include vocabulary data
+      return card.copyWith(vocabulary: vocabulary);
+    } catch (e) {
+      print('❌ Error creating card in Supabase with vocab: $e');
+      return null;
+    }
+  }
+
   /// Create card in Hive (Guest mode)
   Future<WordCardModel?> _createCardInHive(String vocabularyId) async {
     try {
@@ -264,10 +300,10 @@ class ReviewService {
     final needed = 5 - dueCards.length;
     final newVocab = await getNewVocabularies(limit: needed);
 
-    // Create cards for new vocabularies
+    // Create cards for new vocabularies with vocabulary data included
     final sessionCards = List<WordCardModel>.from(dueCards);
     for (final vocab in newVocab) {
-      final card = await createCard(vocab.id);
+      final card = await createCardWithVocabulary(vocab.id, vocab);
       if (card != null) {
         sessionCards.add(card);
       }

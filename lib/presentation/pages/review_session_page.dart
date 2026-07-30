@@ -145,8 +145,8 @@ class ReviewSessionPage extends ConsumerWidget {
           child: Center(
             child: ReviewCardWidget(
               card: currentCard,
-              onSwipeLeft: () => _handleSwipe(ref, false),
-              onSwipeRight: () => _handleSwipe(ref, true),
+              onForgot: () => _handleSwipe(ref, false),
+              onKnow: () => _handleSwipe(ref, true),
             ),
           ),
         ),
