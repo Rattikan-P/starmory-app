@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../models/vocabulary_model.dart';
 import '../models/user_model.dart';
+import '../models/user_stats_model.dart';
 import '../models/word_card_model.dart';
 import '../../core/config/app_constants.dart';
 import '../../core/error/failures.dart';
@@ -54,6 +55,7 @@ class HiveService {
       await Hive.openBox<String>(AppConstants.boxVocabulary);
       await Hive.openBox<String>(AppConstants.boxUser);
       await Hive.openBox<String>(AppConstants.boxWordCards);
+      await Hive.openBox<String>(AppConstants.boxUserStats);
     } catch (e, stackTrace) {
       print('❌ Error opening boxes: $e');
       print('📚 Stack trace: $stackTrace');
@@ -228,6 +230,43 @@ class HiveService {
     }
   }
 
+  // ============= User Stats Operations =============
+
+  /// Save user statistics (for adaptive time estimation)
+  Future<void> saveUserStats(UserStatsModel stats) async {
+    try {
+      final box = Hive.box<String>(AppConstants.boxUserStats);
+      await box.put(AppConstants.keyUserStats, jsonEncode(stats.toJson()));
+      print('💾 User stats saved: reviews=${stats.totalReviewsCompleted}, avg=${stats.averageTimePerCard.toStringAsFixed(1)}s');
+    } catch (e) {
+      throw CacheFailure('Failed to save user stats: ${e.toString()}');
+    }
+  }
+
+  /// Get user statistics
+  Future<UserStatsModel?> getUserStats() async {
+    try {
+      final box = Hive.box<String>(AppConstants.boxUserStats);
+      final jsonString = box.get(AppConstants.keyUserStats);
+      if (jsonString == null) return null;
+      return UserStatsModel.fromJson(jsonDecode(jsonString) as Map<String, dynamic>);
+    } catch (e) {
+      print('⚠️ Failed to load user stats: $e');
+      return null;
+    }
+  }
+
+  /// Clear user statistics (for logout/reset)
+  Future<void> clearUserStats() async {
+    try {
+      final box = Hive.box<String>(AppConstants.boxUserStats);
+      await box.delete(AppConstants.keyUserStats);
+      print('🗑️ User stats cleared');
+    } catch (e) {
+      throw CacheFailure('Failed to clear user stats: ${e.toString()}');
+    }
+  }
+
   // ============= Guest Quota Backup Operations =============
   // These persist guest quota across login/logout cycles (device-based trial)
 
@@ -308,6 +347,7 @@ class HiveService {
       await Hive.box<String>(AppConstants.boxVocabulary).clear();
       await Hive.box<String>(AppConstants.boxUser).clear();
       await Hive.box<String>(AppConstants.boxWordCards).clear();
+      await Hive.box<String>(AppConstants.boxUserStats).clear();
     } catch (e) {
       throw CacheFailure('Failed to clear all data: ${e.toString()}');
     }

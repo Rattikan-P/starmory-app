@@ -211,7 +211,7 @@ class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserv
       child: Column(
         children: [
           // Hero Card - Cards Due
-          _buildHeroCard(dueCount),
+          _buildHeroCard(dueCount, reviewState),
 
           const SizedBox(height: 24),
 
@@ -229,7 +229,41 @@ class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserv
     );
   }
 
-  Widget _buildHeroCard(int dueCount) {
+  /// Calculate adaptive time estimate based on card count and user history
+  /// - New users (< 20 reviews): Use 7 sec/card baseline (FSRS team standard)
+  ///   Reference: open-spaced-repetition/FSRS, Control-Alt-Backspace
+  /// - Experienced users: Use personalized average from their history
+  String _getTimeEstimate(int cardCount, int totalReviews, double avgTimePerCard) {
+    if (cardCount == 0) return '~0 min';
+
+    int totalSeconds;
+
+    if (totalReviews < 20) {
+      // New user - use 7 sec/card baseline (FSRS team standard)
+      totalSeconds = cardCount * 7;
+    } else {
+      // Experienced user - use personalized average
+      totalSeconds = (cardCount * avgTimePerCard).round();
+    }
+
+    // Format output
+    if (totalSeconds < 60) {
+      return '~$totalSeconds sec';
+    } else if (totalSeconds < 3600) {
+      final minutes = (totalSeconds / 60).round();
+      return '~$minutes min';
+    } else {
+      final hours = (totalSeconds / 3600).round();
+      return '~$hours hour${hours > 1 ? "s" : ""}';
+    }
+  }
+
+  Widget _buildHeroCard(int dueCount, dynamic reviewState) {
+    // Handle state inconsistency during hot reload
+    final totalReviews = reviewState.totalReviewsCompleted ?? 0;
+    final avgTime = reviewState.averageTimePerCard ?? 7.0;
+    final timeEstimate = _getTimeEstimate(dueCount, totalReviews, avgTime);
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(28),
@@ -286,12 +320,30 @@ class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserv
               height: 1,
             ),
           ),
-          Text(
-            dueCount == 1 ? 'card ready to review' : 'cards ready to review',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.white.withValues(alpha: 0.8),
-            ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Text(
+                '$dueCount ${dueCount == 1 ? 'card' : 'cards'} • ',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.white.withValues(alpha: 0.8),
+                ),
+              ),
+              const Icon(
+                Icons.access_time,
+                size: 14,
+                color: Colors.white70,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                timeEstimate,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.white.withValues(alpha: 0.8),
+                ),
+              ),
+            ],
           ),
         ],
       ),

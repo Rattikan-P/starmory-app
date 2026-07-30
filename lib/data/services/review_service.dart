@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/word_card_model.dart';
 import '../models/vocabulary_model.dart';
+import '../models/user_stats_model.dart';
 import 'hive_service.dart';
 
 /// Review Service for Spaced Repetition System
@@ -20,6 +21,9 @@ class ReviewService {
 
   /// Check if user is logged in (registered mode)
   bool get isLoggedIn => currentUserId != null;
+
+  /// Expose HiveService for direct access (needed for user stats in guest mode)
+  HiveService get hiveService => _hiveService;
 
   /// Get due cards for review (max 5)
   /// Guest: from Hive | Registered: from Supabase
@@ -354,6 +358,126 @@ class ReviewService {
     } catch (e) {
       print('❌ Error counting due cards from Supabase: $e');
       return 0;
+    }
+  }
+
+  /// Get user statistics from storage (for adaptive time estimation)
+  Future<Map<String, dynamic>> getUserStats() async {
+    final userId = currentUserId;
+
+    if (userId == null) {
+      // Guest mode: get from Hive
+      return _getUserStatsFromHive();
+    } else {
+      // Registered mode: get from Supabase
+      return _getUserStatsFromSupabase(userId);
+    }
+  }
+
+  /// Get user stats from Hive (Guest mode)
+  Future<Map<String, dynamic>> _getUserStatsFromHive() async {
+    try {
+      final stats = await _hiveService.getUserStats();
+      if (stats == null) return {};
+      return stats.toJson();
+    } catch (e) {
+      print('❌ Error getting user stats from Hive: $e');
+      return {};
+    }
+  }
+
+  /// Get user stats from Supabase (Registered mode)
+  Future<Map<String, dynamic>> _getUserStatsFromSupabase(String userId) async {
+    try {
+      final response = await _client
+          .from('user_profiles')
+          .select('total_reviews, average_time_per_card')
+          .eq('user_id', userId)
+          .maybeSingle();
+
+      if (response == null) return {};
+
+      return {
+        'totalReviewsCompleted': response['total_reviews'] as int? ?? 0,
+        'averageTimePerCard': (response['average_time_per_card'] as num?)?.toDouble() ?? 7.0,
+      };
+    } catch (e) {
+      print('❌ Error getting user stats from Supabase: $e');
+      return {};
+    }
+  }
+
+  /// Save user statistics to storage
+  Future<void> saveUserStats({
+    required int totalReviewsCompleted,
+    required double averageTimePerCard,
+  }) async {
+    final userId = currentUserId;
+
+    if (userId == null) {
+      // Guest mode: save to Hive
+      await _saveUserStatsToHive(totalReviewsCompleted, averageTimePerCard);
+    } else {
+      // Registered mode: save to Supabase
+      await _saveUserStatsToSupabase(userId, totalReviewsCompleted, averageTimePerCard);
+    }
+  }
+
+  /// Save user stats to Hive (Guest mode)
+  Future<void> _saveUserStatsToHive(
+    int totalReviewsCompleted,
+    double averageTimePerCard,
+  ) async {
+    try {
+      final stats = await _hiveService.getUserStats();
+      final updatedStats = (stats ?? UserStatsModel(
+        lastReviewDate: DateTime.now(),
+        createdAt: DateTime.now(),
+      )).copyWith(
+        totalReviewsCompleted: totalReviewsCompleted,
+        averageTimePerCard: averageTimePerCard,
+        lastReviewDate: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+      await _hiveService.saveUserStats(updatedStats);
+    } catch (e) {
+      print('❌ Error saving user stats to Hive: $e');
+    }
+  }
+
+  /// Save user stats to Supabase (Registered mode)
+  Future<void> _saveUserStatsToSupabase(
+    String userId,
+    int totalReviewsCompleted,
+    double averageTimePerCard,
+  ) async {
+    try {
+      // Check if user profile exists
+      final existing = await _client
+          .from('user_profiles')
+          .select('id')
+          .eq('user_id', userId)
+          .maybeSingle();
+
+      if (existing == null) {
+        // Create new profile
+        await _client.from('user_profiles').insert({
+          'user_id': userId,
+          'total_reviews': totalReviewsCompleted,
+          'average_time_per_card': averageTimePerCard,
+        });
+      } else {
+        // Update existing profile
+        await _client
+            .from('user_profiles')
+            .update({
+              'total_reviews': totalReviewsCompleted,
+              'average_time_per_card': averageTimePerCard,
+            })
+            .eq('user_id', userId);
+      }
+    } catch (e) {
+      print('❌ Error saving user stats to Supabase: $e');
     }
   }
 
