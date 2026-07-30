@@ -196,68 +196,68 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     if (existingScrapbook != null) {
       setState(() {
         // Create deep copies to avoid modifying the original scrapbook data
-        _textOverlays = existingScrapbook.textOverlays.map((overlay) =>
-          ScrapbookTextOverlay(
-            id: overlay.id,
-            text: overlay.text,
-            x: overlay.x,
-            y: overlay.y,
-            color: overlay.color,
-            fontSize: overlay.fontSize,
-          )
-        ).toList();
-        _stickers = existingScrapbook.stickers.map((sticker) =>
-          ScrapbookSticker(
-            id: sticker.id,
-            emoji: sticker.emoji,
-            x: sticker.x,
-            y: sticker.y,
-            scale: sticker.scale,
-          )
-        ).toList();
-        _additionalPhotos = existingScrapbook.additionalPhotos.map((photo) =>
-          ScrapbookPhoto(
-            id: photo.id,
-            imagePath: photo.imagePath,
-            x: photo.x,
-            y: photo.y,
-            width: photo.width,
-            height: photo.height,
-          )
-        ).toList();
+        _textOverlays = existingScrapbook.textOverlays
+            .map((overlay) => ScrapbookTextOverlay(
+                  id: overlay.id,
+                  text: overlay.text,
+                  x: overlay.x,
+                  y: overlay.y,
+                  color: overlay.color,
+                  fontSize: overlay.fontSize,
+                ))
+            .toList();
+        _stickers = existingScrapbook.stickers
+            .map((sticker) => ScrapbookSticker(
+                  id: sticker.id,
+                  emoji: sticker.emoji,
+                  x: sticker.x,
+                  y: sticker.y,
+                  scale: sticker.scale,
+                ))
+            .toList();
+        _additionalPhotos = existingScrapbook.additionalPhotos
+            .map((photo) => ScrapbookPhoto(
+                  id: photo.id,
+                  imagePath: photo.imagePath,
+                  x: photo.x,
+                  y: photo.y,
+                  width: photo.width,
+                  height: photo.height,
+                ))
+            .toList();
         _backgroundColor = existingScrapbook.backgroundColor;
         _selectedEmoji = existingScrapbook.selectedEmoji;
 
         // Create separate deep copies for original state comparison
-        _originalTextOverlays = _textOverlays.map((overlay) =>
-          ScrapbookTextOverlay(
-            id: overlay.id,
-            text: overlay.text,
-            x: overlay.x,
-            y: overlay.y,
-            color: overlay.color,
-            fontSize: overlay.fontSize,
-          )
-        ).toList();
-        _originalStickers = _stickers.map((sticker) =>
-          ScrapbookSticker(
-            id: sticker.id,
-            emoji: sticker.emoji,
-            x: sticker.x,
-            y: sticker.y,
-            scale: sticker.scale,
-          )
-        ).toList();
-        _originalAdditionalPhotos = _additionalPhotos.map((photo) =>
-          ScrapbookPhoto(
-            id: photo.id,
-            imagePath: photo.imagePath,
-            x: photo.x,
-            y: photo.y,
-            width: photo.width,
-            height: photo.height,
-          )
-        ).toList();
+        _originalTextOverlays = _textOverlays
+            .map((overlay) => ScrapbookTextOverlay(
+                  id: overlay.id,
+                  text: overlay.text,
+                  x: overlay.x,
+                  y: overlay.y,
+                  color: overlay.color,
+                  fontSize: overlay.fontSize,
+                ))
+            .toList();
+        _originalStickers = _stickers
+            .map((sticker) => ScrapbookSticker(
+                  id: sticker.id,
+                  emoji: sticker.emoji,
+                  x: sticker.x,
+                  y: sticker.y,
+                  scale: sticker.scale,
+                ))
+            .toList();
+        _originalAdditionalPhotos = _additionalPhotos
+            .map((photo) => ScrapbookPhoto(
+                  id: photo.id,
+                  imagePath: photo.imagePath,
+                  x: photo.x,
+                  y: photo.y,
+                  width: photo.width,
+                  height: photo.height,
+                ))
+            .toList();
         _originalBackgroundColor = existingScrapbook.backgroundColor;
         _originalSelectedEmoji = existingScrapbook.selectedEmoji;
       });
@@ -270,7 +270,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     if (_backgroundColor != _originalBackgroundColor) return true;
     if (_textOverlays.length != _originalTextOverlays.length) return true;
     if (_stickers.length != _originalStickers.length) return true;
-    if (_additionalPhotos.length != _originalAdditionalPhotos.length) return true;
+    if (_additionalPhotos.length != _originalAdditionalPhotos.length)
+      return true;
 
     // Check for position/content changes in text overlays
     for (int i = 0; i < _textOverlays.length; i++) {
@@ -585,7 +586,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
 
             // Polaroid frame dimensions
             final frameBorder = 12.0; // White border around photo
-            final bottomArea = polaroidHeight * 0.18; // Writing area (18% of height)
+            final bottomArea =
+                polaroidHeight * 0.18; // Writing area (18% of height)
 
             return Container(
               width: polaroidWidth,
@@ -755,7 +757,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
             _draggingId = overlay.id;
             _draggingType = 'text';
             _dragStartOffset = details.localPosition;
-            _itemStartOffset = Offset(left - centerOffsetX - _touchSandbox, top - centerOffsetY - _touchSandbox);
+            // Store the initial normalized position (0.0 to 1.0)
+            _itemStartOffset = Offset(overlay.x, overlay.y);
             _isOverDeleteZone = false;
           });
         },
@@ -764,7 +767,6 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
 
           setState(() {
             final delta = details.localPosition - _dragStartOffset!;
-            final newOffset = _itemStartOffset! + delta;
 
             // Check if over delete zone
             _isOverDeleteZone =
@@ -772,11 +774,15 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
 
             // Only update position if NOT over delete zone
             if (!_isOverDeleteZone) {
-              // Allow dragging outside canvas bounds (-0.3 to 1.3 = 30% overflow on each side)
-              final clampedX =
-                  (newOffset.dx / _canvasSize!.width).clamp(-0.3, 1.3);
-              final clampedY =
-                  (newOffset.dy / _canvasSize!.height).clamp(-0.3, 1.3);
+              // Convert delta to normalized coordinates and add to initial position
+              final newX =
+                  _itemStartOffset!.dx + (delta.dx / _canvasSize!.width);
+              final newY =
+                  _itemStartOffset!.dy + (delta.dy / _canvasSize!.height);
+
+              // Clamp to allow some overflow outside canvas (-0.3 to 1.3)
+              final clampedX = newX.clamp(-0.3, 1.3);
+              final clampedY = newY.clamp(-0.3, 1.3);
 
               final index = _textOverlays.indexWhere((o) => o.id == overlay.id);
               if (index != -1) {
@@ -872,7 +878,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
             _draggingId = sticker.id;
             _draggingType = 'sticker';
             _dragStartOffset = details.localPosition;
-            _itemStartOffset = Offset(left - centerOffsetX - _touchSandbox, top - centerOffsetY - _touchSandbox);
+            // Store the initial normalized position (0.0 to 1.0)
+            _itemStartOffset = Offset(sticker.x, sticker.y);
             _isOverDeleteZone = false;
           });
         },
@@ -881,7 +888,6 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
 
           setState(() {
             final delta = details.localPosition - _dragStartOffset!;
-            final newOffset = _itemStartOffset! + delta;
 
             // Check if over delete zone
             _isOverDeleteZone =
@@ -889,11 +895,15 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
 
             // Only update position if NOT over delete zone
             if (!_isOverDeleteZone) {
-              // Allow dragging outside canvas bounds (-0.3 to 1.3 = 30% overflow on each side)
-              final clampedX =
-                  (newOffset.dx / _canvasSize!.width).clamp(-0.3, 1.3);
-              final clampedY =
-                  (newOffset.dy / _canvasSize!.height).clamp(-0.3, 1.3);
+              // Convert delta to normalized coordinates and add to initial position
+              final newX =
+                  _itemStartOffset!.dx + (delta.dx / _canvasSize!.width);
+              final newY =
+                  _itemStartOffset!.dy + (delta.dy / _canvasSize!.height);
+
+              // Clamp to allow some overflow outside canvas (-0.3 to 1.3)
+              final clampedX = newX.clamp(-0.3, 1.3);
+              final clampedY = newY.clamp(-0.3, 1.3);
 
               final index = _stickers.indexWhere((s) => s.id == sticker.id);
               if (index != -1) {
@@ -993,7 +1003,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
             _draggingId = photo.id;
             _draggingType = 'photo';
             _dragStartOffset = details.localPosition;
-            _itemStartOffset = Offset(left - centerOffsetX - _touchSandbox, top - centerOffsetY - _touchSandbox);
+            // Store the initial normalized position (0.0 to 1.0)
+            _itemStartOffset = Offset(photo.x, photo.y);
             _isOverDeleteZone = false;
           });
         },
@@ -1002,7 +1013,6 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
 
           setState(() {
             final delta = details.localPosition - _dragStartOffset!;
-            final newOffset = _itemStartOffset! + delta;
 
             // Check if over delete zone
             _isOverDeleteZone =
@@ -1010,11 +1020,15 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
 
             // Only update position if NOT over delete zone
             if (!_isOverDeleteZone) {
-              // Allow dragging outside canvas bounds (-0.3 to 1.3 = 30% overflow on each side)
-              final clampedX =
-                  (newOffset.dx / _canvasSize!.width).clamp(-0.3, 1.3);
-              final clampedY =
-                  (newOffset.dy / _canvasSize!.height).clamp(-0.3, 1.3);
+              // Convert delta to normalized coordinates and add to initial position
+              final newX =
+                  _itemStartOffset!.dx + (delta.dx / _canvasSize!.width);
+              final newY =
+                  _itemStartOffset!.dy + (delta.dy / _canvasSize!.height);
+
+              // Clamp to allow some overflow outside canvas (-0.3 to 1.3)
+              final clampedX = newX.clamp(-0.3, 1.3);
+              final clampedY = newY.clamp(-0.3, 1.3);
 
               final index =
                   _additionalPhotos.indexWhere((p) => p.id == photo.id);
@@ -1406,7 +1420,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                               const Color(0xFFEF4444).withValues(alpha: 0.7),
                             ],
                     ),
-                    borderRadius: BorderRadius.circular(DesignTokens.radiusXLarge),
+                    borderRadius:
+                        BorderRadius.circular(DesignTokens.radiusXLarge),
                     boxShadow: [
                       BoxShadow(
                         color: _isOverDeleteZone
@@ -1433,7 +1448,9 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                       ),
                       const SizedBox(width: DesignTokens.spacingMedium),
                       Text(
-                        _isOverDeleteZone ? 'Release to delete' : 'Drag here to delete',
+                        _isOverDeleteZone
+                            ? 'Release to delete'
+                            : 'Drag here to delete',
                         style: GoogleFonts.lexend(
                           fontSize: DesignTokens.fontSizeBody,
                           fontWeight: DesignTokens.weightSemiBold,
@@ -1748,9 +1765,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                                       ],
                                     )
                                   : null,
-                              color: !isSelected
-                                  ? Colors.grey.shade100
-                                  : null,
+                              color: !isSelected ? Colors.grey.shade100 : null,
                               borderRadius: BorderRadius.circular(
                                 DesignTokens.radiusXLarge,
                               ),
@@ -1895,16 +1910,14 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
           child: Container(
             decoration: BoxDecoration(
               color: Colors.grey.shade50,
-              borderRadius:
-                  BorderRadius.circular(DesignTokens.radiusMedium),
+              borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
               border: Border.all(
                 color: Colors.white.withValues(alpha: 0.5),
                 width: 1,
               ),
             ),
             child: ClipRRect(
-              borderRadius:
-                  BorderRadius.circular(DesignTokens.radiusMedium),
+              borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
               child: Image.asset(
                 assetPath,
                 fit: BoxFit.contain,
@@ -1913,8 +1926,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                     child: Icon(
                       Icons.image_not_supported_outlined,
                       size: 32,
-                      color: DesignTokens.textSecondary
-                          .withValues(alpha: 0.3),
+                      color: DesignTokens.textSecondary.withValues(alpha: 0.3),
                     ),
                   );
                 },
