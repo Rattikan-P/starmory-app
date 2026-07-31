@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -116,6 +117,42 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
           setState(() => _isPlaying = false);
         }
       });
+    }
+  }
+
+  /// Check if URL is a local file path
+  bool _isLocalPath(String path) {
+    return path.startsWith('/') || path.startsWith('file://');
+  }
+
+  /// Build image widget from URL or local path
+  Widget _buildImage(String imageUrl, {BoxFit? fit}) {
+    if (_isLocalPath(imageUrl)) {
+      // Remove 'file://' prefix if present
+      final localPath = imageUrl.startsWith('file://')
+          ? imageUrl.substring(7)
+          : imageUrl;
+      return Image.file(
+        File(localPath),
+        fit: fit ?? BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return Container(
+            color: const Color(0xFF3D3A5C),
+            child: const Icon(Icons.broken_image, size: 64, color: Colors.white38),
+          );
+        },
+      );
+    } else {
+      return Image.network(
+        imageUrl,
+        fit: fit ?? BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return Container(
+            color: const Color(0xFF3D3A5C),
+            child: const Icon(Icons.broken_image, size: 64, color: Colors.white38),
+          );
+        },
+      );
     }
   }
 
@@ -337,16 +374,7 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
               Stack(
                 fit: StackFit.expand,
                 children: [
-                  Image.network(
-                    vocab.imageUrl,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        color: const Color(0xFF3D3A5C),
-                        child: const Icon(Icons.broken_image, size: 64, color: Colors.white38),
-                      );
-                    },
-                  ),
+                  _buildImage(vocab.imageUrl, fit: BoxFit.cover),
                   // Blur effect
                   Positioned.fill(
                     child: BackdropFilter(
@@ -470,16 +498,7 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
               // Full clear image (takes entire card)
               if (vocab.imageUrl.isNotEmpty)
                 Positioned.fill(
-                  child: Image.network(
-                    vocab.imageUrl,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        color: const Color(0xFF3D3A5C),
-                        child: const Icon(Icons.broken_image, size: 64, color: Colors.white38),
-                      );
-                    },
-                  ),
+                  child: _buildImage(vocab.imageUrl, fit: BoxFit.cover),
                 ),
 
               // Black gradient at bottom for text readability

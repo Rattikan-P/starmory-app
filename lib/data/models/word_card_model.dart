@@ -106,6 +106,9 @@ class WordCardModel extends Equatable {
       updatedAt: json['updatedAt'] != null
           ? DateTime.parse(json['updatedAt'] as String)
           : null,
+      vocabulary: json['vocabulary'] != null
+          ? VocabularyModel.fromJson(json['vocabulary'] as Map<String, dynamic>)
+          : null,
     );
   }
 
@@ -181,7 +184,7 @@ class WordCardModel extends Equatable {
 
   /// Convert to JSON for local storage (Hive - camelCase)
   Map<String, dynamic> toJson() {
-    return {
+    final jsonMap = {
       'id': id,
       'userId': userId,
       'vocabularyId': vocabularyId,
@@ -195,6 +198,13 @@ class WordCardModel extends Equatable {
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
     };
+
+    // Include vocabulary data if present (for Guest mode local storage)
+    if (vocabulary != null) {
+      jsonMap['vocabulary'] = vocabulary!.toJson();
+    }
+
+    return jsonMap;
   }
 
   /// Convert to JSON for Supabase (snake_case)
