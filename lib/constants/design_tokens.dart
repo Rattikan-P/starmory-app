@@ -47,6 +47,24 @@ class DesignTokens {
   /// Success colors
   static const Color success = Colors.green;
 
+  // ============= Control Handle Colors =============
+
+  /// Delete handle color (red)
+  static const int controlDeleteValue = 0xFFEF4444;
+  static const Color controlDelete = Color(controlDeleteValue);
+
+  /// Duplicate handle color (blue)
+  static const int controlDuplicateValue = 0xFF3B82F6;
+  static const Color controlDuplicate = Color(controlDuplicateValue);
+
+  /// Flip handle color (amber)
+  static const int controlFlipValue = 0xFFF59E0B;
+  static const Color controlFlip = Color(controlFlipValue);
+
+  /// Resize/Rotate handle color (brand purple)
+  static const int controlResizeValue = 0xFF8b5cf6;
+  static const Color controlResize = Color(controlResizeValue);
+
   // ============= Border Radius =============
 
   /// Small border radius (8px) - chips, tags
@@ -201,6 +219,15 @@ class DesignTokens {
 
   /// Delete zone height from bottom
   static const double deleteZoneHeight = 150.0;
+
+  /// Control handle size for selected elements (meets 44x44 touch target)
+  static const double controlHandleSize = 36.0;
+
+  /// Control handle offset from element edge
+  static const double controlHandleOffset = 12.0;
+
+  /// Control touch padding for better touch recognition
+  static const double controlTouchPadding = 4.0;
 
   // ============= Helper Methods =============
 
