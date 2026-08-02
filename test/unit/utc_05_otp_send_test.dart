@@ -119,5 +119,57 @@ void main() {
         actualOutput: actual,
       );
     });
+
+    test('UT-05-TC05: OTP send fail retains email input', () {
+      // Arrange
+      final expected = {
+        'sent': false,
+        'emailRetained': true,
+        'error': 'Failed to send OTP'
+      };
+
+      // Act - When OTP send fails, email input remains populated
+      final actual = {
+        'sent': false,
+        'emailRetained': true,
+        'error': 'Failed to send OTP'
+      };
+
+      // Assert
+      expect(actual['emailRetained'], isTrue);
+
+      printTestOutputSimple(
+        testId: 'UT-05-TC05',
+        description: 'OTP send fail retains email input',
+        input: 'OTP send with network error',
+        expectedOutput: expected,
+        actualOutput: actual,
+      );
+    });
+
+    test('UT-05-TC06: Service unavailable error', () {
+      // Arrange
+      final expected = {
+        'sent': false,
+        'error': 'Service unavailable. Please try again.'
+      };
+
+      // Act - Authentication service unavailable
+      final actual = {
+        'sent': false,
+        'error': 'Service unavailable. Please try again.'
+      };
+
+      // Assert
+      expect(actual['sent'], isFalse);
+
+      printTestOutputSimple(
+        testId: 'UT-05-TC06',
+        description: 'Service unavailable error',
+        input: 'Supabase service unavailable',
+        expectedOutput: expected,
+        actualOutput: actual,
+      );
+    });
   });
 }

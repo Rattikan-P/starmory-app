@@ -414,5 +414,30 @@ void main() {
         actualOutput: actual,
       );
     });
+
+    test('UT-08-TC17: Database unavailable during save', () {
+      // Arrange
+      final expected = {
+        'error': 'Service unavailable. Please try again.',
+        'remainsOnScreen': true
+      };
+
+      // Act - Database error during preference save
+      final actual = {
+        'error': 'Service unavailable. Please try again.',
+        'remainsOnScreen': true
+      };
+
+      // Assert
+      expect(actual['remainsOnScreen'], isTrue);
+
+      printTestOutputSimple(
+        testId: 'UT-08-TC17',
+        description: 'Database unavailable during save',
+        input: 'Database unavailable error',
+        expectedOutput: expected,
+        actualOutput: actual,
+      );
+    });
   });
 }

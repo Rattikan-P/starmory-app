@@ -3,13 +3,28 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:mockito/annotations.dart';
+import 'package:starmory_app/data/services/hive_service.dart';
+import 'package:starmory_app/data/services/review_service.dart';
+import 'package:starmory_app/data/repositories/profile_repository.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// Generate mocks for Supabase and related classes
+/// Generate mocks for all services used in tests
 @GenerateMocks([
+  // Supabase
   SupabaseClient,
   GoTrueClient,
   User,
+  Session,
+  SupabaseQueryBuilder,
+  PostgrestFilterBuilder,
+  PostgrestTransformBuilder,
+
+  // Services
+  HiveService,
+  ReviewService,
+
+  // Repositories
+  ProfileRepository,
 ])
 import 'test_helpers.mocks.dart';
 

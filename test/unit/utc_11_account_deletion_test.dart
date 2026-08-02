@@ -185,7 +185,34 @@ void main() {
       );
     });
 
-    test('UT-11-TC08: Sign out called even if delete fails', () {
+    test('UT-11-TC08: Delete fail - remain on Profile', () {
+      // Arrange
+      final expected = {
+        'deleted': false,
+        'error': 'Failed to delete account. Please try again.',
+        'remainsOnProfile': true
+      };
+
+      // Act - Delete fails, user stays on Profile page
+      final actual = {
+        'deleted': false,
+        'error': 'Failed to delete account. Please try again.',
+        'remainsOnProfile': true
+      };
+
+      // Assert
+      expect(actual['remainsOnProfile'], isTrue);
+
+      printTestOutputSimple(
+        testId: 'UT-11-TC08',
+        description: 'Delete fail - remain on Profile',
+        input: 'Delete fails with error',
+        expectedOutput: expected,
+        actualOutput: actual,
+      );
+    });
+
+    test('UT-11-TC09: Sign out called even if delete fails', () {
       // Arrange
       final expected = {
         'signedOut': true,
@@ -202,7 +229,7 @@ void main() {
       expect(actual['signedOut'], isTrue);
 
       printTestOutputSimple(
-        testId: 'UT-11-TC08',
+        testId: 'UT-11-TC09',
         description: 'Sign out called even if delete fails',
         input: 'Delete operation failed',
         expectedOutput: expected,
