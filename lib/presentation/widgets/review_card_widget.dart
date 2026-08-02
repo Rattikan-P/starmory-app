@@ -1,9 +1,10 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_tts/flutter_tts.dart';
 import '../../data/models/word_card_model.dart';
+import '../../data/services/tts_service.dart';
 
 /// Review Card Widget with Active Recall
 /// Front: Word + Blurred Image + "Tap to reveal" → Back: Clear Image + Meaning + Sentence + Rating
@@ -40,13 +41,31 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
   double _dragStartX = 0;
 
   // TTS state
-  late FlutterTts _flutterTts;
+  final TTSService _ttsService = TTSService();
   bool _isPlaying = false;
+  StreamSubscription? _ttsCompletionSubscription;
+  StreamSubscription? _ttsErrorSubscription;
 
   @override
   void initState() {
     super.initState();
-    _initTts();
+    // Initialize TTS service
+    _ttsService.initialize();
+
+    // Listen to TTS completion
+    _ttsCompletionSubscription = _ttsService.onComplete.listen((_) {
+      if (mounted) {
+        setState(() => _isPlaying = false);
+      }
+    });
+
+    // Listen to TTS errors
+    _ttsErrorSubscription = _ttsService.onError.listen((_) {
+      if (mounted) {
+        setState(() => _isPlaying = false);
+      }
+    });
+
     _flipController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
@@ -58,30 +77,11 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
 
   @override
   void dispose() {
-    _flutterTts.stop();
+    _ttsCompletionSubscription?.cancel();
+    _ttsErrorSubscription?.cancel();
+    _ttsService.stop();
     _flipController.dispose();
     super.dispose();
-  }
-
-  /// Initialize Text-to-Speech
-  Future<void> _initTts() async {
-    _flutterTts = FlutterTts();
-
-    await _flutterTts.setSpeechRate(0.5);
-    await _flutterTts.setVolume(1.0);
-    await _flutterTts.setPitch(1.0);
-
-    _flutterTts.setCompletionHandler(() {
-      if (mounted) {
-        setState(() => _isPlaying = false);
-      }
-    });
-
-    _flutterTts.setErrorHandler((message) {
-      if (mounted) {
-        setState(() => _isPlaying = false);
-      }
-    });
   }
 
   /// Play or stop pronunciation
@@ -90,7 +90,7 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
     if (vocab == null) return;
 
     if (_isPlaying) {
-      await _flutterTts.stop();
+      await _ttsService.stop();
       setState(() => _isPlaying = false);
     } else {
       HapticFeedback.lightImpact();
@@ -98,25 +98,24 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
 
       try {
         // Set language based on vocab's stored variant (word origin)
-        final language = widget.card.vocabulary?.languageVariant == 'UK' ? 'en-GB' : 'en-US';
-        await _flutterTts.setLanguage(language);
+        final language = TTSService.getLanguageCode(widget.card.vocabulary?.languageVariant);
 
-        // Speak the word
-        await _flutterTts.speak(vocab.word);
+        // Speak the word (returns estimated duration for fallback)
+        final estimatedDuration = _ttsService.speak(
+          vocab.word,
+          language: language,
+        );
+
+        // Fallback: Auto-reset after estimated duration
+        Future.delayed(estimatedDuration, () {
+          if (mounted && _isPlaying) {
+            setState(() => _isPlaying = false);
+          }
+        });
       } catch (e) {
         debugPrint('TTS Error: $e');
         setState(() => _isPlaying = false);
       }
-
-      // Fallback: Auto-reset after estimated duration
-      final estimatedDuration = Duration(
-        milliseconds: (vocab.word.length * 150).clamp(500, 3000),
-      );
-      Future.delayed(estimatedDuration, () {
-        if (mounted && _isPlaying) {
-          setState(() => _isPlaying = false);
-        }
-      });
     }
   }
 

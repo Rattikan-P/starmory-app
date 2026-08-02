@@ -3,7 +3,6 @@ import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:starmory_app/core/utils/quota_manager.dart';
-import 'package:starmory_app/data/models/user_model.dart';
 import 'package:starmory_app/data/models/vocabulary_model.dart';
 import 'package:starmory_app/data/models/word_card_model.dart';
 import 'package:starmory_app/data/services/hive_service.dart';
@@ -15,7 +14,7 @@ import '../test_helpers.mocks.dart';
 /// Test Function: ReviewService.getDueCards()
 ///
 /// Description: This test verifies that the system correctly loads due vocabulary
-/// cards for review, sorted by user's language variant preference and due date.
+/// cards for review, sorted by due date (FSRS scheduled time).
 void main() {
   printTestHeader('UTC-03: Load Due Cards');
 
@@ -167,169 +166,6 @@ void main() {
     );
   });
 
-  // ============================================================================
-  // UTC-03-TC05: Sort UK cards first when UK preference
-  // ============================================================================
-  test('UTC-03-TC05: Sort UK cards first when UK preference', () async {
-    // Arrange
-    final now = DateTime.now();
-    final vocabUK = VocabularyModel(
-      id: 'vocab1',
-      word: 'colour',
-      partOfSpeech: 'noun',
-      thaiTranslation: 'สี',
-      englishSentence: 'The colour is blue.',
-      thaiSentence: 'สีนั้นเป็นสีฟ้า',
-      cefrLevel: 'A1',
-      communicativeFunction: 'describing',
-      languageVariant: 'UK',
-      imageUrl: '',
-      createdAt: now,
-    );
-    final vocabUS = VocabularyModel(
-      id: 'vocab2',
-      word: 'color',
-      partOfSpeech: 'noun',
-      thaiTranslation: 'สี',
-      englishSentence: 'The color is blue.',
-      thaiSentence: 'สีนั้นเป็นสีฟ้า',
-      cefrLevel: 'A1',
-      communicativeFunction: 'describing',
-      languageVariant: 'US',
-      imageUrl: '',
-      createdAt: now,
-    );
-
-    final cards = [
-      WordCardModel(
-        id: '2',
-        userId: 'guest',
-        vocabularyId: 'vocab2',
-        dueDate: now.subtract(Duration(days: 1)),
-        createdAt: now,
-        vocabulary: vocabUS,
-      ),
-      WordCardModel(
-        id: '1',
-        userId: 'guest',
-        vocabularyId: 'vocab1',
-        dueDate: now.subtract(Duration(days: 1)),
-        createdAt: now,
-        vocabulary: vocabUK,
-      ),
-    ];
-
-    when(mockAuth.currentSession).thenReturn(null);
-    when(mockHiveService.getWordCards()).thenAnswer((_) async => cards);
-    when(mockHiveService.getCurrentUser()).thenAnswer((_) async =>
-      UserModel.createGuest().updatePreference('languageVariant', 'UK'),
-    );
-
-    final expected = {'uk_first': true, 'us_first': false};
-
-    // Act
-    final result = await reviewService.getDueCards();
-
-    // Assert
-    expect(result.length, greaterThan(0));
-    if (result.length >= 2) {
-      expect(result[0].vocabulary?.languageVariant, 'UK');
-      expect(result[1].vocabulary?.languageVariant, 'US');
-    }
-
-    printTestOutputSimple(
-      testId: 'UTC-03-TC05',
-      description: 'Sort UK cards first when UK preference',
-      input: 'TD05: User preference = UK, mixed cards',
-      expectedOutput: expected,
-      actualOutput: {
-        'uk_first': result.isNotEmpty ? result[0].vocabulary?.languageVariant == 'UK' : false,
-        'us_first': result.isNotEmpty ? result[0].vocabulary?.languageVariant == 'US' : false,
-      },
-    );
-  });
-
-  // ============================================================================
-  // UTC-03-TC06: Sort US cards first when US preference
-  // ============================================================================
-  test('UTC-03-TC06: Sort US cards first when US preference', () async {
-    // Arrange
-    final now = DateTime.now();
-    final vocabUK = VocabularyModel(
-      id: 'vocab1',
-      word: 'colour',
-      partOfSpeech: 'noun',
-      thaiTranslation: 'สี',
-      englishSentence: 'The colour is blue.',
-      thaiSentence: 'สีนั้นเป็นสีฟ้า',
-      cefrLevel: 'A1',
-      communicativeFunction: 'describing',
-      languageVariant: 'UK',
-      imageUrl: '',
-      createdAt: now,
-    );
-    final vocabUS = VocabularyModel(
-      id: 'vocab2',
-      word: 'color',
-      partOfSpeech: 'noun',
-      thaiTranslation: 'สี',
-      englishSentence: 'The color is blue.',
-      thaiSentence: 'สีนั้นเป็นสีฟ้า',
-      cefrLevel: 'A1',
-      communicativeFunction: 'describing',
-      languageVariant: 'US',
-      imageUrl: '',
-      createdAt: now,
-    );
-
-    final cards = [
-      WordCardModel(
-        id: '1',
-        userId: 'guest',
-        vocabularyId: 'vocab1',
-        dueDate: now.subtract(Duration(days: 1)),
-        createdAt: now,
-        vocabulary: vocabUK,
-      ),
-      WordCardModel(
-        id: '2',
-        userId: 'guest',
-        vocabularyId: 'vocab2',
-        dueDate: now.subtract(Duration(days: 1)),
-        createdAt: now,
-        vocabulary: vocabUS,
-      ),
-    ];
-
-    when(mockAuth.currentSession).thenReturn(null);
-    when(mockHiveService.getWordCards()).thenAnswer((_) async => cards);
-    when(mockHiveService.getCurrentUser()).thenAnswer((_) async =>
-      UserModel.createGuest().updatePreference('languageVariant', 'US'),
-    );
-
-    final expected = {'us_first': true, 'uk_first': false};
-
-    // Act
-    final result = await reviewService.getDueCards();
-
-    // Assert
-    expect(result.length, greaterThan(0));
-    if (result.length >= 2) {
-      expect(result[0].vocabulary?.languageVariant, 'US');
-      expect(result[1].vocabulary?.languageVariant, 'UK');
-    }
-
-    printTestOutputSimple(
-      testId: 'UTC-03-TC06',
-      description: 'Sort US cards first when US preference',
-      input: 'TD06: User preference = US, mixed cards',
-      expectedOutput: expected,
-      actualOutput: {
-        'us_first': result.isNotEmpty ? result[0].vocabulary?.languageVariant == 'US' : false,
-        'uk_first': result.isNotEmpty ? result[0].vocabulary?.languageVariant == 'UK' : false,
-      },
-    );
-  });
 }
 
 // Helper to create test card
