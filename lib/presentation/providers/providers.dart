@@ -17,6 +17,8 @@ import 'review_provider.dart';
 
 // Export review providers
 export 'review_provider.dart';
+// Export streak providers
+export 'streak_provider.dart';
 
 // ============= Service Providers =============
 
