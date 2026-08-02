@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -92,6 +93,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
   double? _initialScale; // Initial scale for resize operation
   double? _initialRotation; // Initial rotation for resize operation
   double? _initialAngle; // Initial angle for rotation calculation
+  Offset? _resizeCenterGlobal;
+  Size? _initialPhotoSize;
 
   // Pinch gesture state
   double? _initialPinchScale;
@@ -727,6 +730,10 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                   ..._stickers.map((sticker) => _buildSticker(sticker)),
                   ..._additionalPhotos
                       .map((photo) => _buildAdditionalPhoto(photo)),
+
+                  // Controls live in their own overlay so their complete hit
+                  // targets are not clipped by the selected item's bounds.
+                  _buildSelectedControlOverlay(),
                 ],
               );
             },
@@ -949,65 +956,74 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
           }
         },
         behavior: HitTestBehavior.opaque,
-        child: Transform.rotate(
-          angle: overlay.rotation,
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              // Selection border and content
-              Container(
-                decoration: BoxDecoration(
-                  border: _draggingId == overlay.id
-                      ? Border.all(
-                          color: DesignTokens.brandColor,
-                          width: 2.5,
-                        )
-                      : Border.all(
-                          color: isSelected
-                              ? DesignTokens.brandColor
-                              : Colors.transparent,
-                          width: isSelected ? 2 : 0,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            // Everything inside rotates together
+            Center(
+              child: Transform.rotate(
+                angle: overlay.rotation,
+                child: SizedBox(
+                  width: 100,
+                  height: 50,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      // Text content container with background and scale
+                      Center(
+                        child: Container(
+                          padding: const EdgeInsets.all(8.0),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.95),
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.1),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.05),
+                                blurRadius: 16,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Transform.scale(
+                            scaleX: overlay.flip ? -overlay.scale : overlay.scale,
+                            scaleY: overlay.scale,
+                            alignment: Alignment.center,
+                            child: Text(
+                              overlay.text,
+                              style: TextStyle(
+                                color: Color(overlay.color),
+                                fontSize: scaledFontSize,
+                                fontWeight: FontWeight.w600,
+                                height: 1.2,
+                              ),
+                            ),
+                          ),
                         ),
-                ),
-                padding: const EdgeInsets.all(8.0),
-                child: Transform.scale(
-                  scaleX: overlay.flip ? -overlay.scale : overlay.scale,
-                  scaleY: overlay.scale,
-                  alignment: Alignment.center,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.95),
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.1),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
-                          blurRadius: 16,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Text(
-                      overlay.text,
-                      style: TextStyle(
-                        color: Color(overlay.color),
-                        fontSize: scaledFontSize,
-                        fontWeight: FontWeight.w600,
-                        height: 1.2,
                       ),
-                    ),
+                      // Selection border
+                      if (isSelected)
+                        Positioned.fill(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: DesignTokens.brandColor,
+                                width: 2.5,
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
               ),
-              // Control handles (show when selected)
-              if (isSelected)
-                ..._buildControlHandles(overlay.id, 'text', overlay.flip),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -1021,197 +1037,216 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     final left = _touchSandbox + (sticker.x * _canvasSize!.width);
     final top = _touchSandbox + (sticker.y * _canvasSize!.height);
 
-    // Offset to center the item (PNG stickers are ~100x100 px)
-    final centerOffsetX = 50.0;
-    final centerOffsetY = 50.0;
+    // Base sticker size (100x100) scaled by sticker.scale
+    final baseSize = 100.0;
+    final stickerSize = baseSize * sticker.scale;
 
-    // Calculate size based on scale
-    final stickerSize = 100.0 * sticker.scale;
+    // Offset to center the item
+    final centerOffsetX = stickerSize / 2;
+    final centerOffsetY = stickerSize / 2;
 
     final isSelected = _selectedId == sticker.id;
 
     return Positioned(
       left: left - centerOffsetX,
       top: top - centerOffsetY,
-      child: GestureDetector(
-        onTapDown: (details) {
-          // Store tap position for control handle detection
-          _lastTapPosition = details.localPosition;
-        },
-        onTap: () {
-          // If selected and tap is on control handle, don't toggle selection
-          if (isSelected &&
-              _lastTapPosition != null &&
-              _isOnControlHandle(
-                  _lastTapPosition!, Size(stickerSize, stickerSize))) {
-            _lastTapPosition = null;
-            return;
-          }
-          _lastTapPosition = null;
-          // Toggle selection
-          setState(() {
-            if (_selectedId == sticker.id) {
-              _selectedId = null;
-              _selectedType = null;
-            } else {
-              _selectedId = sticker.id;
-              _selectedType = 'sticker';
-            }
-          });
-        },
-        onScaleStart: (details) {
-          if (details.pointerCount == 1) {
-            // Single finger - check if tapping on resize handle
+      child: SizedBox(
+        width: stickerSize,
+        height: stickerSize,
+        child: GestureDetector(
+          onTapDown: (details) {
+            // Store tap position for control handle detection
+            _lastTapPosition = details.localPosition;
+          },
+          onTap: () {
+            // If selected and tap is on control handle, don't toggle selection
             if (isSelected &&
-                _isOnResizeHandle(
-                    details.localFocalPoint, Size(stickerSize, stickerSize))) {
-              setState(() {
-                _resizingId = sticker.id;
-                _resizingType = 'sticker';
-                _resizeStartPos = details.localFocalPoint;
-                _initialScale = sticker.scale;
-                _initialRotation = sticker.rotation;
-                _initialAngle =
-                    _calculateAngle(details.localFocalPoint, Offset(left, top));
-              });
-            } else {
-              // Start dragging
-              setState(() {
-                _draggingId = sticker.id;
-                _draggingType = 'sticker';
+                _lastTapPosition != null &&
+                _isOnControlHandle(
+                    _lastTapPosition!, Size(stickerSize, stickerSize))) {
+              _lastTapPosition = null;
+              return;
+            }
+            _lastTapPosition = null;
+            // Toggle selection
+            setState(() {
+              if (_selectedId == sticker.id) {
+                _selectedId = null;
+                _selectedType = null;
+              } else {
                 _selectedId = sticker.id;
                 _selectedType = 'sticker';
-                _dragStartOffset = details.localFocalPoint;
-                _itemStartOffset = Offset(sticker.x, sticker.y);
+              }
+            });
+          },
+          onScaleStart: (details) {
+            if (details.pointerCount == 1) {
+              // Single finger - check if tapping on resize handle
+              if (isSelected &&
+                  _isOnResizeHandle(
+                      details.localFocalPoint, Size(stickerSize, stickerSize))) {
+                setState(() {
+                  _resizingId = sticker.id;
+                  _resizingType = 'sticker';
+                  _resizeStartPos = details.localFocalPoint;
+                  _initialScale = sticker.scale;
+                  _initialRotation = sticker.rotation;
+                  _initialAngle =
+                      _calculateAngle(details.localFocalPoint, Offset(left, top));
+                });
+              } else {
+                // Start dragging
+                setState(() {
+                  _draggingId = sticker.id;
+                  _draggingType = 'sticker';
+                  _selectedId = sticker.id;
+                  _selectedType = 'sticker';
+                  _dragStartOffset = details.localFocalPoint;
+                  _itemStartOffset = Offset(sticker.x, sticker.y);
+                });
+              }
+            } else if (details.pointerCount > 1) {
+              // Two-finger gesture started
+              setState(() {
+                _selectedId = sticker.id;
+                _selectedType = 'sticker';
+                _initialPinchScale = details.localFocalPoint.distance;
+                _initialItemScaleForPinch = sticker.scale;
+                _initialItemRotationForPinch = sticker.rotation;
               });
             }
-          } else if (details.pointerCount > 1) {
-            // Two-finger gesture started
-            setState(() {
-              _selectedId = sticker.id;
-              _selectedType = 'sticker';
-              _initialPinchScale = details.localFocalPoint.distance;
-              _initialItemScaleForPinch = sticker.scale;
-              _initialItemRotationForPinch = sticker.rotation;
-            });
-          }
-        },
-        onScaleUpdate: (details) {
-          if (_resizingId == sticker.id && _resizingType == 'sticker') {
-            // Handle resize/rotate from corner handle
-            _handleResizeRotateUpdate(
-              details.localFocalPoint,
-              sticker.id,
-              'sticker',
-            );
-          } else if (details.pointerCount == 1 && _draggingId == sticker.id) {
-            // Single finger drag
-            setState(() {
-              final delta = details.localFocalPoint - _dragStartOffset!;
+          },
+          onScaleUpdate: (details) {
+            if (_resizingId == sticker.id && _resizingType == 'sticker') {
+              // Handle resize/rotate from corner handle
+              _handleResizeRotateUpdate(
+                details.localFocalPoint,
+                sticker.id,
+                'sticker',
+              );
+            } else if (details.pointerCount == 1 && _draggingId == sticker.id) {
+              // Single finger drag
+              setState(() {
+                final delta = details.localFocalPoint - _dragStartOffset!;
 
-              // Update position
-              // Convert delta to normalized coordinates and add to initial position
-              final newX =
-                  _itemStartOffset!.dx + (delta.dx / _canvasSize!.width);
-              final newY =
-                  _itemStartOffset!.dy + (delta.dy / _canvasSize!.height);
+                // Update position
+                // Convert delta to normalized coordinates and add to initial position
+                final newX =
+                    _itemStartOffset!.dx + (delta.dx / _canvasSize!.width);
+                final newY =
+                    _itemStartOffset!.dy + (delta.dy / _canvasSize!.height);
 
-              // Clamp to allow some overflow outside canvas (-0.3 to 1.3)
-              final clampedX = newX.clamp(-0.3, 1.3);
-              final clampedY = newY.clamp(-0.3, 1.3);
+                // Clamp to allow some overflow outside canvas (-0.3 to 1.3)
+                final clampedX = newX.clamp(-0.3, 1.3);
+                final clampedY = newY.clamp(-0.3, 1.3);
 
-              final index = _stickers.indexWhere((s) => s.id == sticker.id);
-              if (index != -1) {
-                _stickers[index] = sticker.copyWith(x: clampedX, y: clampedY);
-              }
-            });
-          } else if (details.pointerCount > 1 && _selectedId == sticker.id) {
-            // Two-finger gesture in progress - handle pinch and rotate
-            setState(() {
-              // Calculate new scale based on pinch distance
-              final currentDistance = details.localFocalPoint.distance;
-              final scaleFactor =
-                  _initialPinchScale != null && _initialPinchScale! > 0
-                      ? currentDistance / _initialPinchScale!
-                      : 1.0;
-              final newScale =
-                  (_initialItemScaleForPinch! * scaleFactor).clamp(0.5, 3.0);
+                final index = _stickers.indexWhere((s) => s.id == sticker.id);
+                if (index != -1) {
+                  _stickers[index] = sticker.copyWith(x: clampedX, y: clampedY);
+                }
+              });
+            } else if (details.pointerCount > 1 && _selectedId == sticker.id) {
+              // Two-finger gesture in progress - handle pinch and rotate
+              setState(() {
+                // Calculate new scale based on pinch distance
+                final currentDistance = details.localFocalPoint.distance;
+                final scaleFactor =
+                    _initialPinchScale != null && _initialPinchScale! > 0
+                        ? currentDistance / _initialPinchScale!
+                        : 1.0;
+                final newScale =
+                    (_initialItemScaleForPinch! * scaleFactor).clamp(0.5, 3.0);
 
-              // Calculate new rotation based on rotation gesture
-              final newRotation =
-                  _initialItemRotationForPinch! + details.rotation;
+                // Calculate new rotation based on rotation gesture
+                final newRotation =
+                    _initialItemRotationForPinch! + details.rotation;
 
-              final index = _stickers.indexWhere((s) => s.id == sticker.id);
-              if (index != -1) {
-                _stickers[index] = _stickers[index].copyWith(
-                  scale: newScale,
-                  rotation: newRotation,
-                );
-              }
-            });
-          }
-        },
-        onScaleEnd: (details) {
-          if (_resizingId == sticker.id) {
-            setState(() {
-              _resizingId = null;
-              _resizingType = null;
-              _resizeStartPos = null;
-              _initialScale = null;
-              _initialRotation = null;
-              _initialAngle = null;
-            });
-          } else {
-            // Just reset dragging state
-            setState(() {
-              _draggingId = null;
-              _draggingType = null;
-              _dragStartOffset = null;
-              _itemStartOffset = null;
-              _initialPinchScale = null;
-              _initialItemScaleForPinch = null;
-              _initialItemRotationForPinch = null;
-            });
-          }
-        },
-        behavior: HitTestBehavior.opaque,
-        child: Transform.rotate(
-          angle: sticker.rotation,
+                final index = _stickers.indexWhere((s) => s.id == sticker.id);
+                if (index != -1) {
+                  _stickers[index] = _stickers[index].copyWith(
+                    scale: newScale,
+                    rotation: newRotation,
+                  );
+                }
+              });
+            }
+          },
+          onScaleEnd: (details) {
+            if (_resizingId == sticker.id) {
+              setState(() {
+                _resizingId = null;
+                _resizingType = null;
+                _resizeStartPos = null;
+                _initialScale = null;
+                _initialRotation = null;
+                _initialAngle = null;
+              });
+            } else {
+              // Just reset dragging state
+              setState(() {
+                _draggingId = null;
+                _draggingType = null;
+                _dragStartOffset = null;
+                _itemStartOffset = null;
+                _initialPinchScale = null;
+                _initialItemScaleForPinch = null;
+                _initialItemRotationForPinch = null;
+              });
+            }
+          },
+          behavior: HitTestBehavior.opaque,
           child: Stack(
             clipBehavior: Clip.none,
             children: [
-              // Selection border and content
-              Container(
-                decoration: BoxDecoration(
-                  border: Border.all(
-                    color: _draggingId == sticker.id
-                        ? DesignTokens.brandColor
-                        : (isSelected
-                            ? DesignTokens.brandColor
-                            : Colors.transparent),
-                    width: (_draggingId == sticker.id || isSelected) ? 2.5 : 0,
-                  ),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                padding: const EdgeInsets.all(8.0),
-                child: Transform.scale(
-                  scaleX: sticker.flip ? -sticker.scale : sticker.scale,
-                  scaleY: sticker.scale,
-                  alignment: Alignment.center,
-                  child: Image.asset(
-                    sticker.emoji,
-                    width: 100,
-                    height: 100,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Text(sticker.emoji,
-                          style: const TextStyle(fontSize: 40));
-                    },
+              // Everything inside rotates together
+              Center(
+                child: Transform.rotate(
+                  angle: sticker.rotation,
+                  child: SizedBox(
+                    width: stickerSize,
+                    height: stickerSize,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        // Sticker content with flip
+                        Padding(
+                          padding: const EdgeInsets.all(12.0),
+                          child: Transform.scale(
+                            scaleX: sticker.flip ? -1.0 : 1.0,
+                            scaleY: 1.0,
+                            alignment: Alignment.center,
+                            child: SizedBox(
+                              width: stickerSize,
+                              height: stickerSize,
+                              child: Image.asset(
+                                sticker.emoji,
+                                fit: BoxFit.contain,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Text(sticker.emoji,
+                                      style: const TextStyle(fontSize: 40));
+                                },
+                              ),
+                            ),
+                          ),
+                        ),
+                        // Selection border
+                        if (isSelected)
+                          Positioned.fill(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: DesignTokens.brandColor,
+                                  width: 2.5,
+                                ),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               ),
-              // Control handles (show when selected)
-              if (isSelected)
-                ..._buildControlHandles(sticker.id, 'sticker', sticker.flip),
             ],
           ),
         ),
@@ -1238,181 +1273,206 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     return Positioned(
       left: left - centerOffsetX,
       top: top - centerOffsetY,
-      child: GestureDetector(
-        onTapDown: (details) {
-          // Store tap position for control handle detection
-          _lastTapPosition = details.localPosition;
-        },
-        onTap: () {
-          // If selected and tap is on control handle, don't toggle selection
-          if (isSelected &&
-              _lastTapPosition != null &&
-              _isOnControlHandle(_lastTapPosition!, Size(width, height))) {
-            _lastTapPosition = null;
-            return;
-          }
-          _lastTapPosition = null;
-          // Toggle selection
-          setState(() {
-            if (_selectedId == photo.id) {
-              _selectedId = null;
-              _selectedType = null;
-            } else {
-              _selectedId = photo.id;
-              _selectedType = 'photo';
-            }
-          });
-        },
-        onScaleStart: (details) {
-          if (details.pointerCount == 1) {
-            // Single finger - check if tapping on resize handle
+      child: SizedBox(
+        width: width,
+        height: height,
+        child: GestureDetector(
+          onTapDown: (details) {
+            // Store tap position for control handle detection
+            _lastTapPosition = details.localPosition;
+          },
+          onTap: () {
+            // If selected and tap is on control handle, don't toggle selection
             if (isSelected &&
-                _isOnResizeHandle(
-                    details.localFocalPoint, Size(width, height))) {
-              setState(() {
-                _resizingId = photo.id;
-                _resizingType = 'photo';
-                _resizeStartPos = details.localFocalPoint;
-                _initialScale =
-                    1.0; // Store 1.0 as base for photo size calculation
-                _initialRotation = photo.rotation;
-                _initialAngle =
-                    _calculateAngle(details.localFocalPoint, Offset(left, top));
-              });
-            } else {
-              // Start dragging
-              setState(() {
-                _draggingId = photo.id;
-                _draggingType = 'photo';
+                _lastTapPosition != null &&
+                _isOnControlHandle(_lastTapPosition!, Size(width, height))) {
+              _lastTapPosition = null;
+              return;
+            }
+            _lastTapPosition = null;
+            // Toggle selection
+            setState(() {
+              if (_selectedId == photo.id) {
+                _selectedId = null;
+                _selectedType = null;
+              } else {
                 _selectedId = photo.id;
                 _selectedType = 'photo';
-                _dragStartOffset = details.localFocalPoint;
-                _itemStartOffset = Offset(photo.x, photo.y);
+              }
+            });
+          },
+          onScaleStart: (details) {
+            if (details.pointerCount == 1) {
+              // Single finger - check if tapping on resize handle
+              if (isSelected &&
+                  _isOnResizeHandle(
+                      details.localFocalPoint, Size(width, height))) {
+                setState(() {
+                  _resizingId = photo.id;
+                  _resizingType = 'photo';
+                  _resizeStartPos = details.localFocalPoint;
+                  _initialScale =
+                      1.0; // Store 1.0 as base for photo size calculation
+                  _initialRotation = photo.rotation;
+                  _initialAngle =
+                      _calculateAngle(details.localFocalPoint, Offset(left, top));
+                });
+              } else {
+                // Start dragging
+                setState(() {
+                  _draggingId = photo.id;
+                  _draggingType = 'photo';
+                  _selectedId = photo.id;
+                  _selectedType = 'photo';
+                  _dragStartOffset = details.localFocalPoint;
+                  _itemStartOffset = Offset(photo.x, photo.y);
+                });
+              }
+            } else if (details.pointerCount > 1) {
+              // Two-finger gesture started
+              setState(() {
+                _selectedId = photo.id;
+                _selectedType = 'photo';
+                _initialPinchScale = details.localFocalPoint.distance;
+                // For photos, store initial width/height
+                _initialItemScaleForPinch =
+                    photo.width; // Use width as scale reference
+                _initialItemRotationForPinch = photo.rotation;
               });
             }
-          } else if (details.pointerCount > 1) {
-            // Two-finger gesture started
-            setState(() {
-              _selectedId = photo.id;
-              _selectedType = 'photo';
-              _initialPinchScale = details.localFocalPoint.distance;
-              // For photos, store initial width/height
-              _initialItemScaleForPinch =
-                  photo.width; // Use width as scale reference
-              _initialItemRotationForPinch = photo.rotation;
-            });
-          }
-        },
-        onScaleUpdate: (details) {
-          if (_resizingId == photo.id && _resizingType == 'photo') {
-            // Handle resize/rotate from corner handle
-            _handleResizeRotateUpdate(
-              details.localFocalPoint,
-              photo.id,
-              'photo',
-            );
-          } else if (details.pointerCount == 1 && _draggingId == photo.id) {
-            // Single finger drag
-            setState(() {
-              final delta = details.localFocalPoint - _dragStartOffset!;
+          },
+          onScaleUpdate: (details) {
+            if (_resizingId == photo.id && _resizingType == 'photo') {
+              // Handle resize/rotate from corner handle
+              _handleResizeRotateUpdate(
+                details.localFocalPoint,
+                photo.id,
+                'photo',
+              );
+            } else if (details.pointerCount == 1 && _draggingId == photo.id) {
+              // Single finger drag
+              setState(() {
+                final delta = details.localFocalPoint - _dragStartOffset!;
 
-              // Update position
-              // Convert delta to normalized coordinates and add to initial position
-              final newX =
-                  _itemStartOffset!.dx + (delta.dx / _canvasSize!.width);
-              final newY =
-                  _itemStartOffset!.dy + (delta.dy / _canvasSize!.height);
+                // Update position
+                // Convert delta to normalized coordinates and add to initial position
+                final newX =
+                    _itemStartOffset!.dx + (delta.dx / _canvasSize!.width);
+                final newY =
+                    _itemStartOffset!.dy + (delta.dy / _canvasSize!.height);
 
-              // Clamp to allow some overflow outside canvas (-0.3 to 1.3)
-              final clampedX = newX.clamp(-0.3, 1.3);
-              final clampedY = newY.clamp(-0.3, 1.3);
+                // Clamp to allow some overflow outside canvas (-0.3 to 1.3)
+                final clampedX = newX.clamp(-0.3, 1.3);
+                final clampedY = newY.clamp(-0.3, 1.3);
 
-              final index =
-                  _additionalPhotos.indexWhere((p) => p.id == photo.id);
-              if (index != -1) {
-                _additionalPhotos[index] =
-                    photo.copyWith(x: clampedX, y: clampedY);
-              }
-            });
-          } else if (details.pointerCount > 1 && _selectedId == photo.id) {
-            // Two-finger gesture in progress - handle pinch and rotate
-            setState(() {
-              // Calculate new size based on pinch distance
-              final currentDistance = details.localFocalPoint.distance;
-              final scaleFactor =
-                  _initialPinchScale != null && _initialPinchScale! > 0
-                      ? currentDistance / _initialPinchScale!
-                      : 1.0;
+                final index =
+                    _additionalPhotos.indexWhere((p) => p.id == photo.id);
+                if (index != -1) {
+                  _additionalPhotos[index] =
+                      photo.copyWith(x: clampedX, y: clampedY);
+                }
+              });
+            } else if (details.pointerCount > 1 && _selectedId == photo.id) {
+              // Two-finger gesture in progress - handle pinch and rotate
+              setState(() {
+                // Calculate new size based on pinch distance
+                final currentDistance = details.localFocalPoint.distance;
+                final scaleFactor =
+                    _initialPinchScale != null && _initialPinchScale! > 0
+                        ? currentDistance / _initialPinchScale!
+                        : 1.0;
 
-              // Calculate new rotation based on rotation gesture
-              final newRotation =
-                  _initialItemRotationForPinch! + details.rotation;
+                // Calculate new rotation based on rotation gesture
+                final newRotation =
+                    _initialItemRotationForPinch! + details.rotation;
 
-              final index =
-                  _additionalPhotos.indexWhere((p) => p.id == photo.id);
-              if (index != -1) {
-                // Maintain aspect ratio when scaling
-                final originalWidth = _initialItemScaleForPinch!;
-                final newWidth = (originalWidth * scaleFactor).clamp(0.1, 0.8);
-                final originalHeight = _additionalPhotos[index].height;
-                final heightRatio = originalHeight / originalWidth;
-                final newHeight = newWidth * heightRatio;
+                final index =
+                    _additionalPhotos.indexWhere((p) => p.id == photo.id);
+                if (index != -1) {
+                  // Maintain aspect ratio when scaling
+                  final originalWidth = _initialItemScaleForPinch!;
+                  final newWidth = (originalWidth * scaleFactor).clamp(0.1, 0.8);
+                  final originalHeight = _additionalPhotos[index].height;
+                  final heightRatio = originalHeight / originalWidth;
+                  final newHeight = newWidth * heightRatio;
 
-                _additionalPhotos[index] = _additionalPhotos[index].copyWith(
-                  width: newWidth,
-                  height: newHeight,
-                  rotation: newRotation,
-                );
-              }
-            });
-          }
-        },
-        onScaleEnd: (details) {
-          if (_resizingId == photo.id) {
-            setState(() {
-              _resizingId = null;
-              _resizingType = null;
-              _resizeStartPos = null;
-              _initialScale = null;
-              _initialRotation = null;
-              _initialAngle = null;
-            });
-          } else {
-            // Just reset dragging state
-            setState(() {
-              _draggingId = null;
-              _draggingType = null;
-              _dragStartOffset = null;
-              _itemStartOffset = null;
-              _initialPinchScale = null;
-              _initialItemScaleForPinch = null;
-              _initialItemRotationForPinch = null;
-            });
-          }
-        },
-        behavior: HitTestBehavior.opaque,
-        child: Transform.rotate(
-          angle: photo.rotation,
+                  _additionalPhotos[index] = _additionalPhotos[index].copyWith(
+                    width: newWidth,
+                    height: newHeight,
+                    rotation: newRotation,
+                  );
+                }
+              });
+            }
+          },
+          onScaleEnd: (details) {
+            if (_resizingId == photo.id) {
+              setState(() {
+                _resizingId = null;
+                _resizingType = null;
+                _resizeStartPos = null;
+                _initialScale = null;
+                _initialRotation = null;
+                _initialAngle = null;
+              });
+            } else {
+              // Just reset dragging state
+              setState(() {
+                _draggingId = null;
+                _draggingType = null;
+                _dragStartOffset = null;
+                _itemStartOffset = null;
+                _initialPinchScale = null;
+                _initialItemScaleForPinch = null;
+                _initialItemRotationForPinch = null;
+              });
+            }
+          },
+          behavior: HitTestBehavior.opaque,
           child: Stack(
             clipBehavior: Clip.none,
             children: [
-              // Photo without decoration (original form)
-              Transform.scale(
-                scaleX: photo.flip ? -1.0 : 1.0,
-                scaleY: 1.0,
-                alignment: Alignment.center,
-                child: SizedBox(
-                  width: width,
-                  height: height,
-                  child: Image.file(
-                    File(photo.imagePath),
-                    fit: BoxFit.cover,
+              // Everything inside rotates together
+              Center(
+                child: Transform.rotate(
+                  angle: photo.rotation,
+                  child: SizedBox(
+                    width: width,
+                    height: height,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        // Photo with flip applied
+                        Transform.scale(
+                          scaleX: photo.flip ? -1.0 : 1.0,
+                          scaleY: 1.0,
+                          alignment: Alignment.center,
+                          child: SizedBox(
+                            width: width,
+                            height: height,
+                            child: Image.file(
+                              File(photo.imagePath),
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                        ),
+                        // Selection border
+                        if (isSelected)
+                          Positioned.fill(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: DesignTokens.brandColor,
+                                  width: 2.5,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               ),
-              // Control handles (show when selected) - positioned at corners
-              if (isSelected)
-                ..._buildControlHandles(photo.id, 'photo', photo.flip),
             ],
           ),
         ),
@@ -1445,9 +1505,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
 
       // Find the earliest match among all highlight words
       for (final word in sortedWords) {
-        final matchIndex = text
-            .toLowerCase()
-            .indexOf(word.toLowerCase(), currentIndex);
+        final matchIndex =
+            text.toLowerCase().indexOf(word.toLowerCase(), currentIndex);
         if (matchIndex != -1) {
           if (!foundMatch || matchIndex < currentIndex) {
             // Found a match
@@ -1459,9 +1518,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
       }
 
       if (foundMatch && matchedWord.isNotEmpty) {
-        final matchIndex = text
-            .toLowerCase()
-            .indexOf(matchedWord.toLowerCase(), currentIndex);
+        final matchIndex =
+            text.toLowerCase().indexOf(matchedWord.toLowerCase(), currentIndex);
 
         // Add text before the match
         if (matchIndex > currentIndex) {
@@ -2644,17 +2702,222 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
   }
 
   // Build control handles for selected elements
+  void _startOverlayResize(
+      DragStartDetails details, String itemId, String type) {
+    if (_canvasSize == null) return;
+
+    late final Size itemSize;
+    late final double rotation;
+
+    if (type == 'text') {
+      final item = _textOverlays.firstWhere((item) => item.id == itemId);
+      itemSize = const Size(100, 50);
+      _initialScale = item.scale;
+      rotation = item.rotation;
+    } else if (type == 'sticker') {
+      final item = _stickers.firstWhere((item) => item.id == itemId);
+      final size = 100.0 * item.scale;
+      itemSize = Size.square(size);
+      _initialScale = item.scale;
+      rotation = item.rotation;
+    } else {
+      final item = _additionalPhotos.firstWhere((item) => item.id == itemId);
+      itemSize = Size(
+        item.width * _canvasSize!.width,
+        item.height * _canvasSize!.height,
+      );
+      _initialScale = 1.0;
+      _initialPhotoSize = Size(item.width, item.height);
+      rotation = item.rotation;
+    }
+
+    // The drag detector is a 48 px square centred on the frame corner.
+    // Recover the item's global centre from the exact point the finger hit.
+    const targetCenter = Offset(24, 24);
+    final vectorFromCenter =
+        (details.localPosition - targetCenter) +
+            Offset(itemSize.width / 2, itemSize.height / 2);
+    final cosine = math.cos(rotation);
+    final sine = math.sin(rotation);
+    final rotatedVector = Offset(
+      (vectorFromCenter.dx * cosine) - (vectorFromCenter.dy * sine),
+      (vectorFromCenter.dx * sine) + (vectorFromCenter.dy * cosine),
+    );
+
+    _resizeCenterGlobal = details.globalPosition - rotatedVector;
+    _resizeStartPos = details.globalPosition;
+    _initialRotation = rotation;
+    _initialAngle =
+        (details.globalPosition - _resizeCenterGlobal!).direction;
+    _resizingId = itemId;
+    _resizingType = type;
+  }
+
+  void _updateOverlayResize(
+      DragUpdateDetails details, String itemId, String type) {
+    if (_resizeCenterGlobal == null ||
+        _resizeStartPos == null ||
+        _initialScale == null ||
+        _initialRotation == null ||
+        _initialAngle == null) return;
+
+    final initialDistance =
+        (_resizeStartPos! - _resizeCenterGlobal!).distance;
+    if (initialDistance == 0) return;
+
+    final currentVector = details.globalPosition - _resizeCenterGlobal!;
+    final scaleFactor = currentVector.distance / initialDistance;
+    final rotation =
+        _initialRotation! + currentVector.direction - _initialAngle!;
+
+    setState(() {
+      if (type == 'text') {
+        final index = _textOverlays.indexWhere((item) => item.id == itemId);
+        if (index != -1) {
+          _textOverlays[index] = _textOverlays[index].copyWith(
+            scale: (_initialScale! * scaleFactor).clamp(0.5, 3.0),
+            rotation: rotation,
+          );
+        }
+      } else if (type == 'sticker') {
+        final index = _stickers.indexWhere((item) => item.id == itemId);
+        if (index != -1) {
+          _stickers[index] = _stickers[index].copyWith(
+            scale: (_initialScale! * scaleFactor).clamp(0.5, 3.0),
+            rotation: rotation,
+          );
+        }
+      } else if (_initialPhotoSize != null) {
+        final index =
+            _additionalPhotos.indexWhere((item) => item.id == itemId);
+        if (index != -1) {
+          _additionalPhotos[index] = _additionalPhotos[index].copyWith(
+            width: (_initialPhotoSize!.width * scaleFactor).clamp(0.1, 0.8),
+            height: (_initialPhotoSize!.height * scaleFactor).clamp(0.1, 0.8),
+            rotation: rotation,
+          );
+        }
+      }
+    });
+  }
+
+  void _endOverlayResize() {
+    _resizingId = null;
+    _resizingType = null;
+    _resizeStartPos = null;
+    _resizeCenterGlobal = null;
+    _initialScale = null;
+    _initialRotation = null;
+    _initialAngle = null;
+    _initialPhotoSize = null;
+  }
+
+  Widget _buildSelectedControlOverlay() {
+    if (_canvasSize == null || _selectedId == null || _selectedType == null) {
+      return const SizedBox.shrink();
+    }
+
+    late final Offset center;
+    late final Size itemSize;
+    late final double rotation;
+    late final bool isFlipped;
+
+    if (_selectedType == 'text') {
+      final index = _textOverlays.indexWhere((item) => item.id == _selectedId);
+      if (index == -1) return const SizedBox.shrink();
+      final item = _textOverlays[index];
+      center = Offset(
+        _touchSandbox + (item.x * _canvasSize!.width),
+        _touchSandbox + (item.y * _canvasSize!.height),
+      );
+      itemSize = const Size(100, 50);
+      rotation = item.rotation;
+      isFlipped = item.flip;
+    } else if (_selectedType == 'sticker') {
+      final index = _stickers.indexWhere((item) => item.id == _selectedId);
+      if (index == -1) return const SizedBox.shrink();
+      final item = _stickers[index];
+      center = Offset(
+        _touchSandbox + (item.x * _canvasSize!.width),
+        _touchSandbox + (item.y * _canvasSize!.height),
+      );
+      final size = 100.0 * item.scale;
+      itemSize = Size.square(size);
+      rotation = item.rotation;
+      isFlipped = item.flip;
+    } else if (_selectedType == 'photo') {
+      final index =
+          _additionalPhotos.indexWhere((item) => item.id == _selectedId);
+      if (index == -1) return const SizedBox.shrink();
+      final item = _additionalPhotos[index];
+      center = Offset(
+        _touchSandbox + (item.x * _canvasSize!.width),
+        _touchSandbox + (item.y * _canvasSize!.height),
+      );
+      itemSize = Size(
+        item.width * _canvasSize!.width,
+        item.height * _canvasSize!.height,
+      );
+      rotation = item.rotation;
+      isFlipped = item.flip;
+    } else {
+      return const SizedBox.shrink();
+    }
+
+    // Half of the 48 px target on every side puts each target's centre
+    // exactly on a frame corner while keeping the whole target in this layer.
+    const targetRadius = 24.0;
+    final paddedSize = Size(
+      itemSize.width + (targetRadius * 2),
+      itemSize.height + (targetRadius * 2),
+    );
+
+    // Give the overlay the axis-aligned bounds of its rotated child. This is
+    // what prevents Flutter from rejecting taps at rotated outer corners.
+    final cosine = math.cos(rotation).abs();
+    final sine = math.sin(rotation).abs();
+    final overlaySize = Size(
+      (paddedSize.width * cosine) + (paddedSize.height * sine),
+      (paddedSize.width * sine) + (paddedSize.height * cosine),
+    );
+
+    return Positioned(
+      left: center.dx - (overlaySize.width / 2),
+      top: center.dy - (overlaySize.height / 2),
+      width: overlaySize.width,
+      height: overlaySize.height,
+      child: Center(
+        child: Transform.rotate(
+          angle: rotation,
+          child: SizedBox(
+            width: paddedSize.width,
+            height: paddedSize.height,
+            child: Stack(
+              children: _buildControlHandles(
+                _selectedId!,
+                _selectedType!,
+                isFlipped,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   List<Widget> _buildControlHandles(
       String itemId, String type, bool isFlipped) {
     final handleSize = DesignTokens.controlHandleSize;
-    final offset = DesignTokens.controlHandleOffset;
-    final touchPadding = DesignTokens.controlTouchPadding;
+    // The overlay adds 24 px around the item. A 48 px target placed at each
+    // overlay corner therefore has its centre exactly on the frame corner.
+    const invisibleTouchPadding = 6.0;
+    const handlePosition = 0.0;
 
     return [
       // Delete button (top-left)
       Positioned(
-        left: -offset,
-        top: -offset,
+        left: handlePosition,
+        top: handlePosition,
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTapDown: (_) {
@@ -2674,40 +2937,43 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
               _selectedType = null;
             });
           },
-          child: Padding(
-            padding: EdgeInsets.all(touchPadding),
-            child: Container(
-              width: handleSize,
-              height: handleSize,
-              decoration: BoxDecoration(
-                color: DesignTokens.controlDelete,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.2),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
+          child: SizedBox(
+              width: handleSize + (invisibleTouchPadding * 2),
+              height: handleSize + (invisibleTouchPadding * 2),
+              child: Center(
+              child: Container(
+                width: handleSize,
+                height: handleSize,
+                decoration: BoxDecoration(
+                  color: DesignTokens.controlDelete,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.2),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Semantics(
+                  button: true,
+                  label: 'Delete element',
+                  child: const Icon(
+                    Icons.close,
+                    color: Colors.white,
+                    size: 14,
                   ),
-                ],
-              ),
-              child: Semantics(
-                button: true,
-                label: 'Delete element',
-                child: const Icon(
-                  Icons.close,
-                  color: Colors.white,
-                  size: 14,
                 ),
               ),
-            ),
+              ),
           ),
         ),
       ),
 
       // Duplicate button (top-right)
       Positioned(
-        right: -offset,
-        top: -offset,
+        right: handlePosition,
+        top: handlePosition,
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTapDown: (_) {
@@ -2757,40 +3023,43 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
               }
             });
           },
-          child: Padding(
-            padding: EdgeInsets.all(touchPadding),
-            child: Container(
-              width: handleSize,
-              height: handleSize,
-              decoration: BoxDecoration(
-                color: DesignTokens.controlDuplicate,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.2),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
+          child: SizedBox(
+              width: handleSize + (invisibleTouchPadding * 2),
+              height: handleSize + (invisibleTouchPadding * 2),
+              child: Center(
+              child: Container(
+                width: handleSize,
+                height: handleSize,
+                decoration: BoxDecoration(
+                  color: DesignTokens.controlDuplicate,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.2),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Semantics(
+                  button: true,
+                  label: 'Duplicate element',
+                  child: const Icon(
+                    Icons.copy,
+                    color: Colors.white,
+                    size: 14,
                   ),
-                ],
-              ),
-              child: Semantics(
-                button: true,
-                label: 'Duplicate element',
-                child: const Icon(
-                  Icons.copy,
-                  color: Colors.white,
-                  size: 14,
                 ),
               ),
-            ),
+              ),
           ),
         ),
       ),
 
       // Flip button (bottom-left)
       Positioned(
-        left: -offset,
-        bottom: -offset,
+        left: handlePosition,
+        bottom: handlePosition,
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTapDown: (_) {
@@ -2824,72 +3093,82 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
               }
             });
           },
-          child: Padding(
-            padding: EdgeInsets.all(touchPadding),
-            child: Container(
-              width: handleSize,
-              height: handleSize,
-              decoration: BoxDecoration(
-                color: DesignTokens.controlFlip,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.2),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
+          child: SizedBox(
+              width: handleSize + (invisibleTouchPadding * 2),
+              height: handleSize + (invisibleTouchPadding * 2),
+              child: Center(
+              child: Container(
+                width: handleSize,
+                height: handleSize,
+                decoration: BoxDecoration(
+                  color: DesignTokens.controlFlip,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.2),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Semantics(
+                  button: true,
+                  label: isFlipped ? 'Unflip element' : 'Flip element',
+                  child: Icon(
+                    isFlipped ? Icons.flip_rounded : Icons.flip_rounded,
+                    color: Colors.white,
+                    size: 14,
                   ),
-                ],
-              ),
-              child: Semantics(
-                button: true,
-                label: isFlipped ? 'Unflip element' : 'Flip element',
-                child: Icon(
-                  isFlipped ? Icons.flip_rounded : Icons.flip_to_back,
-                  color: Colors.white,
-                  size: 14,
                 ),
               ),
-            ),
+              ),
           ),
         ),
       ),
 
       // Resize/Rotate handle (bottom-right)
       Positioned(
-        right: -offset,
-        bottom: -offset,
+        right: handlePosition,
+        bottom: handlePosition,
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
+          onPanStart: (details) =>
+              _startOverlayResize(details, itemId, type),
+          onPanUpdate: (details) =>
+              _updateOverlayResize(details, itemId, type),
+          onPanEnd: (_) => _endOverlayResize(),
           onTap: () {
-            // This is visual-only, actual resize/rotate handled by onScaleStart
             HapticFeedback.lightImpact();
           },
-          child: Padding(
-            padding: EdgeInsets.all(touchPadding),
-            child: Container(
-              width: handleSize,
-              height: handleSize,
-              decoration: BoxDecoration(
-                color: DesignTokens.controlResize,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.2),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
+          child: SizedBox(
+              width: handleSize + (invisibleTouchPadding * 2),
+              height: handleSize + (invisibleTouchPadding * 2),
+              child: Center(
+              child: Container(
+                width: handleSize,
+                height: handleSize,
+                decoration: BoxDecoration(
+                  color: DesignTokens.controlResize,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.2),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Semantics(
+                  button: true,
+                  label: 'Resize and rotate',
+                  child: const Icon(
+                    Icons.open_in_full,
+                    color: Colors.white,
+                    size: 14,
                   ),
-                ],
-              ),
-              child: Semantics(
-                button: true,
-                label: 'Resize and rotate',
-                child: const Icon(
-                  Icons.open_in_full,
-                  color: Colors.white,
-                  size: 14,
                 ),
               ),
-            ),
+              ),
           ),
         ),
       ),
