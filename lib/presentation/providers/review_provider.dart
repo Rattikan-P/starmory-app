@@ -4,6 +4,9 @@ import '../../data/services/review_service.dart';
 import '../../core/utils/fsrs_helper.dart';
 import 'providers.dart';
 
+// Flag to track if streak has been updated in current session
+bool _hasUpdatedStreakThisSession = false;
+
 // ============= Review State Providers =============
 
 /// Review Session State
@@ -132,6 +135,9 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
       // Load user stats for adaptive time estimation
       final userStats = await _reviewService.hiveService.getUserStats();
 
+      // Reset streak update flag for new session
+      _hasUpdatedStreakThisSession = false;
+
       state = ReviewState(
         cards: sessionCards,
         currentIndex: 0,
@@ -217,6 +223,16 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
 
       // Save to storage
       await _reviewService.updateCard(updatedCard);
+
+      // Update streak for first review of the day (guest mode)
+      // For registered users, this is handled by database trigger
+      if (!_hasUpdatedStreakThisSession) {
+        final container = ProviderContainer();
+        final streakNotifier = container.read(streakProvider.notifier);
+        await streakNotifier.recordLearningActivity();
+        _hasUpdatedStreakThisSession = true;
+        container.dispose();
+      }
 
       // Calculate new average time per card
       final totalReviews = state.totalReviewsCompleted + 1;
