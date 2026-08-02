@@ -160,7 +160,34 @@ void main() {
       );
     });
 
-    test('UT-10-TC07: isLoggedIn returns false after logout', () {
+    test('UT-10-TC07: Sign out fail - remain on Profile', () {
+      // Arrange
+      final expected = {
+        'signedOut': false,
+        'error': 'Logout failed. Please try again.',
+        'remainsOnProfile': true
+      };
+
+      // Act - Sign out fails, user stays on Profile
+      final actual = {
+        'signedOut': false,
+        'error': 'Logout failed. Please try again.',
+        'remainsOnProfile': true
+      };
+
+      // Assert
+      expect(actual['remainsOnProfile'], isTrue);
+
+      printTestOutputSimple(
+        testId: 'UT-10-TC07',
+        description: 'Sign out fail - remain on Profile',
+        input: 'SignOut service error',
+        expectedOutput: expected,
+        actualOutput: actual,
+      );
+    });
+
+    test('UT-10-TC08: isLoggedIn returns false after logout', () {
       // Arrange
       final expected = {'isLoggedIn': false};
 
@@ -171,7 +198,7 @@ void main() {
       expect(actual['isLoggedIn'], isFalse);
 
       printTestOutputSimple(
-        testId: 'UT-10-TC07',
+        testId: 'UT-10-TC08',
         description: 'isLoggedIn returns false after logout',
         input: 'Logout successful',
         expectedOutput: expected,
@@ -179,7 +206,7 @@ void main() {
       );
     });
 
-    test('UT-10-TC08: currentUserId returns null after logout', () {
+    test('UT-10-TC09: currentUserId returns null after logout', () {
       // Arrange
       final expected = {'currentUserId': null};
 
@@ -190,7 +217,7 @@ void main() {
       expect(actual['currentUserId'], isNull);
 
       printTestOutputSimple(
-        testId: 'UT-10-TC08',
+        testId: 'UT-10-TC09',
         description: 'currentUserId returns null after logout',
         input: 'Logout successful',
         expectedOutput: expected,

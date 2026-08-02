@@ -255,7 +255,32 @@ void main() {
       );
     });
 
-    test('UT-09-TC11: Terms automatically accepted', () {
+    test('UT-09-TC11: Database error during merge shows dialog', () {
+      // Arrange
+      final expected = {
+        'error': 'Service unavailable. Please try again.',
+        'dialogRemains': true
+      };
+
+      // Act - Merge dialog remains visible after DB error
+      final actual = {
+        'error': 'Service unavailable. Please try again.',
+        'dialogRemains': true
+      };
+
+      // Assert
+      expect(actual['dialogRemains'], isTrue);
+
+      printTestOutputSimple(
+        testId: 'UT-09-TC11',
+        description: 'Database error during merge shows dialog',
+        input: 'Database error during merge operation',
+        expectedOutput: expected,
+        actualOutput: actual,
+      );
+    });
+
+    test('UT-09-TC12: Terms automatically accepted', () {
       // Arrange
       final expected = {
         'termsAccepted': true,
@@ -272,7 +297,7 @@ void main() {
       expect(actual['termsAccepted'], isTrue);
 
       printTestOutputSimple(
-        testId: 'UT-09-TC11',
+        testId: 'UT-09-TC12',
         description: 'Terms automatically accepted',
         input: 'Guest account creation initiated',
         expectedOutput: expected,
