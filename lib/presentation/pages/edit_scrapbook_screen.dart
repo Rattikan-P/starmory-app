@@ -840,6 +840,9 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
             }
           });
         },
+        onDoubleTap: () {
+          _editText(overlay);
+        },
         onScaleStart: (details) {
           if (details.pointerCount == 1) {
             // Single finger - check if tapping on resize handle
@@ -990,7 +993,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                             ],
                           ),
                           child: Transform.scale(
-                            scaleX: overlay.flip ? -overlay.scale : overlay.scale,
+                            scaleX:
+                                overlay.flip ? -overlay.scale : overlay.scale,
                             scaleY: overlay.scale,
                             alignment: Alignment.center,
                             child: Text(
@@ -1083,16 +1087,16 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
             if (details.pointerCount == 1) {
               // Single finger - check if tapping on resize handle
               if (isSelected &&
-                  _isOnResizeHandle(
-                      details.localFocalPoint, Size(stickerSize, stickerSize))) {
+                  _isOnResizeHandle(details.localFocalPoint,
+                      Size(stickerSize, stickerSize))) {
                 setState(() {
                   _resizingId = sticker.id;
                   _resizingType = 'sticker';
                   _resizeStartPos = details.localFocalPoint;
                   _initialScale = sticker.scale;
                   _initialRotation = sticker.rotation;
-                  _initialAngle =
-                      _calculateAngle(details.localFocalPoint, Offset(left, top));
+                  _initialAngle = _calculateAngle(
+                      details.localFocalPoint, Offset(left, top));
                 });
               } else {
                 // Start dragging
@@ -1314,8 +1318,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                   _initialScale =
                       1.0; // Store 1.0 as base for photo size calculation
                   _initialRotation = photo.rotation;
-                  _initialAngle =
-                      _calculateAngle(details.localFocalPoint, Offset(left, top));
+                  _initialAngle = _calculateAngle(
+                      details.localFocalPoint, Offset(left, top));
                 });
               } else {
                 // Start dragging
@@ -1391,7 +1395,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                 if (index != -1) {
                   // Maintain aspect ratio when scaling
                   final originalWidth = _initialItemScaleForPinch!;
-                  final newWidth = (originalWidth * scaleFactor).clamp(0.1, 0.8);
+                  final newWidth =
+                      (originalWidth * scaleFactor).clamp(0.1, 0.8);
                   final originalHeight = _additionalPhotos[index].height;
                   final heightRatio = originalHeight / originalWidth;
                   final newHeight = newWidth * heightRatio;
@@ -1502,44 +1507,39 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     while (currentIndex < text.length) {
       bool foundMatch = false;
       String matchedWord = '';
+      int earliestMatchIndex = text.length;
 
       // Find the earliest match among all highlight words
       for (final word in sortedWords) {
         final matchIndex =
             text.toLowerCase().indexOf(word.toLowerCase(), currentIndex);
-        if (matchIndex != -1) {
-          if (!foundMatch || matchIndex < currentIndex) {
-            // Found a match
-            matchedWord = word;
-            foundMatch = true;
-            break;
-          }
+        if (matchIndex != -1 && matchIndex < earliestMatchIndex) {
+          earliestMatchIndex = matchIndex;
+          matchedWord = word;
+          foundMatch = true;
         }
       }
 
       if (foundMatch && matchedWord.isNotEmpty) {
-        final matchIndex =
-            text.toLowerCase().indexOf(matchedWord.toLowerCase(), currentIndex);
-
         // Add text before the match
-        if (matchIndex > currentIndex) {
+        if (earliestMatchIndex > currentIndex) {
           spans.add(TextSpan(
-            text: text.substring(currentIndex, matchIndex),
+            text: text.substring(currentIndex, earliestMatchIndex),
             style: baseStyle,
           ));
         }
 
         // Add the highlighted word
         final actualWord = text.substring(
-          matchIndex,
-          matchIndex + matchedWord.length,
+          earliestMatchIndex,
+          earliestMatchIndex + matchedWord.length,
         );
         spans.add(TextSpan(
           text: actualWord,
           style: highlightStyle,
         ));
 
-        currentIndex = matchIndex + matchedWord.length;
+        currentIndex = earliestMatchIndex + matchedWord.length;
       } else {
         // No more matches, add remaining text
         spans.add(TextSpan(
@@ -2006,6 +2006,72 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
               ),
             ),
             child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _editText(ScrapbookTextOverlay overlay) {
+    final controller = TextEditingController(text: overlay.text);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(DesignTokens.radiusXLarge),
+        ),
+        title: Text(
+          'Edit Text',
+          style: GoogleFonts.lexend(
+            fontSize: DesignTokens.fontSizeTitle,
+            fontWeight: DesignTokens.weightSemiBold,
+            color: DesignTokens.textPrimary,
+          ),
+        ),
+        content: TextField(
+          controller: controller,
+          decoration: InputDecoration(
+            hintText: 'Enter text...',
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
+            ),
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.lexend(
+                color: DesignTokens.textSecondary,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (controller.text.isNotEmpty) {
+                setState(() {
+                  final index =
+                      _textOverlays.indexWhere((o) => o.id == overlay.id);
+                  if (index != -1) {
+                    _textOverlays[index] =
+                        overlay.copyWith(text: controller.text);
+                  }
+                });
+                HapticFeedback.lightImpact();
+              }
+              Navigator.pop(context);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: DesignTokens.brandColor,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
+              ),
+            ),
+            child: const Text('Save'),
           ),
         ],
       ),
@@ -2734,9 +2800,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     // The drag detector is a 48 px square centred on the frame corner.
     // Recover the item's global centre from the exact point the finger hit.
     const targetCenter = Offset(24, 24);
-    final vectorFromCenter =
-        (details.localPosition - targetCenter) +
-            Offset(itemSize.width / 2, itemSize.height / 2);
+    final vectorFromCenter = (details.localPosition - targetCenter) +
+        Offset(itemSize.width / 2, itemSize.height / 2);
     final cosine = math.cos(rotation);
     final sine = math.sin(rotation);
     final rotatedVector = Offset(
@@ -2747,8 +2812,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     _resizeCenterGlobal = details.globalPosition - rotatedVector;
     _resizeStartPos = details.globalPosition;
     _initialRotation = rotation;
-    _initialAngle =
-        (details.globalPosition - _resizeCenterGlobal!).direction;
+    _initialAngle = (details.globalPosition - _resizeCenterGlobal!).direction;
     _resizingId = itemId;
     _resizingType = type;
   }
@@ -2761,8 +2825,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
         _initialRotation == null ||
         _initialAngle == null) return;
 
-    final initialDistance =
-        (_resizeStartPos! - _resizeCenterGlobal!).distance;
+    final initialDistance = (_resizeStartPos! - _resizeCenterGlobal!).distance;
     if (initialDistance == 0) return;
 
     final currentVector = details.globalPosition - _resizeCenterGlobal!;
@@ -2788,8 +2851,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
           );
         }
       } else if (_initialPhotoSize != null) {
-        final index =
-            _additionalPhotos.indexWhere((item) => item.id == itemId);
+        final index = _additionalPhotos.indexWhere((item) => item.id == itemId);
         if (index != -1) {
           _additionalPhotos[index] = _additionalPhotos[index].copyWith(
             width: (_initialPhotoSize!.width * scaleFactor).clamp(0.1, 0.8),
@@ -2938,9 +3000,9 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
             });
           },
           child: SizedBox(
-              width: handleSize + (invisibleTouchPadding * 2),
-              height: handleSize + (invisibleTouchPadding * 2),
-              child: Center(
+            width: handleSize + (invisibleTouchPadding * 2),
+            height: handleSize + (invisibleTouchPadding * 2),
+            child: Center(
               child: Container(
                 width: handleSize,
                 height: handleSize,
@@ -2965,7 +3027,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                   ),
                 ),
               ),
-              ),
+            ),
           ),
         ),
       ),
@@ -3024,9 +3086,9 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
             });
           },
           child: SizedBox(
-              width: handleSize + (invisibleTouchPadding * 2),
-              height: handleSize + (invisibleTouchPadding * 2),
-              child: Center(
+            width: handleSize + (invisibleTouchPadding * 2),
+            height: handleSize + (invisibleTouchPadding * 2),
+            child: Center(
               child: Container(
                 width: handleSize,
                 height: handleSize,
@@ -3051,7 +3113,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                   ),
                 ),
               ),
-              ),
+            ),
           ),
         ),
       ),
@@ -3094,9 +3156,9 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
             });
           },
           child: SizedBox(
-              width: handleSize + (invisibleTouchPadding * 2),
-              height: handleSize + (invisibleTouchPadding * 2),
-              child: Center(
+            width: handleSize + (invisibleTouchPadding * 2),
+            height: handleSize + (invisibleTouchPadding * 2),
+            child: Center(
               child: Container(
                 width: handleSize,
                 height: handleSize,
@@ -3121,7 +3183,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                   ),
                 ),
               ),
-              ),
+            ),
           ),
         ),
       ),
@@ -3132,18 +3194,16 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
         bottom: handlePosition,
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onPanStart: (details) =>
-              _startOverlayResize(details, itemId, type),
-          onPanUpdate: (details) =>
-              _updateOverlayResize(details, itemId, type),
+          onPanStart: (details) => _startOverlayResize(details, itemId, type),
+          onPanUpdate: (details) => _updateOverlayResize(details, itemId, type),
           onPanEnd: (_) => _endOverlayResize(),
           onTap: () {
             HapticFeedback.lightImpact();
           },
           child: SizedBox(
-              width: handleSize + (invisibleTouchPadding * 2),
-              height: handleSize + (invisibleTouchPadding * 2),
-              child: Center(
+            width: handleSize + (invisibleTouchPadding * 2),
+            height: handleSize + (invisibleTouchPadding * 2),
+            child: Center(
               child: Container(
                 width: handleSize,
                 height: handleSize,
@@ -3168,7 +3228,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                   ),
                 ),
               ),
-              ),
+            ),
           ),
         ),
       ),
