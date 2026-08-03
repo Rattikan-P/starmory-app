@@ -2575,43 +2575,56 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
         return SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
-            children: _textColorOptions.map((option) {
-              final color = option['color'] as int;
-              final isSelected = selectedTextColor == color;
-              return GestureDetector(
-                onTap: () => onTextColorChanged(color),
-                child: Container(
-                  margin:
-                      const EdgeInsets.only(right: DesignTokens.spacingSmall),
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: Color(color),
-                    borderRadius:
-                        BorderRadius.circular(DesignTokens.radiusMedium),
-                    border: Border.all(
-                      color: isSelected
-                          ? const Color(0xFF9C27B0)
-                          : Colors.grey.shade300,
-                      width: isSelected ? 3 : 1,
+            children: [
+              _buildColorWheelButton(
+                label: 'Choose custom text color',
+                onTap: () async {
+                  final color = await _showColorWheelPicker(
+                    title: 'Text Color',
+                    initialColor: Color(selectedTextColor),
+                  );
+                  if (color != null) onTextColorChanged(color);
+                },
+              ),
+              ..._textColorOptions.map((option) {
+                final color = option['color'] as int;
+                final isSelected = selectedTextColor == color;
+                return GestureDetector(
+                  onTap: () => onTextColorChanged(color),
+                  child: Container(
+                    margin: const EdgeInsets.only(
+                      right: DesignTokens.spacingSmall,
                     ),
-                    boxShadow: isSelected
-                        ? [
-                            BoxShadow(
-                              color: const Color(0xFF9C27B0)
-                                  .withValues(alpha: 0.3),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ]
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: Color(color),
+                      borderRadius:
+                          BorderRadius.circular(DesignTokens.radiusMedium),
+                      border: Border.all(
+                        color: isSelected
+                            ? const Color(0xFF9C27B0)
+                            : Colors.grey.shade300,
+                        width: isSelected ? 3 : 1,
+                      ),
+                      boxShadow: isSelected
+                          ? [
+                              BoxShadow(
+                                color: const Color(0xFF9C27B0)
+                                    .withValues(alpha: 0.3),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ]
+                          : null,
+                    ),
+                    child: isSelected
+                        ? const Icon(Icons.check, color: Colors.white, size: 18)
                         : null,
                   ),
-                  child: isSelected
-                      ? const Icon(Icons.check, color: Colors.white, size: 18)
-                      : null,
-                ),
-              );
-            }).toList(),
+                );
+              }),
+            ],
           ),
         );
 
@@ -2619,52 +2632,193 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
         return SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
-            children: _textBackgroundOptions.map((option) {
-              final color = option['color'] as int?;
-              final isSelected = selectedBackgroundColor == color;
-              return GestureDetector(
-                onTap: () => onBgColorChanged(color),
-                child: Container(
-                  margin:
-                      const EdgeInsets.only(right: DesignTokens.spacingSmall),
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: color != null ? Color(color) : Colors.transparent,
-                    borderRadius:
-                        BorderRadius.circular(DesignTokens.radiusMedium),
-                    border: Border.all(
-                      color: isSelected
-                          ? const Color(0xFF9C27B0)
-                          : Colors.grey.shade300,
-                      width: isSelected ? 3 : 1,
+            children: [
+              _buildColorWheelButton(
+                label: 'Choose custom text background color',
+                onTap: () async {
+                  final color = await _showColorWheelPicker(
+                    title: 'Text Background',
+                    initialColor: Color(
+                      selectedBackgroundColor ?? 0xFFFFFFFF,
                     ),
-                    boxShadow: isSelected
-                        ? [
-                            BoxShadow(
-                              color: const Color(0xFF9C27B0)
-                                  .withValues(alpha: 0.3),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ]
-                        : null,
-                  ),
-                  child: color == null
-                      ? Icon(Icons.close, size: 18, color: Colors.grey.shade600)
-                      : isSelected
-                          ? const Icon(Icons.check,
-                              color: Colors.white, size: 18)
+                  );
+                  if (color != null) onBgColorChanged(color);
+                },
+              ),
+              ..._textBackgroundOptions.map((option) {
+                final color = option['color'] as int?;
+                final isSelected = selectedBackgroundColor == color;
+                return GestureDetector(
+                  onTap: () => onBgColorChanged(color),
+                  child: Container(
+                    margin: const EdgeInsets.only(
+                      right: DesignTokens.spacingSmall,
+                    ),
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: color != null ? Color(color) : Colors.transparent,
+                      borderRadius:
+                          BorderRadius.circular(DesignTokens.radiusMedium),
+                      border: Border.all(
+                        color: isSelected
+                            ? const Color(0xFF9C27B0)
+                            : Colors.grey.shade300,
+                        width: isSelected ? 3 : 1,
+                      ),
+                      boxShadow: isSelected
+                          ? [
+                              BoxShadow(
+                                color: const Color(0xFF9C27B0)
+                                    .withValues(alpha: 0.3),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ]
                           : null,
-                ),
-              );
-            }).toList(),
+                    ),
+                    child: color == null
+                        ? Icon(Icons.close,
+                            size: 18, color: Colors.grey.shade600)
+                        : isSelected
+                            ? const Icon(Icons.check,
+                                color: Colors.white, size: 18)
+                            : null,
+                  ),
+                );
+              }),
+            ],
           ),
         );
 
       default:
         return const SizedBox.shrink();
     }
+  }
+
+  Widget _buildColorWheelButton({
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return Semantics(
+      button: true,
+      label: label,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 40,
+          height: 40,
+          margin: const EdgeInsets.only(right: DesignTokens.spacingSmall),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: const SweepGradient(
+              colors: [
+                Color(0xFFFF3B30),
+                Color(0xFFFFCC00),
+                Color(0xFF34C759),
+                Color(0xFF00C7BE),
+                Color(0xFF007AFF),
+                Color(0xFFAF52DE),
+                Color(0xFFFF3B30),
+              ],
+            ),
+            border: Border.all(color: Colors.white, width: 2),
+          ),
+          child: const Icon(
+            Icons.colorize_rounded,
+            size: 18,
+            color: Colors.white,
+            shadows: [Shadow(color: Colors.black45, blurRadius: 3)],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<int?> _showColorWheelPicker({
+    required String title,
+    required Color initialColor,
+  }) async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    var selectedColor = initialColor;
+
+    return showModalBottomSheet<int>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) => Container(
+          padding: const EdgeInsets.fromLTRB(
+            DesignTokens.spacingSmall,
+            DesignTokens.spacingBase,
+            DesignTokens.spacingSmall,
+            DesignTokens.spacingXLarge,
+          ),
+          decoration: const BoxDecoration(
+            color: Color(0xFF242424),
+            borderRadius: BorderRadius.vertical(
+              top: Radius.circular(DesignTokens.radiusLarge),
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  IconButton(
+                    tooltip: 'Cancel',
+                    onPressed: () => Navigator.pop(sheetContext),
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      color: Color(0xFFD7D7D7),
+                      size: 22,
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      title,
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.lexend(
+                        fontSize: DesignTokens.fontSizeBody,
+                        fontWeight: DesignTokens.weightMedium,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Apply color',
+                    onPressed: () {
+                      HapticFeedback.lightImpact();
+                      Navigator.pop(
+                        sheetContext,
+                        selectedColor.toARGB32(),
+                      );
+                    },
+                    icon: const Icon(
+                      Icons.check_rounded,
+                      color: Color(0xFFD7D7D7),
+                      size: 22,
+                    ),
+                  ),
+                ],
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: DesignTokens.spacingXXLarge,
+                ),
+                child: _ColorWheelPicker(
+                  initialColor: initialColor,
+                  onChanged: (color) {
+                    setSheetState(() => selectedColor = color);
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   // Build tool selector button
@@ -2790,14 +2944,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
   // Background color options (including transparent)
   static const List<Map<String, dynamic>> _textBackgroundOptions = [
     {'color': null, 'name': 'None'},
-    {'color': 0xFFFFFFFF, 'name': 'White'},
-    {'color': 0xFFF3F4F6, 'name': 'Light Gray'},
-    {'color': 0xFFFFF8E1, 'name': 'Cream'},
-    {'color': 0xFFF3E5F5, 'name': 'Lavender'},
-    {'color': 0xFFFFEBEE, 'name': 'Blush'},
-    {'color': 0xFFE3F2FD, 'name': 'Sky'},
-    {'color': 0xFFFEE2E2, 'name': 'Rose'},
-    {'color': 0xFF000000, 'name': 'Black'},
+    ..._textColorOptions,
   ];
 
   void _showFontPicker(
@@ -2901,6 +3048,39 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                 fontSize: DesignTokens.fontSizeTitle,
                 fontWeight: DesignTokens.weightSemiBold,
                 color: DesignTokens.textPrimary,
+              ),
+            ),
+            const SizedBox(height: DesignTokens.spacingMedium),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () async {
+                  final color = await _showColorWheelPicker(
+                    title: 'Text Color',
+                    initialColor: Color(overlay.color),
+                  );
+                  if (color == null || !mounted) return;
+                  onColorSelected(color);
+                  if (context.mounted) Navigator.pop(context);
+                },
+                icon: Container(
+                  width: 22,
+                  height: 22,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: SweepGradient(
+                      colors: [
+                        Color(0xFFFF3B30),
+                        Color(0xFFFFCC00),
+                        Color(0xFF34C759),
+                        Color(0xFF007AFF),
+                        Color(0xFFAF52DE),
+                        Color(0xFFFF3B30),
+                      ],
+                    ),
+                  ),
+                ),
+                label: const Text('Choose from color wheel'),
               ),
             ),
             const SizedBox(height: DesignTokens.spacingMedium),
@@ -3472,6 +3652,39 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                 fontSize: DesignTokens.fontSizeTitle,
                 fontWeight: DesignTokens.weightSemiBold,
                 color: DesignTokens.textPrimary,
+              ),
+            ),
+            const SizedBox(height: DesignTokens.spacingMedium),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () async {
+                  final color = await _showColorWheelPicker(
+                    title: 'Polaroid Color',
+                    initialColor: Color(_backgroundColor),
+                  );
+                  if (color == null || !mounted) return;
+                  setState(() => _backgroundColor = color);
+                  if (context.mounted) Navigator.pop(context);
+                },
+                icon: Container(
+                  width: 22,
+                  height: 22,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: SweepGradient(
+                      colors: [
+                        Color(0xFFFF3B30),
+                        Color(0xFFFFCC00),
+                        Color(0xFF34C759),
+                        Color(0xFF007AFF),
+                        Color(0xFFAF52DE),
+                        Color(0xFFFF3B30),
+                      ],
+                    ),
+                  ),
+                ),
+                label: const Text('Choose from color wheel'),
               ),
             ),
             const SizedBox(height: DesignTokens.spacingMedium),
@@ -4683,4 +4896,233 @@ class _SaveButtonState extends State<_SaveButton> {
       ),
     );
   }
+}
+
+class _ColorWheelPicker extends StatefulWidget {
+  final Color initialColor;
+  final ValueChanged<Color> onChanged;
+
+  const _ColorWheelPicker({
+    required this.initialColor,
+    required this.onChanged,
+  });
+
+  @override
+  State<_ColorWheelPicker> createState() => _ColorWheelPickerState();
+}
+
+class _ColorWheelPickerState extends State<_ColorWheelPicker> {
+  late HSVColor _color;
+
+  @override
+  void initState() {
+    super.initState();
+    _color = HSVColor.fromColor(widget.initialColor);
+  }
+
+  void _updateSaturationAndValue(Offset position, Size size) {
+    final saturation = (position.dx / size.width).clamp(0.0, 1.0);
+    final value = (1 - (position.dy / size.height)).clamp(0.0, 1.0);
+    setState(() {
+      _color = _color.withSaturation(saturation).withValue(value);
+    });
+    widget.onChanged(_color.toColor());
+  }
+
+  void _updateHue(double positionX, double width) {
+    final hue = ((positionX / width).clamp(0.0, 1.0)) * 360;
+    setState(() => _color = _color.withHue(hue));
+    widget.onChanged(_color.toColor());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: 'Color spectrum and hue control',
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final panelSize = Size(constraints.maxWidth, 92);
+              return GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTapDown: (details) => _updateSaturationAndValue(
+                  details.localPosition,
+                  panelSize,
+                ),
+                onPanStart: (details) => _updateSaturationAndValue(
+                  details.localPosition,
+                  panelSize,
+                ),
+                onPanUpdate: (details) => _updateSaturationAndValue(
+                  details.localPosition,
+                  panelSize,
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(
+                    DesignTokens.radiusSmall,
+                  ),
+                  child: RepaintBoundary(
+                    child: CustomPaint(
+                      size: panelSize,
+                      painter: _SaturationValuePainter(color: _color),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: DesignTokens.spacingSmall),
+          SizedBox(
+            height: 40,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final sliderSize = Size(constraints.maxWidth, 40);
+                return GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTapDown: (details) =>
+                      _updateHue(details.localPosition.dx, sliderSize.width),
+                  onPanStart: (details) =>
+                      _updateHue(details.localPosition.dx, sliderSize.width),
+                  onPanUpdate: (details) =>
+                      _updateHue(details.localPosition.dx, sliderSize.width),
+                  child: RepaintBoundary(
+                    child: CustomPaint(
+                      size: sliderSize,
+                      painter: _HueSliderPainter(hue: _color.hue),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SaturationValuePainter extends CustomPainter {
+  final HSVColor color;
+
+  const _SaturationValuePainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final bounds = Offset.zero & size;
+    canvas.drawRect(
+      bounds,
+      Paint()..color = HSVColor.fromAHSV(1, color.hue, 1, 1).toColor(),
+    );
+    canvas.drawRect(
+      bounds,
+      Paint()
+        ..shader = LinearGradient(
+          colors: [
+            Colors.white,
+            Colors.white.withValues(alpha: 0),
+          ],
+        ).createShader(bounds),
+    );
+    canvas.drawRect(
+      bounds,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Colors.transparent,
+            Colors.black,
+          ],
+        ).createShader(bounds),
+    );
+
+    final marker = Offset(
+      color.saturation * size.width,
+      (1 - color.value) * size.height,
+    );
+    canvas.drawCircle(
+      marker,
+      7,
+      Paint()
+        ..color = color.toColor()
+        ..style = PaintingStyle.fill,
+    );
+    canvas.drawCircle(
+      marker,
+      8,
+      Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.5,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _SaturationValuePainter oldDelegate) =>
+      oldDelegate.color != color;
+}
+
+class _HueSliderPainter extends CustomPainter {
+  final double hue;
+
+  const _HueSliderPainter({required this.hue});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const trackHeight = 14.0;
+    final track = RRect.fromRectAndRadius(
+      Rect.fromLTWH(
+          0, (size.height - trackHeight) / 2, size.width, trackHeight),
+      const Radius.circular(trackHeight / 2),
+    );
+    canvas.drawRRect(
+      track,
+      Paint()
+        ..shader = const LinearGradient(
+          colors: [
+            Color(0xFFFF0000),
+            Color(0xFFFFFF00),
+            Color(0xFF00FF00),
+            Color(0xFF00FFFF),
+            Color(0xFF0000FF),
+            Color(0xFFFF00FF),
+            Color(0xFFFF0000),
+          ],
+        ).createShader(track.outerRect),
+    );
+
+    final marker = Offset(
+      (hue / 360) * size.width,
+      size.height / 2,
+    );
+    canvas.drawCircle(
+      marker,
+      7,
+      Paint()
+        ..color = HSVColor.fromAHSV(1, hue, 1, 1).toColor()
+        ..style = PaintingStyle.fill,
+    );
+    canvas.drawCircle(
+      marker,
+      8,
+      Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.5,
+    );
+    canvas.drawCircle(
+      marker,
+      9.25,
+      Paint()
+        ..color = Colors.black.withValues(alpha: 0.35)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _HueSliderPainter oldDelegate) =>
+      oldDelegate.hue != hue;
 }
