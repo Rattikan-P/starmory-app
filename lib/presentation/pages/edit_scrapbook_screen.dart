@@ -227,6 +227,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                   scale: overlay.scale,
                   rotation: overlay.rotation,
                   flip: overlay.flip,
+                  backgroundColor: overlay.backgroundColor,
                 ))
             .toList();
         _stickers = existingScrapbook.stickers
@@ -267,6 +268,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                   scale: overlay.scale,
                   rotation: overlay.rotation,
                   flip: overlay.flip,
+                  backgroundColor: overlay.backgroundColor,
                 ))
             .toList();
         _originalStickers = _stickers
@@ -312,6 +314,10 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
       if (_textOverlays[i].x != _originalTextOverlays[i].x ||
           _textOverlays[i].y != _originalTextOverlays[i].y ||
           _textOverlays[i].text != _originalTextOverlays[i].text ||
+          _textOverlays[i].color != _originalTextOverlays[i].color ||
+          _textOverlays[i].fontSize != _originalTextOverlays[i].fontSize ||
+          _textOverlays[i].fontFamily != _originalTextOverlays[i].fontFamily ||
+          _textOverlays[i].backgroundColor != _originalTextOverlays[i].backgroundColor ||
           _textOverlays[i].scale != _originalTextOverlays[i].scale ||
           _textOverlays[i].rotation != _originalTextOverlays[i].rotation ||
           _textOverlays[i].flip != _originalTextOverlays[i].flip) {
@@ -975,35 +981,46 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                       // Text content container with background and scale
                       Center(
                         child: Container(
-                          padding: const EdgeInsets.all(8.0),
+                          padding: overlay.backgroundColor != null
+                              ? const EdgeInsets.all(8.0)
+                              : EdgeInsets.zero,
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.95),
+                            color: overlay.backgroundColor != null
+                                ? Color(overlay.backgroundColor!).withValues(alpha: 0.95)
+                                : Colors.transparent,
                             borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.1),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.05),
-                                blurRadius: 16,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
+                            boxShadow: overlay.backgroundColor != null
+                                ? [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.1),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.05),
+                                      blurRadius: 16,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ]
+                                : null,
                           ),
                           child: Transform.scale(
                             scaleX:
                                 overlay.flip ? -overlay.scale : overlay.scale,
                             scaleY: overlay.scale,
                             alignment: Alignment.center,
-                            child: Text(
-                              overlay.text,
-                              style: TextStyle(
-                                color: Color(overlay.color),
-                                fontSize: scaledFontSize,
-                                fontWeight: FontWeight.w600,
-                                height: 1.2,
+                            child: Padding(
+                              padding: overlay.backgroundColor != null
+                                  ? EdgeInsets.zero
+                                  : const EdgeInsets.all(8.0),
+                              child: Text(
+                                overlay.text,
+                                style: _getFontStyle(overlay.fontFamily).copyWith(
+                                  color: Color(overlay.color),
+                                  fontSize: scaledFontSize,
+                                  fontWeight: FontWeight.w600,
+                                  height: 1.2,
+                                ),
                               ),
                             ),
                           ),
@@ -1945,135 +1962,788 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
   }
 
   void _addText() {
-    final controller = TextEditingController();
+    // Create a temporary overlay with default values (no background)
+    final tempOverlay = ScrapbookTextOverlay(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      text: '',
+      x: 0.5,
+      y: 0.5,
+      backgroundColor: null, // No background by default
+    );
 
-    showDialog(
+    // Add the overlay immediately
+    setState(() {
+      _textOverlays.add(tempOverlay);
+    });
+
+    // Show the text edit sheet for this new overlay
+    _showTextEditSheet(tempOverlay);
+  }
+
+  void _editText(ScrapbookTextOverlay overlay) {
+    _showTextEditSheet(overlay);
+  }
+
+  void _showTextEditSheet(ScrapbookTextOverlay overlay) {
+    final controller = TextEditingController(text: overlay.text);
+    int? selectedBackgroundColor = overlay.backgroundColor;
+    int selectedTextColor = overlay.color;
+    String selectedFont = overlay.fontFamily;
+
+    // Track which tool is selected (default: 'font')
+    String selectedTool = 'font'; // 'font', 'textColor', 'bgColor'
+
+    // Focus node for the text field
+    final focusNode = FocusNode();
+
+    showModalBottomSheet(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(DesignTokens.radiusXLarge),
-        ),
-        title: Text(
-          'Add Text',
-          style: GoogleFonts.lexend(
-            fontSize: DesignTokens.fontSizeTitle,
-            fontWeight: DesignTokens.weightSemiBold,
-            color: DesignTokens.textPrimary,
-          ),
-        ),
-        content: TextField(
-          controller: controller,
-          decoration: InputDecoration(
-            hintText: 'Enter text...',
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
-            ),
-          ),
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Cancel',
-              style: GoogleFonts.lexend(
-                color: DesignTokens.textSecondary,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.transparent,
+      isScrollControlled: true,
+      enableDrag: false,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) {
+          return Container(
+            decoration: BoxDecoration(
+              color: DesignTokens.surfacePrimary,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(DesignTokens.radiusCircular),
               ),
             ),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (controller.text.isNotEmpty) {
-                setState(() {
-                  // Position text at center of canvas
-                  // x and y are normalized coordinates (0.0 to 1.0)
-                  _textOverlays.add(ScrapbookTextOverlay(
-                    id: DateTime.now().millisecondsSinceEpoch.toString(),
-                    text: controller.text,
-                    x: 0.5, // Center horizontally
-                    y: 0.5, // Center vertically
-                  ));
-                });
-                HapticFeedback.lightImpact();
-              }
-              Navigator.pop(context);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: DesignTokens.brandColor,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
-              ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header with drag handle
+                Center(
+                  child: Container(
+                    margin: const EdgeInsets.only(
+                      top: DesignTokens.spacingMedium,
+                      bottom: DesignTokens.spacingSmall,
+                    ),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+
+                // Text input area
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: DesignTokens.spacingLarge,
+                    vertical: DesignTokens.spacingMedium,
+                  ),
+                  child: TextField(
+                    controller: controller,
+                    focusNode: focusNode,
+                    decoration: InputDecoration(
+                      hintText: 'Enter text...',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
+                      ),
+                      contentPadding: const EdgeInsets.all(
+                        DesignTokens.spacingMedium,
+                      ),
+                    ),
+                    autofocus: true,
+                    maxLines: null,
+                    style: TextStyle(
+                      color: DesignTokens.textPrimary,
+                      fontSize: 18,
+                      fontFamily: selectedFont,
+                    ),
+                    onChanged: (value) {
+                      // Auto-save on change
+                      setState(() {
+                        final index = _textOverlays.indexWhere((o) => o.id == overlay.id);
+                        if (index != -1) {
+                          _textOverlays[index] = _textOverlays[index].copyWith(
+                            text: value,
+                            color: selectedTextColor,
+                            fontFamily: selectedFont,
+                            backgroundColor: selectedBackgroundColor,
+                          );
+                        }
+                      });
+                    },
+                  ),
+                ),
+
+                // Divider
+                const Divider(height: 1),
+
+                // Options row (based on selected tool)
+                Container(
+                  height: 60,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: DesignTokens.spacingMedium,
+                    vertical: DesignTokens.spacingSmall,
+                  ),
+                  child: _buildOptionsRow(
+                    selectedTool: selectedTool,
+                    selectedFont: selectedFont,
+                    selectedTextColor: selectedTextColor,
+                    selectedBackgroundColor: selectedBackgroundColor,
+                    onFontChanged: (font) {
+                      setModalState(() {
+                        selectedFont = font;
+                      });
+                      setState(() {
+                        final index = _textOverlays.indexWhere((o) => o.id == overlay.id);
+                        if (index != -1) {
+                          _textOverlays[index] = _textOverlays[index].copyWith(
+                            fontFamily: font,
+                          );
+                        }
+                      });
+                      HapticFeedback.lightImpact();
+                    },
+                    onTextColorChanged: (color) {
+                      setModalState(() {
+                        selectedTextColor = color;
+                      });
+                      setState(() {
+                        final index = _textOverlays.indexWhere((o) => o.id == overlay.id);
+                        if (index != -1) {
+                          _textOverlays[index] = _textOverlays[index].copyWith(
+                            color: color,
+                          );
+                        }
+                      });
+                      HapticFeedback.lightImpact();
+                    },
+                    onBgColorChanged: (color) {
+                      setModalState(() {
+                        selectedBackgroundColor = color;
+                      });
+                      setState(() {
+                        final index = _textOverlays.indexWhere((o) => o.id == overlay.id);
+                        if (index != -1) {
+                          _textOverlays[index] = _textOverlays[index].copyWith(
+                            backgroundColor: color,
+                          );
+                        }
+                      });
+                      HapticFeedback.lightImpact();
+                    },
+                  ),
+                ),
+
+                // Tool selector row
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: DesignTokens.spacingMedium,
+                    vertical: DesignTokens.spacingSmall,
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _buildToolButton(
+                          label: 'Font',
+                          isSelected: selectedTool == 'font',
+                          onTap: () {
+                            setModalState(() {
+                              selectedTool = 'font';
+                            });
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: DesignTokens.spacingSmall),
+                      Expanded(
+                        child: _buildToolButton(
+                          label: 'Text Color',
+                          isSelected: selectedTool == 'textColor',
+                          onTap: () {
+                            setModalState(() {
+                              selectedTool = 'textColor';
+                            });
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: DesignTokens.spacingSmall),
+                      Expanded(
+                        child: _buildToolButton(
+                          label: 'Background',
+                          isSelected: selectedTool == 'bgColor',
+                          onTap: () {
+                            setModalState(() {
+                              selectedTool = 'bgColor';
+                            });
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Keyboard padding
+                SizedBox(height: MediaQuery.of(context).viewInsets.bottom),
+              ],
             ),
-            child: const Text('Add'),
+          );
+        },
+      ),
+    ).whenComplete(() {
+      focusNode.dispose();
+      controller.dispose();
+
+      // If text is still empty, remove the overlay (user cancelled without typing)
+      final index = _textOverlays.indexWhere((o) => o.id == overlay.id);
+      if (index != -1 && _textOverlays[index].text.isEmpty) {
+        setState(() {
+          _textOverlays.removeAt(index);
+        });
+      }
+    });
+  }
+
+  // Build options row based on selected tool
+  Widget _buildOptionsRow({
+    required String selectedTool,
+    required String selectedFont,
+    required int selectedTextColor,
+    required int? selectedBackgroundColor,
+    required Function(String) onFontChanged,
+    required Function(int) onTextColorChanged,
+    required Function(int?) onBgColorChanged,
+  }) {
+    switch (selectedTool) {
+      case 'font':
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: _availableFonts.map((font) {
+              final isSelected = selectedFont == font['family'];
+              return GestureDetector(
+                onTap: () => onFontChanged(font['family']),
+                child: Container(
+                  margin: const EdgeInsets.only(right: DesignTokens.spacingSmall),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: DesignTokens.spacingMedium,
+                    vertical: DesignTokens.spacingSmall,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? DesignTokens.brandColor
+                        : Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
+                    border: Border.all(
+                      color: isSelected ? DesignTokens.brandColor : Colors.transparent,
+                      width: 2,
+                    ),
+                  ),
+                  child: Text(
+                    font['name'],
+                    style: _getFontStyle(font['family']).copyWith(
+                      fontSize: DesignTokens.fontSizeSmall,
+                      fontWeight: DesignTokens.weightSemiBold,
+                      color: isSelected ? Colors.white : DesignTokens.textSecondary,
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
           ),
-        ],
+        );
+
+      case 'textColor':
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: _textColorOptions.map((option) {
+              final color = option['color'] as int;
+              final isSelected = selectedTextColor == color;
+              return GestureDetector(
+                onTap: () => onTextColorChanged(color),
+                child: Container(
+                  margin: const EdgeInsets.only(right: DesignTokens.spacingSmall),
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Color(color),
+                    borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
+                    border: Border.all(
+                      color: isSelected ? DesignTokens.brandColor : Colors.grey.shade300,
+                      width: isSelected ? 3 : 1,
+                    ),
+                  ),
+                  child: isSelected
+                      ? const Icon(Icons.check, color: Colors.white, size: 18)
+                      : null,
+                ),
+              );
+            }).toList(),
+          ),
+        );
+
+      case 'bgColor':
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: _textBackgroundOptions.map((option) {
+              final color = option['color'] as int?;
+              final isSelected = selectedBackgroundColor == color;
+              return GestureDetector(
+                onTap: () => onBgColorChanged(color),
+                child: Container(
+                  margin: const EdgeInsets.only(right: DesignTokens.spacingSmall),
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: color != null ? Color(color) : Colors.transparent,
+                    borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
+                    border: Border.all(
+                      color: isSelected ? DesignTokens.brandColor : Colors.grey.shade300,
+                      width: isSelected ? 3 : 1,
+                    ),
+                  ),
+                  child: color == null
+                      ? Icon(Icons.close, size: 18, color: Colors.grey.shade600)
+                      : isSelected
+                          ? const Icon(Icons.check, color: Colors.white, size: 18)
+                          : null,
+                ),
+              );
+            }).toList(),
+          ),
+        );
+
+      default:
+        return const SizedBox.shrink();
+    }
+  }
+
+  // Build tool selector button
+  Widget _buildToolButton({
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: DesignTokens.spacingMedium,
+          vertical: DesignTokens.spacingMedium,
+        ),
+        decoration: BoxDecoration(
+          color: isSelected ? DesignTokens.brandColor : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
+          border: Border.all(
+            color: isSelected ? DesignTokens.brandColor : Colors.transparent,
+            width: 2,
+          ),
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: GoogleFonts.lexend(
+              fontSize: DesignTokens.fontSizeSmall,
+              fontWeight: DesignTokens.weightSemiBold,
+              color: isSelected ? Colors.white : DesignTokens.textSecondary,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ),
       ),
     );
   }
 
-  void _editText(ScrapbookTextOverlay overlay) {
-    final controller = TextEditingController(text: overlay.text);
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(DesignTokens.radiusXLarge),
+  Widget _buildToolbarButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: DesignTokens.spacingMedium,
+          vertical: DesignTokens.spacingSmall,
         ),
-        title: Text(
-          'Edit Text',
-          style: GoogleFonts.lexend(
-            fontSize: DesignTokens.fontSizeTitle,
-            fontWeight: DesignTokens.weightSemiBold,
-            color: DesignTokens.textPrimary,
-          ),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
         ),
-        content: TextField(
-          controller: controller,
-          decoration: InputDecoration(
-            hintText: 'Enter text...',
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
-            ),
-          ),
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Cancel',
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 18, color: DesignTokens.textSecondary),
+            const SizedBox(width: DesignTokens.spacingSmall),
+            Text(
+              label,
               style: GoogleFonts.lexend(
+                fontSize: DesignTokens.fontSizeSmall,
+                fontWeight: DesignTokens.weightSemiBold,
                 color: DesignTokens.textSecondary,
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Helper to build option row with label
+  Widget _buildOptionRow({required String label, required Widget child}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.lexend(
+            fontSize: DesignTokens.fontSizeSmall,
+            fontWeight: DesignTokens.weightSemiBold,
+            color: DesignTokens.textSecondary,
           ),
-          ElevatedButton(
-            onPressed: () {
-              if (controller.text.isNotEmpty) {
-                setState(() {
-                  final index =
-                      _textOverlays.indexWhere((o) => o.id == overlay.id);
-                  if (index != -1) {
-                    _textOverlays[index] =
-                        overlay.copyWith(text: controller.text);
-                  }
-                });
-                HapticFeedback.lightImpact();
-              }
-              Navigator.pop(context);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: DesignTokens.brandColor,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
+        ),
+        const SizedBox(height: DesignTokens.spacingSmall),
+        child,
+      ],
+    );
+  }
+
+  // Available fonts for text selection
+  static const List<Map<String, dynamic>> _availableFonts = [
+    {'name': 'Lexend', 'family': 'Lexend'},
+    {'name': 'Roboto', 'family': 'Roboto'},
+    {'name': 'Pacifico', 'family': 'Pacifico'},
+    {'name': 'Dancing', 'family': 'Dancing Script'},
+    {'name': 'Satisfy', 'family': 'Satisfy'},
+  ];
+
+  // Text color options
+  static const List<Map<String, dynamic>> _textColorOptions = [
+    {'color': 0xFF000000, 'name': 'Black'},
+    {'color': 0xFFFFFFFF, 'name': 'White'},
+    {'color': 0xFFEF4444, 'name': 'Red'},
+    {'color': 0xFFF59E0B, 'name': 'Orange'},
+    {'color': 0xFF10B981, 'name': 'Green'},
+    {'color': 0xFF3B82F6, 'name': 'Blue'},
+    {'color': 0xFF8B5CF6, 'name': 'Purple'},
+    {'color': 0xFFEC4899, 'name': 'Pink'},
+  ];
+
+  // Background color options (including transparent)
+  static const List<Map<String, dynamic>> _textBackgroundOptions = [
+    {'color': null, 'name': 'None'},
+    {'color': 0xFFFFFFFF, 'name': 'White'},
+    {'color': 0xFFF3F4F6, 'name': 'Light Gray'},
+    {'color': 0xFFFFF8E1, 'name': 'Cream'},
+    {'color': 0xFFF3E5F5, 'name': 'Lavender'},
+    {'color': 0xFFFFEBEE, 'name': 'Blush'},
+    {'color': 0xFFE3F2FD, 'name': 'Sky'},
+    {'color': 0xFFFEE2E2, 'name': 'Rose'},
+    {'color': 0xFF000000, 'name': 'Black'},
+  ];
+
+  void _showFontPicker(ScrapbookTextOverlay overlay, Function(String) onFontSelected) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.transparent,
+      builder: (context) => Container(
+        height: 300,
+        decoration: const BoxDecoration(
+          color: DesignTokens.surfacePrimary,
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(DesignTokens.radiusCircular),
+          ),
+        ),
+        child: Column(
+          children: [
+            // Header
+            Padding(
+              padding: const EdgeInsets.all(DesignTokens.spacingLarge),
+              child: Row(
+                children: [
+                  Text(
+                    'Select Font',
+                    style: GoogleFonts.lexend(
+                      fontSize: DesignTokens.fontSizeTitle,
+                      fontWeight: DesignTokens.weightSemiBold,
+                      color: DesignTokens.textPrimary,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
               ),
             ),
-            child: const Text('Save'),
+            const Divider(height: 1),
+            // Font list
+            Expanded(
+              child: ListView.builder(
+                itemCount: _availableFonts.length,
+                itemBuilder: (context, index) {
+                  final font = _availableFonts[index];
+                  final isSelected = overlay.fontFamily == font['family'];
+
+                  return ListTile(
+                    onTap: () {
+                      onFontSelected(font['family']);
+                      Navigator.pop(context);
+                      HapticFeedback.lightImpact();
+                    },
+                    title: Text(
+                      font['name'],
+                      style: GoogleFonts.lexend(
+                        fontSize: DesignTokens.fontSizeBody,
+                        fontWeight: DesignTokens.weightMedium,
+                      ),
+                    ),
+                    subtitle: Text(
+                      'Sample',
+                      style: _getFontStyle(font['family']),
+                    ),
+                    trailing: isSelected
+                        ? const Icon(Icons.check, color: DesignTokens.brandColor)
+                        : null,
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showTextColorPicker(ScrapbookTextOverlay overlay, Function(int) onColorSelected) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.transparent,
+      builder: (context) => Container(
+        height: 300,
+        decoration: const BoxDecoration(
+          color: DesignTokens.surfacePrimary,
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(DesignTokens.radiusCircular),
           ),
-        ],
+        ),
+        padding: const EdgeInsets.all(DesignTokens.spacingLarge),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Text Color',
+              style: GoogleFonts.lexend(
+                fontSize: DesignTokens.fontSizeTitle,
+                fontWeight: DesignTokens.weightSemiBold,
+                color: DesignTokens.textPrimary,
+              ),
+            ),
+            const SizedBox(height: DesignTokens.spacingMedium),
+            Expanded(
+              child: GridView.builder(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 4,
+                  childAspectRatio: 1,
+                ),
+                itemCount: _textColorOptions.length,
+                itemBuilder: (context, index) {
+                  final option = _textColorOptions[index];
+                  final color = option['color'] as int;
+                  final isSelected = overlay.color == color;
+
+                  return GestureDetector(
+                    onTap: () {
+                      onColorSelected(color);
+                      Navigator.pop(context);
+                      HapticFeedback.lightImpact();
+                    },
+                    child: Container(
+                      margin: const EdgeInsets.all(DesignTokens.spacingBase),
+                      decoration: BoxDecoration(
+                        color: Color(color),
+                        borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
+                        border: Border.all(
+                          color: isSelected
+                              ? DesignTokens.brandColor
+                              : Colors.grey.shade300,
+                          width: isSelected ? 3 : 1,
+                        ),
+                      ),
+                      child: isSelected
+                          ? const Icon(
+                              Icons.check,
+                              color: Colors.white,
+                              size: 20,
+                            )
+                          : null,
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showTextBackgroundPicker(ScrapbookTextOverlay overlay, Function(int?) onColorSelected) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.transparent,
+      builder: (context) => Container(
+        height: 300,
+        decoration: const BoxDecoration(
+          color: DesignTokens.surfacePrimary,
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(DesignTokens.radiusCircular),
+          ),
+        ),
+        padding: const EdgeInsets.all(DesignTokens.spacingLarge),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Background Color',
+              style: GoogleFonts.lexend(
+                fontSize: DesignTokens.fontSizeTitle,
+                fontWeight: DesignTokens.weightSemiBold,
+                color: DesignTokens.textPrimary,
+              ),
+            ),
+            const SizedBox(height: DesignTokens.spacingMedium),
+            Expanded(
+              child: GridView.builder(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 4,
+                  childAspectRatio: 1,
+                ),
+                itemCount: _textBackgroundOptions.length,
+                itemBuilder: (context, index) {
+                  final option = _textBackgroundOptions[index];
+                  final color = option['color'] as int?;
+                  final isSelected = overlay.backgroundColor == color;
+
+                  return GestureDetector(
+                    onTap: () {
+                      onColorSelected(color);
+                      Navigator.pop(context);
+                      HapticFeedback.lightImpact();
+                    },
+                    child: Container(
+                      margin: const EdgeInsets.all(DesignTokens.spacingBase),
+                      decoration: BoxDecoration(
+                        color: color != null ? Color(color) : Colors.transparent,
+                        borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
+                        border: Border.all(
+                          color: isSelected
+                              ? DesignTokens.brandColor
+                              : Colors.grey.shade300,
+                          width: isSelected ? 3 : 1,
+                        ),
+                      ),
+                      child: color == null
+                          ? const Icon(
+                              Icons.close,
+                              color: Colors.grey,
+                              size: 20,
+                            )
+                          : isSelected
+                              ? const Icon(
+                                  Icons.check,
+                                  color: Colors.white,
+                                  size: 20,
+                                )
+                              : null,
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Helper to get TextStyle from font family name
+  TextStyle _getFontStyle(String fontFamily) {
+    switch (fontFamily) {
+      case 'Lexend':
+        return GoogleFonts.lexend();
+      case 'Roboto':
+        return GoogleFonts.roboto();
+      case 'Pacifico':
+        return GoogleFonts.pacifico();
+      case 'Dancing Script':
+        return GoogleFonts.dancingScript();
+      case 'Satisfy':
+        return GoogleFonts.satisfy();
+      default:
+        return GoogleFonts.lexend();
+    }
+  }
+
+  Widget _buildColorPickerButton({
+    required int color,
+    required String label,
+    bool isTransparent = false,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: DesignTokens.spacingMedium,
+          vertical: DesignTokens.spacingSmall,
+        ),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isTransparent)
+              Container(
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey, width: 2),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Center(
+                  child: Icon(
+                    Icons.close,
+                    size: 16,
+                    color: Colors.grey,
+                  ),
+                ),
+              )
+            else
+              Container(
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(
+                  color: Color(color),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: Colors.grey.shade300, width: 1),
+                ),
+              ),
+            const SizedBox(width: DesignTokens.spacingSmall),
+            Text(
+              label,
+              style: GoogleFonts.lexend(
+                fontSize: DesignTokens.fontSizeSmall,
+                fontWeight: DesignTokens.weightSemiBold,
+                color: DesignTokens.textSecondary,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

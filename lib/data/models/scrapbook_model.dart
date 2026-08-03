@@ -12,6 +12,7 @@ class ScrapbookTextOverlay extends Equatable {
   final double scale; // Scale multiplier for resizing
   final double rotation; // Rotation in radians
   final bool flip; // Horizontal flip (mirror)
+  final int? backgroundColor; // ARGB background color, null = transparent
 
   const ScrapbookTextOverlay({
     required this.id,
@@ -24,6 +25,7 @@ class ScrapbookTextOverlay extends Equatable {
     this.scale = 1.0,
     this.rotation = 0.0,
     this.flip = false,
+    this.backgroundColor,
   });
 
   ScrapbookTextOverlay copyWith({
@@ -37,6 +39,7 @@ class ScrapbookTextOverlay extends Equatable {
     double? scale,
     double? rotation,
     bool? flip,
+    int? backgroundColor,
   }) {
     return ScrapbookTextOverlay(
       id: id ?? this.id,
@@ -49,6 +52,7 @@ class ScrapbookTextOverlay extends Equatable {
       scale: scale ?? this.scale,
       rotation: rotation ?? this.rotation,
       flip: flip ?? this.flip,
+      backgroundColor: backgroundColor ?? this.backgroundColor,
     );
   }
 
@@ -64,6 +68,7 @@ class ScrapbookTextOverlay extends Equatable {
       'scale': scale,
       'rotation': rotation,
       'flip': flip,
+      'backgroundColor': backgroundColor,
     };
   }
 
@@ -79,11 +84,12 @@ class ScrapbookTextOverlay extends Equatable {
       scale: (json['scale'] as num?)?.toDouble() ?? 1.0,
       rotation: (json['rotation'] as num?)?.toDouble() ?? 0.0,
       flip: json['flip'] as bool? ?? false,
+      backgroundColor: json['backgroundColor'] as int?,
     );
   }
 
   @override
-  List<Object?> get props => [id, text, x, y, color, scale, rotation, flip];
+  List<Object?> get props => [id, text, x, y, color, fontSize, fontFamily, scale, rotation, flip, backgroundColor];
 }
 
 /// Sticker/emoji on a scrapbook page
