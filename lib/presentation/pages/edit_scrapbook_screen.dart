@@ -119,6 +119,95 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
 
   // Available emojis for selection
   static const List<String> _availableEmojis = [
+    // Happy and playful
+    '\u{1F600}',
+    '\u{1F603}',
+    '\u{1F604}',
+    '\u{1F601}',
+    '\u{1F606}',
+    '\u{1F602}',
+    '\u{1F923}',
+    '\u{1F642}',
+    '\u{1F643}',
+    '\u{1F609}',
+    '\u{1F61C}',
+    '\u{1F92A}',
+    '\u{1F60B}',
+
+    // Love, warmth, and pride
+    '\u{1F970}',
+    '\u{1F60D}',
+    '\u{1F618}',
+    '\u{1F917}',
+    '\u{1F607}',
+    '\u{1F60E}',
+    '\u{1F929}',
+    '\u{1F973}',
+    '\u{1F924}',
+
+    // Calm, shy, and thoughtful
+    '\u{1F60C}',
+    '\u{1F60F}',
+    '\u{1F92D}',
+    '\u{1FAE3}',
+    '\u{1F92B}',
+    '\u{1F914}',
+    '\u{1F928}',
+    '\u{1F633}',
+    '\u{1F97A}',
+    '\u{1F979}',
+
+    // Neutral, confused, and bored
+    '\u{1F610}',
+    '\u{1F611}',
+    '\u{1F636}',
+    '\u{1F644}',
+    '\u{1F612}',
+    '\u{1F615}',
+    '\u{1FAE4}',
+    '\u{1F61F}',
+    '\u{1F614}',
+    '\u{1F62C}',
+
+    // Sad, hurt, and crying
+    '\u{1F61E}',
+    '\u{1F622}',
+    '\u{1F62D}',
+    '\u{1F625}',
+    '\u{1F613}',
+    '\u{1F629}',
+    '\u{1F62B}',
+    '\u{1F623}',
+    '\u{1F616}',
+    '\u{1F494}',
+
+    // Worried, afraid, and shocked
+    '\u{1F628}',
+    '\u{1F630}',
+    '\u{1F631}',
+    '\u{1F632}',
+    '\u{1FAE2}',
+    '\u{1FAE8}',
+    '\u{1F635}',
+
+    // Tired and unwell
+    '\u{1F634}',
+    '\u{1F971}',
+    '\u{1F62A}',
+    '\u{1F912}',
+    '\u{1F915}',
+    '\u{1F922}',
+    '\u{1F92E}',
+
+    // Frustrated and angry
+    '\u{1F624}',
+    '\u{1F620}',
+    '\u{1F621}',
+    '\u{1F92C}',
+    '\u{1F608}',
+    '\u{1F47F}',
+
+    // Existing decorative choices
     '😊',
     '😍',
     '🥰',
@@ -518,15 +607,14 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         DesignTokens.spacingLarge,
-        DesignTokens.spacingMedium,
-        DesignTokens.spacingLarge,
         DesignTokens.spacingSmall,
+        DesignTokens.spacingLarge,
+        DesignTokens.spacingMedium,
       ),
       child: Row(
         children: [
-          // Back Button
           _TopBarButton(
-            icon: Icons.arrow_back_ios_rounded,
+            icon: Icons.arrow_back_rounded,
             onTap: () async {
               final shouldPop = await _onWillPop();
               if (shouldPop && mounted) {
@@ -534,22 +622,19 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
               }
             },
           ),
-
-          const Spacer(),
-
-          // Edit Title
-          Text(
-            'Edit',
-            style: GoogleFonts.lexend(
-              fontSize: DesignTokens.fontSizeHeading,
-              fontWeight: DesignTokens.weightSemiBold,
-              color: DesignTokens.textPrimary,
+          const SizedBox(width: DesignTokens.spacingMedium),
+          Expanded(
+            child: Text(
+              widget.scrapbookId == null ? 'Create a memory' : 'Edit memory',
+              style: GoogleFonts.lexend(
+                fontSize: DesignTokens.fontSizeHeading,
+                fontWeight: DesignTokens.weightBold,
+                color: DesignTokens.textPrimary,
+                letterSpacing: -0.3,
+              ),
             ),
           ),
-
-          const Spacer(),
-
-          // Save Button
+          const SizedBox(width: DesignTokens.spacingMedium),
           _SaveButton(
             isSaving: _isSaving,
             onTap: _isSaving ? null : _saveScrapbook,
@@ -567,19 +652,38 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     final year = date.year;
 
     return Padding(
-      padding: const EdgeInsets.only(
-        left: DesignTokens.spacingLarge,
-        right: DesignTokens.spacingLarge,
-        top: DesignTokens.spacingMedium,
-        bottom: DesignTokens.spacingLarge,
+      padding: const EdgeInsets.fromLTRB(
+        DesignTokens.spacingLarge,
+        0,
+        DesignTokens.spacingLarge,
+        DesignTokens.spacingLarge,
       ),
-      child: Text(
-        '$weekday, $day $month $year',
-        style: GoogleFonts.lexend(
-          fontSize: DesignTokens.fontSizeSubtitle,
-          fontWeight: DesignTokens.weightSemiBold,
-          color: DesignTokens.textSecondary,
-          letterSpacing: DesignTokens.letterSpacingHeading,
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          decoration: BoxDecoration(
+            color: const Color(0xFFEDE9FE),
+            borderRadius: BorderRadius.circular(DesignTokens.radiusSmall),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.calendar_today_rounded,
+                size: 14,
+                color: Color(0xFF6D4BD1),
+              ),
+              const SizedBox(width: 7),
+              Text(
+                '$weekday, $day $month $year',
+                style: GoogleFonts.lexend(
+                  fontSize: DesignTokens.fontSizeSmall,
+                  fontWeight: DesignTokens.weightSemiBold,
+                  color: const Color(0xFF5036A6),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -592,52 +696,32 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
         right: DesignTokens.spacingLarge,
         bottom: DesignTokens.spacingXLarge,
       ),
-      child: SizedBox(
-        height: DesignTokens.scrapbookCanvasHeight,
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            // Background canvas with rounded corners (for visual only)
-            Positioned(
-              left: 0,
-              right: 0,
-              top: 0,
-              bottom: 0,
-              child: Container(
-                decoration: BoxDecoration(
-                  // Transparent background - no color behind polaroid
-                  color: Colors.transparent,
-                  borderRadius:
-                      BorderRadius.circular(DesignTokens.radiusCircular),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.1),
-                      blurRadius: 24,
-                      offset: const Offset(0, 8),
-                    ),
-                    BoxShadow(
-                      color: DesignTokens.brandColor.withValues(alpha: 0.08),
-                      blurRadius: 16,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.5),
-                    width: 1,
+      child: Column(
+        children: [
+          SizedBox(
+            height: DesignTokens.scrapbookCanvasHeight,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                // Background canvas with rounded corners (for visual only)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  top: 0,
+                  bottom: 0,
+                  child: ClipRRect(
+                    borderRadius:
+                        BorderRadius.circular(DesignTokens.radiusLarge),
+                    child: _buildPolaroidFrame(),
                   ),
                 ),
-                child: ClipRRect(
-                  borderRadius:
-                      BorderRadius.circular(DesignTokens.radiusCircular),
-                  child: _buildPolaroidFrame(),
-                ),
-              ),
-            ),
 
-            // Layout area for items (extends beyond canvas for touch events)
-            _buildTouchSandbox(),
-          ],
-        ),
+                // Layout area for items (extends beyond canvas for touch events)
+                _buildTouchSandbox(),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -774,12 +858,14 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
   /// Build emoji selector button
   Widget _buildEmojiSelector() {
     const touchSandbox = _touchSandbox;
-    // Position emoji button in top-left area of canvas (accounting for sandbox offset)
-    const emojiOffset = touchSandbox + DesignTokens.spacingLarge;
+    const emojiLeft = touchSandbox +
+        ((DesignTokens.scrapbookCanvasWidth - DesignTokens.emojiButtonSize) /
+            2);
+    const emojiTop = touchSandbox + DesignTokens.spacingLarge;
 
     return Positioned(
-      left: emojiOffset,
-      top: emojiOffset,
+      left: emojiLeft,
+      top: emojiTop,
       child: GestureDetector(
         onTap: _showEmojiPicker,
         child: Container(
@@ -1796,17 +1882,10 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
         bottom: DesignTokens.spacingLarge,
       ),
       child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: DesignTokens.spacingLarge,
-          vertical: DesignTokens.spacingMedium,
-        ),
+        padding: const EdgeInsets.all(DesignTokens.spacingLarge),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.6),
+          color: Colors.white.withValues(alpha: 0.82),
           borderRadius: BorderRadius.circular(DesignTokens.radiusLarge),
-          border: Border.all(
-            color: DesignTokens.brandColor.withValues(alpha: 0.08),
-            width: 1,
-          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1854,94 +1933,92 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
   }
 
   Widget _buildVocabularyWords() {
+    if (widget.vocabularyWords.isEmpty) return const SizedBox.shrink();
+
     return Padding(
       padding: const EdgeInsets.only(
         left: DesignTokens.spacingLarge,
         right: DesignTokens.spacingLarge,
         bottom: DesignTokens.spacingXXLarge,
       ),
-      child: Wrap(
-        spacing: DesignTokens.spacingSmall,
-        runSpacing: DesignTokens.spacingSmall,
-        children: widget.vocabularyWords.map((vocab) {
-          return Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: DesignTokens.spacingLarge,
-              vertical: 10,
-            ),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  DesignTokens.brandColor.withValues(alpha: 0.08),
-                  DesignTokens.brandAccent.withValues(alpha: 0.12),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(DesignTokens.radiusXLarge),
-              border: Border.all(
-                color: DesignTokens.brandColor.withValues(alpha: 0.2),
-                width: 1,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: DesignTokens.brandColor.withValues(alpha: 0.1),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: DesignTokens.spacingSmall,
+            runSpacing: DesignTokens.spacingSmall,
+            children: widget.vocabularyWords.map((vocab) {
+              return Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: DesignTokens.spacingMedium,
+                  vertical: 9,
                 ),
-              ],
-            ),
-            child: Column(
-              children: [
-                Text(
-                  vocab.word,
-                  style: GoogleFonts.lexend(
-                    fontSize: DesignTokens.fontSizeSubtitle,
-                    fontWeight: DesignTokens.weightBold,
-                    color: DesignTokens.brandColor,
-                  ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.84),
+                  borderRadius: BorderRadius.circular(DesignTokens.radiusSmall),
                 ),
-                Text(
-                  vocab.thaiTranslation,
-                  style: GoogleFonts.lexend(
-                    fontSize: DesignTokens.fontSizeSmall,
-                    fontWeight: DesignTokens.weightMedium,
-                    color: DesignTokens.textSecondary,
-                  ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      vocab.word,
+                      style: GoogleFonts.lexend(
+                        fontSize: DesignTokens.fontSizeBody,
+                        fontWeight: DesignTokens.weightBold,
+                        color: const Color(0xFF5B3CC4),
+                      ),
+                    ),
+                    const SizedBox(width: DesignTokens.spacingSmall),
+                    Container(
+                      width: 3,
+                      height: 3,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFA89DBF),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: DesignTokens.spacingSmall),
+                    Text(
+                      vocab.thaiTranslation,
+                      style: GoogleFonts.lexend(
+                        fontSize: DesignTokens.fontSizeSmall,
+                        fontWeight: DesignTokens.weightMedium,
+                        color: DesignTokens.textSecondary,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          );
-        }).toList(),
+              );
+            }).toList(),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildBottomToolbar() {
     return Positioned(
-      bottom: 0,
-      left: 0,
-      right: 0,
+      bottom: DesignTokens.spacingSmall,
+      left: DesignTokens.spacingMedium,
+      right: DesignTokens.spacingMedium,
       child: Container(
         decoration: BoxDecoration(
-          color:
-              DesignTokens.whiteWithOpacity(DesignTokens.opacityMostlyOpaque),
-          borderRadius: const BorderRadius.vertical(
-            top: Radius.circular(DesignTokens.radiusCircular),
-          ),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(DesignTokens.radiusLarge),
           boxShadow: [
             BoxShadow(
-              color: DesignTokens.blackWithOpacity(0.08),
-              blurRadius: 20,
-              offset: const Offset(0, -4),
+              color: DesignTokens.blackWithOpacity(0.14),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
             ),
           ],
         ),
         child: SafeArea(
+          top: false,
           child: Padding(
             padding: const EdgeInsets.symmetric(
-              horizontal: DesignTokens.spacingXLarge,
-              vertical: DesignTokens.spacingLarge,
+              horizontal: DesignTokens.spacingSmall,
+              vertical: DesignTokens.spacingSmall,
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -1994,40 +2071,41 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
   }) {
     final isSelected = _selectedToolbarIndex == index;
 
-    return GestureDetector(
-      onTap: () {
-        // Don't toggle selection - just highlight briefly then reset
-        setState(() {
-          _selectedToolbarIndex = index;
-        });
-        onTap();
-        HapticFeedback.lightImpact();
-        // Reset after action completes
-        Future.delayed(const Duration(milliseconds: 300), () {
-          if (mounted) {
-            setState(() {
-              _selectedToolbarIndex = -1;
-            });
-          }
-        });
-      },
-      child: AnimatedContainer(
-        duration: const Duration(
-          milliseconds: DesignTokens.durationMedium,
-        ),
-        curve: Curves.easeOut,
-        padding: const EdgeInsets.symmetric(
-          horizontal: DesignTokens.spacingBase,
-          vertical: DesignTokens.spacingSmall,
-        ),
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFEDE9FE) : Colors.transparent,
-          borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
-        ),
-        child: Semantics(
-          button: true,
-          label: label,
-          selected: isSelected,
+    return Semantics(
+      button: true,
+      label: '$label tool',
+      selected: isSelected,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
+        onTap: () {
+          // Don't toggle selection - just highlight briefly then reset
+          setState(() {
+            _selectedToolbarIndex = index;
+          });
+          onTap();
+          HapticFeedback.lightImpact();
+          // Reset after action completes
+          Future.delayed(const Duration(milliseconds: 300), () {
+            if (mounted) {
+              setState(() {
+                _selectedToolbarIndex = -1;
+              });
+            }
+          });
+        },
+        child: AnimatedContainer(
+          duration: const Duration(
+            milliseconds: DesignTokens.durationMedium,
+          ),
+          curve: DesignTokens.curveEaseOutQuart,
+          padding: const EdgeInsets.symmetric(
+            horizontal: DesignTokens.spacingBase,
+            vertical: 10,
+          ),
+          decoration: BoxDecoration(
+            color: isSelected ? const Color(0xFFEDE9FE) : Colors.transparent,
+            borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -4396,37 +4474,37 @@ class _TopBarButtonState extends State<_TopBarButton> {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: widget.onTap,
-      onTapDown: (_) => setState(() => _isPressed = true),
-      onTapUp: (_) => setState(() => _isPressed = false),
-      onTapCancel: () => setState(() => _isPressed = false),
-      child: AnimatedContainer(
-        duration: const Duration(
-          milliseconds: DesignTokens.durationFast,
-        ),
-        curve: DesignTokens.curveEaseOut,
-        width: DesignTokens.iconButtonSize,
-        height: DesignTokens.iconButtonSize,
-        decoration: BoxDecoration(
-          color: DesignTokens.whiteWithOpacity(
-            _isPressed
-                ? DesignTokens.opacitySemiTransparent
-                : DesignTokens.opacityMostlyOpaque,
+    return Semantics(
+      button: true,
+      label: 'Back',
+      child: GestureDetector(
+        onTap: widget.onTap,
+        onTapDown: (_) => setState(() => _isPressed = true),
+        onTapUp: (_) => setState(() => _isPressed = false),
+        onTapCancel: () => setState(() => _isPressed = false),
+        child: AnimatedContainer(
+          duration: const Duration(
+            milliseconds: DesignTokens.durationFast,
           ),
-          borderRadius: BorderRadius.circular(DesignTokens.radiusLarge),
-          boxShadow: _isPressed
-              ? DesignTokens.shadowSubtle
-              : DesignTokens.shadowSubtle,
-        ),
-        child: AnimatedScale(
-          duration: const Duration(milliseconds: DesignTokens.durationFast),
           curve: DesignTokens.curveEaseOut,
-          scale: _isPressed ? 0.95 : 1.0,
-          child: Icon(
-            widget.icon,
-            color: DesignTokens.textPrimary,
-            size: 18,
+          width: DesignTokens.iconButtonSize,
+          height: DesignTokens.iconButtonSize,
+          decoration: BoxDecoration(
+            color: _isPressed
+                ? const Color(0xFFEDE9FE)
+                : Colors.white.withValues(alpha: 0.82),
+            borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
+            border: Border.all(color: const Color(0xFFD8D3E8)),
+          ),
+          child: AnimatedScale(
+            duration: const Duration(milliseconds: DesignTokens.durationFast),
+            curve: DesignTokens.curveEaseOut,
+            scale: _isPressed ? 0.95 : 1.0,
+            child: Icon(
+              widget.icon,
+              color: DesignTokens.textPrimary,
+              size: 20,
+            ),
           ),
         ),
       ),
@@ -4455,55 +4533,74 @@ class _SaveButtonState extends State<_SaveButton> {
   Widget build(BuildContext context) {
     final isEnabled = !widget.isSaving && widget.onTap != null;
 
-    return GestureDetector(
-      onTap: isEnabled ? widget.onTap : null,
-      onTapDown: (_) => setState(() => _isPressed = true),
-      onTapUp: (_) => setState(() => _isPressed = false),
-      onTapCancel: () => setState(() => _isPressed = false),
-      child: AnimatedContainer(
-        duration: const Duration(
-          milliseconds: DesignTokens.durationFast,
-        ),
-        curve: DesignTokens.curveEaseOut,
-        width: DesignTokens.iconButtonSize,
-        height: DesignTokens.iconButtonSize,
-        decoration: BoxDecoration(
-          color: widget.isSaving
-              ? Colors.grey.shade300
-              : isEnabled
-                  ? _isPressed
-                      ? DesignTokens.brandColor.withValues(alpha: 0.8)
-                      : DesignTokens.brandColor
-                  : Colors.grey.shade300,
-          borderRadius: BorderRadius.circular(DesignTokens.radiusLarge),
-          boxShadow: isEnabled && _isPressed
-              ? DesignTokens.shadowMedium
-              : DesignTokens.shadowStrong,
-        ),
-        child: Center(
-          child: widget.isSaving
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
-                  ),
-                )
-              : AnimatedScale(
-                  duration:
-                      const Duration(milliseconds: DesignTokens.durationFast),
-                  curve: DesignTokens.curveEaseOut,
-                  scale: _isPressed ? 0.95 : 1.0,
-                  child: const Text(
-                    'Save',
-                    style: TextStyle(
+    return Semantics(
+      button: true,
+      label: widget.isSaving ? 'Saving scrapbook' : 'Save scrapbook',
+      enabled: isEnabled,
+      child: GestureDetector(
+        onTap: isEnabled ? widget.onTap : null,
+        onTapDown: isEnabled ? (_) => setState(() => _isPressed = true) : null,
+        onTapUp: isEnabled ? (_) => setState(() => _isPressed = false) : null,
+        onTapCancel:
+            isEnabled ? () => setState(() => _isPressed = false) : null,
+        child: AnimatedContainer(
+          duration: const Duration(
+            milliseconds: DesignTokens.durationFast,
+          ),
+          curve: DesignTokens.curveEaseOut,
+          width: 78,
+          height: DesignTokens.iconButtonSize,
+          decoration: BoxDecoration(
+            color: isEnabled
+                ? _isPressed
+                    ? const Color(0xFF7549E8)
+                    : DesignTokens.brandColor
+                : const Color(0xFFD1CBDD),
+            borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
+            boxShadow: isEnabled
+                ? [
+                    BoxShadow(
+                      color: DesignTokens.brandColor.withValues(alpha: 0.28),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Center(
+            child: widget.isSaving
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
                       color: Colors.white,
-                      fontWeight: DesignTokens.weightSemiBold,
-                      fontSize: 13,
+                    ),
+                  )
+                : AnimatedScale(
+                    duration: const Duration(
+                      milliseconds: DesignTokens.durationFast,
+                    ),
+                    curve: DesignTokens.curveEaseOut,
+                    scale: _isPressed ? 0.97 : 1.0,
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.check_rounded,
+                            size: 17, color: Colors.white),
+                        SizedBox(width: 5),
+                        Text(
+                          'Save',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: DesignTokens.weightSemiBold,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ),
+          ),
         ),
       ),
     );
