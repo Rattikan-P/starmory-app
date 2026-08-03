@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
+import '../../constants/design_tokens.dart';
 import '../providers/providers.dart';
 import '../providers/scrapbook_provider.dart';
 import '../providers/navigation_provider.dart';
@@ -829,18 +830,16 @@ class _HomeTabState extends ConsumerState<HomeTab>
             TextButton.icon(
               onPressed: () =>
                   ref.read(navigationProvider.notifier).goScrapbook(),
-              icon: const Icon(Icons.history_rounded, size: 21),
-              label: Text(
-                'View All',
-                style: GoogleFonts.lexend(
-                  fontSize: 14,
+              icon: const Icon(Icons.arrow_forward_rounded, size: 17),
+              label: const Text('View all'),
+              iconAlignment: IconAlignment.end,
+              style: TextButton.styleFrom(
+                foregroundColor: DesignTokens.brandColor,
+                minimumSize: const Size(0, DesignTokens.touchTarget),
+                textStyle: GoogleFonts.lexend(
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),
-              ),
-              style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFF5036A6),
-                minimumSize: const Size(44, 44),
-                padding: const EdgeInsets.symmetric(horizontal: 4),
               ),
             ),
           ],
