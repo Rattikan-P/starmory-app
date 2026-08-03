@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -317,7 +318,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
           _textOverlays[i].color != _originalTextOverlays[i].color ||
           _textOverlays[i].fontSize != _originalTextOverlays[i].fontSize ||
           _textOverlays[i].fontFamily != _originalTextOverlays[i].fontFamily ||
-          _textOverlays[i].backgroundColor != _originalTextOverlays[i].backgroundColor ||
+          _textOverlays[i].backgroundColor !=
+              _originalTextOverlays[i].backgroundColor ||
           _textOverlays[i].scale != _originalTextOverlays[i].scale ||
           _textOverlays[i].rotation != _originalTextOverlays[i].rotation ||
           _textOverlays[i].flip != _originalTextOverlays[i].flip) {
@@ -986,18 +988,21 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                               : EdgeInsets.zero,
                           decoration: BoxDecoration(
                             color: overlay.backgroundColor != null
-                                ? Color(overlay.backgroundColor!).withValues(alpha: 0.95)
+                                ? Color(overlay.backgroundColor!)
+                                    .withValues(alpha: 0.95)
                                 : Colors.transparent,
                             borderRadius: BorderRadius.circular(12),
                             boxShadow: overlay.backgroundColor != null
                                 ? [
                                     BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.1),
+                                      color:
+                                          Colors.black.withValues(alpha: 0.1),
                                       blurRadius: 8,
                                       offset: const Offset(0, 2),
                                     ),
                                     BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.05),
+                                      color:
+                                          Colors.black.withValues(alpha: 0.05),
                                       blurRadius: 16,
                                       offset: const Offset(0, 4),
                                     ),
@@ -1015,7 +1020,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                                   : const EdgeInsets.all(8.0),
                               child: Text(
                                 overlay.text,
-                                style: _getFontStyle(overlay.fontFamily).copyWith(
+                                style:
+                                    _getFontStyle(overlay.fontFamily).copyWith(
                                   color: Color(overlay.color),
                                   fontSize: scaledFontSize,
                                   fontWeight: FontWeight.w600,
@@ -2042,7 +2048,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                     decoration: InputDecoration(
                       hintText: 'Enter text...',
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
+                        borderRadius:
+                            BorderRadius.circular(DesignTokens.radiusMedium),
                       ),
                       contentPadding: const EdgeInsets.all(
                         DesignTokens.spacingMedium,
@@ -2058,7 +2065,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                     onChanged: (value) {
                       // Auto-save on change
                       setState(() {
-                        final index = _textOverlays.indexWhere((o) => o.id == overlay.id);
+                        final index =
+                            _textOverlays.indexWhere((o) => o.id == overlay.id);
                         if (index != -1) {
                           _textOverlays[index] = _textOverlays[index].copyWith(
                             text: value,
@@ -2092,7 +2100,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                         selectedFont = font;
                       });
                       setState(() {
-                        final index = _textOverlays.indexWhere((o) => o.id == overlay.id);
+                        final index =
+                            _textOverlays.indexWhere((o) => o.id == overlay.id);
                         if (index != -1) {
                           _textOverlays[index] = _textOverlays[index].copyWith(
                             fontFamily: font,
@@ -2106,7 +2115,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                         selectedTextColor = color;
                       });
                       setState(() {
-                        final index = _textOverlays.indexWhere((o) => o.id == overlay.id);
+                        final index =
+                            _textOverlays.indexWhere((o) => o.id == overlay.id);
                         if (index != -1) {
                           _textOverlays[index] = _textOverlays[index].copyWith(
                             color: color,
@@ -2120,7 +2130,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                         selectedBackgroundColor = color;
                       });
                       setState(() {
-                        final index = _textOverlays.indexWhere((o) => o.id == overlay.id);
+                        final index =
+                            _textOverlays.indexWhere((o) => o.id == overlay.id);
                         if (index != -1) {
                           _textOverlays[index] = _textOverlays[index].copyWith(
                             backgroundColor: color,
@@ -2139,41 +2150,39 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                     vertical: DesignTokens.spacingSmall,
                   ),
                   child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Expanded(
-                        child: _buildToolButton(
-                          label: 'Font',
-                          isSelected: selectedTool == 'font',
-                          onTap: () {
-                            setModalState(() {
-                              selectedTool = 'font';
-                            });
-                          },
-                        ),
+                      _buildToolButton(
+                        icon: Icons.text_fields,
+                        iconColor: DesignTokens.textSecondary,
+                        isSelected: selectedTool == 'font',
+                        onTap: () {
+                          setModalState(() {
+                            selectedTool = 'font';
+                          });
+                        },
                       ),
                       const SizedBox(width: DesignTokens.spacingSmall),
-                      Expanded(
-                        child: _buildToolButton(
-                          label: 'Text Color',
-                          isSelected: selectedTool == 'textColor',
-                          onTap: () {
-                            setModalState(() {
-                              selectedTool = 'textColor';
-                            });
-                          },
-                        ),
+                      _buildToolButton(
+                        icon: Icons.color_lens,
+                        iconColor: DesignTokens.textSecondary,
+                        isSelected: selectedTool == 'textColor',
+                        onTap: () {
+                          setModalState(() {
+                            selectedTool = 'textColor';
+                          });
+                        },
                       ),
                       const SizedBox(width: DesignTokens.spacingSmall),
-                      Expanded(
-                        child: _buildToolButton(
-                          label: 'Background',
-                          isSelected: selectedTool == 'bgColor',
-                          onTap: () {
-                            setModalState(() {
-                              selectedTool = 'bgColor';
-                            });
-                          },
-                        ),
+                      _buildToolButton(
+                        icon: Icons.format_color_fill,
+                        iconColor: DesignTokens.textSecondary,
+                        isSelected: selectedTool == 'bgColor',
+                        onTap: () {
+                          setModalState(() {
+                            selectedTool = 'bgColor';
+                          });
+                        },
                       ),
                     ],
                   ),
@@ -2220,19 +2229,23 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
               return GestureDetector(
                 onTap: () => onFontChanged(font['family']),
                 child: Container(
-                  margin: const EdgeInsets.only(right: DesignTokens.spacingSmall),
+                  margin:
+                      const EdgeInsets.only(right: DesignTokens.spacingSmall),
                   padding: const EdgeInsets.symmetric(
                     horizontal: DesignTokens.spacingMedium,
                     vertical: DesignTokens.spacingSmall,
                   ),
                   decoration: BoxDecoration(
                     color: isSelected
-                        ? DesignTokens.brandColor
-                        : Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
+                        ? const Color(0xFF9C27B0).withValues(alpha: 0.15)
+                        : Colors.transparent,
+                    borderRadius:
+                        BorderRadius.circular(DesignTokens.radiusMedium),
                     border: Border.all(
-                      color: isSelected ? DesignTokens.brandColor : Colors.transparent,
-                      width: 2,
+                      color: isSelected
+                          ? const Color(0xFF9C27B0).withValues(alpha: 0.4)
+                          : Colors.grey.shade300,
+                      width: 1.5,
                     ),
                   ),
                   child: Text(
@@ -2240,7 +2253,9 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                     style: _getFontStyle(font['family']).copyWith(
                       fontSize: DesignTokens.fontSizeSmall,
                       fontWeight: DesignTokens.weightSemiBold,
-                      color: isSelected ? Colors.white : DesignTokens.textSecondary,
+                      color: isSelected
+                          ? const Color(0xFF7B1FA2)
+                          : DesignTokens.textSecondary,
                     ),
                   ),
                 ),
@@ -2259,16 +2274,30 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
               return GestureDetector(
                 onTap: () => onTextColorChanged(color),
                 child: Container(
-                  margin: const EdgeInsets.only(right: DesignTokens.spacingSmall),
+                  margin:
+                      const EdgeInsets.only(right: DesignTokens.spacingSmall),
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
                     color: Color(color),
-                    borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
+                    borderRadius:
+                        BorderRadius.circular(DesignTokens.radiusMedium),
                     border: Border.all(
-                      color: isSelected ? DesignTokens.brandColor : Colors.grey.shade300,
+                      color: isSelected
+                          ? const Color(0xFF9C27B0)
+                          : Colors.grey.shade300,
                       width: isSelected ? 3 : 1,
                     ),
+                    boxShadow: isSelected
+                        ? [
+                            BoxShadow(
+                              color: const Color(0xFF9C27B0)
+                                  .withValues(alpha: 0.3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ]
+                        : null,
                   ),
                   child: isSelected
                       ? const Icon(Icons.check, color: Colors.white, size: 18)
@@ -2289,21 +2318,36 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
               return GestureDetector(
                 onTap: () => onBgColorChanged(color),
                 child: Container(
-                  margin: const EdgeInsets.only(right: DesignTokens.spacingSmall),
+                  margin:
+                      const EdgeInsets.only(right: DesignTokens.spacingSmall),
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
                     color: color != null ? Color(color) : Colors.transparent,
-                    borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
+                    borderRadius:
+                        BorderRadius.circular(DesignTokens.radiusMedium),
                     border: Border.all(
-                      color: isSelected ? DesignTokens.brandColor : Colors.grey.shade300,
+                      color: isSelected
+                          ? const Color(0xFF9C27B0)
+                          : Colors.grey.shade300,
                       width: isSelected ? 3 : 1,
                     ),
+                    boxShadow: isSelected
+                        ? [
+                            BoxShadow(
+                              color: const Color(0xFF9C27B0)
+                                  .withValues(alpha: 0.3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ]
+                        : null,
                   ),
                   child: color == null
                       ? Icon(Icons.close, size: 18, color: Colors.grey.shade600)
                       : isSelected
-                          ? const Icon(Icons.check, color: Colors.white, size: 18)
+                          ? const Icon(Icons.check,
+                              color: Colors.white, size: 18)
                           : null,
                 ),
               );
@@ -2318,34 +2362,43 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
 
   // Build tool selector button
   Widget _buildToolButton({
-    required String label,
+    required IconData icon,
     required bool isSelected,
     required VoidCallback onTap,
+    required Color iconColor,
   }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: DesignTokens.spacingMedium,
-          vertical: DesignTokens.spacingMedium,
-        ),
+        width: 44,
+        height: 44,
         decoration: BoxDecoration(
-          color: isSelected ? DesignTokens.brandColor : Colors.grey.shade100,
           borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
           border: Border.all(
-            color: isSelected ? DesignTokens.brandColor : Colors.transparent,
+            color: isSelected
+                ? const Color(0xFF9C27B0).withValues(alpha: 0.5)
+                : Colors.grey.shade300,
             width: 2,
           ),
         ),
-        child: Center(
-          child: Text(
-            label,
-            style: GoogleFonts.lexend(
-              fontSize: DesignTokens.fontSizeSmall,
-              fontWeight: DesignTokens.weightSemiBold,
-              color: isSelected ? Colors.white : DesignTokens.textSecondary,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(DesignTokens.radiusMedium - 1),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+            child: Container(
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? const Color(0xFF9C27B0).withValues(alpha: 0.3)
+                    : Colors.white.withValues(alpha: 0.7),
+                borderRadius:
+                    BorderRadius.circular(DesignTokens.radiusMedium - 1),
+              ),
+              child: Icon(
+                icon,
+                size: 22,
+                color: isSelected ? const Color(0xFF7B1FA2) : iconColor,
+              ),
             ),
-            textAlign: TextAlign.center,
           ),
         ),
       ),
@@ -2440,7 +2493,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     {'color': 0xFF000000, 'name': 'Black'},
   ];
 
-  void _showFontPicker(ScrapbookTextOverlay overlay, Function(String) onFontSelected) {
+  void _showFontPicker(
+      ScrapbookTextOverlay overlay, Function(String) onFontSelected) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -2503,7 +2557,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                       style: _getFontStyle(font['family']),
                     ),
                     trailing: isSelected
-                        ? const Icon(Icons.check, color: DesignTokens.brandColor)
+                        ? const Icon(Icons.check,
+                            color: DesignTokens.brandColor)
                         : null,
                   );
                 },
@@ -2515,7 +2570,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     );
   }
 
-  void _showTextColorPicker(ScrapbookTextOverlay overlay, Function(int) onColorSelected) {
+  void _showTextColorPicker(
+      ScrapbookTextOverlay overlay, Function(int) onColorSelected) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -2563,7 +2619,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                       margin: const EdgeInsets.all(DesignTokens.spacingBase),
                       decoration: BoxDecoration(
                         color: Color(color),
-                        borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
+                        borderRadius:
+                            BorderRadius.circular(DesignTokens.radiusMedium),
                         border: Border.all(
                           color: isSelected
                               ? DesignTokens.brandColor
@@ -2589,7 +2646,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     );
   }
 
-  void _showTextBackgroundPicker(ScrapbookTextOverlay overlay, Function(int?) onColorSelected) {
+  void _showTextBackgroundPicker(
+      ScrapbookTextOverlay overlay, Function(int?) onColorSelected) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -2636,8 +2694,10 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                     child: Container(
                       margin: const EdgeInsets.all(DesignTokens.spacingBase),
                       decoration: BoxDecoration(
-                        color: color != null ? Color(color) : Colors.transparent,
-                        borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
+                        color:
+                            color != null ? Color(color) : Colors.transparent,
+                        borderRadius:
+                            BorderRadius.circular(DesignTokens.radiusMedium),
                         border: Border.all(
                           color: isSelected
                               ? DesignTokens.brandColor
