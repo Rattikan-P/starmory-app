@@ -56,6 +56,9 @@ class EditScrapbookScreen extends ConsumerStatefulWidget {
 
 class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
   final ImagePicker _imagePicker = ImagePicker();
+  final GlobalKey _canvasAreaKey = GlobalKey();
+  final GlobalKey _toolbarKey = GlobalKey();
+  final LayerLink _canvasLayerLink = LayerLink();
 
   // Permanent ID for new scrapbooks (generated once, used throughout)
   late String _permanentScrapbookId;
@@ -95,6 +98,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
   String? _selectedId; // ID of selected item
   String? _selectedType; // 'text', 'sticker', or 'photo'
   Offset? _lastTapPosition; // Last tap position for control handle detection
+  late List<String> _elementLayerOrder;
 
   // Resize/rotate state
   String? _resizingId; // ID of item being resized/rotated
@@ -116,6 +120,9 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
 
   // Canvas size for positioning calculations
   Size? _canvasSize;
+
+  // Touch sandbox extension (pixels beyond canvas edge for touch targets)
+  static const double _touchSandbox = 100.0;
 
   // Available emojis for selection
   static const List<String> _availableEmojis = [
@@ -284,9 +291,6 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     _BackgroundColorOption(color: 0xFF000000, name: 'Black'),
   ];
 
-  // Touch sandbox extension (pixels beyond canvas edge for touch targets)
-  static const double _touchSandbox = 100.0;
-
   @override
   void initState() {
     super.initState();
@@ -297,6 +301,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     _textOverlays = [];
     _stickers = [];
     _additionalPhotos = [];
+    _elementLayerOrder = [];
     _backgroundColor = 0xFFFFFFFF;
 
     // Store original state for comparison
@@ -360,6 +365,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                   flip: photo.flip,
                 ))
             .toList();
+        _initializeElementLayerOrder();
         _backgroundColor = existingScrapbook.backgroundColor;
         _selectedEmoji = existingScrapbook.selectedEmoji;
 
@@ -567,31 +573,46 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
 
                     // Scrollable Content
                     Expanded(
-                      child: SingleChildScrollView(
-                        child: Column(
-                          children: [
-                            // Date
-                            _buildDateHeader(),
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.translucent,
+                        onTap: () {
+                          if (_selectedId != null) {
+                            setState(() {
+                              _selectedId = null;
+                              _selectedType = null;
+                            });
+                          }
+                        },
+                        child: SingleChildScrollView(
+                          child: Column(
+                            children: [
+                              // Date
+                              _buildDateHeader(),
 
-                            // Main Canvas
-                            _buildScrapbookCanvas(),
+                              // Main Canvas
+                              _buildScrapbookCanvas(),
 
-                            // Sentences
-                            if (widget.englishSentence.isNotEmpty ||
-                                widget.thaiSentence.isNotEmpty)
-                              _buildSentences(),
+                              // Sentences
+                              if (widget.englishSentence.isNotEmpty ||
+                                  widget.thaiSentence.isNotEmpty)
+                                _buildSentences(),
 
-                            // Vocabulary Words
-                            _buildVocabularyWords(),
+                              // Vocabulary Words
+                              _buildVocabularyWords(),
 
-                            // Bottom padding for toolbar
-                            const SizedBox(height: 120),
-                          ],
+                              // Bottom padding for toolbar
+                              const SizedBox(height: 120),
+                            ],
+                          ),
                         ),
                       ),
                     ),
                   ],
                 ),
+
+                // Element layer follows the canvas but can receive gestures
+                // anywhere between the date and the bottom toolbar.
+                _buildElementOverlay(),
 
                 // Bottom Toolbar (Positioned at bottom)
                 _buildBottomToolbar(),
@@ -698,27 +719,15 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
       ),
       child: Column(
         children: [
-          SizedBox(
-            height: DesignTokens.scrapbookCanvasHeight,
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                // Background canvas with rounded corners (for visual only)
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  top: 0,
-                  bottom: 0,
-                  child: ClipRRect(
-                    borderRadius:
-                        BorderRadius.circular(DesignTokens.radiusLarge),
-                    child: _buildPolaroidFrame(),
-                  ),
-                ),
-
-                // Layout area for items (extends beyond canvas for touch events)
-                _buildTouchSandbox(),
-              ],
+          CompositedTransformTarget(
+            link: _canvasLayerLink,
+            child: SizedBox(
+              key: _canvasAreaKey,
+              height: DesignTokens.scrapbookCanvasHeight,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(DesignTokens.radiusLarge),
+                child: _buildPolaroidFrame(),
+              ),
             ),
           ),
         ],
@@ -802,57 +811,97 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     );
   }
 
-  /// Build touch sandbox - oversized area for drag interactions
-  Widget _buildTouchSandbox() {
-    const touchSandbox = _touchSandbox;
+  Widget _buildElementOverlay() {
     const canvasSize = DesignTokens.scrapbookCanvasHeight;
 
-    return Positioned(
-      left: -touchSandbox,
-      right: -touchSandbox,
-      top: -touchSandbox,
-      bottom: -touchSandbox,
-      child: GestureDetector(
-        onTap: () {
-          // Deselect when tapping outside elements
-          if (_selectedId != null) {
-            setState(() {
-              _selectedId = null;
-              _selectedType = null;
-            });
-          }
-        },
-        behavior: HitTestBehavior.opaque,
-        child: SizedBox(
-          width: canvasSize + (touchSandbox * 2),
-          height: canvasSize + (touchSandbox * 2),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              // Update canvas size for positioning calculations
-              _canvasSize = const Size(canvasSize, canvasSize);
+    _canvasSize = const Size(canvasSize, canvasSize);
 
-              return Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  // Emoji overlay (centered in canvas)
-                  _buildEmojiSelector(),
+    return Positioned.fill(
+      child: CompositedTransformFollower(
+        link: _canvasLayerLink,
+        showWhenUnlinked: false,
+        targetAnchor: Alignment.topLeft,
+        followerAnchor: Alignment.topLeft,
+        child: Transform.translate(
+          offset: const Offset(-_touchSandbox, -_touchSandbox),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              // Emoji overlay (centered in canvas)
+              _buildEmojiSelector(),
 
-                  // Draggable items
-                  ..._textOverlays.map((overlay) => _buildTextOverlay(overlay)),
-                  ..._stickers.map((sticker) => _buildSticker(sticker)),
-                  ..._additionalPhotos
-                      .map((photo) => _buildAdditionalPhoto(photo)),
+              // Draggable items follow the persistent bring-to-front order.
+              ..._buildDraggableItems(),
 
-                  // Controls live in their own overlay so their complete hit
-                  // targets are not clipped by the selected item's bounds.
-                  _buildSelectedControlOverlay(),
-                ],
-              );
-            },
+              // Controls live in their own overlay so their complete hit
+              // targets are not clipped by the selected item's bounds.
+              _buildSelectedControlOverlay(),
+            ],
           ),
         ),
       ),
     );
+  }
+
+  List<Widget> _buildDraggableItems() {
+    final itemsByKey = <String, Widget>{};
+
+    for (final overlay in _textOverlays) {
+      itemsByKey[_elementKey('text', overlay.id)] = _buildTextOverlay(overlay);
+    }
+
+    for (final sticker in _stickers) {
+      itemsByKey[_elementKey('sticker', sticker.id)] = _buildSticker(sticker);
+    }
+
+    for (final photo in _additionalPhotos) {
+      itemsByKey[_elementKey('photo', photo.id)] = _buildAdditionalPhoto(photo);
+    }
+
+    final orderedItems = <Widget>[];
+    for (final key in _elementLayerOrder) {
+      final item = itemsByKey.remove(key);
+      if (item != null) orderedItems.add(item);
+    }
+    orderedItems.addAll(itemsByKey.values);
+    return orderedItems;
+  }
+
+  String _elementKey(String type, String id) => '$type:$id';
+
+  void _initializeElementLayerOrder() {
+    _elementLayerOrder = [
+      ..._textOverlays.map((item) => _elementKey('text', item.id)),
+      ..._stickers.map((item) => _elementKey('sticker', item.id)),
+      ..._additionalPhotos.map((item) => _elementKey('photo', item.id)),
+    ];
+  }
+
+  void _bringElementToFront(String id, String type) {
+    final key = _elementKey(type, id);
+    _elementLayerOrder
+      ..remove(key)
+      ..add(key);
+  }
+
+  double _dragMinYFor(double halfElementHeight) =>
+      halfElementHeight / DesignTokens.scrapbookCanvasHeight;
+
+  double _dragMaxYFor(double halfElementHeight) {
+    final canvasBox =
+        _canvasAreaKey.currentContext?.findRenderObject() as RenderBox?;
+    final toolbarBox =
+        _toolbarKey.currentContext?.findRenderObject() as RenderBox?;
+    if (canvasBox == null || toolbarBox == null) {
+      return 1.75 - _dragMinYFor(halfElementHeight);
+    }
+
+    final canvasTop = canvasBox.localToGlobal(Offset.zero).dy;
+    final toolbarTop = toolbarBox.localToGlobal(Offset.zero).dy;
+    const toolbarGap = DesignTokens.spacingMedium;
+    return ((toolbarTop - toolbarGap - halfElementHeight - canvasTop) /
+            DesignTokens.scrapbookCanvasHeight)
+        .clamp(_dragMinYFor(halfElementHeight), 3.0);
   }
 
   /// Build emoji selector button
@@ -935,6 +984,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     final isSelected = _selectedId == overlay.id;
 
     return Positioned(
+      key: ValueKey('text:${overlay.id}'),
       left: left - centerOffsetX,
       top: top - centerOffsetY,
       child: GestureDetector(
@@ -959,6 +1009,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
               _selectedId = null;
               _selectedType = null;
             } else {
+              _bringElementToFront(overlay.id, 'text');
               _selectedId = overlay.id;
               _selectedType = 'text';
             }
@@ -1018,6 +1069,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
             setState(() {
               _draggingId = overlay.id;
               _draggingType = 'text';
+              _bringElementToFront(overlay.id, 'text');
               _selectedId = overlay.id;
               _selectedType = 'text';
               _dragStartOffset = details.localFocalPoint;
@@ -1026,6 +1078,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
           } else if (details.pointerCount > 1) {
             // Two-finger gesture started
             setState(() {
+              _bringElementToFront(overlay.id, 'text');
               _selectedId = overlay.id;
               _selectedType = 'text';
               _initialPinchScale = details.localFocalPoint.distance;
@@ -1063,9 +1116,12 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
               final newY =
                   _itemStartOffset!.dy + (delta.dy / _canvasSize!.height);
 
-              // Clamp to allow some overflow outside canvas (-0.3 to 1.3)
+              // Keep the element centre within the full touch sandbox.
               final clampedX = newX.clamp(-0.3, 1.3);
-              final clampedY = newY.clamp(-0.3, 1.3);
+              final clampedY = newY.clamp(
+                _dragMinYFor(centerOffsetY),
+                _dragMaxYFor(centerOffsetY),
+              );
 
               final index = _textOverlays.indexWhere((o) => o.id == overlay.id);
               if (index != -1) {
@@ -1224,6 +1280,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     final isSelected = _selectedId == sticker.id;
 
     return Positioned(
+      key: ValueKey('sticker:${sticker.id}'),
       left: left - centerOffsetX,
       top: top - centerOffsetY,
       child: SizedBox(
@@ -1251,6 +1308,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                 _selectedId = null;
                 _selectedType = null;
               } else {
+                _bringElementToFront(sticker.id, 'sticker');
                 _selectedId = sticker.id;
                 _selectedType = 'sticker';
               }
@@ -1276,6 +1334,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                 setState(() {
                   _draggingId = sticker.id;
                   _draggingType = 'sticker';
+                  _bringElementToFront(sticker.id, 'sticker');
                   _selectedId = sticker.id;
                   _selectedType = 'sticker';
                   _dragStartOffset = details.localFocalPoint;
@@ -1285,6 +1344,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
             } else if (details.pointerCount > 1) {
               // Two-finger gesture started
               setState(() {
+                _bringElementToFront(sticker.id, 'sticker');
                 _selectedId = sticker.id;
                 _selectedType = 'sticker';
                 _initialPinchScale = details.localFocalPoint.distance;
@@ -1313,9 +1373,12 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                 final newY =
                     _itemStartOffset!.dy + (delta.dy / _canvasSize!.height);
 
-                // Clamp to allow some overflow outside canvas (-0.3 to 1.3)
+                // Keep the element centre within the full touch sandbox.
                 final clampedX = newX.clamp(-0.3, 1.3);
-                final clampedY = newY.clamp(-0.3, 1.3);
+                final clampedY = newY.clamp(
+                  _dragMinYFor(centerOffsetY),
+                  _dragMaxYFor(centerOffsetY),
+                );
 
                 final index = _stickers.indexWhere((s) => s.id == sticker.id);
                 if (index != -1) {
@@ -1554,6 +1617,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     final isSelected = _selectedId == photo.id;
 
     return Positioned(
+      key: ValueKey('photo:${photo.id}'),
       left: left - centerOffsetX,
       top: top - centerOffsetY,
       child: SizedBox(
@@ -1580,6 +1644,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                 _selectedId = null;
                 _selectedType = null;
               } else {
+                _bringElementToFront(photo.id, 'photo');
                 _selectedId = photo.id;
                 _selectedType = 'photo';
               }
@@ -1606,6 +1671,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                 setState(() {
                   _draggingId = photo.id;
                   _draggingType = 'photo';
+                  _bringElementToFront(photo.id, 'photo');
                   _selectedId = photo.id;
                   _selectedType = 'photo';
                   _dragStartOffset = details.localFocalPoint;
@@ -1615,6 +1681,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
             } else if (details.pointerCount > 1) {
               // Two-finger gesture started
               setState(() {
+                _bringElementToFront(photo.id, 'photo');
                 _selectedId = photo.id;
                 _selectedType = 'photo';
                 _initialPinchScale = details.localFocalPoint.distance;
@@ -1645,9 +1712,12 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                 final newY =
                     _itemStartOffset!.dy + (delta.dy / _canvasSize!.height);
 
-                // Clamp to allow some overflow outside canvas (-0.3 to 1.3)
+                // Keep the element centre within the full touch sandbox.
                 final clampedX = newX.clamp(-0.3, 1.3);
-                final clampedY = newY.clamp(-0.3, 1.3);
+                final clampedY = newY.clamp(
+                  _dragMinYFor(centerOffsetY),
+                  _dragMaxYFor(centerOffsetY),
+                );
 
                 final index =
                     _additionalPhotos.indexWhere((p) => p.id == photo.id);
@@ -2002,6 +2072,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
       left: DesignTokens.spacingMedium,
       right: DesignTokens.spacingMedium,
       child: Container(
+        key: _toolbarKey,
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(DesignTokens.radiusLarge),
@@ -2211,6 +2282,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     // Add the overlay immediately
     setState(() {
       _textOverlays.add(tempOverlay);
+      _bringElementToFront(tempOverlay.id, 'text');
     });
 
     // Show the text edit sheet for this new overlay
@@ -3268,12 +3340,15 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
               child: InkWell(
                 onTap: () {
                   setState(() {
+                    final stickerId =
+                        DateTime.now().microsecondsSinceEpoch.toString();
                     _stickers.add(ScrapbookSticker(
-                      id: DateTime.now().microsecondsSinceEpoch.toString(),
+                      id: stickerId,
                       emoji: assetPath,
                       x: 0.5,
                       y: 0.5,
                     ));
+                    _bringElementToFront(stickerId, 'sticker');
                   });
                   HapticFeedback.lightImpact();
                   Navigator.pop(context);
@@ -3356,14 +3431,16 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
         setState(() {
           // Position photo at center of canvas
           // x and y are normalized coordinates (0.0 to 1.0)
+          final photoId = DateTime.now().millisecondsSinceEpoch.toString();
           _additionalPhotos.add(ScrapbookPhoto(
-            id: DateTime.now().millisecondsSinceEpoch.toString(),
+            id: photoId,
             imagePath: permanentPath, // Use permanent path instead of temporary
             x: 0.5, // Center horizontally
             y: 0.5, // Center vertically
             width: 0.25, // 25% of canvas width
             height: 0.25, // 25% of canvas height
           ));
+          _bringElementToFront(photoId, 'photo');
         });
       }
     } catch (e) {
@@ -4289,6 +4366,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
 
                 // Select the newly duplicated element
                 if (newElementId != null) {
+                  _bringElementToFront(newElementId, type);
                   _selectedId = newElementId;
                   _selectedType = type;
                 }
