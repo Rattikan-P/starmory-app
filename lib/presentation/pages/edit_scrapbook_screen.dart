@@ -8,6 +8,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as path_pkg;
 import '../providers/scrapbook_provider.dart';
 import '../../data/models/scrapbook_model.dart';
 import '../../constants/design_tokens.dart';
@@ -54,6 +56,13 @@ class EditScrapbookScreen extends ConsumerStatefulWidget {
 
 class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
   final ImagePicker _imagePicker = ImagePicker();
+
+  // Permanent ID for new scrapbooks (generated once, used throughout)
+  late String _permanentScrapbookId;
+
+  // Cache for file existence check to avoid repeated checks during rebuilds
+  final Set<String> _existingFilePaths = {};
+  final Set<String> _checkedFilePaths = {};
 
   // Editable state
   late List<ScrapbookTextOverlay> _textOverlays;
@@ -189,6 +198,9 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
   @override
   void initState() {
     super.initState();
+    // Generate permanent ID for new scrapbooks, or use existing ID
+    _permanentScrapbookId = widget.scrapbookId ??
+                          DateTime.now().millisecondsSinceEpoch.toString();
     _selectedEmoji = widget.selectedEmoji;
     _textOverlays = [];
     _stickers = [];
@@ -225,6 +237,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                   y: overlay.y,
                   color: overlay.color,
                   fontSize: overlay.fontSize,
+                  fontFamily: overlay.fontFamily,
                   scale: overlay.scale,
                   rotation: overlay.rotation,
                   flip: overlay.flip,
@@ -266,6 +279,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                   y: overlay.y,
                   color: overlay.color,
                   fontSize: overlay.fontSize,
+                  fontFamily: overlay.fontFamily,
                   scale: overlay.scale,
                   rotation: overlay.rotation,
                   flip: overlay.flip,
@@ -1281,6 +1295,110 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     );
   }
 
+  /// Build widget for additional photo (supports both local path and HTTP URL)
+  Widget _buildAdditionalPhotoWidget(ScrapbookPhoto photo) {
+    // Check if path is HTTP URL
+    if (photo.imagePath.startsWith('http')) {
+      return Image.network(
+        photo.imagePath,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return Container(
+            color: Colors.grey.shade300,
+            child: const Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.broken_image, color: Colors.grey, size: 32),
+                  SizedBox(height: 4),
+                  Text('Failed to load', style: TextStyle(color: Colors.grey, fontSize: 10)),
+                ],
+              ),
+            ),
+          );
+        },
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Container(
+            color: Colors.grey.shade200,
+            child: const Center(
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          );
+        },
+      );
+    } else {
+      // Local file path - check file existence only once and cache result
+      if (!_checkedFilePaths.contains(photo.imagePath)) {
+        // First time checking this file
+        WidgetsBinding.instance.addPostFrameCallback((_) async {
+          final file = File(photo.imagePath);
+          final exists = await file.exists();
+          setState(() {
+            _checkedFilePaths.add(photo.imagePath);
+            if (exists) {
+              _existingFilePaths.add(photo.imagePath);
+            }
+          });
+        });
+        // Show loading while checking
+        return Container(
+          color: Colors.grey.shade200,
+          child: const Center(
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        );
+      }
+
+      // Use cached result
+      final fileExists = _existingFilePaths.contains(photo.imagePath);
+
+      if (!fileExists) {
+        // File doesn't exist - show error (cached)
+        return Container(
+          color: Colors.grey.shade300,
+          child: const Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.broken_image, color: Colors.red, size: 32),
+                SizedBox(height: 4),
+                Text('File not found', style: TextStyle(color: Colors.red, fontSize: 10)),
+              ],
+            ),
+          ),
+        );
+      }
+
+      // File exists - show it with FileImage for better caching
+      return Image(
+        image: FileImage(File(photo.imagePath)),
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          // If loading fails, update cache
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            setState(() {
+              _existingFilePaths.remove(photo.imagePath);
+            });
+          });
+          return Container(
+            color: Colors.grey.shade300,
+            child: const Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.broken_image, color: Colors.red, size: 32),
+                  SizedBox(height: 4),
+                  Text('Failed to load', style: TextStyle(color: Colors.red, fontSize: 10)),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    }
+  }
+
   Widget _buildAdditionalPhoto(ScrapbookPhoto photo) {
     if (_canvasSize == null) return const SizedBox.shrink();
 
@@ -1478,10 +1596,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                           child: SizedBox(
                             width: width,
                             height: height,
-                            child: Image.file(
-                              File(photo.imagePath),
-                              fit: BoxFit.cover,
-                            ),
+                            child: _buildAdditionalPhotoWidget(photo),
                           ),
                         ),
                         // Selection border
@@ -3069,6 +3184,36 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     );
   }
 
+  /// Copy image to app's permanent storage directory
+  /// Returns the permanent path where the image was copied
+  Future<String> _copyImageToPermanentStorage(String sourcePath, String scrapbookId) async {
+    try {
+      // Get app's document directory
+      final Directory appDir = await getApplicationDocumentsDirectory();
+      final String scrapbookDir = '${appDir.path}/scrapbooks/$scrapbookId';
+
+      // Create directory if it doesn't exist
+      await Directory(scrapbookDir).create(recursive: true);
+
+      // Generate unique filename
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final extension = path_pkg.extension(sourcePath);
+      final filename = 'additional_$timestamp$extension';
+      final String newPath = '$scrapbookDir/$filename';
+
+      // Copy the file
+      final File sourceFile = File(sourcePath);
+      await sourceFile.copy(newPath);
+
+      print('✅ Image copied to permanent storage: $newPath');
+      return newPath;
+    } catch (e) {
+      print('❌ Failed to copy image to permanent storage: $e');
+      // Return original path if copy fails
+      return sourcePath;
+    }
+  }
+
   Future<void> _pickNewPhoto() async {
     try {
       final photoStatus = await Permission.photos.request();
@@ -3085,12 +3230,15 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
       );
 
       if (image != null && mounted) {
+        // Copy image to permanent storage before adding
+        final permanentPath = await _copyImageToPermanentStorage(image.path, _permanentScrapbookId);
+
         setState(() {
           // Position photo at center of canvas
           // x and y are normalized coordinates (0.0 to 1.0)
           _additionalPhotos.add(ScrapbookPhoto(
             id: DateTime.now().millisecondsSinceEpoch.toString(),
-            imagePath: image.path,
+            imagePath: permanentPath, // Use permanent path instead of temporary
             x: 0.5, // Center horizontally
             y: 0.5, // Center vertically
             width: 0.25, // 25% of canvas width
@@ -3197,8 +3345,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
           : null;
 
       final scrapbook = ScrapbookModel(
-        id: widget.scrapbookId ??
-            DateTime.now().millisecondsSinceEpoch.toString(),
+        id: _permanentScrapbookId,
         date: widget.date ?? DateTime.now(),
         imagePath: widget.imagePath,
         vocabularyWords: widget.vocabularyWords,
