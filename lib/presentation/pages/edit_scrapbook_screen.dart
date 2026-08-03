@@ -99,12 +99,14 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
   // Resize/rotate state
   String? _resizingId; // ID of item being resized/rotated
   String? _resizingType; // 'text', 'sticker', or 'photo'
+  String? _resizingHandle; // 'left', 'right', or 'corner' for horizontal resizing
   Offset? _resizeStartPos; // Initial pointer position for resize
   double? _initialScale; // Initial scale for resize operation
   double? _initialRotation; // Initial rotation for resize operation
   double? _initialAngle; // Initial angle for rotation calculation
   Offset? _resizeCenterGlobal;
   Size? _initialPhotoSize;
+  double? _initialWidth; // Initial width for horizontal resize
 
   // Pinch gesture state
   double? _initialPinchScale;
@@ -242,6 +244,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                   rotation: overlay.rotation,
                   flip: overlay.flip,
                   backgroundColor: overlay.backgroundColor,
+                  width: overlay.width,
                 ))
             .toList();
         _stickers = existingScrapbook.stickers
@@ -284,6 +287,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                   rotation: overlay.rotation,
                   flip: overlay.flip,
                   backgroundColor: overlay.backgroundColor,
+                  width: overlay.width,
                 ))
             .toList();
         _originalStickers = _stickers
@@ -336,7 +340,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
               _originalTextOverlays[i].backgroundColor ||
           _textOverlays[i].scale != _originalTextOverlays[i].scale ||
           _textOverlays[i].rotation != _originalTextOverlays[i].rotation ||
-          _textOverlays[i].flip != _originalTextOverlays[i].flip) {
+          _textOverlays[i].flip != _originalTextOverlays[i].flip ||
+          _textOverlays[i].width != _originalTextOverlays[i].width) {
         return true;
       }
     }
@@ -825,13 +830,16 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     final left = _touchSandbox + (overlay.x * _canvasSize!.width);
     final top = _touchSandbox + (overlay.y * _canvasSize!.height);
 
-    // Base size (before scaling) - text overlays are roughly 60-80px wide
-    final baseWidth = 100.0;
-    final baseHeight = 50.0;
+    // Base size (before scaling)
+    final baseWidth = overlay.width != null
+        ? overlay.width! * _canvasSize!.width
+        : 100.0 * overlay.scale;
+    final baseHeight = 50.0 * overlay.scale;
 
-    // Calculate scaled size for center offset and hit testing
-    final scaledWidth = baseWidth * overlay.scale;
-    final scaledHeight = baseHeight * overlay.scale;
+    // Use width directly if set, otherwise use scale-based width
+    final scaledWidth = baseWidth;
+    final scaledHeight = baseHeight;
+    final contentScale = overlay.scale;
 
     // Offset to center the item
     final centerOffsetX = scaledWidth / 2;
@@ -872,29 +880,54 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
         },
         onScaleStart: (details) {
           if (details.pointerCount == 1) {
-            // Single finger - check if tapping on resize handle
-            if (isSelected &&
-                _isOnResizeHandle(details.localFocalPoint, Size(scaledWidth, scaledHeight))) {
-              setState(() {
-                _resizingId = overlay.id;
-                _resizingType = 'text';
-                _resizeStartPos = details.localFocalPoint;
-                _initialScale = overlay.scale;
-                _initialRotation = overlay.rotation;
-                _initialAngle =
-                    _calculateAngle(details.localFocalPoint, Offset(left, top));
-              });
-            } else {
-              // Start dragging
-              setState(() {
-                _draggingId = overlay.id;
-                _draggingType = 'text';
-                _selectedId = overlay.id;
-                _selectedType = 'text';
-                _dragStartOffset = details.localFocalPoint;
-                _itemStartOffset = Offset(overlay.x, overlay.y);
-              });
+            // Check if tapping on any handle
+            if (isSelected) {
+              // Check for corner resize/rotate handle
+              if (_isOnResizeHandle(details.localFocalPoint, Size(scaledWidth, scaledHeight))) {
+                setState(() {
+                  _resizingId = overlay.id;
+                  _resizingType = 'text';
+                  _resizingHandle = 'corner';
+                  _resizeStartPos = details.localFocalPoint;
+                  _initialScale = overlay.scale;
+                  _initialRotation = overlay.rotation;
+                  _initialAngle = _calculateAngle(details.localFocalPoint, Offset(left, top));
+                });
+                return;
+              }
+              // Check for left center handle (horizontal resize)
+              final itemCenterY = scaledHeight / 2;
+              if (_isOnLeftCenterHandle(details.localFocalPoint, Size(scaledWidth, scaledHeight))) {
+                setState(() {
+                  _resizingId = overlay.id;
+                  _resizingType = 'text';
+                  _resizingHandle = 'left';
+                  _resizeStartPos = details.localFocalPoint;
+                  _initialWidth = overlay.width ?? (baseWidth / _canvasSize!.width);
+                });
+                return;
+              }
+              // Check for right center handle (horizontal resize)
+              if (_isOnRightCenterHandle(details.localFocalPoint, Size(scaledWidth, scaledHeight))) {
+                setState(() {
+                  _resizingId = overlay.id;
+                  _resizingType = 'text';
+                  _resizingHandle = 'right';
+                  _resizeStartPos = details.localFocalPoint;
+                  _initialWidth = overlay.width ?? (baseWidth / _canvasSize!.width);
+                });
+                return;
+              }
             }
+            // Start dragging
+            setState(() {
+              _draggingId = overlay.id;
+              _draggingType = 'text';
+              _selectedId = overlay.id;
+              _selectedType = 'text';
+              _dragStartOffset = details.localFocalPoint;
+              _itemStartOffset = Offset(overlay.x, overlay.y);
+            });
           } else if (details.pointerCount > 1) {
             // Two-finger gesture started
             setState(() {
@@ -908,12 +941,21 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
         },
         onScaleUpdate: (details) {
           if (_resizingId == overlay.id && _resizingType == 'text') {
-            // Handle resize/rotate from corner handle
-            _handleResizeRotateUpdate(
-              details.localFocalPoint,
-              overlay.id,
-              'text',
-            );
+            if (_resizingHandle == 'left' || _resizingHandle == 'right') {
+              // Handle horizontal resize from left/right handles
+              _handleHorizontalResizeUpdate(
+                details.localFocalPoint,
+                overlay.id,
+                _resizingHandle!,
+              );
+            } else {
+              // Handle resize/rotate from corner handle
+              _handleResizeRotateUpdate(
+                details.localFocalPoint,
+                overlay.id,
+                'text',
+              );
+            }
           } else if (details.pointerCount == 1 && _draggingId == overlay.id) {
             // Single finger drag
             setState(() {
@@ -967,10 +1009,12 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
             setState(() {
               _resizingId = null;
               _resizingType = null;
+              _resizingHandle = null;
               _resizeStartPos = null;
               _initialScale = null;
               _initialRotation = null;
               _initialAngle = null;
+              _initialWidth = null;
             });
           } else {
             // Just reset dragging state
@@ -1002,66 +1046,40 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                     child: Stack(
                       clipBehavior: Clip.none,
                       children: [
-                        // Text content container with background (scaled and centered)
+                        // Text content container with background
                         Center(
-                          child: Transform.scale(
-                            scaleX: overlay.flip ? -overlay.scale : overlay.scale,
-                            scaleY: overlay.scale,
-                            alignment: Alignment.center,
-                            child: SizedBox(
-                              width: baseWidth,
-                              height: baseHeight,
-                              child: Stack(
-                                clipBehavior: Clip.none,
-                                children: [
-                                  // Text content container with background
-                                  Center(
-                                    child: Container(
-                                      padding: overlay.backgroundColor != null
-                                          ? const EdgeInsets.all(8.0)
-                                          : EdgeInsets.zero,
-                                      decoration: BoxDecoration(
-                                        color: overlay.backgroundColor != null
-                                            ? Color(overlay.backgroundColor!)
-                                                .withValues(alpha: 0.95)
-                                            : Colors.transparent,
-                                        borderRadius: BorderRadius.circular(12),
-                                        boxShadow: overlay.backgroundColor != null
-                                            ? [
-                                                BoxShadow(
-                                                  color: Colors.black
-                                                      .withValues(alpha: 0.1),
-                                                  blurRadius: 8,
-                                                  offset: const Offset(0, 2),
-                                                ),
-                                                BoxShadow(
-                                                  color: Colors.black
-                                                      .withValues(alpha: 0.05),
-                                                  blurRadius: 16,
-                                                  offset: const Offset(0, 4),
-                                                ),
-                                              ]
-                                            : null,
-                                      ),
-                                      child: Padding(
-                                        padding: overlay.backgroundColor != null
-                                            ? EdgeInsets.zero
-                                            : const EdgeInsets.all(8.0),
-                                        child: Text(
-                                          overlay.text,
-                                          style: _getFontStyle(overlay.fontFamily)
-                                              .copyWith(
-                                            color: Color(overlay.color),
-                                            fontSize: overlay.fontSize,
-                                            fontWeight: FontWeight.w600,
-                                            height: 1.2,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
+                          child: Container(
+                            constraints: BoxConstraints(
+                              minWidth: scaledWidth > 0 ? math.min(30.0, scaledWidth) : 30,
+                              maxWidth: scaledWidth > 0 ? scaledWidth : double.infinity,
+                            ),
+                            padding: overlay.backgroundColor != null
+                                ? EdgeInsets.symmetric(
+                                    horizontal: 12.0 * contentScale,
+                                    vertical: 8.0 * contentScale,
+                                  )
+                                : EdgeInsets.symmetric(
+                                    horizontal: 8.0 * contentScale,
+                                    vertical: 4.0 * contentScale,
                                   ),
-                                ],
+                            decoration: BoxDecoration(
+                              color: overlay.backgroundColor != null
+                                  ? Color(overlay.backgroundColor!)
+                                      .withValues(alpha: 0.95)
+                                  : Colors.transparent,
+                            ),
+                            child: Text(
+                              overlay.text,
+                              style: _getFontStyle(overlay.fontFamily)
+                                  .copyWith(
+                                color: Color(overlay.color),
+                                fontSize: overlay.fontSize * contentScale,
+                                fontWeight: FontWeight.w600,
+                                height: 1.2,
                               ),
+                              textAlign: TextAlign.center,
+                              maxLines: null,
+                              overflow: TextOverflow.visible,
                             ),
                           ),
                         ),
@@ -1071,10 +1089,9 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                             child: Container(
                               decoration: BoxDecoration(
                                 border: Border.all(
-                                  color: DesignTokens.brandColor,
-                                  width: 2.5 / overlay.scale, // Counteract scale
+                                  color: Colors.white,
+                                  width: 1.5,
                                 ),
-                                borderRadius: BorderRadius.circular(12),
                               ),
                             ),
                           ),
@@ -1296,10 +1313,9 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                             child: Container(
                               decoration: BoxDecoration(
                                 border: Border.all(
-                                  color: DesignTokens.brandColor,
-                                  width: 2.5,
+                                  color: Colors.white,
+                                  width: 1.5,
                                 ),
-                                borderRadius: BorderRadius.circular(8),
                               ),
                             ),
                           ),
@@ -1625,8 +1641,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                             child: Container(
                               decoration: BoxDecoration(
                                 border: Border.all(
-                                  color: DesignTokens.brandColor,
-                                  width: 2.5,
+                                  color: Colors.white,
+                                  width: 1.5,
                                 ),
                               ),
                             ),
@@ -3558,6 +3574,36 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     return handleArea.contains(localPosition);
   }
 
+  // Check if position is on left center handle
+  bool _isOnLeftCenterHandle(Offset localPosition, Size itemSize) {
+    const handleSize = 32.0;
+    const offset = 12.0;
+    const touchPadding = 4.0;
+    final totalHandleSize = handleSize + (touchPadding * 2);
+    final handleOffset = offset + touchPadding;
+
+    final leftCenterHandle = Rect.fromCircle(
+      center: Offset(-handleOffset, itemSize.height / 2),
+      radius: totalHandleSize / 2,
+    );
+    return leftCenterHandle.contains(localPosition);
+  }
+
+  // Check if position is on right center handle
+  bool _isOnRightCenterHandle(Offset localPosition, Size itemSize) {
+    const handleSize = 32.0;
+    const offset = 12.0;
+    const touchPadding = 4.0;
+    final totalHandleSize = handleSize + (touchPadding * 2);
+    final handleOffset = offset + touchPadding;
+
+    final rightCenterHandle = Rect.fromCircle(
+      center: Offset(itemSize.width + handleOffset, itemSize.height / 2),
+      radius: totalHandleSize / 2,
+    );
+    return rightCenterHandle.contains(localPosition);
+  }
+
   // Check if a local position is on any control handle
   bool _isOnControlHandle(Offset localPosition, Size itemSize, {String type = 'text'}) {
     const handleSize = 32.0;
@@ -3572,6 +3618,23 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
       radius: totalHandleSize / 2,
     );
     if (topLeftHandle.contains(localPosition)) return true;
+
+    // For text, check left and right center handles
+    if (type == 'text') {
+      // Left center handle (horizontal resize)
+      final leftCenterHandle = Rect.fromCircle(
+        center: Offset(-handleOffset, itemSize.height / 2),
+        radius: totalHandleSize / 2,
+      );
+      if (leftCenterHandle.contains(localPosition)) return true;
+
+      // Right center handle (horizontal resize)
+      final rightCenterHandle = Rect.fromCircle(
+        center: Offset(itemSize.width + handleOffset, itemSize.height / 2),
+        radius: totalHandleSize / 2,
+      );
+      if (rightCenterHandle.contains(localPosition)) return true;
+    }
 
     // For stickers and photos, check all 4 corners
     if (type != 'text') {
@@ -3670,6 +3733,32 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     });
   }
 
+  // Handle horizontal resize from left/right handles
+  void _handleHorizontalResizeUpdate(
+      Offset currentPosition, String itemId, String handle) {
+    if (_resizeStartPos == null || _initialWidth == null || _canvasSize == null) return;
+
+    // Calculate horizontal distance change
+    final deltaX = currentPosition.dx - _resizeStartPos!.dx;
+
+    // For left handle, dragging left increases width, dragging right decreases
+    // For right handle, dragging right increases width, dragging left decreases
+    final widthChange = handle == 'right' ? deltaX : -deltaX;
+
+    // Convert pixel change to normalized width change
+    final normalizedChange = widthChange / _canvasSize!.width;
+    final newWidth = (_initialWidth! + normalizedChange).clamp(0.05, 0.8);
+
+    setState(() {
+      final index = _textOverlays.indexWhere((o) => o.id == itemId);
+      if (index != -1) {
+        _textOverlays[index] = _textOverlays[index].copyWith(
+          width: newWidth,
+        );
+      }
+    });
+  }
+
   // Build control handles for selected elements
   void _startOverlayResize(
       DragStartDetails details, String itemId, String type) {
@@ -3680,10 +3769,12 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
 
     if (type == 'text') {
       final item = _textOverlays.firstWhere((item) => item.id == itemId);
-      final baseWidth = 100.0;
-      final baseHeight = 50.0;
-      itemSize = Size(baseWidth * item.scale, baseHeight * item.scale);
+      final width = item.width != null
+          ? item.width! * _canvasSize!.width
+          : 100.0 * item.scale;
+      itemSize = Size(width, 50.0 * item.scale);
       _initialScale = item.scale;
+      _initialWidth = item.width;
       rotation = item.rotation;
     } else if (type == 'sticker') {
       final item = _stickers.firstWhere((item) => item.id == itemId);
@@ -3702,9 +3793,9 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
       rotation = item.rotation;
     }
 
-    // The drag detector is a 48 px square centred on the frame corner.
+    // The drag detector is a 36 px square centred on the frame corner.
     // Recover the item's global centre from the exact point the finger hit.
-    const targetCenter = Offset(24, 24);
+    const targetCenter = Offset(18, 18);
     final vectorFromCenter = (details.localPosition - targetCenter) +
         Offset(itemSize.width / 2, itemSize.height / 2);
     final cosine = math.cos(rotation);
@@ -3744,6 +3835,9 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
         if (index != -1) {
           _textOverlays[index] = _textOverlays[index].copyWith(
             scale: (_initialScale! * scaleFactor).clamp(0.5, 3.0),
+            width: _initialWidth == null
+                ? null
+                : (_initialWidth! * scaleFactor).clamp(0.05, 0.8),
             rotation: rotation,
           );
         }
@@ -3771,12 +3865,14 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
   void _endOverlayResize() {
     _resizingId = null;
     _resizingType = null;
+    _resizingHandle = null;
     _resizeStartPos = null;
     _resizeCenterGlobal = null;
     _initialScale = null;
     _initialRotation = null;
     _initialAngle = null;
     _initialPhotoSize = null;
+    _initialWidth = null;
   }
 
   Widget _buildSelectedControlOverlay() {
@@ -3797,9 +3893,11 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
         _touchSandbox + (item.x * _canvasSize!.width),
         _touchSandbox + (item.y * _canvasSize!.height),
       );
-      final baseWidth = 100.0;
       final baseHeight = 50.0;
-      itemSize = Size(baseWidth * item.scale, baseHeight * item.scale);
+      final baseWidth = item.width != null
+          ? item.width! * _canvasSize!.width
+          : 100.0 * item.scale;
+      itemSize = Size(baseWidth, baseHeight * item.scale);
       rotation = item.rotation;
       isFlipped = item.flip;
     } else if (_selectedType == 'sticker') {
@@ -3876,11 +3974,16 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
 
   List<Widget> _buildControlHandles(
       String itemId, String type, bool isFlipped) {
-    final handleSize = DesignTokens.controlHandleSize;
-    // The overlay adds 24 px around the item. A 48 px target placed at each
-    // overlay corner therefore has its centre exactly on the frame corner.
+    final handleSize = 24.0; // Medium handles
+    // The overlay adds 24 px around the item. Inset each 36 px touch target
+    // so its centre lands exactly on the corresponding frame corner.
     const invisibleTouchPadding = 6.0;
-    const handlePosition = 0.0;
+    const targetRadius = 24.0; // Padding around item in the overlay stack
+    // Offset to center the handle on the border
+    // For left/top: handle center should be at targetRadius from the edge
+    // SizedBox width is handleSize + 2*invisibleTouchPadding = 36
+    // Container center is at offset + 18, so offset = targetRadius - 18 = 6
+    final handleOffset = targetRadius - invisibleTouchPadding - (handleSize / 2);
 
     // Build the list of handles - text has only 2, stickers/photos have 4
     final List<Widget> handles = [];
@@ -3888,8 +3991,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     // Delete button (top-left) - always present
     handles.add(
       Positioned(
-        left: handlePosition,
-        top: handlePosition,
+        left: handleOffset,
+        top: handleOffset,
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTapDown: (_) {
@@ -3917,15 +4020,9 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                 width: handleSize,
                 height: handleSize,
                 decoration: BoxDecoration(
-                  color: DesignTokens.controlDelete,
+                  color: const Color(0xFFEF4444), // Red for delete
                   shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.2),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+                  border: Border.all(color: Colors.white, width: 1.5),
                 ),
                 child: Semantics(
                   button: true,
@@ -3933,7 +4030,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                   child: const Icon(
                     Icons.close,
                     color: Colors.white,
-                    size: 14,
+                    size: 12,
                   ),
                 ),
               ),
@@ -3943,12 +4040,130 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
       ),
     );
 
+    // Left center handle (horizontal resize) - only for text
+    if (type == 'text') {
+      handles.add(
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Padding(
+            padding: const EdgeInsets.only(left: 13),
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onPanStart: (details) {
+                setState(() {
+                  _resizingId = itemId;
+                  _resizingType = 'text';
+                  _resizingHandle = 'left';
+                  _resizeStartPos = details.globalPosition;
+                  final index = _textOverlays.indexWhere((o) => o.id == itemId);
+                  if (index != -1) {
+                    _initialWidth = _textOverlays[index].width ?? 0.1;
+                  }
+                });
+              },
+              onPanUpdate: (details) {
+                if (_resizingId == itemId && _resizingHandle == 'left') {
+                  _handleHorizontalResizeUpdate(
+                    details.globalPosition,
+                    itemId,
+                    'left',
+                  );
+                }
+              },
+              onPanEnd: (_) {
+                setState(() {
+                  _resizingId = null;
+                  _resizingType = null;
+                  _resizingHandle = null;
+                  _resizeStartPos = null;
+                  _initialWidth = null;
+                });
+              },
+              child: Container(
+                width: 24,
+                height: 24,
+                alignment: Alignment.center,
+                child: Container(
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 1.5),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Right center handle (horizontal resize) - only for text
+    if (type == 'text') {
+      handles.add(
+        Align(
+          alignment: Alignment.centerRight,
+          child: Padding(
+            padding: const EdgeInsets.only(right: 13),
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onPanStart: (details) {
+                setState(() {
+                  _resizingId = itemId;
+                  _resizingType = 'text';
+                  _resizingHandle = 'right';
+                  _resizeStartPos = details.globalPosition;
+                  final index = _textOverlays.indexWhere((o) => o.id == itemId);
+                  if (index != -1) {
+                    _initialWidth = _textOverlays[index].width ?? 0.1;
+                  }
+                });
+              },
+              onPanUpdate: (details) {
+                if (_resizingId == itemId && _resizingHandle == 'right') {
+                  _handleHorizontalResizeUpdate(
+                    details.globalPosition,
+                    itemId,
+                    'right',
+                  );
+                }
+              },
+              onPanEnd: (_) {
+                setState(() {
+                  _resizingId = null;
+                  _resizingType = null;
+                  _resizingHandle = null;
+                  _resizeStartPos = null;
+                  _initialWidth = null;
+                });
+              },
+              child: Container(
+                width: 24,
+                height: 24,
+                alignment: Alignment.center,
+                child: Container(
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 1.5),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     // Duplicate button (top-right) - only for stickers and photos
     if (type != 'text') {
       handles.add(
         Positioned(
-          right: handlePosition,
-          top: handlePosition,
+          right: handleOffset,
+          top: handleOffset,
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTapDown: (_) {
@@ -4002,23 +4217,17 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                   width: handleSize,
                   height: handleSize,
                   decoration: BoxDecoration(
-                    color: DesignTokens.controlDuplicate,
+                    color: Colors.white,
                     shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.2),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
+                    border: Border.all(color: Colors.white, width: 1.5),
                   ),
                   child: Semantics(
                     button: true,
                     label: 'Duplicate element',
                     child: const Icon(
                       Icons.copy,
-                      color: Colors.white,
-                      size: 14,
+                      color: Colors.black54,
+                      size: 12,
                     ),
                   ),
                 ),
@@ -4033,8 +4242,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     if (type != 'text') {
       handles.add(
         Positioned(
-          left: handlePosition,
-          bottom: handlePosition,
+          left: handleOffset,
+          bottom: handleOffset,
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTapDown: (_) {
@@ -4069,23 +4278,17 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                   width: handleSize,
                   height: handleSize,
                   decoration: BoxDecoration(
-                    color: DesignTokens.controlFlip,
+                    color: Colors.white,
                     shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.2),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
+                    border: Border.all(color: Colors.white, width: 1.5),
                   ),
                   child: Semantics(
                     button: true,
                     label: isFlipped ? 'Unflip element' : 'Flip element',
                     child: Icon(
                       isFlipped ? Icons.flip_rounded : Icons.flip_rounded,
-                      color: Colors.white,
-                      size: 14,
+                      color: Colors.black54,
+                      size: 12,
                     ),
                   ),
                 ),
@@ -4099,8 +4302,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     // Resize/Rotate handle (bottom-right) - always present
     handles.add(
       Positioned(
-        right: handlePosition,
-        bottom: handlePosition,
+        right: handleOffset,
+        bottom: handleOffset,
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onPanStart: (details) => _startOverlayResize(details, itemId, type),
@@ -4117,23 +4320,17 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                 width: handleSize,
                 height: handleSize,
                 decoration: BoxDecoration(
-                  color: DesignTokens.controlResize,
+                  color: Colors.white,
                   shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.2),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+                  border: Border.all(color: Colors.white, width: 1.5),
                 ),
                 child: Semantics(
                   button: true,
                   label: 'Resize and rotate',
                   child: const Icon(
                     Icons.open_in_full,
-                    color: Colors.white,
-                    size: 14,
+                    color: Colors.black54,
+                    size: 10,
                   ),
                 ),
               ),
