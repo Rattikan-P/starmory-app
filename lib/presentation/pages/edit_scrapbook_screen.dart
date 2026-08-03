@@ -825,12 +825,17 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     final left = _touchSandbox + (overlay.x * _canvasSize!.width);
     final top = _touchSandbox + (overlay.y * _canvasSize!.height);
 
-    // Offset to center the item (text overlays are ~60-80px wide)
-    final centerOffsetX = 50.0;
-    final centerOffsetY = 25.0;
+    // Base size (before scaling) - text overlays are roughly 60-80px wide
+    final baseWidth = 100.0;
+    final baseHeight = 50.0;
 
-    // Base font size with scale applied
-    final scaledFontSize = overlay.fontSize * overlay.scale;
+    // Calculate scaled size for center offset and hit testing
+    final scaledWidth = baseWidth * overlay.scale;
+    final scaledHeight = baseHeight * overlay.scale;
+
+    // Offset to center the item
+    final centerOffsetX = scaledWidth / 2;
+    final centerOffsetY = scaledHeight / 2;
 
     final isSelected = _selectedId == overlay.id;
 
@@ -846,7 +851,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
           // If selected and tap is on control handle, don't toggle selection
           if (isSelected &&
               _lastTapPosition != null &&
-              _isOnControlHandle(_lastTapPosition!, Size(100, 50))) {
+              _isOnControlHandle(_lastTapPosition!, Size(scaledWidth, scaledHeight), type: 'text')) {
             _lastTapPosition = null;
             return;
           }
@@ -869,7 +874,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
           if (details.pointerCount == 1) {
             // Single finger - check if tapping on resize handle
             if (isSelected &&
-                _isOnResizeHandle(details.localFocalPoint, Size(100, 50))) {
+                _isOnResizeHandle(details.localFocalPoint, Size(scaledWidth, scaledHeight))) {
               setState(() {
                 _resizingId = overlay.id;
                 _resizingType = 'text';
@@ -981,90 +986,105 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
           }
         },
         behavior: HitTestBehavior.opaque,
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            // Everything inside rotates together
-            Center(
-              child: Transform.rotate(
-                angle: overlay.rotation,
-                child: SizedBox(
-                  width: 100,
-                  height: 50,
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      // Text content container with background and scale
-                      Center(
-                        child: Container(
-                          padding: overlay.backgroundColor != null
-                              ? const EdgeInsets.all(8.0)
-                              : EdgeInsets.zero,
-                          decoration: BoxDecoration(
-                            color: overlay.backgroundColor != null
-                                ? Color(overlay.backgroundColor!)
-                                    .withValues(alpha: 0.95)
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: overlay.backgroundColor != null
-                                ? [
-                                    BoxShadow(
-                                      color:
-                                          Colors.black.withValues(alpha: 0.1),
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                    BoxShadow(
-                                      color:
-                                          Colors.black.withValues(alpha: 0.05),
-                                      blurRadius: 16,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ]
-                                : null,
-                          ),
+        child: SizedBox(
+          width: scaledWidth,
+          height: scaledHeight,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              // Everything inside rotates together
+              Center(
+                child: Transform.rotate(
+                  angle: overlay.rotation,
+                  child: SizedBox(
+                    width: scaledWidth,
+                    height: scaledHeight,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        // Text content container with background (scaled and centered)
+                        Center(
                           child: Transform.scale(
-                            scaleX:
-                                overlay.flip ? -overlay.scale : overlay.scale,
+                            scaleX: overlay.flip ? -overlay.scale : overlay.scale,
                             scaleY: overlay.scale,
                             alignment: Alignment.center,
-                            child: Padding(
-                              padding: overlay.backgroundColor != null
-                                  ? EdgeInsets.zero
-                                  : const EdgeInsets.all(8.0),
-                              child: Text(
-                                overlay.text,
-                                style:
-                                    _getFontStyle(overlay.fontFamily).copyWith(
-                                  color: Color(overlay.color),
-                                  fontSize: scaledFontSize,
-                                  fontWeight: FontWeight.w600,
-                                  height: 1.2,
+                            child: SizedBox(
+                              width: baseWidth,
+                              height: baseHeight,
+                              child: Stack(
+                                clipBehavior: Clip.none,
+                                children: [
+                                  // Text content container with background
+                                  Center(
+                                    child: Container(
+                                      padding: overlay.backgroundColor != null
+                                          ? const EdgeInsets.all(8.0)
+                                          : EdgeInsets.zero,
+                                      decoration: BoxDecoration(
+                                        color: overlay.backgroundColor != null
+                                            ? Color(overlay.backgroundColor!)
+                                                .withValues(alpha: 0.95)
+                                            : Colors.transparent,
+                                        borderRadius: BorderRadius.circular(12),
+                                        boxShadow: overlay.backgroundColor != null
+                                            ? [
+                                                BoxShadow(
+                                                  color: Colors.black
+                                                      .withValues(alpha: 0.1),
+                                                  blurRadius: 8,
+                                                  offset: const Offset(0, 2),
+                                                ),
+                                                BoxShadow(
+                                                  color: Colors.black
+                                                      .withValues(alpha: 0.05),
+                                                  blurRadius: 16,
+                                                  offset: const Offset(0, 4),
+                                                ),
+                                              ]
+                                            : null,
+                                      ),
+                                      child: Padding(
+                                        padding: overlay.backgroundColor != null
+                                            ? EdgeInsets.zero
+                                            : const EdgeInsets.all(8.0),
+                                        child: Text(
+                                          overlay.text,
+                                          style: _getFontStyle(overlay.fontFamily)
+                                              .copyWith(
+                                            color: Color(overlay.color),
+                                            fontSize: overlay.fontSize,
+                                            fontWeight: FontWeight.w600,
+                                            height: 1.2,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        // Selection border (rotates and scales with the whole container)
+                        if (isSelected)
+                          Positioned.fill(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: DesignTokens.brandColor,
+                                  width: 2.5 / overlay.scale, // Counteract scale
                                 ),
+                                borderRadius: BorderRadius.circular(12),
                               ),
                             ),
                           ),
-                        ),
-                      ),
-                      // Selection border
-                      if (isSelected)
-                        Positioned.fill(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              border: Border.all(
-                                color: DesignTokens.brandColor,
-                                width: 2.5,
-                              ),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -1104,7 +1124,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
             if (isSelected &&
                 _lastTapPosition != null &&
                 _isOnControlHandle(
-                    _lastTapPosition!, Size(stickerSize, stickerSize))) {
+                    _lastTapPosition!, Size(stickerSize, stickerSize), type: 'sticker')) {
               _lastTapPosition = null;
               return;
             }
@@ -1430,7 +1450,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
             // If selected and tap is on control handle, don't toggle selection
             if (isSelected &&
                 _lastTapPosition != null &&
-                _isOnControlHandle(_lastTapPosition!, Size(width, height))) {
+                _isOnControlHandle(_lastTapPosition!, Size(width, height), type: 'photo')) {
               _lastTapPosition = null;
               return;
             }
@@ -2179,6 +2199,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                     ),
                     onChanged: (value) {
                       // Auto-save on change
+                      if (!mounted) return;
                       setState(() {
                         final index =
                             _textOverlays.indexWhere((o) => o.id == overlay.id);
@@ -2214,6 +2235,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                       setModalState(() {
                         selectedFont = font;
                       });
+                      if (!mounted) return;
                       setState(() {
                         final index =
                             _textOverlays.indexWhere((o) => o.id == overlay.id);
@@ -2229,6 +2251,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                       setModalState(() {
                         selectedTextColor = color;
                       });
+                      if (!mounted) return;
                       setState(() {
                         final index =
                             _textOverlays.indexWhere((o) => o.id == overlay.id);
@@ -2244,6 +2267,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                       setModalState(() {
                         selectedBackgroundColor = color;
                       });
+                      if (!mounted) return;
                       setState(() {
                         final index =
                             _textOverlays.indexWhere((o) => o.id == overlay.id);
@@ -3535,36 +3559,38 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
   }
 
   // Check if a local position is on any control handle
-  bool _isOnControlHandle(Offset localPosition, Size itemSize) {
+  bool _isOnControlHandle(Offset localPosition, Size itemSize, {String type = 'text'}) {
     const handleSize = 32.0;
     const offset = 12.0;
     const touchPadding = 4.0;
     final totalHandleSize = handleSize + (touchPadding * 2);
     final handleOffset = offset + touchPadding;
 
-    // Check all 4 corners
-    // Top-left (delete button)
+    // Top-left (delete button) - always present
     final topLeftHandle = Rect.fromCircle(
       center: Offset(-handleOffset, -handleOffset),
       radius: totalHandleSize / 2,
     );
     if (topLeftHandle.contains(localPosition)) return true;
 
-    // Top-right (duplicate button)
-    final topRightHandle = Rect.fromCircle(
-      center: Offset(itemSize.width + handleOffset, -handleOffset),
-      radius: totalHandleSize / 2,
-    );
-    if (topRightHandle.contains(localPosition)) return true;
+    // For stickers and photos, check all 4 corners
+    if (type != 'text') {
+      // Top-right (duplicate button)
+      final topRightHandle = Rect.fromCircle(
+        center: Offset(itemSize.width + handleOffset, -handleOffset),
+        radius: totalHandleSize / 2,
+      );
+      if (topRightHandle.contains(localPosition)) return true;
 
-    // Bottom-left (flip button)
-    final bottomLeftHandle = Rect.fromCircle(
-      center: Offset(-handleOffset, itemSize.height + handleOffset),
-      radius: totalHandleSize / 2,
-    );
-    if (bottomLeftHandle.contains(localPosition)) return true;
+      // Bottom-left (flip button)
+      final bottomLeftHandle = Rect.fromCircle(
+        center: Offset(-handleOffset, itemSize.height + handleOffset),
+        radius: totalHandleSize / 2,
+      );
+      if (bottomLeftHandle.contains(localPosition)) return true;
+    }
 
-    // Bottom-right (resize/rotate handle)
+    // Bottom-right (resize/rotate handle) - always present
     final bottomRightHandle = Rect.fromCircle(
       center:
           Offset(itemSize.width + handleOffset, itemSize.height + handleOffset),
@@ -3654,7 +3680,9 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
 
     if (type == 'text') {
       final item = _textOverlays.firstWhere((item) => item.id == itemId);
-      itemSize = const Size(100, 50);
+      final baseWidth = 100.0;
+      final baseHeight = 50.0;
+      itemSize = Size(baseWidth * item.scale, baseHeight * item.scale);
       _initialScale = item.scale;
       rotation = item.rotation;
     } else if (type == 'sticker') {
@@ -3769,7 +3797,9 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
         _touchSandbox + (item.x * _canvasSize!.width),
         _touchSandbox + (item.y * _canvasSize!.height),
       );
-      itemSize = const Size(100, 50);
+      final baseWidth = 100.0;
+      final baseHeight = 50.0;
+      itemSize = Size(baseWidth * item.scale, baseHeight * item.scale);
       rotation = item.rotation;
       isFlipped = item.flip;
     } else if (_selectedType == 'sticker') {
@@ -3852,8 +3882,11 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     const invisibleTouchPadding = 6.0;
     const handlePosition = 0.0;
 
-    return [
-      // Delete button (top-left)
+    // Build the list of handles - text has only 2, stickers/photos have 4
+    final List<Widget> handles = [];
+
+    // Delete button (top-left) - always present
+    handles.add(
       Positioned(
         left: handlePosition,
         top: handlePosition,
@@ -3908,164 +3941,163 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
           ),
         ),
       ),
+    );
 
-      // Duplicate button (top-right)
-      Positioned(
-        right: handlePosition,
-        top: handlePosition,
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTapDown: (_) {
-            // Prevent parent GestureDetector from handling this tap
-          },
-          onTap: () {
-            HapticFeedback.lightImpact();
-            setState(() {
-              if (type == 'text') {
-                final original =
-                    _textOverlays.firstWhere((o) => o.id == itemId);
-                _textOverlays.add(ScrapbookTextOverlay(
-                  id: DateTime.now().millisecondsSinceEpoch.toString(),
-                  text: original.text,
-                  x: original.x + 0.05,
-                  y: original.y + 0.05,
-                  color: original.color,
-                  fontSize: original.fontSize,
-                  scale: original.scale,
-                  rotation: original.rotation,
-                  flip: original.flip,
-                ));
-              } else if (type == 'sticker') {
-                final original = _stickers.firstWhere((s) => s.id == itemId);
-                _stickers.add(ScrapbookSticker(
-                  id: DateTime.now().millisecondsSinceEpoch.toString(),
-                  emoji: original.emoji,
-                  x: original.x + 0.05,
-                  y: original.y + 0.05,
-                  scale: original.scale,
-                  rotation: original.rotation,
-                  flip: original.flip,
-                ));
-              } else if (type == 'photo') {
-                final original =
-                    _additionalPhotos.firstWhere((p) => p.id == itemId);
-                _additionalPhotos.add(ScrapbookPhoto(
-                  id: DateTime.now().millisecondsSinceEpoch.toString(),
-                  imagePath: original.imagePath,
-                  x: original.x + 0.05,
-                  y: original.y + 0.05,
-                  width: original.width,
-                  height: original.height,
-                  rotation: original.rotation,
-                  flip: original.flip,
-                ));
-              }
-            });
-          },
-          child: SizedBox(
-            width: handleSize + (invisibleTouchPadding * 2),
-            height: handleSize + (invisibleTouchPadding * 2),
-            child: Center(
-              child: Container(
-                width: handleSize,
-                height: handleSize,
-                decoration: BoxDecoration(
-                  color: DesignTokens.controlDuplicate,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.2),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
+    // Duplicate button (top-right) - only for stickers and photos
+    if (type != 'text') {
+      handles.add(
+        Positioned(
+          right: handlePosition,
+          top: handlePosition,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTapDown: (_) {
+              // Prevent parent GestureDetector from handling this tap
+            },
+            onTap: () {
+              HapticFeedback.lightImpact();
+              setState(() {
+                String? newElementId;
+
+                if (type == 'sticker') {
+                  final original = _stickers.firstWhere((s) => s.id == itemId);
+                  newElementId = DateTime.now().millisecondsSinceEpoch.toString();
+                  _stickers.add(ScrapbookSticker(
+                    id: newElementId,
+                    emoji: original.emoji,
+                    x: original.x + 0.05,
+                    y: original.y + 0.05,
+                    scale: original.scale,
+                    rotation: original.rotation,
+                    flip: original.flip,
+                  ));
+                } else if (type == 'photo') {
+                  final original =
+                      _additionalPhotos.firstWhere((p) => p.id == itemId);
+                  newElementId = DateTime.now().millisecondsSinceEpoch.toString();
+                  _additionalPhotos.add(ScrapbookPhoto(
+                    id: newElementId,
+                    imagePath: original.imagePath,
+                    x: original.x + 0.05,
+                    y: original.y + 0.05,
+                    width: original.width,
+                    height: original.height,
+                    rotation: original.rotation,
+                    flip: original.flip,
+                  ));
+                }
+
+                // Select the newly duplicated element
+                if (newElementId != null) {
+                  _selectedId = newElementId;
+                  _selectedType = type;
+                }
+              });
+            },
+            child: SizedBox(
+              width: handleSize + (invisibleTouchPadding * 2),
+              height: handleSize + (invisibleTouchPadding * 2),
+              child: Center(
+                child: Container(
+                  width: handleSize,
+                  height: handleSize,
+                  decoration: BoxDecoration(
+                    color: DesignTokens.controlDuplicate,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.2),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Semantics(
+                    button: true,
+                    label: 'Duplicate element',
+                    child: const Icon(
+                      Icons.copy,
+                      color: Colors.white,
+                      size: 14,
                     ),
-                  ],
-                ),
-                child: Semantics(
-                  button: true,
-                  label: 'Duplicate element',
-                  child: const Icon(
-                    Icons.copy,
-                    color: Colors.white,
-                    size: 14,
                   ),
                 ),
               ),
             ),
           ),
         ),
-      ),
+      );
+    }
 
-      // Flip button (bottom-left)
-      Positioned(
-        left: handlePosition,
-        bottom: handlePosition,
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTapDown: (_) {
-            // Prevent parent GestureDetector from handling this tap
-          },
-          onTap: () {
-            HapticFeedback.lightImpact();
-            setState(() {
-              if (type == 'text') {
-                final index = _textOverlays.indexWhere((o) => o.id == itemId);
-                if (index != -1) {
-                  _textOverlays[index] = _textOverlays[index].copyWith(
-                    flip: !_textOverlays[index].flip,
-                  );
+    // Flip button (bottom-left) - only for stickers and photos
+    if (type != 'text') {
+      handles.add(
+        Positioned(
+          left: handlePosition,
+          bottom: handlePosition,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTapDown: (_) {
+              // Prevent parent GestureDetector from handling this tap
+            },
+            onTap: () {
+              HapticFeedback.lightImpact();
+              setState(() {
+                if (type == 'sticker') {
+                  final index = _stickers.indexWhere((s) => s.id == itemId);
+                  if (index != -1) {
+                    _stickers[index] = _stickers[index].copyWith(
+                      flip: !_stickers[index].flip,
+                    );
+                  }
+                } else if (type == 'photo') {
+                  final index =
+                      _additionalPhotos.indexWhere((p) => p.id == itemId);
+                  if (index != -1) {
+                    _additionalPhotos[index] = _additionalPhotos[index].copyWith(
+                      flip: !_additionalPhotos[index].flip,
+                    );
+                  }
                 }
-              } else if (type == 'sticker') {
-                final index = _stickers.indexWhere((s) => s.id == itemId);
-                if (index != -1) {
-                  _stickers[index] = _stickers[index].copyWith(
-                    flip: !_stickers[index].flip,
-                  );
-                }
-              } else if (type == 'photo') {
-                final index =
-                    _additionalPhotos.indexWhere((p) => p.id == itemId);
-                if (index != -1) {
-                  _additionalPhotos[index] = _additionalPhotos[index].copyWith(
-                    flip: !_additionalPhotos[index].flip,
-                  );
-                }
-              }
-            });
-          },
-          child: SizedBox(
-            width: handleSize + (invisibleTouchPadding * 2),
-            height: handleSize + (invisibleTouchPadding * 2),
-            child: Center(
-              child: Container(
-                width: handleSize,
-                height: handleSize,
-                decoration: BoxDecoration(
-                  color: DesignTokens.controlFlip,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.2),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
+              });
+            },
+            child: SizedBox(
+              width: handleSize + (invisibleTouchPadding * 2),
+              height: handleSize + (invisibleTouchPadding * 2),
+              child: Center(
+                child: Container(
+                  width: handleSize,
+                  height: handleSize,
+                  decoration: BoxDecoration(
+                    color: DesignTokens.controlFlip,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.2),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Semantics(
+                    button: true,
+                    label: isFlipped ? 'Unflip element' : 'Flip element',
+                    child: Icon(
+                      isFlipped ? Icons.flip_rounded : Icons.flip_rounded,
+                      color: Colors.white,
+                      size: 14,
                     ),
-                  ],
-                ),
-                child: Semantics(
-                  button: true,
-                  label: isFlipped ? 'Unflip element' : 'Flip element',
-                  child: Icon(
-                    isFlipped ? Icons.flip_rounded : Icons.flip_rounded,
-                    color: Colors.white,
-                    size: 14,
                   ),
                 ),
               ),
             ),
           ),
         ),
-      ),
+      );
+    }
 
-      // Resize/Rotate handle (bottom-right)
+    // Resize/Rotate handle (bottom-right) - always present
+    handles.add(
       Positioned(
         right: handlePosition,
         bottom: handlePosition,
@@ -4109,7 +4141,9 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
           ),
         ),
       ),
-    ];
+    );
+
+    return handles;
   }
 
   String _getWeekday(int day) {
