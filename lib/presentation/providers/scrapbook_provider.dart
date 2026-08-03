@@ -54,7 +54,8 @@ class ScrapbookState {
   List<DateTime> getDatesWithScrapbooks() {
     final dates = <DateTime>{};
     for (final scrapbook in scrapbooks) {
-      final date = DateTime(scrapbook.date.year, scrapbook.date.month, scrapbook.date.day);
+      final date = DateTime(
+          scrapbook.date.year, scrapbook.date.month, scrapbook.date.day);
       dates.add(date);
     }
     final sorted = dates.toList()..sort();
@@ -205,6 +206,8 @@ class ScrapbookNotifier extends StateNotifier<ScrapbookState> {
   // ============= Cloud Sync Methods =============
 
   Future<void> _saveToCloud(ScrapbookModel scrapbook) async {
+    String? newlyUploadedImageUrl;
+
     try {
       final client = Supabase.instance.client;
       final userId = client.auth.currentUser?.id;
@@ -224,6 +227,7 @@ class ScrapbookNotifier extends StateNotifier<ScrapbookState> {
               userId: userId,
               scrapbookId: scrapbook.id,
             );
+            newlyUploadedImageUrl = imageUrl;
             print('✅ Image uploaded: $imageUrl');
           }
         } catch (e) {
@@ -237,14 +241,16 @@ class ScrapbookNotifier extends StateNotifier<ScrapbookState> {
         'user_id': userId,
         'date': scrapbook.date.toIso8601String(),
         'image_path': imageUrl,
-        'vocabulary_words': scrapbook.vocabularyWords.map((v) => v.toJson()).toList(),
+        'vocabulary_words':
+            scrapbook.vocabularyWords.map((v) => v.toJson()).toList(),
         'english_sentence': scrapbook.englishSentence,
         'thai_sentence': scrapbook.thaiSentence,
         'selected_emoji': scrapbook.selectedEmoji,
         'background_color': scrapbook.backgroundColor,
         'text_overlays': scrapbook.textOverlays.map((t) => t.toJson()).toList(),
         'stickers': scrapbook.stickers.map((s) => s.toJson()).toList(),
-        'additional_photos': scrapbook.additionalPhotos.map((p) => p.toJson()).toList(),
+        'additional_photos':
+            scrapbook.additionalPhotos.map((p) => p.toJson()).toList(),
         'created_at': scrapbook.createdAt.toIso8601String(),
         'updated_at': DateTime.now().toIso8601String(),
       };
@@ -252,12 +258,15 @@ class ScrapbookNotifier extends StateNotifier<ScrapbookState> {
       await client.from('scrapbooks').insert(data);
       print('✅ Scrapbook saved to cloud');
     } catch (e) {
+      await _cleanupFailedCloudUpload(newlyUploadedImageUrl);
       print('⚠️ Failed to save scrapbook to cloud: $e');
       rethrow;
     }
   }
 
   Future<void> _updateInCloud(ScrapbookModel scrapbook) async {
+    String? newlyUploadedImageUrl;
+
     try {
       final client = Supabase.instance.client;
       final userId = client.auth.currentUser?.id;
@@ -274,6 +283,7 @@ class ScrapbookNotifier extends StateNotifier<ScrapbookState> {
               userId: userId,
               scrapbookId: scrapbook.id,
             );
+            newlyUploadedImageUrl = imageUrl;
           }
         } catch (e) {
           print('⚠️ Failed to upload image: $e');
@@ -283,22 +293,45 @@ class ScrapbookNotifier extends StateNotifier<ScrapbookState> {
       final data = {
         'date': scrapbook.date.toIso8601String(),
         'image_path': imageUrl,
-        'vocabulary_words': scrapbook.vocabularyWords.map((v) => v.toJson()).toList(),
+        'vocabulary_words':
+            scrapbook.vocabularyWords.map((v) => v.toJson()).toList(),
         'english_sentence': scrapbook.englishSentence,
         'thai_sentence': scrapbook.thaiSentence,
         'selected_emoji': scrapbook.selectedEmoji,
         'background_color': scrapbook.backgroundColor,
         'text_overlays': scrapbook.textOverlays.map((t) => t.toJson()).toList(),
         'stickers': scrapbook.stickers.map((s) => s.toJson()).toList(),
-        'additional_photos': scrapbook.additionalPhotos.map((p) => p.toJson()).toList(),
+        'additional_photos':
+            scrapbook.additionalPhotos.map((p) => p.toJson()).toList(),
         'updated_at': DateTime.now().toIso8601String(),
       };
 
-      await client.from('scrapbooks').update(data).eq('id', scrapbook.id).eq('user_id', userId);
+      await client
+          .from('scrapbooks')
+          .update(data)
+          .eq('id', scrapbook.id)
+          .eq('user_id', userId);
       print('✅ Scrapbook updated in cloud');
     } catch (e) {
+      await _cleanupFailedCloudUpload(newlyUploadedImageUrl);
       print('⚠️ Failed to update scrapbook in cloud: $e');
       rethrow;
+    }
+  }
+
+  Future<void> _cleanupFailedCloudUpload(String? imageUrl) async {
+    if (imageUrl == null) return;
+
+    try {
+      final deleted = await _imageStorageService.deleteImage(imageUrl);
+      if (deleted) {
+        print('✅ Removed image uploaded by failed cloud sync');
+      } else {
+        print('⚠️ Could not remove image uploaded by failed cloud sync');
+      }
+    } catch (cleanupError) {
+      // Preserve the original database error while reporting cleanup failure.
+      print('⚠️ Failed to clean up cloud image: $cleanupError');
     }
   }
 
@@ -308,7 +341,11 @@ class ScrapbookNotifier extends StateNotifier<ScrapbookState> {
       final userId = client.auth.currentUser?.id;
       if (userId == null) return;
 
-      await client.from('scrapbooks').delete().eq('id', id).eq('user_id', userId);
+      await client
+          .from('scrapbooks')
+          .delete()
+          .eq('id', id)
+          .eq('user_id', userId);
 
       // Delete image from storage if it's a cloud URL
       if (imagePath.startsWith('http')) {

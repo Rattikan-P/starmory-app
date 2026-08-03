@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/error/failures.dart';
 import '../../core/utils/image_validator.dart';
@@ -10,6 +11,17 @@ class ImageStorageService {
 
   /// Bucket name for vocabulary images
   static const String _bucketName = 'vocabulary-images';
+
+  @visibleForTesting
+  static String? objectPathFromUrl(String imageUrl) {
+    final pathSegments = Uri.parse(imageUrl).pathSegments;
+    final bucketIndex = pathSegments.indexOf(_bucketName);
+    if (bucketIndex == -1 || bucketIndex + 1 >= pathSegments.length) {
+      return null;
+    }
+
+    return pathSegments.sublist(bucketIndex + 1).join('/');
+  }
 
   /// Upload image to Supabase Storage
   /// Returns the public URL of the uploaded image
@@ -33,20 +45,20 @@ class ImageStorageService {
 
       // Upload file
       await _client.storage.from(_bucketName).upload(
-        fileName,
-        imageFile,
-        fileOptions: FileOptions(
-          cacheControl: '3600',
-          upsert: false,
-        ),
-      );
+            fileName,
+            imageFile,
+            fileOptions: FileOptions(
+              cacheControl: '3600',
+              upsert: false,
+            ),
+          );
 
       // For private bucket, use signed URL
       // For public bucket, can use getPublicUrl
       final imageUrl = await _client.storage.from(_bucketName).createSignedUrl(
-        fileName,
-        365 * 24 * 60 * 60, // 1 year in seconds
-      );
+            fileName,
+            365 * 24 * 60 * 60, // 1 year in seconds
+          );
 
       print('✅ Image uploaded: $imageUrl');
       return imageUrl;
@@ -84,16 +96,11 @@ class ImageStorageService {
   Future<bool> deleteImage(String imageUrl) async {
     try {
       // Extract filename from URL
-      final uri = Uri.parse(imageUrl);
-      final pathSegments = uri.pathSegments;
-      // URL format: /storage/v1/object/public/bucket-name/userId/filename.ext
-      final bucketIndex = pathSegments.indexOf(_bucketName);
-      if (bucketIndex == -1 || bucketIndex + 2 >= pathSegments.length) {
+      final fileName = objectPathFromUrl(imageUrl);
+      if (fileName == null) {
         print('⚠️ Invalid image URL format: $imageUrl');
         return false;
       }
-
-      final fileName = '${pathSegments[bucketIndex + 1]}/${pathSegments[bucketIndex + 2]}';
 
       await _client.storage.from(_bucketName).remove([fileName]);
 
@@ -129,19 +136,19 @@ class ImageStorageService {
 
       // Upload file
       await _client.storage.from(_bucketName).upload(
-        fileName,
-        imageFile,
-        fileOptions: FileOptions(
-          cacheControl: '3600',
-          upsert: false,
-        ),
-      );
+            fileName,
+            imageFile,
+            fileOptions: FileOptions(
+              cacheControl: '3600',
+              upsert: false,
+            ),
+          );
 
       // Get signed URL (valid for 1 year)
       final imageUrl = await _client.storage.from(_bucketName).createSignedUrl(
-        fileName,
-        365 * 24 * 60 * 60,
-      );
+            fileName,
+            365 * 24 * 60 * 60,
+          );
 
       print('✅ Scrapbook image uploaded: $imageUrl');
       return imageUrl;

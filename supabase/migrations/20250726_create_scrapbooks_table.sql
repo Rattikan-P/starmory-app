@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS public.scrapbooks (
     english_sentence TEXT DEFAULT '',
     thai_sentence TEXT DEFAULT '',
     selected_emoji TEXT DEFAULT '😊',
-    background_color INTEGER DEFAULT 4294967295, -- 0xFFFFFFFF
+    background_color BIGINT DEFAULT 4294967295, -- Unsigned ARGB, e.g. 0xFFFFFFFF
     text_overlays JSONB DEFAULT '[]'::jsonb,
     stickers JSONB DEFAULT '[]'::jsonb,
     additional_photos JSONB DEFAULT '[]'::jsonb,
