@@ -16,6 +16,8 @@ import 'edit_scrapbook_screen.dart';
 import 'auth/account_method_page.dart';
 import 'profile_tab.dart';
 import '../widgets/galaxy_screen_background.dart';
+import '../widgets/scrapbook_detail_sheet.dart';
+import '../widgets/scrapbook_polaroid.dart';
 
 /// Home Tab - Main screen with AI generation
 /// Redesigned to feel warm, welcoming, and pressure-free
@@ -824,36 +826,21 @@ class _HomeTabState extends ConsumerState<HomeTab>
                 color: const Color(0xFF1f2937),
               ),
             ),
-            GestureDetector(
-              onTap: () {
-                // Navigate to Scrapbook tab using navigation provider
-                ref.read(navigationProvider.notifier).goScrapbook();
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF8b5cf6).withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(16),
+            TextButton.icon(
+              onPressed: () =>
+                  ref.read(navigationProvider.notifier).goScrapbook(),
+              icon: const Icon(Icons.history_rounded, size: 21),
+              label: Text(
+                'View All',
+                style: GoogleFonts.lexend(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'See all',
-                      style: GoogleFonts.lexend(
-                        fontSize: 13,
-                        color: const Color(0xFF8b5cf6),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    const Icon(
-                      Icons.arrow_forward_ios,
-                      size: 12,
-                      color: Color(0xFF8b5cf6),
-                    ),
-                  ],
-                ),
+              ),
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFF5036A6),
+                minimumSize: const Size(44, 44),
+                padding: const EdgeInsets.symmetric(horizontal: 4),
               ),
             ),
           ],
@@ -872,22 +859,9 @@ class _HomeTabState extends ConsumerState<HomeTab>
       height: 140,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: const Color(0xFFE2D1F9).withValues(alpha: 0.3),
-          width: 1,
+          color: const Color(0xFFE8E5EC),
         ),
       ),
       child: Center(
@@ -906,7 +880,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
                     const Color(0xFFE5E7EB).withValues(alpha: 0.5),
                   ],
                 ),
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(12),
               ),
               child: const Icon(
                 Icons.photo_library_outlined,
@@ -941,12 +915,12 @@ class _HomeTabState extends ConsumerState<HomeTab>
   /// Horizontal list of scrapbook cards
   Widget _buildScrapbookList(BuildContext context, List<ScrapbookModel> scrapbooks) {
     return SizedBox(
-      height: 160,
+      height: ScrapbookPolaroid.listExtent,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 4),
+        clipBehavior: Clip.none,
         itemCount: scrapbooks.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        separatorBuilder: (_, __) => const SizedBox(width: 14),
         itemBuilder: (context, index) {
           final scrapbook = scrapbooks[index];
           return _buildScrapbookCard(context, scrapbook, index);
@@ -956,13 +930,17 @@ class _HomeTabState extends ConsumerState<HomeTab>
   }
 
   Widget _buildScrapbookCard(BuildContext context, ScrapbookModel scrapbook, int index) {
+    if (MediaQuery.disableAnimationsOf(context)) {
+      return _buildScrapbookCardInteractive(context, scrapbook);
+    }
+
     return TweenAnimationBuilder<double>(
-      duration: Duration(milliseconds: 300 + (index * 50)),
+      duration: Duration(milliseconds: 220 + (index * 35)),
       tween: Tween(begin: 0.0, end: 1.0),
       curve: Curves.easeOutQuart,
       builder: (context, value, child) {
         return Transform.translate(
-          offset: Offset(30 * (1 - value), 0),
+          offset: Offset(18 * (1 - value), 0),
           child: Opacity(
             opacity: value,
             child: _buildScrapbookCardInteractive(context, scrapbook),
@@ -972,7 +950,18 @@ class _HomeTabState extends ConsumerState<HomeTab>
     );
   }
 
-  Widget _buildScrapbookCardInteractive(BuildContext context, ScrapbookModel scrapbook) {
+  Widget _buildScrapbookCardInteractive(
+      BuildContext context, ScrapbookModel scrapbook) {
+    return ScrapbookPolaroid(
+      imagePath: scrapbook.imagePath,
+      backgroundColor: Color(scrapbook.backgroundColor),
+      vocabularyCount: scrapbook.vocabularyWords.length,
+      semanticLabel: 'Open scrapbook from ${_formatDate(scrapbook.date)}',
+      onTap: () => _showScrapbookBottomSheet(context, scrapbook),
+    );
+  }
+
+  Widget _buildLegacyScrapbookCardInteractive(BuildContext context, ScrapbookModel scrapbook) {
     final vocabCount = scrapbook.vocabularyWords.length;
 
     return GestureDetector(
@@ -1121,30 +1110,13 @@ class _HomeTabState extends ConsumerState<HomeTab>
   }
 
   void _showScrapbookBottomSheet(BuildContext context, ScrapbookModel scrapbook) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return DraggableScrollableSheet(
-          initialChildSize: 0.75,
-          minChildSize: 0.5,
-          maxChildSize: 0.95,
-          builder: (context, scrollController) {
-            return _ScrapbookDetailBottomSheet(
-              scrapbook: scrapbook,
-              scrollController: scrollController,
-            );
-          },
-        );
-      },
-    );
+    showScrapbookDetailSheet(context, scrapbooks: [scrapbook]);
   }
 
   String _formatDate(DateTime date) {
     final month = _getMonthAbbreviation(date.month);
     final day = date.day;
-    return '$month $day';
+    return '$day $month ${date.year}';
   }
 
   String _getMonthAbbreviation(int month) {

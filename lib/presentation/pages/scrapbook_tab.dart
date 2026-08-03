@@ -6,6 +6,7 @@ import '../providers/scrapbook_provider.dart';
 import '../../data/models/scrapbook_model.dart';
 import '../widgets/galaxy_screen_background.dart';
 import 'edit_scrapbook_screen.dart';
+import '../widgets/scrapbook_detail_sheet.dart';
 import 'dart:io';
 
 /// Bottom Sheet showing scrapbook entries for a selected day
@@ -464,27 +465,11 @@ class _ScrapbookTabState extends ConsumerState<ScrapbookTab> {
     );
   }
 
-  void _showDayScrapbooksBottomSheet(DateTime day, ScrapbookState scrapbookState) {
+  void _showDayScrapbooksBottomSheet(
+      DateTime day, ScrapbookState scrapbookState) {
     final scrapbooks = scrapbookState.getScrapbooksForDate(day);
 
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return DraggableScrollableSheet(
-          initialChildSize: 0.7,
-          minChildSize: 0.4,
-          maxChildSize: 0.95,
-          builder: (context, scrollController) {
-            return DayScrapbookBottomSheet(
-              day: day,
-              scrapbooks: scrapbooks,
-            );
-          },
-        );
-      },
-    );
+    showScrapbookDetailSheet(context, scrapbooks: scrapbooks);
   }
 
   bool isSameDay(DateTime? day1, DateTime? day2) {
