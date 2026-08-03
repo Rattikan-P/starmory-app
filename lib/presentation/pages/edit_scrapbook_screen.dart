@@ -99,7 +99,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
   // Resize/rotate state
   String? _resizingId; // ID of item being resized/rotated
   String? _resizingType; // 'text', 'sticker', or 'photo'
-  String? _resizingHandle; // 'left', 'right', or 'corner' for horizontal resizing
+  String?
+      _resizingHandle; // 'left', 'right', or 'corner' for horizontal resizing
   Offset? _resizeStartPos; // Initial pointer position for resize
   double? _initialScale; // Initial scale for resize operation
   double? _initialRotation; // Initial rotation for resize operation
@@ -201,8 +202,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
   void initState() {
     super.initState();
     // Generate permanent ID for new scrapbooks, or use existing ID
-    _permanentScrapbookId = widget.scrapbookId ??
-                          DateTime.now().millisecondsSinceEpoch.toString();
+    _permanentScrapbookId =
+        widget.scrapbookId ?? DateTime.now().millisecondsSinceEpoch.toString();
     _selectedEmoji = widget.selectedEmoji;
     _textOverlays = [];
     _stickers = [];
@@ -859,7 +860,9 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
           // If selected and tap is on control handle, don't toggle selection
           if (isSelected &&
               _lastTapPosition != null &&
-              _isOnControlHandle(_lastTapPosition!, Size(scaledWidth, scaledHeight), type: 'text')) {
+              _isOnControlHandle(
+                  _lastTapPosition!, Size(scaledWidth, scaledHeight),
+                  type: 'text')) {
             _lastTapPosition = null;
             return;
           }
@@ -883,7 +886,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
             // Check if tapping on any handle
             if (isSelected) {
               // Check for corner resize/rotate handle
-              if (_isOnResizeHandle(details.localFocalPoint, Size(scaledWidth, scaledHeight))) {
+              if (_isOnResizeHandle(
+                  details.localFocalPoint, Size(scaledWidth, scaledHeight))) {
                 setState(() {
                   _resizingId = overlay.id;
                   _resizingType = 'text';
@@ -891,30 +895,35 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                   _resizeStartPos = details.localFocalPoint;
                   _initialScale = overlay.scale;
                   _initialRotation = overlay.rotation;
-                  _initialAngle = _calculateAngle(details.localFocalPoint, Offset(left, top));
+                  _initialAngle = _calculateAngle(
+                      details.localFocalPoint, Offset(left, top));
                 });
                 return;
               }
               // Check for left center handle (horizontal resize)
               final itemCenterY = scaledHeight / 2;
-              if (_isOnLeftCenterHandle(details.localFocalPoint, Size(scaledWidth, scaledHeight))) {
+              if (_isOnLeftCenterHandle(
+                  details.localFocalPoint, Size(scaledWidth, scaledHeight))) {
                 setState(() {
                   _resizingId = overlay.id;
                   _resizingType = 'text';
                   _resizingHandle = 'left';
                   _resizeStartPos = details.localFocalPoint;
-                  _initialWidth = overlay.width ?? (baseWidth / _canvasSize!.width);
+                  _initialWidth =
+                      overlay.width ?? (baseWidth / _canvasSize!.width);
                 });
                 return;
               }
               // Check for right center handle (horizontal resize)
-              if (_isOnRightCenterHandle(details.localFocalPoint, Size(scaledWidth, scaledHeight))) {
+              if (_isOnRightCenterHandle(
+                  details.localFocalPoint, Size(scaledWidth, scaledHeight))) {
                 setState(() {
                   _resizingId = overlay.id;
                   _resizingType = 'text';
                   _resizingHandle = 'right';
                   _resizeStartPos = details.localFocalPoint;
-                  _initialWidth = overlay.width ?? (baseWidth / _canvasSize!.width);
+                  _initialWidth =
+                      overlay.width ?? (baseWidth / _canvasSize!.width);
                 });
                 return;
               }
@@ -1050,8 +1059,12 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                         Center(
                           child: Container(
                             constraints: BoxConstraints(
-                              minWidth: scaledWidth > 0 ? math.min(30.0, scaledWidth) : 30,
-                              maxWidth: scaledWidth > 0 ? scaledWidth : double.infinity,
+                              minWidth: scaledWidth > 0
+                                  ? math.min(30.0, scaledWidth)
+                                  : 30,
+                              maxWidth: scaledWidth > 0
+                                  ? scaledWidth
+                                  : double.infinity,
                             ),
                             padding: overlay.backgroundColor != null
                                 ? EdgeInsets.symmetric(
@@ -1070,8 +1083,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                             ),
                             child: Text(
                               overlay.text,
-                              style: _getFontStyle(overlay.fontFamily)
-                                  .copyWith(
+                              style: _getFontStyle(overlay.fontFamily).copyWith(
                                 color: Color(overlay.color),
                                 fontSize: overlay.fontSize * contentScale,
                                 fontWeight: FontWeight.w600,
@@ -1141,7 +1153,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
             if (isSelected &&
                 _lastTapPosition != null &&
                 _isOnControlHandle(
-                    _lastTapPosition!, Size(stickerSize, stickerSize), type: 'sticker')) {
+                    _lastTapPosition!, Size(stickerSize, stickerSize),
+                    type: 'sticker')) {
               _lastTapPosition = null;
               return;
             }
@@ -1347,7 +1360,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                 children: [
                   Icon(Icons.broken_image, color: Colors.grey, size: 32),
                   SizedBox(height: 4),
-                  Text('Failed to load', style: TextStyle(color: Colors.grey, fontSize: 10)),
+                  Text('Failed to load',
+                      style: TextStyle(color: Colors.grey, fontSize: 10)),
                 ],
               ),
             ),
@@ -1399,7 +1413,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
               children: [
                 Icon(Icons.broken_image, color: Colors.red, size: 32),
                 SizedBox(height: 4),
-                Text('File not found', style: TextStyle(color: Colors.red, fontSize: 10)),
+                Text('File not found',
+                    style: TextStyle(color: Colors.red, fontSize: 10)),
               ],
             ),
           ),
@@ -1425,7 +1440,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                 children: [
                   Icon(Icons.broken_image, color: Colors.red, size: 32),
                   SizedBox(height: 4),
-                  Text('Failed to load', style: TextStyle(color: Colors.red, fontSize: 10)),
+                  Text('Failed to load',
+                      style: TextStyle(color: Colors.red, fontSize: 10)),
                 ],
               ),
             ),
@@ -1466,7 +1482,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
             // If selected and tap is on control handle, don't toggle selection
             if (isSelected &&
                 _lastTapPosition != null &&
-                _isOnControlHandle(_lastTapPosition!, Size(width, height), type: 'photo')) {
+                _isOnControlHandle(_lastTapPosition!, Size(width, height),
+                    type: 'photo')) {
               _lastTapPosition = null;
               return;
             }
@@ -1929,29 +1946,37 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildToolbarItem(
-                  icon: Icons.text_fields_rounded,
-                  label: 'Text',
-                  index: 0,
-                  onTap: _addText,
+                Expanded(
+                  child: _buildToolbarItem(
+                    icon: Icons.text_fields_rounded,
+                    label: 'Text',
+                    index: 0,
+                    onTap: _addText,
+                  ),
                 ),
-                _buildToolbarItem(
-                  icon: Icons.emoji_emotions_outlined,
-                  label: 'Sticker',
-                  index: 1,
-                  onTap: _showStickerPicker,
+                Expanded(
+                  child: _buildToolbarItem(
+                    icon: Icons.emoji_emotions_outlined,
+                    label: 'Sticker',
+                    index: 1,
+                    onTap: _showStickerPicker,
+                  ),
                 ),
-                _buildToolbarItem(
-                  icon: Icons.photo_library_rounded,
-                  label: 'Photo',
-                  index: 2,
-                  onTap: _pickNewPhoto,
+                Expanded(
+                  child: _buildToolbarItem(
+                    icon: Icons.photo_library_rounded,
+                    label: 'Photo',
+                    index: 2,
+                    onTap: _pickNewPhoto,
+                  ),
                 ),
-                _buildToolbarItem(
-                  icon: Icons.format_color_fill_rounded,
-                  label: 'Color',
-                  index: 3,
-                  onTap: _showBackgroundColorPicker,
+                Expanded(
+                  child: _buildToolbarItem(
+                    icon: Icons.format_color_fill_rounded,
+                    label: 'Color',
+                    index: 3,
+                    onTap: _showBackgroundColorPicker,
+                  ),
                 ),
               ],
             ),
@@ -1992,41 +2017,18 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
         ),
         curve: Curves.easeOut,
         padding: const EdgeInsets.symmetric(
-          horizontal: DesignTokens.spacingMedium,
-          vertical: DesignTokens.spacingMedium,
+          horizontal: DesignTokens.spacingBase,
+          vertical: DesignTokens.spacingSmall,
         ),
         decoration: BoxDecoration(
-          gradient: isSelected
-              ? LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    DesignTokens.brandColor.withValues(alpha: 0.15),
-                    DesignTokens.brandAccent.withValues(alpha: 0.1),
-                  ],
-                )
-              : null,
-          color: !isSelected ? Colors.transparent : null,
-          borderRadius: BorderRadius.circular(DesignTokens.radiusLarge),
-          border: Border.all(
-            color: isSelected ? DesignTokens.brandColor : Colors.transparent,
-            width: 2,
-          ),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: DesignTokens.brandColor.withValues(alpha: 0.2),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : null,
+          color: isSelected ? const Color(0xFFEDE9FE) : Colors.transparent,
+          borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
         ),
         child: Semantics(
           button: true,
           label: label,
           selected: isSelected,
-          child: Row(
+          child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
@@ -2036,7 +2038,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                     : DesignTokens.textSecondary,
                 size: 22,
               ),
-              const SizedBox(width: DesignTokens.spacingBase),
+              const SizedBox(height: DesignTokens.spacingBase),
               Text(
                 label,
                 style: GoogleFonts.lexend(
@@ -2964,59 +2966,76 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
   }
 
   void _showStickerPicker() {
-    // Initialize with first set if not set
-    if (_selectedStickerSetId == null) {
-      _selectedStickerSetId = stickerSets.first.id;
-    }
+    _selectedStickerSetId ??= stickerSets.first.id;
+    var selectedSetId = _selectedStickerSetId!;
 
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.32),
       isScrollControlled: true,
+      useSafeArea: true,
+      constraints: const BoxConstraints(maxWidth: 640),
       builder: (context) => StatefulBuilder(
         builder: (context, setModalState) {
-          // Use parent state instead
-          String? selectedSetId = _selectedStickerSetId;
+          final selectedSet = stickerSets.firstWhere(
+            (set) => set.id == selectedSetId,
+          );
 
           return Container(
-            height: MediaQuery.of(context).size.height * 0.7,
-            decoration: const BoxDecoration(
-              color: DesignTokens.surfacePrimary,
+            height: MediaQuery.sizeOf(context).height * 0.78,
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF9F8FC),
               borderRadius: BorderRadius.vertical(
-                top: Radius.circular(DesignTokens.radiusCircular),
+                top: Radius.circular(DesignTokens.radiusXLarge),
               ),
             ),
             child: Column(
               children: [
-                // Header
+                const SizedBox(height: DesignTokens.spacingMedium),
+                Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD1CED8),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
                 Padding(
-                  padding: const EdgeInsets.all(DesignTokens.spacingLarge),
+                  padding: const EdgeInsets.fromLTRB(
+                    DesignTokens.spacingXLarge,
+                    DesignTokens.spacingLarge,
+                    DesignTokens.spacingMedium,
+                    DesignTokens.spacingMedium,
+                  ),
                   child: Row(
                     children: [
-                      Text(
-                        'Stickers',
-                        style: GoogleFonts.lexend(
-                          fontSize: DesignTokens.fontSizeTitle,
-                          fontWeight: DesignTokens.weightSemiBold,
-                          color: DesignTokens.textPrimary,
+                      Expanded(
+                        child: Text(
+                          'Add a sticker',
+                          style: GoogleFonts.lexend(
+                            fontSize: DesignTokens.fontSizeTitle,
+                            fontWeight: DesignTokens.weightBold,
+                            color: DesignTokens.textPrimary,
+                          ),
                         ),
                       ),
-                      const Spacer(),
                       IconButton(
-                        icon: const Icon(Icons.close),
+                        tooltip: 'Close sticker picker',
+                        icon: const Icon(Icons.close_rounded),
+                        color: DesignTokens.textSecondary,
                         onPressed: () => Navigator.pop(context),
                       ),
                     ],
                   ),
                 ),
-
-                // Set selector tabs
                 SizedBox(
-                  height: 60,
+                  height: 64,
                   child: ListView.builder(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(
-                      horizontal: DesignTokens.spacingLarge,
+                      horizontal: DesignTokens.spacingXLarge,
                     ),
                     itemCount: stickerSets.length,
                     itemBuilder: (context, index) {
@@ -3025,66 +3044,55 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
 
                       return Padding(
                         padding: const EdgeInsets.only(
-                          right: DesignTokens.spacingMedium,
+                          right: DesignTokens.spacingSmall,
                         ),
-                        child: GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              _selectedStickerSetId = set.id;
-                            });
-                            setModalState(() {
-                              selectedSetId = set.id;
-                            });
-                          },
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: DesignTokens.spacingLarge,
-                              vertical: DesignTokens.spacingSmall,
+                        child: Semantics(
+                          button: true,
+                          selected: isSelected,
+                          label: '${set.name} sticker pack',
+                          child: InkWell(
+                            key: ValueKey('sticker-pack-${set.id}'),
+                            borderRadius: BorderRadius.circular(
+                              DesignTokens.radiusMedium,
                             ),
-                            decoration: BoxDecoration(
-                              gradient: isSelected
-                                  ? LinearGradient(
-                                      colors: [
-                                        DesignTokens.brandColor,
-                                        DesignTokens.brandAccent,
-                                      ],
-                                    )
-                                  : null,
-                              color: !isSelected ? Colors.grey.shade100 : null,
-                              borderRadius: BorderRadius.circular(
-                                DesignTokens.radiusXLarge,
+                            onTap: () {
+                              HapticFeedback.selectionClick();
+                              setModalState(() {
+                                selectedSetId = set.id;
+                              });
+                              setState(() => _selectedStickerSetId = set.id);
+                            },
+                            child: AnimatedContainer(
+                              duration: const Duration(
+                                milliseconds: DesignTokens.durationFast,
                               ),
-                              border: Border.all(
+                              curve: DesignTokens.curveEaseOut,
+                              width: 56,
+                              height: 56,
+                              padding: const EdgeInsets.all(7),
+                              decoration: BoxDecoration(
                                 color: isSelected
-                                    ? DesignTokens.brandColor
+                                    ? const Color(0xFFEDE9FE)
                                     : Colors.transparent,
-                                width: 2,
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (set.isLocked) ...[
-                                  const Icon(
-                                    Icons.lock,
-                                    size: 16,
-                                    color: DesignTokens.textSecondary,
-                                  ),
-                                  const SizedBox(
-                                      width: DesignTokens.spacingSmall),
-                                ],
-                                Text(
-                                  set.name,
-                                  style: GoogleFonts.lexend(
-                                    fontSize: DesignTokens.fontSizeBody,
-                                    fontWeight: DesignTokens.weightSemiBold,
-                                    color: isSelected
-                                        ? Colors.white
-                                        : DesignTokens.textSecondary,
-                                  ),
+                                borderRadius: BorderRadius.circular(
+                                  DesignTokens.radiusMedium,
                                 ),
-                              ],
+                                border: Border.all(
+                                  color: isSelected
+                                      ? DesignTokens.brandColor
+                                      : Colors.transparent,
+                                  width: isSelected ? 1.5 : 1,
+                                ),
+                              ),
+                              child: Image.asset(
+                                getStickerAsset(set.id, 0),
+                                fit: BoxFit.contain,
+                                errorBuilder: (_, __, ___) => const Icon(
+                                  Icons.emoji_emotions_outlined,
+                                  color: DesignTokens.textMuted,
+                                  size: 20,
+                                ),
+                              ),
                             ),
                           ),
                         ),
@@ -3092,40 +3100,10 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                     },
                   ),
                 ),
-
-                const Divider(height: 1),
-
-                // Stickers grid
+                const SizedBox(height: DesignTokens.spacingMedium),
+                const Divider(height: 1, color: Color(0xFFE7E5EB)),
                 Expanded(
-                  child: selectedSetId == null
-                      // Empty state - select a set first
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.collections_outlined,
-                                size: 64,
-                                color: DesignTokens.textSecondary
-                                    .withValues(alpha: 0.5),
-                              ),
-                              const SizedBox(
-                                  height: DesignTokens.spacingMedium),
-                              Text(
-                                'Select a sticker set',
-                                style: GoogleFonts.lexend(
-                                  fontSize: DesignTokens.fontSizeBody,
-                                  color: DesignTokens.textSecondary,
-                                ),
-                              ),
-                            ],
-                          ),
-                        )
-                      : _buildStickerGrid(
-                          stickerSets.firstWhere(
-                            (s) => s.id == selectedSetId,
-                          ),
-                        ),
+                  child: _buildStickerGrid(selectedSet),
                 ),
               ],
             ),
@@ -3137,96 +3115,119 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
 
   Widget _buildStickerGrid(StickerSet set) {
     if (set.isLocked) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.lock_outline,
-              size: 64,
-              color: DesignTokens.textSecondary.withValues(alpha: 0.5),
+      return Semantics(
+        label: '${set.name} sticker pack is locked',
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(DesignTokens.spacingXLarge),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFEDE9FE),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.lock_outline_rounded,
+                    size: 28,
+                    color: DesignTokens.brandColor,
+                  ),
+                ),
+                const SizedBox(height: DesignTokens.spacingLarge),
+                Text(
+                  'This sticker pack is locked',
+                  style: GoogleFonts.lexend(
+                    fontSize: DesignTokens.fontSizeTitle,
+                    fontWeight: DesignTokens.weightSemiBold,
+                    color: DesignTokens.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: DesignTokens.spacingSmall),
+                Text(
+                  'Keep your learning streak for ${set.requiredStreakDays ?? 0} days to unlock this pack.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.lexend(
+                    fontSize: DesignTokens.fontSizeBody,
+                    color: DesignTokens.textSecondary,
+                    height: 1.45,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: DesignTokens.spacingMedium),
-            Text(
-              'Locked',
-              style: GoogleFonts.lexend(
-                fontSize: DesignTokens.fontSizeTitle,
-                fontWeight: DesignTokens.weightSemiBold,
-                color: DesignTokens.textSecondary,
-              ),
-            ),
-            const SizedBox(height: DesignTokens.spacingSmall),
-            Text(
-              'Collect for ${set.requiredStreakDays} days to unlock',
-              style: GoogleFonts.lexend(
-                fontSize: DesignTokens.fontSizeBody,
-                color: DesignTokens.textSecondary,
-              ),
-            ),
-          ],
+          ),
         ),
       );
     }
 
-    return GridView.builder(
-      padding: const EdgeInsets.all(DesignTokens.spacingLarge),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 4,
-        childAspectRatio: 1,
-        mainAxisSpacing: DesignTokens.spacingMedium,
-        crossAxisSpacing: DesignTokens.spacingMedium,
-      ),
-      itemCount: set.count,
-      itemBuilder: (context, index) {
-        final assetPath = getStickerAsset(set.id, index);
+    return Scrollbar(
+      child: GridView.builder(
+        padding: const EdgeInsets.fromLTRB(
+          DesignTokens.spacingXLarge,
+          DesignTokens.spacingLarge,
+          DesignTokens.spacingXLarge,
+          DesignTokens.spacingXXLarge,
+        ),
+        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: 112,
+          childAspectRatio: 1,
+          mainAxisSpacing: DesignTokens.spacingMedium,
+          crossAxisSpacing: DesignTokens.spacingMedium,
+        ),
+        itemCount: set.count,
+        itemBuilder: (context, index) {
+          final assetPath = getStickerAsset(set.id, index);
 
-        return GestureDetector(
-          onTap: () {
-            setState(() {
-              _stickers.add(ScrapbookSticker(
-                id: DateTime.now().millisecondsSinceEpoch.toString(),
-                emoji: assetPath, // Store asset path instead of emoji
-                x: 0.5,
-                y: 0.5,
-              ));
-            });
-            Navigator.pop(context);
-            HapticFeedback.lightImpact();
-          },
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.grey.shade50,
+          return Semantics(
+            button: true,
+            label: '${set.name} sticker ${index + 1}',
+            child: Material(
+              color: Colors.white,
               borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.5),
-                width: 1,
-              ),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
-              child: Image.asset(
-                assetPath,
-                fit: BoxFit.contain,
-                errorBuilder: (context, error, stackTrace) {
-                  return Center(
-                    child: Icon(
-                      Icons.image_not_supported_outlined,
-                      size: 32,
-                      color: DesignTokens.textSecondary.withValues(alpha: 0.3),
-                    ),
-                  );
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: () {
+                  setState(() {
+                    _stickers.add(ScrapbookSticker(
+                      id: DateTime.now().microsecondsSinceEpoch.toString(),
+                      emoji: assetPath,
+                      x: 0.5,
+                      y: 0.5,
+                    ));
+                  });
+                  HapticFeedback.lightImpact();
+                  Navigator.pop(context);
                 },
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Image.asset(
+                    assetPath,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) {
+                      return const Center(
+                        child: Icon(
+                          Icons.image_not_supported_outlined,
+                          size: 28,
+                          color: DesignTokens.textMuted,
+                        ),
+                      );
+                    },
+                  ),
+                ),
               ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 
   /// Copy image to app's permanent storage directory
   /// Returns the permanent path where the image was copied
-  Future<String> _copyImageToPermanentStorage(String sourcePath, String scrapbookId) async {
+  Future<String> _copyImageToPermanentStorage(
+      String sourcePath, String scrapbookId) async {
     try {
       // Get app's document directory
       final Directory appDir = await getApplicationDocumentsDirectory();
@@ -3271,7 +3272,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
 
       if (image != null && mounted) {
         // Copy image to permanent storage before adding
-        final permanentPath = await _copyImageToPermanentStorage(image.path, _permanentScrapbookId);
+        final permanentPath = await _copyImageToPermanentStorage(
+            image.path, _permanentScrapbookId);
 
         setState(() {
           // Position photo at center of canvas
@@ -3605,7 +3607,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
   }
 
   // Check if a local position is on any control handle
-  bool _isOnControlHandle(Offset localPosition, Size itemSize, {String type = 'text'}) {
+  bool _isOnControlHandle(Offset localPosition, Size itemSize,
+      {String type = 'text'}) {
     const handleSize = 32.0;
     const offset = 12.0;
     const touchPadding = 4.0;
@@ -3736,7 +3739,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
   // Handle horizontal resize from left/right handles
   void _handleHorizontalResizeUpdate(
       Offset currentPosition, String itemId, String handle) {
-    if (_resizeStartPos == null || _initialWidth == null || _canvasSize == null) return;
+    if (_resizeStartPos == null || _initialWidth == null || _canvasSize == null)
+      return;
 
     // Calculate horizontal distance change
     final deltaX = currentPosition.dx - _resizeStartPos!.dx;
@@ -3983,7 +3987,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     // For left/top: handle center should be at targetRadius from the edge
     // SizedBox width is handleSize + 2*invisibleTouchPadding = 36
     // Container center is at offset + 18, so offset = targetRadius - 18 = 6
-    final handleOffset = targetRadius - invisibleTouchPadding - (handleSize / 2);
+    final handleOffset =
+        targetRadius - invisibleTouchPadding - (handleSize / 2);
 
     // Build the list of handles - text has only 2, stickers/photos have 4
     final List<Widget> handles = [];
@@ -4176,7 +4181,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
 
                 if (type == 'sticker') {
                   final original = _stickers.firstWhere((s) => s.id == itemId);
-                  newElementId = DateTime.now().millisecondsSinceEpoch.toString();
+                  newElementId =
+                      DateTime.now().millisecondsSinceEpoch.toString();
                   _stickers.add(ScrapbookSticker(
                     id: newElementId,
                     emoji: original.emoji,
@@ -4189,7 +4195,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                 } else if (type == 'photo') {
                   final original =
                       _additionalPhotos.firstWhere((p) => p.id == itemId);
-                  newElementId = DateTime.now().millisecondsSinceEpoch.toString();
+                  newElementId =
+                      DateTime.now().millisecondsSinceEpoch.toString();
                   _additionalPhotos.add(ScrapbookPhoto(
                     id: newElementId,
                     imagePath: original.imagePath,
@@ -4263,7 +4270,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                   final index =
                       _additionalPhotos.indexWhere((p) => p.id == itemId);
                   if (index != -1) {
-                    _additionalPhotos[index] = _additionalPhotos[index].copyWith(
+                    _additionalPhotos[index] =
+                        _additionalPhotos[index].copyWith(
                       flip: !_additionalPhotos[index].flip,
                     );
                   }
