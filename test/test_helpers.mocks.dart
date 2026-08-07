@@ -3898,24 +3898,36 @@ class MockReviewService extends _i1.Mock implements _i12.ReviewService {
       ) as _i4.HiveService);
 
   @override
-  _i3.Future<List<_i8.WordCardModel>> getDueCards({int? limit = 5}) =>
+  _i3.Future<List<_i8.WordCardModel>> getDueCards({
+    int? limit = 5,
+    String? topicFilter,
+  }) =>
       (super.noSuchMethod(
         Invocation.method(
           #getDueCards,
           [],
-          {#limit: limit},
+          {
+            #limit: limit,
+            #topicFilter: topicFilter,
+          },
         ),
         returnValue:
             _i3.Future<List<_i8.WordCardModel>>.value(<_i8.WordCardModel>[]),
       ) as _i3.Future<List<_i8.WordCardModel>>);
 
   @override
-  _i3.Future<List<_i7.VocabularyModel>> getNewVocabularies({int? limit = 5}) =>
+  _i3.Future<List<_i7.VocabularyModel>> getNewVocabularies({
+    int? limit = 5,
+    String? topicFilter,
+  }) =>
       (super.noSuchMethod(
         Invocation.method(
           #getNewVocabularies,
           [],
-          {#limit: limit},
+          {
+            #limit: limit,
+            #topicFilter: topicFilter,
+          },
         ),
         returnValue: _i3.Future<List<_i7.VocabularyModel>>.value(
             <_i7.VocabularyModel>[]),
@@ -3958,10 +3970,12 @@ class MockReviewService extends _i1.Mock implements _i12.ReviewService {
       ) as _i3.Future<_i8.WordCardModel?>);
 
   @override
-  _i3.Future<List<_i8.WordCardModel>> getReviewSession() => (super.noSuchMethod(
+  _i3.Future<List<_i8.WordCardModel>> getReviewSession({String? topicFilter}) =>
+      (super.noSuchMethod(
         Invocation.method(
           #getReviewSession,
           [],
+          {#topicFilter: topicFilter},
         ),
         returnValue:
             _i3.Future<List<_i8.WordCardModel>>.value(<_i8.WordCardModel>[]),

@@ -88,6 +88,7 @@ class WordCardModel extends Equatable {
   }
 
   /// Create from local JSON (camelCase - for Hive storage)
+  /// Note: dueDate is stored in local time (set by FSRS via .toLocal())
   factory WordCardModel.fromJson(Map<String, dynamic> json) {
     return WordCardModel(
       id: json['id'] as String,
@@ -96,6 +97,7 @@ class WordCardModel extends Equatable {
       stability: (json['stability'] as num?)?.toDouble() ?? 0,
       difficulty: (json['difficulty'] as num?)?.toDouble() ?? 0,
       state: CardState.fromString(json['state'] as String? ?? 'new'),
+      // Parse ISO-8601 string - assumes local time (matches FSRS .toLocal())
       dueDate: DateTime.parse(json['dueDate'] as String),
       lastReview: json['lastReview'] != null
           ? DateTime.parse(json['lastReview'] as String)
@@ -226,7 +228,12 @@ class WordCardModel extends Equatable {
   }
 
   /// Check if card is due for review
-  bool get isDue => DateTime.now().isAfter(dueDate) || DateTime.now().isAtSameMomentAs(dueDate);
+  /// Uses millisecondsSinceEpoch comparison to avoid timezone and microsecond issues
+  bool get isDue {
+    final now = DateTime.now();
+    // Use milliseconds to avoid timezone/microsecond comparison issues
+    return now.millisecondsSinceEpoch >= dueDate.millisecondsSinceEpoch;
+  }
 
   @override
   List<Object?> get props => [

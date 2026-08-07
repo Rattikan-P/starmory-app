@@ -123,9 +123,38 @@ class GeminiService {
     }
 
     // System instruction with all the rules
+    final topicPrompt = '''
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TOPIC CATEGORIZATION PER WORD
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+For EACH vocabulary item, select exactly ONE category that best describes it:
+
+  • food          — Food, drinks, cooking, restaurants
+  • people        — People, family members, professions, relationships
+  • nature        — Animals, plants, weather, landscape, environment
+  • home          — Furniture, rooms, household items
+  • daily_life    — Daily routines, transportation, places, locations
+  • clothing      — Clothing, shoes, accessories, fashion
+  • hobbies       — Sports, games, leisure activities, arts
+  • education     — School, learning, subjects, studying
+  • work          — Office, business, jobs, meetings
+  • technology    — Computers, phones, apps, digital devices
+  • health        — Body, medicine, hospital, fitness
+  • entertainment — Movies, music, games, fun activities
+  • other         — Anything that doesn't fit the above categories
+
+IMPORTANT: Each word gets its own topic based on what THAT word represents.
+Examples:
+• "phone" → technology
+• "jacket" → clothing
+• "glasses" → health (vision care) or accessories
+• "stand" (verb) → daily_life (action)''';
+
     final systemInstruction = '''
 You are a visual vocabulary extraction engine for a language learning app called "Starmory".
 Analyze the image and extract exactly 5 vocabulary items with bounding boxes.
+
+$topicPrompt
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 WORD EXTRACTION RULES
@@ -208,6 +237,7 @@ Return strictly valid JSON only — no markdown, no explanation, no extra text.
       "word": "string",
       "type": "noun" | "verb",
       "thai": "string",
+      "topic": "string",
       "bounding_box": {
         "x_min": 0.0,
         "y_min": 0.0,
@@ -218,7 +248,7 @@ Return strictly valid JSON only — no markdown, no explanation, no extra text.
   ]
 }
 
-Return exactly 5 items.''';
+Return exactly 5 items. Each item MUST have its own topic field.''';
 
     // User prompt with just the parameters
     final userPrompt = TextPart('''
@@ -619,6 +649,7 @@ class VocabularyItem {
   final String word;
   final String type; // 'noun' or 'verb'
   final String thai;
+  final String topic; // Topic category for this specific word
   final BoundingBox boundingBox;
   final String? englishSentence; // Pre-generated sentence (optional)
   final String? thaiSentence; // Pre-generated Thai translation (optional)
@@ -627,6 +658,7 @@ class VocabularyItem {
     required this.word,
     required this.type,
     required this.thai,
+    required this.topic,
     required this.boundingBox,
     this.englishSentence,
     this.thaiSentence,
@@ -637,6 +669,7 @@ class VocabularyItem {
       word: json['word'] as String,
       type: json['type'] as String? ?? 'noun',
       thai: json['thai'] as String,
+      topic: json['topic'] as String? ?? 'other',
       boundingBox: BoundingBox.fromJson(
         json['bounding_box'] as Map<String, dynamic>? ?? {},
       ),
@@ -651,6 +684,7 @@ class VocabularyItem {
       word: word,
       type: type,
       thai: this.thai,
+      topic: this.topic,
       boundingBox: boundingBox,
       englishSentence: english,
       thaiSentence: thai,

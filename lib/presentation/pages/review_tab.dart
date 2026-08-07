@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'review_session_page.dart';
@@ -15,16 +16,36 @@ class ReviewTab extends ConsumerStatefulWidget {
 
 class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserver {
   bool _hasInitialized = false;
+  Timer? _refreshTimer;
+  DateTime? _lastLoadTime;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    print('🔄 ReviewTab: initState - setting up 2 min timer');
+
+    // Auto-refresh every 2 minutes
+    _refreshTimer = Timer.periodic(const Duration(minutes: 2), (_) {
+      print('🔄 ReviewTab: Timer fired (2 min) - calling loadSession');
+      if (_hasInitialized) {
+        ref.read(reviewStateProvider.notifier).loadSession();
+      }
+    });
+
+    // Load initial session after first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _hasInitialized = true;
+      _lastLoadTime = DateTime.now();
+      print('🔄 ReviewTab: Initial load session');
+      ref.read(reviewStateProvider.notifier).loadSession();
+    });
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _refreshTimer?.cancel();
     super.dispose();
   }
 
@@ -32,18 +53,27 @@ class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserv
   void didChangeAppLifecycleState(AppLifecycleState state) {
     // Reload when app is resumed (e.g., returning from review session)
     if (state == AppLifecycleState.resumed && _hasInitialized) {
+      _reloadSession();
+    }
+  }
+
+  void _reloadSession() {
+    final now = DateTime.now();
+    final shouldLoad = _lastLoadTime == null ||
+        now.difference(_lastLoadTime!).inSeconds >= 5;
+
+    if (shouldLoad) {
+      _lastLoadTime = now;
+      print('🔄 ReviewTab: Reloading session (debounce: 5s)');
       ref.read(reviewStateProvider.notifier).loadSession();
+    } else {
+      print('🔄 ReviewTab: Skipped reload (debounced)');
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final reviewState = ref.watch(reviewStateProvider);
-
-    // Mark as initialized after first build
-    if (!_hasInitialized) {
-      _hasInitialized = true;
-    }
 
     return GalaxyScreenBackground(
       child: Scaffold(

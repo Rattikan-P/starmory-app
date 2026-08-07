@@ -12,6 +12,7 @@ class VocabularyModel extends Equatable {
   final String communicativeFunction; // Indicative, Imperative, Subjunctive/Wish, Conditionals
   final String languageVariant; // US, UK
   final String imageUrl;
+  final String topic; // Category: food, people, nature, home, daily_life, clothing, hobbies, education, work, technology, health, entertainment, other
 
   final DateTime createdAt;
   final DateTime? updatedAt;
@@ -29,6 +30,7 @@ class VocabularyModel extends Equatable {
     required this.communicativeFunction,
     required this.languageVariant,
     required this.imageUrl,
+    required this.topic,
     required this.createdAt,
     this.updatedAt,
     this.tags = const [],
@@ -46,6 +48,7 @@ class VocabularyModel extends Equatable {
     required String communicativeFunction,
     required String languageVariant,
     required String imageUrl,
+    required String topic,
     List<String> tags = const [],
   }) {
     return VocabularyModel(
@@ -59,6 +62,7 @@ class VocabularyModel extends Equatable {
       communicativeFunction: communicativeFunction,
       languageVariant: languageVariant,
       imageUrl: imageUrl,
+      topic: topic,
       createdAt: DateTime.now(),
       tags: tags,
     );
@@ -80,6 +84,7 @@ class VocabularyModel extends Equatable {
     String? communicativeFunction,
     String? languageVariant,
     String? imageUrl,
+    String? topic,
     DateTime? createdAt,
     DateTime? updatedAt,
     List<String>? tags,
@@ -96,6 +101,7 @@ class VocabularyModel extends Equatable {
       communicativeFunction: communicativeFunction ?? this.communicativeFunction,
       languageVariant: languageVariant ?? this.languageVariant,
       imageUrl: imageUrl ?? this.imageUrl,
+      topic: topic ?? this.topic,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       tags: tags ?? this.tags,
@@ -116,6 +122,7 @@ class VocabularyModel extends Equatable {
       'communicativeFunction': communicativeFunction,
       'languageVariant': languageVariant,
       'imageUrl': imageUrl,
+      'topic': topic,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
       'tags': tags,
@@ -136,6 +143,7 @@ class VocabularyModel extends Equatable {
       communicativeFunction: json['communicativeFunction'] as String,
       languageVariant: json['languageVariant'] as String,
       imageUrl: json['imageUrl'] as String,
+      topic: json['topic'] as String? ?? 'other',
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: json['updatedAt'] != null
           ? DateTime.parse(json['updatedAt'] as String)
@@ -158,6 +166,7 @@ class VocabularyModel extends Equatable {
       communicativeFunction: json['communicative_function'] as String,
       languageVariant: json['language_variant'] as String,
       imageUrl: json['image_url'] as String? ?? '',
+      topic: json['topic'] as String? ?? 'other',
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: json['updated_at'] != null
           ? DateTime.parse(json['updated_at'] as String)

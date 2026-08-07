@@ -187,6 +187,7 @@ WordCardModel _createTestCard(String id, DateTime dueDate) {
       communicativeFunction: 'describing',
       languageVariant: 'US',
       imageUrl: '',
+      topic: 'other',
       createdAt: DateTime.now(),
     ),
   );

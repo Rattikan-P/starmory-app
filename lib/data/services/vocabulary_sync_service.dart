@@ -51,6 +51,7 @@ class VocabularySyncService {
         'communicative_function': vocabulary.communicativeFunction,
         'language_variant': vocabulary.languageVariant,
         'image_url': vocabulary.imageUrl,
+        'topic': vocabulary.topic,
         'tags': vocabulary.tags,
         'is_favorite': vocabulary.isFavorite,
         'created_at': vocabulary.createdAt.toIso8601String(),
@@ -84,6 +85,7 @@ class VocabularySyncService {
             'communicative_function': vocabulary.communicativeFunction,
             'language_variant': vocabulary.languageVariant,
             'image_url': vocabulary.imageUrl,
+            'topic': vocabulary.topic,
             'tags': vocabulary.tags,
             'is_favorite': vocabulary.isFavorite,
             'updated_at': DateTime.now().toIso8601String(),
@@ -205,6 +207,7 @@ class VocabularySyncService {
           'communicative_function': vocab.communicativeFunction,
           'language_variant': vocab.languageVariant,
           'image_url': finalImageUrl,  // Use cloud URL or fallback to local
+          'topic': vocab.topic,
           'tags': vocab.tags,
           'is_favorite': vocab.isFavorite,
           'created_at': vocab.createdAt.toIso8601String(),
