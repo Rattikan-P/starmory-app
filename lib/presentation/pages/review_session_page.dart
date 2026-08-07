@@ -3,15 +3,40 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/providers.dart';
 import '../widgets/review_card_widget.dart';
 import '../widgets/galaxy_screen_background.dart';
+import '../../utils/topic_categories.dart';
 
 /// Review Session Page
 /// Main review interface with flip cards and feedback
-class ReviewSessionPage extends ConsumerWidget {
-  const ReviewSessionPage({super.key});
+class ReviewSessionPage extends ConsumerStatefulWidget {
+  final String? topicFilter;
+
+  const ReviewSessionPage({super.key, this.topicFilter});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ReviewSessionPage> createState() => _ReviewSessionPageState();
+}
+
+class _ReviewSessionPageState extends ConsumerState<ReviewSessionPage> {
+  bool _hasTriedLoading = false;
+  String? _currentTopicFilter;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentTopicFilter = widget.topicFilter;
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final reviewState = ref.watch(reviewStateProvider);
+
+    // Load session with topic filter on first build only
+    if (!_hasTriedLoading && !reviewState.isLoading && reviewState.cards.isEmpty && reviewState.error == null) {
+      _hasTriedLoading = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(reviewStateProvider.notifier).loadSession(topicFilter: widget.topicFilter);
+      });
+    }
 
     return GalaxyScreenBackground(
       child: Scaffold(
@@ -49,20 +74,43 @@ class ReviewSessionPage extends ConsumerWidget {
             ),
             if (!reviewState.isLoading && reviewState.cards.isNotEmpty)
               Padding(
-                padding: const EdgeInsets.all(16),
-                child: Center(
-                  child: Text(
-                    '${reviewState.currentIndex + 1}/${reviewState.sessionCount}',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    // Current batch progress (primary)
+                    Text(
+                      '${reviewState.currentIndex + 1}/${reviewState.sessionCount}',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
+                    // Remaining cards count (secondary)
+                    if (reviewState.remainingDueCount > 0)
+                      Text(
+                        '+${reviewState.remainingDueCount} more',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.white.withValues(alpha: 0.7),
+                        ),
+                      ),
+                  ],
                 ),
               ),
           ],
         ),
-        body: _buildBody(context, ref, reviewState),
+        body: Column(
+          children: [
+            // Filter Chips
+            _buildFilterChips(reviewState),
+            // Main content
+            Expanded(
+              child: _buildBody(context, ref, reviewState),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -113,6 +161,72 @@ class ReviewSessionPage extends ConsumerWidget {
     }
 
     return _buildCardSwipe(context, ref, currentCard);
+  }
+
+  /// Build horizontal filter chips
+  Widget _buildFilterChips(ReviewState state) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            // "All" chip
+            _buildFilterChip(
+              label: 'All',
+              isSelected: _currentTopicFilter == null,
+              onTap: () => _applyFilter(null),
+            ),
+            const SizedBox(width: 8),
+            // Category chips
+            ...TopicCategories.all.map((topic) {
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: _buildFilterChip(
+                  label: TopicCategories.getDisplayNameTh(topic),
+                  isSelected: _currentTopicFilter == topic,
+                  onTap: () => _applyFilter(topic),
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Build single filter chip
+  Widget _buildFilterChip({
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return FilterChip(
+      label: Text(label),
+      selected: isSelected,
+      onSelected: (_) => onTap(),
+      selectedColor: const Color(0xFF8B7CF6).withValues(alpha: 0.3),
+      checkmarkColor: const Color(0xFF8B7CF6),
+      backgroundColor: Colors.white.withValues(alpha: 0.1),
+      labelStyle: TextStyle(
+        color: isSelected ? const Color(0xFF8B7CF6) : Colors.white70,
+        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+      ),
+      side: BorderSide(
+        color: isSelected ? const Color(0xFF8B7CF6) : Colors.white.withValues(alpha: 0.3),
+      ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+      ),
+    );
+  }
+
+  /// Apply filter and reload session
+  void _applyFilter(String? topic) {
+    setState(() {
+      _currentTopicFilter = topic;
+    });
+    ref.read(reviewStateProvider.notifier).loadSession(topicFilter: topic);
   }
 
   Widget _buildEmptyState(BuildContext context) {

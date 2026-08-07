@@ -141,6 +141,7 @@ class _InteractiveVocabularyScreenState
           thaiSentence: item.thaiSentence ?? '',
           tone: defaultTone,
           category: defaultCategory,
+          topic: item.topic,
         );
       }).toList();
 
@@ -2076,6 +2077,7 @@ class _InteractiveVocabularyScreenState
         communicativeFunction: widget.communicativeFunction,
         languageVariant: 'US',
         imageUrl: finalImageUrl,
+        topic: dot.topic,
         tags: [dot.tone, dot.category],
         createdAt: DateTime.now(),
       );
@@ -2487,6 +2489,7 @@ class _VocabularyDot {
   final String thaiSentence;
   final String tone;
   final String category;
+  final String topic;
 
   _VocabularyDot({
     required this.id,
@@ -2499,6 +2502,7 @@ class _VocabularyDot {
     required this.thaiSentence,
     required this.tone,
     required this.category,
+    required this.topic,
   });
 
   _VocabularyDot copyWith({
@@ -2512,6 +2516,7 @@ class _VocabularyDot {
     String? thaiSentence,
     String? tone,
     String? category,
+    String? topic,
   }) {
     return _VocabularyDot(
       id: id ?? this.id,
@@ -2524,6 +2529,7 @@ class _VocabularyDot {
       thaiSentence: thaiSentence ?? this.thaiSentence,
       tone: tone ?? this.tone,
       category: category ?? this.category,
+      topic: topic ?? this.topic,
     );
   }
 }

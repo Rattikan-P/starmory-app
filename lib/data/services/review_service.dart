@@ -27,26 +27,40 @@ class ReviewService {
 
   /// Get due cards for review (max 5)
   /// Guest: from Hive | Registered: from Supabase
-  Future<List<WordCardModel>> getDueCards({int limit = 5}) async {
+  Future<List<WordCardModel>> getDueCards({int limit = 5, String? topicFilter}) async {
     final userId = currentUserId;
 
     if (userId == null) {
       // Guest mode: get from Hive
-      return _getDueCardsFromHive(limit);
+      return _getDueCardsFromHive(limit, topicFilter);
     } else {
       // Registered mode: get from Supabase
-      return _getDueCardsFromSupabase(userId, limit);
+      return _getDueCardsFromSupabase(userId, limit, topicFilter);
     }
   }
 
   /// Get due cards from Hive (Guest mode)
-  Future<List<WordCardModel>> _getDueCardsFromHive(int limit) async {
+  Future<List<WordCardModel>> _getDueCardsFromHive(int limit, String? topicFilter) async {
     try {
       final allCards = await _hiveService.getWordCards();
       final now = DateTime.now();
 
+      // 🔍 DEBUG: Print all cards with due status
+      print('🔍 _getDueCardsFromHive: Total cards = ${allCards.length}');
+      print('🔍 Current time: $now (milliseconds: ${now.millisecondsSinceEpoch})');
+      for (var card in allCards) {
+        print('   Card ${card.id}: dueDate=${card.dueDate} (ms: ${card.dueDate.millisecondsSinceEpoch}), isDue=${card.isDue}');
+      }
+
       // Filter due cards
-      final dueCards = allCards.where((card) => card.isDue).toList();
+      var dueCards = allCards.where((card) => card.isDue).toList();
+      print('🔍 Due cards found: ${dueCards.length}');
+
+      // Apply topic filter if specified
+      if (topicFilter != null && topicFilter.isNotEmpty) {
+        dueCards = dueCards.where((card) =>
+          card.vocabulary?.topic == topicFilter).toList();
+      }
 
       // Sort by due date (FSRS determines when cards are due)
       dueCards.sort((a, b) => a.dueDate.compareTo(b.dueDate));
@@ -60,18 +74,34 @@ class ReviewService {
   }
 
   /// Get due cards from Supabase (Registered mode)
-  Future<List<WordCardModel>> _getDueCardsFromSupabase(String userId, int limit) async {
+  Future<List<WordCardModel>> _getDueCardsFromSupabase(String userId, int limit, String? topicFilter) async {
     try {
+      print('🔍 _getDueCardsFromSupabase: userId=$userId, limit=$limit, topicFilter=$topicFilter');
+
       final response = await _client
           .rpc('get_due_cards', params: {'p_user_id': userId, 'p_limit': limit});
 
-      if (response == null) return [];
+      print('🔍 Supabase response: $response');
+
+      if (response == null) {
+        print('🔍 Response is null');
+        return [];
+      }
 
       final List<dynamic> data = response as List<dynamic>;
+      print('🔍 Data length: ${data.length}');
+
       final cards = data
           .map((json) => WordCardModel.fromSupabaseWithVocabulary(
               json as Map<String, dynamic>))
           .toList();
+
+      // Debug: Print card info
+      final now = DateTime.now();
+      print('🔍 Current time: $now (ms: ${now.millisecondsSinceEpoch})');
+      for (var card in cards) {
+        print('   Card ${card.id}: dueDate=${card.dueDate} (ms: ${card.dueDate.millisecondsSinceEpoch}), isDue=${card.isDue}');
+      }
 
       // Sort by due date (FSRS determines when cards are due)
       cards.sort((a, b) => a.dueDate.compareTo(b.dueDate));
@@ -85,20 +115,20 @@ class ReviewService {
 
   /// Get new vocabularies (without cards) to fill session
   /// Returns vocabularies that don't have a word_card yet
-  Future<List<VocabularyModel>> getNewVocabularies({int limit = 5}) async {
+  Future<List<VocabularyModel>> getNewVocabularies({int limit = 5, String? topicFilter}) async {
     final userId = currentUserId;
 
     if (userId == null) {
       // Guest mode: get from Hive
-      return _getNewVocabulariesFromHive(limit);
+      return _getNewVocabulariesFromHive(limit, topicFilter);
     } else {
       // Registered mode: get from Supabase
-      return _getNewVocabulariesFromSupabase(userId, limit);
+      return _getNewVocabulariesFromSupabase(userId, limit, topicFilter);
     }
   }
 
   /// Get new vocabularies from Hive (Guest mode)
-  Future<List<VocabularyModel>> _getNewVocabulariesFromHive(int limit) async {
+  Future<List<VocabularyModel>> _getNewVocabulariesFromHive(int limit, String? topicFilter) async {
     try {
       final allVocab = await _hiveService.getAllVocabulary();
       final allCards = await _hiveService.getWordCards();
@@ -107,7 +137,12 @@ class ReviewService {
       final cardVocabIds = allCards.map((c) => c.vocabularyId).toSet();
 
       // Filter vocabularies without cards
-      final newVocab = allVocab.where((v) => !cardVocabIds.contains(v.id)).toList();
+      var newVocab = allVocab.where((v) => !cardVocabIds.contains(v.id)).toList();
+
+      // Apply topic filter if specified
+      if (topicFilter != null && topicFilter.isNotEmpty) {
+        newVocab = newVocab.where((v) => v.topic == topicFilter).toList();
+      }
 
       // Limit
       return newVocab.take(limit).toList();
@@ -119,7 +154,7 @@ class ReviewService {
 
   /// Get new vocabularies from Supabase (Registered mode)
   Future<List<VocabularyModel>> _getNewVocabulariesFromSupabase(
-      String userId, int limit) async {
+      String userId, int limit, String? topicFilter) async {
     try {
       // Get vocabularies that don't have cards yet
       // First, get IDs of vocabularies that already have cards
@@ -136,12 +171,12 @@ class ReviewService {
       final response = existingVocabIds.isEmpty
           ? await _client
               .from('vocabularies')
-              .select('id, word, part_of_speech, thai_translation, english_sentence, thai_sentence, cefr_level, communicative_function, language_variant, image_url, created_at, updated_at, tags, is_favorite')
+              .select('id, word, part_of_speech, thai_translation, english_sentence, thai_sentence, cefr_level, communicative_function, language_variant, image_url, created_at, updated_at, tags, is_favorite, topic')
               .eq('user_id', userId)
               .limit(limit)
           : await _client
               .from('vocabularies')
-              .select('id, word, part_of_speech, thai_translation, english_sentence, thai_sentence, cefr_level, communicative_function, language_variant, image_url, created_at, updated_at, tags, is_favorite')
+              .select('id, word, part_of_speech, thai_translation, english_sentence, thai_sentence, cefr_level, communicative_function, language_variant, image_url, created_at, updated_at, tags, is_favorite, topic')
               .eq('user_id', userId)
               .not('id', 'in', existingVocabIds)
               .limit(limit);
@@ -219,8 +254,8 @@ class ReviewService {
         id: _generateId(),
         userId: 'guest',
         vocabularyId: vocabularyId,
-        dueDate: DateTime.now(),
-        createdAt: DateTime.now(),
+        dueDate: DateTime.now().toUtc(),  // Use UTC for consistency
+        createdAt: DateTime.now().toUtc(),  // Use UTC for consistency
         vocabulary: vocabulary,
       );
 
@@ -296,9 +331,14 @@ class ReviewService {
   }
 
   /// Get a complete review session (due cards + new cards to fill 5)
-  Future<List<WordCardModel>> getReviewSession() async {
+  /// Optionally filter by topic category
+  Future<List<WordCardModel>> getReviewSession({String? topicFilter}) async {
+    final userId = currentUserId;
+    print('🔍 getReviewSession: userId=$userId, isLoggedIn=$isLoggedIn');
+
     // Get due cards first
-    final dueCards = await getDueCards(limit: 5);
+    final dueCards = await getDueCards(limit: 5, topicFilter: topicFilter);
+    print('🔍 getReviewSession: dueCards=${dueCards.length}');
 
     // If already have 5, return
     if (dueCards.length >= 5) {
@@ -307,7 +347,7 @@ class ReviewService {
 
     // Fill with new vocabularies
     final needed = 5 - dueCards.length;
-    final newVocab = await getNewVocabularies(limit: needed);
+    final newVocab = await getNewVocabularies(limit: needed, topicFilter: topicFilter);
 
     // Create cards for new vocabularies with vocabulary data included
     final sessionCards = List<WordCardModel>.from(dueCards);

@@ -103,11 +103,11 @@ class FsrSHelper {
       state: _mapFsrsStateToCardState(result.card.state),
       stability: result.card.stability ?? 0,
       difficulty: result.card.difficulty ?? 0,
-      dueDate: result.card.due.toLocal(),
-      lastReview: now,
+      dueDate: result.card.due,  // FSRS returns UTC, keep it as UTC
+      lastReview: now.toUtc(),  // Convert to UTC for database
       reps: card.reps + 1,
       lapses: rating == Rating.again ? card.lapses + 1 : card.lapses,
-      updatedAt: now,
+      updatedAt: now.toUtc(),  // Convert to UTC for database
     );
   }
 

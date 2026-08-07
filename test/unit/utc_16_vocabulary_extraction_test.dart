@@ -50,6 +50,7 @@ void main() {
         final expectedResult = VocabularyExtractionResult(
           level: 'B1',
           category: 'Nature',
+          topic: 'nature',
           vocabList: [
             VocabularyItem(
               word: 'hamper',
@@ -396,6 +397,7 @@ void main() {
         final result = VocabularyExtractionResult(
           level: 'B1',
           category: 'Nature',
+          topic: 'nature',
           vocabList: [
             VocabularyItem(
               word: 'handle',

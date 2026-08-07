@@ -893,11 +893,12 @@ class VocabularyNotifier extends StateNotifier<VocabularyState> {
       if (_syncService.isLoggedIn) {
         await _syncService.saveToCloud(vocabulary);
         print('✅ Vocabulary synced to cloud: ${vocabulary.word}');
+        // Note: word_card is created automatically by database trigger
+      } else {
+        // Guest mode: manually create word card (no trigger in Hive)
+        await _reviewService.createCard(vocabulary.id);
+        print('✅ Word card created: ${vocabulary.word}');
       }
-
-      // Create word card for review system (works for both guest & registered)
-      await _reviewService.createCard(vocabulary.id);
-      print('✅ Word card created: ${vocabulary.word}');
 
       state = VocabularyState(
         vocabularies: [...state.vocabularies, vocabulary],
