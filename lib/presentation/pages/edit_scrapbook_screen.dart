@@ -1599,33 +1599,42 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
       );
     }
 
-    // Local file path - check file existence only once and cache result
-    if (!_checkedFilePaths.contains(photo.imagePath)) {
-      // First time checking this file
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        final file = File(photo.imagePath);
-        final exists = await file.exists();
-        setState(() {
-          _checkedFilePaths.add(photo.imagePath);
-          if (exists) {
-            _existingFilePaths.add(photo.imagePath);
-          }
-        });
-      });
-      // Show loading while checking
-      return Container(
-        color: Colors.grey.shade200,
-        child: const Center(
-          child: CircularProgressIndicator(strokeWidth: 2),
-        ),
+    // Local file path - check if we've already confirmed this file doesn't exist
+    if (_existingFilePaths.contains(photo.imagePath)) {
+      // File exists - show it with FileImage for better caching
+      return Image(
+        image: FileImage(File(photo.imagePath)),
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          // If loading fails after we thought it existed, remove from cache and show error
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              setState(() {
+                _existingFilePaths.remove(photo.imagePath);
+                _checkedFilePaths.add(photo.imagePath);
+              });
+            }
+          });
+          return Container(
+            color: Colors.grey.shade300,
+            child: const Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.broken_image, color: Colors.red, size: 32),
+                  SizedBox(height: 4),
+                  Text('Failed to load',
+                      style: TextStyle(color: Colors.red, fontSize: 10)),
+                ],
+              ),
+            ),
+          );
+        },
       );
     }
 
-    // Use cached result
-    final fileExists = _existingFilePaths.contains(photo.imagePath);
-
-    if (!fileExists) {
-      // File doesn't exist - show error (cached)
+    // If we've confirmed this file doesn't exist, show error
+    if (_checkedFilePaths.contains(photo.imagePath)) {
       return Container(
         color: Colors.grey.shade300,
         child: const Center(
@@ -1642,32 +1651,31 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
       );
     }
 
-    // File exists - show it with FileImage for better caching
-    return Image(
-      image: FileImage(File(photo.imagePath)),
-      fit: BoxFit.cover,
-      errorBuilder: (context, error, stackTrace) {
-        // If loading fails, update cache
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          setState(() {
-            _existingFilePaths.remove(photo.imagePath);
-          });
+    // First time seeing this file - check existence asynchronously
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+
+      final file = File(photo.imagePath);
+      final exists = await file.exists();
+
+      print('🔍 File check result for ${photo.imagePath}: ${exists ? "EXISTS" : "NOT FOUND"}');
+
+      if (mounted) {
+        setState(() {
+          _checkedFilePaths.add(photo.imagePath);
+          if (exists) {
+            _existingFilePaths.add(photo.imagePath);
+          }
         });
-        return Container(
-          color: Colors.grey.shade300,
-          child: const Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.broken_image, color: Colors.red, size: 32),
-                SizedBox(height: 4),
-                Text('Failed to load',
-                    style: TextStyle(color: Colors.red, fontSize: 10)),
-              ],
-            ),
-          ),
-        );
-      },
+      }
+    });
+
+    // Show loading while checking
+    return Container(
+      color: Colors.grey.shade200,
+      child: const Center(
+        child: CircularProgressIndicator(strokeWidth: 2),
+      ),
     );
   }
 
@@ -3664,32 +3672,48 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
 
   /// Copy image to app's permanent storage directory
   /// Returns the permanent path where the image was copied
+  /// Throws exception if copy fails
   Future<String> _copyImageToPermanentStorage(
       String sourcePath, String scrapbookId) async {
+    // Get app's document directory
+    final Directory appDir = await getApplicationDocumentsDirectory();
+    final String scrapbookDir = '${appDir.path}/scrapbooks/$scrapbookId';
+
+    // Create directory if it doesn't exist
+    await Directory(scrapbookDir).create(recursive: true);
+
+    // Generate unique filename
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final extension = path_pkg.extension(sourcePath);
+    final filename = 'additional_$timestamp$extension';
+    final String newPath = '$scrapbookDir/$filename';
+
     try {
-      // Get app's document directory
-      final Directory appDir = await getApplicationDocumentsDirectory();
-      final String scrapbookDir = '${appDir.path}/scrapbooks/$scrapbookId';
-
-      // Create directory if it doesn't exist
-      await Directory(scrapbookDir).create(recursive: true);
-
-      // Generate unique filename
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final extension = path_pkg.extension(sourcePath);
-      final filename = 'additional_$timestamp$extension';
-      final String newPath = '$scrapbookDir/$filename';
-
       // Copy the file
       final File sourceFile = File(sourcePath);
-      await sourceFile.copy(newPath);
+      final File newFile = await sourceFile.copy(newPath);
+
+      // Ensure the file is fully written to disk
+      // by reading it back to verify it exists
+      await newFile.length();
+
+      // Small delay to ensure OS has flushed the file to disk
+      await Future.delayed(const Duration(milliseconds: 50));
 
       print('✅ Image copied to permanent storage: $newPath');
       return newPath;
     } catch (e) {
+      // Clean up partial file if it exists
+      try {
+        final file = File(newPath);
+        if (await file.exists()) {
+          await file.delete();
+        }
+      } catch (_) {}
+
       print('❌ Failed to copy image to permanent storage: $e');
-      // Return original path if copy fails
-      return sourcePath;
+      // Re-throw so caller knows the operation failed
+      throw Exception('Failed to copy image: $e');
     }
   }
 
@@ -3709,24 +3733,31 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
       );
 
       if (image != null && mounted) {
-        // Copy image to permanent storage before adding
-        final permanentPath = await _copyImageToPermanentStorage(
-            image.path, _permanentScrapbookId);
+        try {
+          // Copy image to permanent storage before adding
+          final permanentPath = await _copyImageToPermanentStorage(
+              image.path, _permanentScrapbookId);
 
-        setState(() {
-          // Position photo at center of canvas
-          // x and y are normalized coordinates (0.0 to 1.0)
-          final photoId = DateTime.now().millisecondsSinceEpoch.toString();
-          _additionalPhotos.add(ScrapbookPhoto(
-            id: photoId,
-            imagePath: permanentPath, // Use permanent path instead of temporary
-            x: 0.5, // Center horizontally
-            y: 0.5, // Center vertically
-            width: 0.25, // 25% of canvas width
-            height: 0.25, // 25% of canvas height
-          ));
-          _bringElementToFront(photoId, 'photo');
-        });
+          setState(() {
+            // Position photo at center of canvas
+            // x and y are normalized coordinates (0.0 to 1.0)
+            final photoId = DateTime.now().millisecondsSinceEpoch.toString();
+            _additionalPhotos.add(ScrapbookPhoto(
+              id: photoId,
+              imagePath: permanentPath,
+              x: 0.5, // Center horizontally
+              y: 0.5, // Center vertically
+              width: 0.25, // 25% of canvas width
+              height: 0.25, // 25% of canvas height
+            ));
+            _bringElementToFront(photoId, 'photo');
+          });
+        } catch (e) {
+          // Failed to copy - show error to user
+          if (mounted) {
+            _showErrorDialog('Error', 'Failed to save photo: ${e.toString()}');
+          }
+        }
       }
     } catch (e) {
       _showErrorDialog('Error', 'Failed to pick image: ${e.toString()}');

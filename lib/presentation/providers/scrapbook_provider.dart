@@ -339,17 +339,21 @@ class ScrapbookNotifier extends StateNotifier<ScrapbookState> {
 
   /// Upload additional photos to cloud storage
   /// Returns a list of photos with cloud URLs (for uploaded ones) or original paths
+  /// Skips photos with local paths that no longer exist (these are removed from scrapbook)
   Future<List<Map<String, dynamic>>> _uploadAdditionalPhotos(
     List<ScrapbookPhoto> photos,
     String userId,
     String scrapbookId,
   ) async {
     final uploadedPhotos = <Map<String, dynamic>>[];
+    int keptCount = 0;
+    int skippedCount = 0;
 
     for (final photo in photos) {
       // If already a cloud URL, keep as-is
       if (photo.imagePath.startsWith('http')) {
         uploadedPhotos.add(photo.toJson());
+        keptCount++;
         continue;
       }
 
@@ -364,17 +368,24 @@ class ScrapbookNotifier extends StateNotifier<ScrapbookState> {
           );
           // Update photo with cloud URL
           uploadedPhotos.add(photo.copyWith(imagePath: cloudUrl).toJson());
-          print('✅ Additional photo uploaded: $cloudUrl');
+          keptCount++;
+          print('✅ Additional photo uploaded to cloud: ${photo.id}');
         } else {
-          // File doesn't exist, keep original path (will show as broken in UI)
-          uploadedPhotos.add(photo.toJson());
-          print('⚠️ Additional photo file not found: ${photo.imagePath}');
+          // File doesn't exist - skip this photo (remove from list)
+          skippedCount++;
+          print('⚠️ Photo ${photo.id} skipped - local file not found: ${photo.imagePath}');
+          // Don't add to uploadedPhotos - this removes it from the scrapbook
         }
       } catch (e) {
-        // Upload failed, keep original path
-        uploadedPhotos.add(photo.toJson());
-        print('⚠️ Failed to upload additional photo: $e');
+        // Upload failed - skip this photo
+        skippedCount++;
+        print('⚠️ Photo ${photo.id} skipped - upload failed: $e');
+        // Don't add to uploadedPhotos - this removes it from the scrapbook
       }
+    }
+
+    if (skippedCount > 0) {
+      print('📊 Photos sync summary: $keptCount kept, $skippedCount skipped (missing files)');
     }
 
     return uploadedPhotos;
