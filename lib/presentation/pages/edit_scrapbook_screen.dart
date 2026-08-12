@@ -81,6 +81,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
   late List<ScrapbookPhoto> _originalAdditionalPhotos;
   late int _originalBackgroundColor;
   late String _originalSelectedEmoji;
+  late List<String> _originalElementLayerOrder;
 
   // UI state
   bool _isSaving = false;
@@ -316,6 +317,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     _originalAdditionalPhotos = [];
     _originalBackgroundColor = 0xFFFFFFFF;
     _originalSelectedEmoji = widget.selectedEmoji;
+    _originalElementLayerOrder = [];
 
     // Load existing scrapbook data if editing
     if (widget.scrapbookId != null) {
@@ -371,7 +373,12 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                   flip: photo.flip,
                 ))
             .toList();
-        _initializeElementLayerOrder();
+        // Load saved layer order or initialize from current elements
+        if (existingScrapbook.elementLayerOrder.isNotEmpty) {
+          _elementLayerOrder = List.from(existingScrapbook.elementLayerOrder);
+        } else {
+          _initializeElementLayerOrder();
+        }
         _backgroundColor = existingScrapbook.backgroundColor;
         _selectedEmoji = existingScrapbook.selectedEmoji;
 
@@ -417,6 +424,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
             .toList();
         _originalBackgroundColor = existingScrapbook.backgroundColor;
         _originalSelectedEmoji = existingScrapbook.selectedEmoji;
+        _originalElementLayerOrder = List.from(_elementLayerOrder);
       });
     }
   }
@@ -429,6 +437,11 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     if (_stickers.length != _originalStickers.length) return true;
     if (_additionalPhotos.length != _originalAdditionalPhotos.length)
       return true;
+    // Check if layer order has changed
+    if (_elementLayerOrder.length != _originalElementLayerOrder.length) return true;
+    for (int i = 0; i < _elementLayerOrder.length; i++) {
+      if (_elementLayerOrder[i] != _originalElementLayerOrder[i]) return true;
+    }
 
     // Check for position/content changes in text overlays
     for (int i = 0; i < _textOverlays.length; i++) {
@@ -3902,6 +3915,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
         textOverlays: _textOverlays,
         stickers: _stickers,
         additionalPhotos: _additionalPhotos,
+        elementLayerOrder: _elementLayerOrder,
         createdAt: existingScrapbook?.createdAt ?? DateTime.now(),
         updatedAt: DateTime.now(),
       );

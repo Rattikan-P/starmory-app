@@ -297,6 +297,7 @@ class ScrapbookModel extends Equatable {
   final List<ScrapbookTextOverlay> textOverlays;
   final List<ScrapbookSticker> stickers;
   final List<ScrapbookPhoto> additionalPhotos; // Additional photos with positions
+  final List<String> elementLayerOrder; // Order of elements (z-index), format: 'type:id'
   final DateTime createdAt;
   final DateTime? updatedAt;
 
@@ -312,6 +313,7 @@ class ScrapbookModel extends Equatable {
     this.textOverlays = const [],
     this.stickers = const [],
     this.additionalPhotos = const [],
+    this.elementLayerOrder = const [],
     required this.createdAt,
     this.updatedAt,
   });
@@ -328,6 +330,7 @@ class ScrapbookModel extends Equatable {
     List<ScrapbookTextOverlay>? textOverlays,
     List<ScrapbookSticker>? stickers,
     List<ScrapbookPhoto>? additionalPhotos,
+    List<String>? elementLayerOrder,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -343,6 +346,7 @@ class ScrapbookModel extends Equatable {
       textOverlays: textOverlays ?? this.textOverlays,
       stickers: stickers ?? this.stickers,
       additionalPhotos: additionalPhotos ?? this.additionalPhotos,
+      elementLayerOrder: elementLayerOrder ?? this.elementLayerOrder,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -389,6 +393,7 @@ class ScrapbookModel extends Equatable {
       'textOverlays': textOverlays.map((t) => t.toJson()).toList(),
       'stickers': stickers.map((s) => s.toJson()).toList(),
       'additionalPhotos': additionalPhotos.map((p) => p.toJson()).toList(),
+      'elementLayerOrder': elementLayerOrder,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
     };
@@ -417,6 +422,10 @@ class ScrapbookModel extends Equatable {
           [],
       additionalPhotos: (json['additionalPhotos'] as List<dynamic>?)
               ?.map((p) => ScrapbookPhoto.fromJson(p as Map<String, dynamic>))
+              .toList() ??
+          [],
+      elementLayerOrder: (json['elementLayerOrder'] as List<dynamic>?)
+              ?.map((e) => e as String)
               .toList() ??
           [],
       createdAt: DateTime.parse(json['createdAt'] as String),
@@ -459,6 +468,13 @@ class ScrapbookModel extends Equatable {
               .toList() ??
           (json['additionalPhotos'] as List<dynamic>?)
               ?.map((p) => ScrapbookPhoto.fromJson(p as Map<String, dynamic>))
+              .toList() ??
+          [],
+      elementLayerOrder: (json['element_layer_order'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          (json['elementLayerOrder'] as List<dynamic>?)
+              ?.map((e) => e as String)
               .toList() ??
           [],
       createdAt: DateTime.parse(json['created_at'] as String),
