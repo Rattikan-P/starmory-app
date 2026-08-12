@@ -93,18 +93,46 @@ class ScrapbookNotifier extends StateNotifier<ScrapbookState> {
       }
 
       print('✅ ScrapbookNotifier: Hive initialized, loading scrapbooks...');
+
+      // Setup auth state listener for cloud sync
+      _setupAuthListener();
+
       await _loadScrapbooks();
+
+      // Sync from cloud if user is logged in
+      final isLoggedIn = Supabase.instance.client.auth.currentSession != null;
+      if (isLoggedIn) {
+        print('🔄 User logged in, syncing from cloud...');
+        await _syncFromCloud();
+      }
     } catch (e) {
       print('❌ ScrapbookNotifier: Initialization failed: $e');
       state = ScrapbookState(error: 'Initialization failed: ${e.toString()}');
     }
   }
 
+  void _setupAuthListener() {
+    final authState = Supabase.instance.client.auth.onAuthStateChange;
+    _authSubscription = authState.listen((data) {
+      final AuthChangeEvent event = data.event;
+      print('🔐 Auth state changed: $event');
+
+      if (event == AuthChangeEvent.signedIn) {
+        print('🔄 User signed in, syncing from cloud...');
+        _syncFromCloud();
+      } else if (event == AuthChangeEvent.signedOut) {
+        print('👋 User signed out, clearing cloud data from view...');
+        // Clear state to only show local data
+        _loadScrapbooks();
+      }
+    });
+  }
+
   Future<void> _loadScrapbooks() async {
     try {
       final scrapbooks = await _hiveService.getAllScrapbooks();
       state = ScrapbookState(scrapbooks: scrapbooks);
-      print('✅ Loaded ${scrapbooks.length} scrapbooks');
+      print('✅ Loaded ${scrapbooks.length} scrapbooks from local storage');
     } catch (e) {
       state = ScrapbookState(error: e.toString());
     }
@@ -200,10 +228,114 @@ class ScrapbookNotifier extends StateNotifier<ScrapbookState> {
 
   Future<void> refresh() async {
     state = state.copyWith(isLoading: true);
-    await _loadScrapbooks();
+
+    // Sync from cloud if logged in
+    final isLoggedIn = Supabase.instance.client.auth.currentSession != null;
+    if (isLoggedIn) {
+      print('🔄 Refresh: Syncing from cloud...');
+      await _syncFromCloud();
+    } else {
+      await _loadScrapbooks();
+    }
   }
 
   // ============= Cloud Sync Methods =============
+
+  /// Load scrapbooks from Supabase cloud database
+  Future<List<ScrapbookModel>> _loadFromCloud() async {
+    try {
+      final client = Supabase.instance.client;
+      final userId = client.auth.currentUser?.id;
+      if (userId == null) {
+        print('⚠️ No user logged in, cannot load from cloud');
+        return [];
+      }
+
+      print('📥 Fetching scrapbooks from cloud for user: $userId');
+
+      final response = await client
+          .from('scrapbooks')
+          .select()
+          .eq('user_id', userId)
+          .order('created_at', ascending: false);
+
+      if (response == null) {
+        print('⚠️ No response from cloud');
+        return [];
+      }
+
+      final List<dynamic> data = response as List<dynamic>;
+      print('📥 Found ${data.length} scrapbooks in cloud');
+
+      final scrapbooks = <ScrapbookModel>[];
+      for (final item in data) {
+        try {
+          scrapbooks.add(ScrapbookModel.fromSupabaseJson(item as Map<String, dynamic>));
+        } catch (e) {
+          print('⚠️ Failed to parse scrapbook: $e');
+          continue;
+        }
+      }
+
+      print('✅ Successfully parsed ${scrapbooks.length} scrapbooks from cloud');
+      return scrapbooks;
+    } catch (e) {
+      print('❌ Failed to load from cloud: $e');
+      return [];
+    }
+  }
+
+  /// Sync scrapbooks from cloud to local storage
+  Future<void> _syncFromCloud() async {
+    try {
+      print('🔄 Starting sync from cloud...');
+
+      // Load from cloud
+      final cloudScrapbooks = await _loadFromCloud();
+      if (cloudScrapbooks.isEmpty) {
+        print('📭 No scrapbooks in cloud to sync');
+        return;
+      }
+
+      // Get local scrapbooks
+      final localScrapbooks = await _hiveService.getAllScrapbooks();
+      final localIds = localScrapbooks.map((s) => s.id).toSet();
+
+      // Save cloud scrapbooks to local storage
+      int syncedCount = 0;
+      for (final cloudScrapbook in cloudScrapbooks) {
+        try {
+          await _hiveService.saveScrapbook(cloudScrapbook);
+          syncedCount++;
+          print('💾 Synced scrapbook: ${cloudScrapbook.id}');
+        } catch (e) {
+          print('⚠️ Failed to save scrapbook ${cloudScrapbook.id}: $e');
+        }
+      }
+
+      print('✅ Synced $syncedCount scrapbooks from cloud to local');
+
+      // Update state with merged scrapbooks
+      // Priority: newer version wins based on updated_at
+      final mergedScrapbooks = <ScrapbookModel>[];
+
+      // Add all cloud scrapbooks
+      mergedScrapbooks.addAll(cloudScrapbooks);
+
+      // Add local-only scrapbooks (not in cloud)
+      final cloudIds = cloudScrapbooks.map((s) => s.id).toSet();
+      for (final local in localScrapbooks) {
+        if (!cloudIds.contains(local.id)) {
+          mergedScrapbooks.add(local);
+        }
+      }
+
+      state = ScrapbookState(scrapbooks: mergedScrapbooks);
+      print('✅ State updated with ${mergedScrapbooks.length} total scrapbooks');
+    } catch (e) {
+      print('❌ Failed to sync from cloud: $e');
+    }
+  }
 
   Future<void> _saveToCloud(ScrapbookModel scrapbook) async {
     String? newlyUploadedImageUrl;
