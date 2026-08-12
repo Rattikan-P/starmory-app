@@ -34,13 +34,14 @@ class ScrapbookState {
   /// Get scrapbook count
   int get totalCount => scrapbooks.length;
 
-  /// Get scrapbooks for a specific date
+  /// Get scrapbooks for a specific date (sorted by createdAt, newest first)
   List<ScrapbookModel> getScrapbooksForDate(DateTime date) {
     return scrapbooks.where((scrapbook) {
       return scrapbook.date.year == date.year &&
           scrapbook.date.month == date.month &&
           scrapbook.date.day == date.day;
-    }).toList();
+    }).toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
 
   /// Get recent scrapbooks (last 5)
@@ -131,6 +132,8 @@ class ScrapbookNotifier extends StateNotifier<ScrapbookState> {
   Future<void> _loadScrapbooks() async {
     try {
       final scrapbooks = await _hiveService.getAllScrapbooks();
+      // Sort by createdAt descending (newest first)
+      scrapbooks.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       state = ScrapbookState(scrapbooks: scrapbooks);
       print('✅ Loaded ${scrapbooks.length} scrapbooks from local storage');
     } catch (e) {
@@ -152,10 +155,11 @@ class ScrapbookNotifier extends StateNotifier<ScrapbookState> {
         print('✅ Scrapbook synced to cloud: ${scrapbook.id}');
       }
 
-      state = ScrapbookState(
-        scrapbooks: [...state.scrapbooks, scrapbook],
-      );
-      print('✅ Scrapbook added successfully');
+      // Create new list with new scrapbook at front and ensure sorted order
+      final updatedList = [scrapbook, ...state.scrapbooks];
+      updatedList.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      state = ScrapbookState(scrapbooks: updatedList);
+      print('✅ Scrapbook added successfully - now ${updatedList.length} total');
     } catch (e) {
       print('❌ Error adding scrapbook: $e');
       state = ScrapbookState(
@@ -330,6 +334,8 @@ class ScrapbookNotifier extends StateNotifier<ScrapbookState> {
         }
       }
 
+      // Sort the merged list by createdAt descending (newest first)
+      mergedScrapbooks.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       state = ScrapbookState(scrapbooks: mergedScrapbooks);
       print('✅ State updated with ${mergedScrapbooks.length} total scrapbooks');
     } catch (e) {

@@ -62,6 +62,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
 
   // Permanent ID for new scrapbooks (generated once, used throughout)
   late String _permanentScrapbookId;
+  // Store the timestamp when ID was generated for consistent createdAt
+  late DateTime _generatedTime;
 
   // Cache for file existence check to avoid repeated checks during rebuilds
   final Set<String> _existingFilePaths = {};
@@ -302,8 +304,9 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
   void initState() {
     super.initState();
     // Generate permanent ID for new scrapbooks, or use existing ID
+    _generatedTime = DateTime.now();
     _permanentScrapbookId =
-        widget.scrapbookId ?? DateTime.now().millisecondsSinceEpoch.toString();
+        widget.scrapbookId ?? _generatedTime.millisecondsSinceEpoch.toString();
     _selectedEmoji = widget.selectedEmoji;
     _textOverlays = [];
     _stickers = [];
@@ -3916,7 +3919,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
         stickers: _stickers,
         additionalPhotos: _additionalPhotos,
         elementLayerOrder: _elementLayerOrder,
-        createdAt: existingScrapbook?.createdAt ?? DateTime.now(),
+        createdAt: existingScrapbook?.createdAt ?? _generatedTime,
         updatedAt: DateTime.now(),
       );
 
