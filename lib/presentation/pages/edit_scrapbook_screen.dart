@@ -304,7 +304,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
   void initState() {
     super.initState();
     // Generate permanent ID for new scrapbooks, or use existing ID
-    _generatedTime = DateTime.now();
+    _generatedTime = DateTime.now().toUtc();
     _permanentScrapbookId =
         widget.scrapbookId ?? _generatedTime.millisecondsSinceEpoch.toString();
     _selectedEmoji = widget.selectedEmoji;
@@ -3920,7 +3920,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
         additionalPhotos: _additionalPhotos,
         elementLayerOrder: _elementLayerOrder,
         createdAt: existingScrapbook?.createdAt ?? _generatedTime,
-        updatedAt: DateTime.now(),
+        updatedAt: DateTime.now().toUtc(),
       );
 
       // Use update if editing existing scrapbook, add if new

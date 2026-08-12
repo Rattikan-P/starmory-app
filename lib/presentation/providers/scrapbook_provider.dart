@@ -164,20 +164,33 @@ class ScrapbookNotifier extends StateNotifier<ScrapbookState> {
     try {
       print('📝 Adding scrapbook: ${scrapbook.id}');
 
+      // For new scrapbooks (no existing cloud record), use current UTC time as createdAt
+      // This ensures it appears as the newest even after cloud sync
+      final isNewScrapbook = !state.scrapbooks.any((s) => s.id == scrapbook.id);
+      final scrapbookToSave = isNewScrapbook
+          ? scrapbook.copyWith(createdAt: DateTime.now().toUtc())
+          : scrapbook;
+
       // Always save to local storage
-      await _hiveService.saveScrapbook(scrapbook);
+      await _hiveService.saveScrapbook(scrapbookToSave);
 
       // Sync to cloud if registered user
       final isLoggedIn = Supabase.instance.client.auth.currentSession != null;
       if (isLoggedIn) {
-        await _saveToCloud(scrapbook);
-        print('✅ Scrapbook synced to cloud: ${scrapbook.id}');
+        await _saveToCloud(scrapbookToSave);
+        print('✅ Scrapbook synced to cloud: ${scrapbookToSave.id}');
       }
 
       // Create new list with new scrapbook at front and ensure sorted order
-      final updatedList = [scrapbook, ...state.scrapbooks];
+      final updatedList = [scrapbookToSave, ...state.scrapbooks];
       updatedList.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       state = ScrapbookState(scrapbooks: updatedList);
+
+      // Debug: Show order after sort
+      print('📊 Scrapbook order after add:');
+      for (int i = 0; i < updatedList.length && i < 10; i++) {
+        print('  [$i] ID: ${updatedList[i].id}, createdAt: ${updatedList[i].createdAt.toIso8601String()}');
+      }
       print('✅ Scrapbook added successfully - now ${updatedList.length} total');
     } catch (e) {
       print('❌ Error adding scrapbook: $e');
@@ -476,7 +489,7 @@ class ScrapbookNotifier extends StateNotifier<ScrapbookState> {
         'stickers': scrapbook.stickers.map((s) => s.toJson()).toList(),
         'additional_photos': additionalPhotosJson,
         'created_at': scrapbook.createdAt.toIso8601String(),
-        'updated_at': DateTime.now().toIso8601String(),
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
       };
 
       await client.from('scrapbooks').insert(data);
@@ -541,7 +554,7 @@ class ScrapbookNotifier extends StateNotifier<ScrapbookState> {
         'text_overlays': scrapbook.textOverlays.map((t) => t.toJson()).toList(),
         'stickers': scrapbook.stickers.map((s) => s.toJson()).toList(),
         'additional_photos': additionalPhotosJson,
-        'updated_at': DateTime.now().toIso8601String(),
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
       };
 
       await client
