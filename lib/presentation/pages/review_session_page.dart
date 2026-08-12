@@ -47,7 +47,7 @@ class _ReviewSessionPageState extends ConsumerState<ReviewSessionPage> {
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppBar(
-          title: const Text('Review Session'),
+          title: const Text('Your Photos'),
           backgroundColor: Colors.transparent,
           elevation: 0,
           actions: [
@@ -168,62 +168,265 @@ class _ReviewSessionPageState extends ConsumerState<ReviewSessionPage> {
     return _buildCardSwipe(context, ref, currentCard);
   }
 
-  /// Build horizontal filter chips
+  /// Build filter button (replaces horizontal filter chips)
   Widget _buildFilterChips(ReviewState state) {
+    final selectedTopic = _currentTopicFilter;
+    final displayText = selectedTopic == null
+        ? 'All Topics'
+        : '${_getTopicEmoji(selectedTopic)} ${TopicCategories.getDisplayNameEn(selectedTopic)}';
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
+      child: GestureDetector(
+        onTap: () => _showFilterBottomSheet(context),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                const Color(0xFF8B7CF6).withValues(alpha: 0.2),
+                const Color(0xFF6C63FF).withValues(alpha: 0.15),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: const Color(0xFF8B7CF6).withValues(alpha: 0.4),
+              width: 1.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF8B7CF6).withValues(alpha: 0.15),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.filter_list,
+                color: const Color(0xFF8B7CF6),
+                size: 20,
+              ),
+              const SizedBox(width: 10),
+              Text(
+                displayText,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.3,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Icon(
+                Icons.expand_more,
+                color: const Color(0xFF8B7CF6).withValues(alpha: 0.8),
+                size: 20,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Show filter bottom sheet
+  void _showFilterBottomSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => _buildFilterBottomSheet(),
+    );
+  }
+
+  /// Build filter bottom sheet content
+  Widget _buildFilterBottomSheet() {
+    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+    final screenHeight = MediaQuery.of(context).size.height;
+
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxHeight: screenHeight * 0.75, // สูงสุด 75% ของจอ
+      ),
+      child: Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+        ),
+        padding: EdgeInsets.only(
+          left: 28,
+          right: 28,
+          top: 28,
+          bottom: 28 + keyboardHeight,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Handle bar (same as auth)
+              Container(
+                width: 48,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFd1d5db),
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+              const SizedBox(height: 28),
+
+              // Header
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.filter_list,
+                    size: 20,
+                    color: const Color(0xFFc4b5fd),
+                  ),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Select Topic',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w400,
+                      color: Color(0xFF1f2937),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Choose what to review',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w400,
+                  color: Color(0xFF9ca3af),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Topic list
+              _buildTopicTile(
+                label: 'All Topics',
+                emoji: '📷',
+                isSelected: _currentTopicFilter == null,
+                onTap: () {
+                  Navigator.pop(context);
+                  _applyFilter(null);
+                },
+              ),
+              const SizedBox(height: 12),
+
+              ...TopicCategories.all.map((topic) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _buildTopicTile(
+                    label: TopicCategories.getDisplayNameEn(topic),
+                    emoji: _getTopicEmoji(topic),
+                    isSelected: _currentTopicFilter == topic,
+                    onTap: () {
+                      Navigator.pop(context);
+                      _applyFilter(topic);
+                    },
+                  ),
+                );
+              }),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Build single topic tile in bottom sheet
+  Widget _buildTopicTile({
+    required String label,
+    required String emoji,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? const Color(0xFF8B7CF6).withValues(alpha: 0.1)
+              : const Color(0xFFf9fafb),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected
+                ? const Color(0xFF8B7CF6)
+                : const Color(0xFFe5e7eb),
+            width: 1,
+          ),
+        ),
         child: Row(
           children: [
-            // "All" chip
-            _buildFilterChip(
-              label: 'All',
-              isSelected: _currentTopicFilter == null,
-              onTap: () => _applyFilter(null),
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                emoji,
+                style: const TextStyle(fontSize: 18),
+              ),
             ),
-            const SizedBox(width: 8),
-            // Category chips
-            ...TopicCategories.all.map((topic) {
-              return Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: _buildFilterChip(
-                  label: TopicCategories.getDisplayNameEn(topic),
-                  isSelected: _currentTopicFilter == topic,
-                  onTap: () => _applyFilter(topic),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: Color(0xFF1f2937),
                 ),
-              );
-            }),
+              ),
+            ),
+            if (isSelected)
+              Container(
+                padding: const EdgeInsets.all(2),
+                decoration: const BoxDecoration(
+                  color: Color(0xFF8B7CF6),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.check,
+                  color: Colors.white,
+                  size: 12,
+                ),
+              ),
           ],
         ),
       ),
     );
   }
 
-  /// Build single filter chip
-  Widget _buildFilterChip({
-    required String label,
-    required bool isSelected,
-    required VoidCallback onTap,
-  }) {
-    return FilterChip(
-      label: Text(label),
-      selected: isSelected,
-      onSelected: (_) => onTap(),
-      selectedColor: const Color(0xFF8B7CF6).withValues(alpha: 0.3),
-      checkmarkColor: const Color(0xFF8B7CF6),
-      backgroundColor: Colors.white.withValues(alpha: 0.1),
-      labelStyle: TextStyle(
-        color: isSelected ? const Color(0xFF8B7CF6) : Colors.black87,
-        fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-      ),
-      side: BorderSide(
-        color: isSelected ? const Color(0xFF8B7CF6) : Colors.white.withValues(alpha: 0.3),
-      ),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-      ),
-    );
+  /// Get emoji for topic category
+  String _getTopicEmoji(String topic) {
+    const emojis = {
+      'food': '🍜',
+      'people': '👥',
+      'nature': '🌿',
+      'home': '🏠',
+      'daily_life': '🌅',
+      'clothing': '👕',
+      'hobbies': '⚽',
+      'education': '📚',
+      'work': '💼',
+      'technology': '📱',
+      'health': '❤️',
+      'entertainment': '🎬',
+      'other': '📷',
+    };
+    return emojis[topic] ?? '📷';
   }
 
   /// Apply filter and reload session
@@ -247,7 +450,7 @@ class _ReviewSessionPageState extends ConsumerState<ReviewSessionPage> {
           ),
           const SizedBox(height: 24),
           const Text(
-            'All caught up!',
+            "You're all done!",
             style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
@@ -255,7 +458,7 @@ class _ReviewSessionPageState extends ConsumerState<ReviewSessionPage> {
           ),
           const SizedBox(height: 8),
           Text(
-            'No cards due for review right now.',
+            'No photos to review right now.',
             style: TextStyle(
               fontSize: 16,
               color: Colors.grey[400],
@@ -265,7 +468,7 @@ class _ReviewSessionPageState extends ConsumerState<ReviewSessionPage> {
           ElevatedButton.icon(
             onPressed: () => Navigator.pop(context),
             icon: const Icon(Icons.home),
-            label: const Text('Back to Review'),
+            label: const Text('Back to Your Photos'),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF8b7cf6),
             ),
@@ -324,13 +527,24 @@ class _ReviewSessionPageState extends ConsumerState<ReviewSessionPage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Result icon
+              // Result icon - friendly celebration instead of harsh X
               Icon(
-                remembered ? Icons.check_circle : Icons.cancel,
+                remembered ? Icons.celebration : Icons.auto_awesome,
                 size: 80,
-                color: remembered ? Colors.green : Colors.red,
+                color: remembered ? Colors.green : Colors.amber,
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
+              // Friendly message
+              Text(
+                remembered ? 'You remember!' : "Not yet - that's okay!",
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
               // Word
               Text(
                 vocab.word,
@@ -342,12 +556,23 @@ class _ReviewSessionPageState extends ConsumerState<ReviewSessionPage> {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
+              // "means" label
+              Text(
+                'means',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.white.withValues(alpha: 0.7),
+                  letterSpacing: 1.2,
+                ),
+              ),
+              const SizedBox(height: 8),
               // Meaning
               Text(
                 vocab.thaiTranslation,
                 style: const TextStyle(
-                  fontSize: 20,
-                  color: Colors.white70,
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -384,7 +609,7 @@ class _ReviewSessionPageState extends ConsumerState<ReviewSessionPage> {
                     ),
                   ),
                 ),
-              // Continue button
+              // Continue button - friendly label
               ElevatedButton(
                 onPressed: () => ref.read(reviewStateProvider.notifier).nextCard(),
                 style: ElevatedButton.styleFrom(
@@ -393,7 +618,7 @@ class _ReviewSessionPageState extends ConsumerState<ReviewSessionPage> {
                     vertical: 16,
                   ),
                 ),
-                child: const Text('Continue'),
+                child: const Text('Next photo'),
               ),
             ],
           ),
@@ -417,7 +642,7 @@ class _ReviewSessionPageState extends ConsumerState<ReviewSessionPage> {
           ),
           const SizedBox(height: 24),
           const Text(
-            'Session Complete!',
+            "Great job! You're done!",
             style: TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.bold,
@@ -425,7 +650,7 @@ class _ReviewSessionPageState extends ConsumerState<ReviewSessionPage> {
           ),
           const SizedBox(height: 8),
           Text(
-            '${reviewState.sessionCount} cards reviewed',
+            '${reviewState.sessionCount} photos reviewed',
             style: TextStyle(
               fontSize: 16,
               color: Colors.grey[400],
@@ -449,14 +674,14 @@ class _ReviewSessionPageState extends ConsumerState<ReviewSessionPage> {
                   backgroundColor: const Color(0xFF8b7cf6),
                 ),
                 icon: const Icon(Icons.add_circle_outline, size: 22),
-                label: Text('Continue ($remaining more cards)'),
+                label: Text('Continue with $remaining more photos'),
               ),
             ),
             const SizedBox(height: 12),
             TextButton(
               onPressed: () => Navigator.pop(context),
               child: Text(
-                'Skip for today',
+                'Done for today',
                 style: TextStyle(
                   color: Colors.grey[500],
                   fontSize: 14,
@@ -477,12 +702,12 @@ class _ReviewSessionPageState extends ConsumerState<ReviewSessionPage> {
                   backgroundColor: const Color(0xFF8b7cf6),
                 ),
                 icon: const Icon(Icons.check),
-                label: const Text('Finish'),
+                label: const Text('All done'),
               ),
             ),
             const SizedBox(height: 12),
             Text(
-              '🎉 All caught up!',
+              "🎉 You're all caught up!",
               style: TextStyle(
                 color: Colors.grey[500],
                 fontSize: 14,

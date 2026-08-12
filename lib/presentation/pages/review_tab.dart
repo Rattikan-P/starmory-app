@@ -105,7 +105,7 @@ class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserv
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Review',
+          'Your Photos',
           style: TextStyle(
             fontSize: 36,
             fontWeight: FontWeight.bold,
@@ -114,7 +114,7 @@ class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserv
         ),
         SizedBox(height: 4),
         Text(
-          'Practice with spaced repetition',
+          'Remember words from your photos',
           style: TextStyle(
             fontSize: 14,
             color: Colors.white60,
@@ -212,7 +212,7 @@ class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserv
           ),
           const SizedBox(height: 20),
           const Text(
-            'All caught up! 🎉',
+            "You're all done! 🎉",
             style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
@@ -221,7 +221,7 @@ class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserv
           ),
           const SizedBox(height: 8),
           Text(
-            'No cards due for review right now.\nCome back later!',
+            'No photos to review right now.\nNew photos coming soon!',
             style: TextStyle(
               fontSize: 14,
               color: Colors.white60,
@@ -331,7 +331,7 @@ class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserv
               ),
               const SizedBox(width: 12),
               const Text(
-                'Cards Due',
+                'Photos to Review',
                 style: TextStyle(
                   fontSize: 16,
                   color: Colors.white70,
@@ -409,7 +409,7 @@ class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserv
               ),
               const SizedBox(width: 8),
               const Text(
-                'How it works',
+                'How to use',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -419,11 +419,11 @@ class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserv
             ],
           ),
           const SizedBox(height: 16),
-          _buildStep('1', 'See the word & image'),
+          _buildStep('1', 'See your photo & word'),
           const SizedBox(height: 12),
-          _buildStep('2', 'Swipe right if you recalled ✓'),
+          _buildStep('2', 'Tap to reveal meaning'),
           const SizedBox(height: 12),
-          _buildStep('3', 'Swipe left if you forgot ✗'),
+          _buildStep('3', 'Tell us if you knew it'),
         ],
       ),
     );

@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import '../../core/error/failures.dart';
 import '../../core/config/app_constants.dart';
+import '../../utils/topic_categories.dart';
 
 /// Gemini Vision AI Service for Starmory
 /// Using custom prompts for vocabulary extraction and sentence generation
@@ -106,12 +107,159 @@ class GeminiService {
     return returnedLower.containsAll(requestedLower);
   }
 
+  /// Post-process AI topic categorization to fix common mistakes
+  /// This is a safety net for cases where AI might miscategorize
+  String _fixTopicCategory(String word, String aiTopic, String context) {
+    // Normalize word for matching
+    final normalizedWord = word.toLowerCase().trim();
+
+    // Special case rules for common ambiguous words
+    final specialCases = {
+      // Accessories that often get miscategorized
+      'glasses': _isMedicalContext(context) ? 'health' : 'daily_life',
+      'sunglasses': 'daily_life',
+      'watch': _hasDigitalKeywords(context) ? 'technology' : 'daily_life',
+
+      // Health items
+      'bandage': TopicCategories.health,
+      'medicine': TopicCategories.health,
+      'pill': TopicCategories.health,
+      'pills': TopicCategories.health,
+      'ointment': TopicCategories.health,
+      'thermometer': TopicCategories.health,
+      'stethoscope': TopicCategories.health,
+      'crutch': TopicCategories.health,
+      'bandaid': TopicCategories.health,
+      'first aid': TopicCategories.health,
+
+      // Clothing vs accessories
+      'hat': TopicCategories.clothing,
+      'bag': TopicCategories.dailyLife,
+      'purse': TopicCategories.clothing,
+      'backpack': TopicCategories.dailyLife,
+      'wallet': TopicCategories.dailyLife,
+      'belt': TopicCategories.clothing,
+      'scarf': TopicCategories.clothing,
+      'gloves': TopicCategories.clothing,
+
+      // Tech items
+      'phone': TopicCategories.technology,
+      'laptop': TopicCategories.technology,
+      'tablet': TopicCategories.technology,
+      'computer': TopicCategories.technology,
+      'camera': _hasHobbyKeywords(context) ? TopicCategories.hobbies : TopicCategories.technology,
+
+      // People/professions (context-dependent)
+      'doctor': _isEducationalContext(context) ? TopicCategories.people : TopicCategories.health,
+      'nurse': TopicCategories.health,
+      'teacher': TopicCategories.education,
+      'student': TopicCategories.education,
+      'chef': TopicCategories.hobbies, // cooking as hobby
+      'driver': TopicCategories.dailyLife, // transportation
+
+      // Nature items
+      'dog': TopicCategories.nature,
+      'cat': TopicCategories.nature,
+      'bird': TopicCategories.nature,
+      'fish': TopicCategories.food, // unless clearly in nature context
+      'tree': TopicCategories.nature,
+      'flower': TopicCategories.nature,
+      'plant': _isHomeContext(context) ? TopicCategories.home : TopicCategories.nature,
+
+      // Home items
+      'sofa': TopicCategories.home,
+      'couch': TopicCategories.home,
+      'chair': TopicCategories.home,
+      'table': TopicCategories.home,
+      'bed': TopicCategories.home,
+      'desk': TopicCategories.home,
+      'shelf': TopicCategories.home,
+      'lamp': TopicCategories.home,
+      'fridge': TopicCategories.home,
+      'refrigerator': TopicCategories.home,
+      'oven': TopicCategories.home,
+      'stove': TopicCategories.home,
+
+      // Hobbies/entertainment
+      'guitar': TopicCategories.hobbies,
+      'piano': TopicCategories.hobbies,
+      'book': _hasHobbyKeywords(context) ? TopicCategories.hobbies : TopicCategories.entertainment,
+      'game': TopicCategories.entertainment,
+
+      // Food vs nature (can be ambiguous)
+      'meat': TopicCategories.food,
+      'fruit': TopicCategories.food,
+      'vegetable': TopicCategories.food,
+    };
+
+    // Check if we have a special case rule
+    if (specialCases.containsKey(normalizedWord)) {
+      return specialCases[normalizedWord]!;
+    }
+
+    // Otherwise, return the AI's original categorization
+    return aiTopic;
+  }
+
+  /// Check if context contains medical/health keywords
+  bool _isMedicalContext(String context) {
+    final medicalKeywords = [
+      'doctor', 'hospital', 'clinic', 'nurse', 'medical',
+      'prescription', 'reading', 'eye', 'vision', 'sight',
+      'medicine', 'pharmacy', 'treatment', 'checkup'
+    ];
+    final contextLower = context.toLowerCase();
+    return medicalKeywords.any((keyword) => contextLower.contains(keyword));
+  }
+
+  /// Check if context contains digital/tech keywords
+  bool _hasDigitalKeywords(String context) {
+    final techKeywords = [
+      'smart', 'digital', 'electronic', 'app', 'screen',
+      'bluetooth', 'charging', 'notification', 'fitness tracker'
+    ];
+    final contextLower = context.toLowerCase();
+    return techKeywords.any((keyword) => contextLower.contains(keyword));
+  }
+
+  /// Check if context contains hobby/leisure keywords
+  bool _hasHobbyKeywords(String context) {
+    final hobbyKeywords = [
+      'hobby', 'leisure', 'fun', 'enjoy', 'relax',
+      'photography', 'playing', 'collection', 'interest'
+    ];
+    final contextLower = context.toLowerCase();
+    return hobbyKeywords.any((keyword) => contextLower.contains(keyword));
+  }
+
+  /// Check if context contains educational keywords
+  bool _isEducationalContext(String context) {
+    final eduKeywords = [
+      'school', 'classroom', 'lesson', 'learning', 'teaching',
+      'education', 'training', 'course', 'study'
+    ];
+    final contextLower = context.toLowerCase();
+    return eduKeywords.any((keyword) => contextLower.contains(keyword));
+  }
+
+  /// Check if context contains home/household keywords
+  bool _isHomeContext(String context) {
+    final homeKeywords = [
+      'home', 'house', 'room', 'living room', 'bedroom',
+      'kitchen', 'bathroom', 'furniture', 'decor', 'interior'
+    ];
+    final contextLower = context.toLowerCase();
+    return homeKeywords.any((keyword) => contextLower.contains(keyword));
+  }
+
   /// Generate vocabulary from image with bounding boxes
   Future<VocabularyExtractionResult> extractVocabulary({
     required Uint8List imageData,
     required String level,
     required String category,
     String englishVariant = 'US',
+    List<String> excludeWords = const [], // Words to avoid (for regenerate)
+    bool isRegenerate = false, // Use higher temp for regenerate to get variety
   }) async {
     // Validate API key before making request
     final apiKey = AppConstants.geminiApiKey;
@@ -129,25 +277,46 @@ TOPIC CATEGORIZATION PER WORD
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 For EACH vocabulary item, select exactly ONE category that best describes it:
 
-  • food          — Food, drinks, cooking, restaurants
-  • people        — People, family members, professions, relationships
-  • nature        — Animals, plants, weather, landscape, environment
-  • home          — Furniture, rooms, household items
-  • daily_life    — Daily routines, transportation, places, locations
-  • clothing      — Clothing, shoes, accessories, fashion
-  • hobbies       — Sports, games, leisure activities, arts
-  • education     — School, learning, subjects, studying
-  • work          — Office, business, jobs, meetings
-  • technology    — Computers, phones, apps, digital devices
-  • health        — Body, medicine, hospital, fitness
-  • entertainment — Movies, music, games, fun activities
-  • other         — Anything that doesn't fit the above categories
+  • food          — ${TopicCategories.descriptions[TopicCategories.food]}
+  • people        — ${TopicCategories.descriptions[TopicCategories.people]}
+  • nature        — ${TopicCategories.descriptions[TopicCategories.nature]}
+  • home          — ${TopicCategories.descriptions[TopicCategories.home]}
+  • daily_life    — ${TopicCategories.descriptions[TopicCategories.dailyLife]}
+  • clothing      — ${TopicCategories.descriptions[TopicCategories.clothing]}
+  • hobbies       — ${TopicCategories.descriptions[TopicCategories.hobbies]}
+  • education     — ${TopicCategories.descriptions[TopicCategories.education]}
+  • work          — ${TopicCategories.descriptions[TopicCategories.work]}
+  • technology    — ${TopicCategories.descriptions[TopicCategories.technology]}
+  • health        — ${TopicCategories.descriptions[TopicCategories.health]}
+  • entertainment — ${TopicCategories.descriptions[TopicCategories.entertainment]}
+  • other         — ${TopicCategories.descriptions[TopicCategories.other]}
 
 IMPORTANT: Each word gets its own topic based on what THAT word represents.
 Examples:
 • "phone" → technology
 • "jacket" → clothing
-• "glasses" → health (vision care) or accessories
+• "glasses" → daily_life (unless clearly medical/reading glasses → health)
+• "watch" → technology (smartwatch) or daily_life (analog)
+• "sunglasses" → daily_life
+• "bandage" → health
+• "medicine" → health
+• "pill" → health
+• "bag" → daily_life
+• "wallet" → daily_life
+• "backpack" → daily_life
+• "thermometer" → health
+• "stethoscope" → health
+• "doctor" → people (profession) OR health (medical context)
+• "teacher" → people (profession) OR education (school context)
+• "dog" → nature (animal)
+• "tree" → nature (plant)
+• "sofa" → home (furniture)
+• "fridge" → home (household item)
+• "camera" → technology (digital) OR hobbies (photography as hobby)
+• "guitar" → hobbies (musical instrument)
+• "book" → education (learning) OR entertainment (reading for fun)
+• "laptop" → technology (digital device)
+• "pills" → health (medicine)
 • "stand" (verb) → daily_life (action)''';
 
     final systemInstruction = '''
@@ -251,6 +420,16 @@ Return strictly valid JSON only — no markdown, no explanation, no extra text.
 Return exactly 5 items. Each item MUST have its own topic field.''';
 
     // User prompt with just the parameters
+    final excludeWordsText = excludeWords.isNotEmpty
+        ? '''
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+EXCLUDED WORDS (DO NOT USE)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+❌ AVOID these words: ${excludeWords.join(', ')}
+Find different vocabulary items instead.'''
+        : '';
+
     final userPrompt = TextPart('''
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 INPUT PARAMETERS
@@ -258,6 +437,7 @@ INPUT PARAMETERS
 • level           — $level
 • category        — $category
 • english_variant — $englishVariant (US or UK English)
+$excludeWordsText
 
 Extract exactly 5 vocabulary items from the image.''');
 
@@ -265,21 +445,35 @@ Extract exactly 5 vocabulary items from the image.''');
     final imagePart = DataPart(mimeType, imageData);
 
     return await _retryWithBackoff(() async {
+      // Use higher temperature for regenerate to get more variety
+      final temp = isRegenerate ? 0.7 : 0.6;
+      final maxTokens = isRegenerate ? 10240 : 8192; // Increased to prevent truncation
+
       final response = await _visionModel.generateContent(
         [
           Content.system(systemInstruction),
           Content.multi([userPrompt, imagePart]),
         ],
         generationConfig: GenerationConfig(
-          temperature: 1.0, // Match AI Studio setting
-          topP: 0.94,
-          topK: 40,
-          maxOutputTokens: 16384,  // Increased to prevent truncated JSON responses
+          temperature: temp, // 0.6 for normal, 0.7 for regenerate
+          topP: 0.9,
+          topK: 32,
+          maxOutputTokens: maxTokens, // 8192 for normal, 10240 for regenerate
         ),
       );
 
       final text = response.text ?? '';
-      final result = VocabularyExtractionResult.fromJson(text);
+      var result = VocabularyExtractionResult.fromJson(text);
+
+      // Apply post-processing to fix topic categorization
+      result = result.copyWith(
+        vocabList: result.vocabList.map((item) {
+          // Use the category/user input as context for better categorization
+          final context = '$category ${item.englishSentence ?? ''} ${item.thaiSentence ?? ''}';
+          final fixedTopic = _fixTopicCategory(item.word, item.topic, context);
+          return item.copyWith(topic: fixedTopic);
+        }).toList(),
+      );
 
       return result;
     });
@@ -536,10 +730,10 @@ Generate sentences now.''';
       final response = await model.generateContent(
         [Content.system(systemInstruction), Content.multi(parts)],
         generationConfig: GenerationConfig(
-          temperature: 1.0, // Match AI Studio setting
-          topP: 0.94,
-          topK: 40,
-          maxOutputTokens: 16384,  // Increased to prevent truncated JSON responses
+          temperature: 0.6, // Reduced from 1.0 for better speed
+          topP: 0.9,
+          topK: 32,
+          maxOutputTokens: 8192, // Increased to prevent truncation (down from 16384)
         ),
       );
 
@@ -642,6 +836,15 @@ class VocabularyExtractionResult {
           [],
     );
   }
+
+  /// Create a copy with different vocab list
+  VocabularyExtractionResult copyWith({List<VocabularyItem>? vocabList}) {
+    return VocabularyExtractionResult(
+      level: level,
+      category: category,
+      vocabList: vocabList ?? this.vocabList,
+    );
+  }
 }
 
 /// Single vocabulary item with bounding box and optional pre-generated sentences
@@ -675,6 +878,19 @@ class VocabularyItem {
       ),
       englishSentence: json['english_sentence'] as String?,
       thaiSentence: json['thai_sentence'] as String?,
+    );
+  }
+
+  /// Create a copy with modified fields
+  VocabularyItem copyWith({String? topic}) {
+    return VocabularyItem(
+      word: word,
+      type: type,
+      thai: thai,
+      topic: topic ?? this.topic,
+      boundingBox: boundingBox,
+      englishSentence: englishSentence,
+      thaiSentence: thaiSentence,
     );
   }
 

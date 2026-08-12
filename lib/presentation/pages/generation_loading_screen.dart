@@ -16,6 +16,8 @@ class GenerationLoadingScreen extends ConsumerStatefulWidget {
   final String cefrLevel;
   final String communicativeFunction;
   final String englishVariant;
+  final List<String> excludeWords; // Words to exclude when regenerating
+  final bool isRegenerate; // Flag to indicate this is a regeneration
 
   const GenerationLoadingScreen({
     super.key,
@@ -23,6 +25,8 @@ class GenerationLoadingScreen extends ConsumerStatefulWidget {
     required this.cefrLevel,
     required this.communicativeFunction,
     required this.englishVariant,
+    this.excludeWords = const [],
+    this.isRegenerate = false,
   });
 
   @override
@@ -240,6 +244,8 @@ class _GenerationLoadingScreenState
         level: widget.cefrLevel,
         category: 'Daily Life',
         englishVariant: widget.englishVariant,
+        excludeWords: widget.excludeWords,
+        isRegenerate: widget.isRegenerate,
       ).timeout(
         const Duration(seconds: 90), // 90 second timeout
         onTimeout: () {

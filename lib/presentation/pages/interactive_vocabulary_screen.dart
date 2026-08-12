@@ -2125,7 +2125,11 @@ class _InteractiveVocabularyScreenState
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context); // Close dialog
-              // Navigate to GenerationLoadingScreen with same image
+
+              // Collect all existing words to exclude when regenerating
+              final existingWords = _vocabularyDots.map((dot) => dot.word).toList();
+
+              // Navigate to GenerationLoadingScreen with same image and exclude words
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(
@@ -2134,6 +2138,8 @@ class _InteractiveVocabularyScreenState
                     cefrLevel: widget.cefrLevel,
                     communicativeFunction: widget.communicativeFunction,
                     englishVariant: widget.englishVariant,
+                    excludeWords: existingWords, // Exclude existing words
+                    isRegenerate: true, // Mark as regeneration
                   ),
                 ),
               );

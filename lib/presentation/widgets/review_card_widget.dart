@@ -630,7 +630,8 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(Icons.arrow_back, color: Colors.white, size: 28),
-                              Text('Forgot', style: TextStyle(color: Colors.white, fontSize: 11)),
+                              SizedBox(height: 4),
+                              Text('Not yet', style: TextStyle(color: Colors.white, fontSize: 11)),
                             ],
                           ),
                         ),
@@ -648,7 +649,8 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(Icons.arrow_forward, color: Colors.white, size: 28),
-                              Text('Know', style: TextStyle(color: Colors.white, fontSize: 11)),
+                              SizedBox(height: 4),
+                              Text('Got it!', style: TextStyle(color: Colors.white, fontSize: 11)),
                             ],
                           ),
                         ),
@@ -695,10 +697,10 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
               child: Container(
                 height: 58,
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
+                  gradient: const LinearGradient(
                     colors: [
-                      Colors.red.withValues(alpha: 0.9),
-                      Colors.red.withValues(alpha: 0.7),
+                      Color(0xFFFF6B9D),
+                      Color(0xFFE84393),
                     ],
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
@@ -706,23 +708,39 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.red.withValues(alpha: 0.4),
-                      blurRadius: 15,
-                      offset: const Offset(0, 6),
+                      color: const Color(0xFFFF6B9D).withValues(alpha: 0.5),
+                      blurRadius: 18,
+                      offset: const Offset(0, 8),
                     ),
                   ],
                 ),
                 child: const Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.close, color: Colors.white, size: 22),
+                    Icon(
+                      Icons.spa_outlined,
+                      color: Colors.white,
+                      size: 24,
+                      shadows: [
+                        Shadow(
+                          color: Colors.black26,
+                          blurRadius: 4,
+                        ),
+                      ],
+                    ),
                     SizedBox(height: 2),
                     Text(
-                      'I Forgot',
+                      'Not yet',
                       style: TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black26,
+                            blurRadius: 4,
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -737,10 +755,10 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
               child: Container(
                 height: 58,
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
+                  gradient: const LinearGradient(
                     colors: [
-                      Colors.green.withValues(alpha: 0.9),
-                      Colors.green.withValues(alpha: 0.7),
+                      Color(0xFF74B9FF),
+                      Color(0xFF0984E3),
                     ],
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
@@ -748,23 +766,39 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.green.withValues(alpha: 0.4),
-                      blurRadius: 15,
-                      offset: const Offset(0, 6),
+                      color: const Color(0xFF74B9FF).withValues(alpha: 0.5),
+                      blurRadius: 18,
+                      offset: const Offset(0, 8),
                     ),
                   ],
                 ),
                 child: const Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.check, color: Colors.white, size: 22),
+                    Icon(
+                      Icons.star_outlined,
+                      color: Colors.white,
+                      size: 24,
+                      shadows: [
+                        Shadow(
+                          color: Colors.black26,
+                          blurRadius: 4,
+                        ),
+                      ],
+                    ),
                     SizedBox(height: 2),
                     Text(
-                      'I Know This',
+                      'Got it!',
                       style: TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black26,
+                            blurRadius: 4,
+                          ),
+                        ],
                       ),
                     ),
                   ],
