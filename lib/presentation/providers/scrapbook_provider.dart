@@ -78,6 +78,7 @@ class ScrapbookNotifier extends StateNotifier<ScrapbookState> {
   final HiveService _hiveService;
   final ImageStorageService _imageStorageService;
   StreamSubscription<AuthState>? _authSubscription;
+  String? _currentUserId; // Track current user to detect account changes
 
   ScrapbookNotifier(this._hiveService, this._imageStorageService)
       : super(const ScrapbookState(isLoading: true)) {
@@ -103,7 +104,9 @@ class ScrapbookNotifier extends StateNotifier<ScrapbookState> {
       // Sync from cloud if user is logged in
       final isLoggedIn = Supabase.instance.client.auth.currentSession != null;
       if (isLoggedIn) {
-        print('🔄 User logged in, syncing from cloud...');
+        // Track the initial user ID
+        _currentUserId = Supabase.instance.client.auth.currentUser?.id;
+        print('🔄 User logged in ($_currentUserId), syncing from cloud...');
         await _syncFromCloud();
       }
     } catch (e) {
@@ -114,17 +117,33 @@ class ScrapbookNotifier extends StateNotifier<ScrapbookState> {
 
   void _setupAuthListener() {
     final authState = Supabase.instance.client.auth.onAuthStateChange;
-    _authSubscription = authState.listen((data) {
+    _authSubscription = authState.listen((data) async {
       final AuthChangeEvent event = data.event;
       print('🔐 Auth state changed: $event');
 
       if (event == AuthChangeEvent.signedIn) {
-        print('🔄 User signed in, syncing from cloud...');
+        final newUserId = Supabase.instance.client.auth.currentUser?.id;
+        print('🔄 User signed in: $newUserId (previous: $_currentUserId)');
+
+        // Check if this is a different user signing in
+        if (_currentUserId != null && _currentUserId != newUserId) {
+          print('🔄 Different user detected, clearing local scrapbooks...');
+          _hiveService.clearAllScrapbooks();
+        }
+
+        // Update current user ID
+        _currentUserId = newUserId;
+
+        // Sync from cloud
         _syncFromCloud();
       } else if (event == AuthChangeEvent.signedOut) {
-        print('👋 User signed out, clearing cloud data from view...');
-        // Clear state to only show local data
-        _loadScrapbooks();
+        print('👋 User signed out, clearing local scrapbooks...');
+        // Clear current user ID
+        _currentUserId = null;
+        // Clear all local scrapbooks when user signs out
+        await _hiveService.clearAllScrapbooks();
+        // Clear state
+        state = const ScrapbookState(scrapbooks: []);
       }
     });
   }
