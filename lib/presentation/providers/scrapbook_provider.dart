@@ -210,7 +210,7 @@ class ScrapbookNotifier extends StateNotifier<ScrapbookState> {
       // Delete from cloud if registered user
       final isLoggedIn = Supabase.instance.client.auth.currentSession != null;
       if (isLoggedIn) {
-        await _deleteFromCloud(id, scrapbook.imagePath);
+        await _deleteFromCloud(scrapbook);
         print('✅ Scrapbook deleted from cloud: $id');
       }
 
@@ -337,8 +337,51 @@ class ScrapbookNotifier extends StateNotifier<ScrapbookState> {
     }
   }
 
+  /// Upload additional photos to cloud storage
+  /// Returns a list of photos with cloud URLs (for uploaded ones) or original paths
+  Future<List<Map<String, dynamic>>> _uploadAdditionalPhotos(
+    List<ScrapbookPhoto> photos,
+    String userId,
+    String scrapbookId,
+  ) async {
+    final uploadedPhotos = <Map<String, dynamic>>[];
+
+    for (final photo in photos) {
+      // If already a cloud URL, keep as-is
+      if (photo.imagePath.startsWith('http')) {
+        uploadedPhotos.add(photo.toJson());
+        continue;
+      }
+
+      // Try to upload local file
+      try {
+        final file = File(photo.imagePath);
+        if (await file.exists()) {
+          final cloudUrl = await _imageStorageService.uploadScrapbookImage(
+            imageFile: file,
+            userId: userId,
+            scrapbookId: '$scrapbookId/additional',
+          );
+          // Update photo with cloud URL
+          uploadedPhotos.add(photo.copyWith(imagePath: cloudUrl).toJson());
+          print('✅ Additional photo uploaded: $cloudUrl');
+        } else {
+          // File doesn't exist, keep original path (will show as broken in UI)
+          uploadedPhotos.add(photo.toJson());
+          print('⚠️ Additional photo file not found: ${photo.imagePath}');
+        }
+      } catch (e) {
+        // Upload failed, keep original path
+        uploadedPhotos.add(photo.toJson());
+        print('⚠️ Failed to upload additional photo: $e');
+      }
+    }
+
+    return uploadedPhotos;
+  }
+
   Future<void> _saveToCloud(ScrapbookModel scrapbook) async {
-    String? newlyUploadedImageUrl;
+    final newlyUploadedUrls = <String>[];
 
     try {
       final client = Supabase.instance.client;
@@ -348,7 +391,7 @@ class ScrapbookNotifier extends StateNotifier<ScrapbookState> {
         return;
       }
 
-      // Upload image if it's a local path
+      // Upload main image if it's a local path
       String imageUrl = scrapbook.imagePath;
       if (!scrapbook.imagePath.startsWith('http')) {
         try {
@@ -359,11 +402,25 @@ class ScrapbookNotifier extends StateNotifier<ScrapbookState> {
               userId: userId,
               scrapbookId: scrapbook.id,
             );
-            newlyUploadedImageUrl = imageUrl;
-            print('✅ Image uploaded: $imageUrl');
+            newlyUploadedUrls.add(imageUrl);
+            print('✅ Main image uploaded: $imageUrl');
           }
         } catch (e) {
-          print('⚠️ Failed to upload image: $e, using local path');
+          print('⚠️ Failed to upload main image: $e, using local path');
+        }
+      }
+
+      // Upload additional photos
+      final additionalPhotosJson = await _uploadAdditionalPhotos(
+        scrapbook.additionalPhotos,
+        userId,
+        scrapbook.id,
+      );
+      // Track newly uploaded additional photo URLs
+      for (final photoJson in additionalPhotosJson) {
+        final path = photoJson['imagePath'] as String;
+        if (path.startsWith('http')) {
+          newlyUploadedUrls.add(path);
         }
       }
 
@@ -381,8 +438,7 @@ class ScrapbookNotifier extends StateNotifier<ScrapbookState> {
         'background_color': scrapbook.backgroundColor,
         'text_overlays': scrapbook.textOverlays.map((t) => t.toJson()).toList(),
         'stickers': scrapbook.stickers.map((s) => s.toJson()).toList(),
-        'additional_photos':
-            scrapbook.additionalPhotos.map((p) => p.toJson()).toList(),
+        'additional_photos': additionalPhotosJson,
         'created_at': scrapbook.createdAt.toIso8601String(),
         'updated_at': DateTime.now().toIso8601String(),
       };
@@ -390,21 +446,21 @@ class ScrapbookNotifier extends StateNotifier<ScrapbookState> {
       await client.from('scrapbooks').insert(data);
       print('✅ Scrapbook saved to cloud');
     } catch (e) {
-      await _cleanupFailedCloudUpload(newlyUploadedImageUrl);
+      await _cleanupFailedCloudUpload(newlyUploadedUrls);
       print('⚠️ Failed to save scrapbook to cloud: $e');
       rethrow;
     }
   }
 
   Future<void> _updateInCloud(ScrapbookModel scrapbook) async {
-    String? newlyUploadedImageUrl;
+    final newlyUploadedUrls = <String>[];
 
     try {
       final client = Supabase.instance.client;
       final userId = client.auth.currentUser?.id;
       if (userId == null) return;
 
-      // Upload image if it's a local path
+      // Upload main image if it's a local path
       String imageUrl = scrapbook.imagePath;
       if (!scrapbook.imagePath.startsWith('http')) {
         try {
@@ -415,10 +471,25 @@ class ScrapbookNotifier extends StateNotifier<ScrapbookState> {
               userId: userId,
               scrapbookId: scrapbook.id,
             );
-            newlyUploadedImageUrl = imageUrl;
+            newlyUploadedUrls.add(imageUrl);
+            print('✅ Main image uploaded: $imageUrl');
           }
         } catch (e) {
-          print('⚠️ Failed to upload image: $e');
+          print('⚠️ Failed to upload main image: $e');
+        }
+      }
+
+      // Upload additional photos
+      final additionalPhotosJson = await _uploadAdditionalPhotos(
+        scrapbook.additionalPhotos,
+        userId,
+        scrapbook.id,
+      );
+      // Track newly uploaded additional photo URLs
+      for (final photoJson in additionalPhotosJson) {
+        final path = photoJson['imagePath'] as String;
+        if (path.startsWith('http')) {
+          newlyUploadedUrls.add(path);
         }
       }
 
@@ -433,8 +504,7 @@ class ScrapbookNotifier extends StateNotifier<ScrapbookState> {
         'background_color': scrapbook.backgroundColor,
         'text_overlays': scrapbook.textOverlays.map((t) => t.toJson()).toList(),
         'stickers': scrapbook.stickers.map((s) => s.toJson()).toList(),
-        'additional_photos':
-            scrapbook.additionalPhotos.map((p) => p.toJson()).toList(),
+        'additional_photos': additionalPhotosJson,
         'updated_at': DateTime.now().toIso8601String(),
       };
 
@@ -445,29 +515,31 @@ class ScrapbookNotifier extends StateNotifier<ScrapbookState> {
           .eq('user_id', userId);
       print('✅ Scrapbook updated in cloud');
     } catch (e) {
-      await _cleanupFailedCloudUpload(newlyUploadedImageUrl);
+      await _cleanupFailedCloudUpload(newlyUploadedUrls);
       print('⚠️ Failed to update scrapbook in cloud: $e');
       rethrow;
     }
   }
 
-  Future<void> _cleanupFailedCloudUpload(String? imageUrl) async {
-    if (imageUrl == null) return;
+  Future<void> _cleanupFailedCloudUpload(List<String> imageUrls) async {
+    if (imageUrls.isEmpty) return;
 
-    try {
-      final deleted = await _imageStorageService.deleteImage(imageUrl);
-      if (deleted) {
-        print('✅ Removed image uploaded by failed cloud sync');
-      } else {
-        print('⚠️ Could not remove image uploaded by failed cloud sync');
+    for (final imageUrl in imageUrls) {
+      try {
+        final deleted = await _imageStorageService.deleteImage(imageUrl);
+        if (deleted) {
+          print('✅ Removed image uploaded by failed cloud sync: $imageUrl');
+        } else {
+          print('⚠️ Could not remove image uploaded by failed cloud sync: $imageUrl');
+        }
+      } catch (cleanupError) {
+        // Preserve the original database error while reporting cleanup failure.
+        print('⚠️ Failed to clean up cloud image $imageUrl: $cleanupError');
       }
-    } catch (cleanupError) {
-      // Preserve the original database error while reporting cleanup failure.
-      print('⚠️ Failed to clean up cloud image: $cleanupError');
     }
   }
 
-  Future<void> _deleteFromCloud(String id, String imagePath) async {
+  Future<void> _deleteFromCloud(ScrapbookModel scrapbook) async {
     try {
       final client = Supabase.instance.client;
       final userId = client.auth.currentUser?.id;
@@ -476,15 +548,28 @@ class ScrapbookNotifier extends StateNotifier<ScrapbookState> {
       await client
           .from('scrapbooks')
           .delete()
-          .eq('id', id)
+          .eq('id', scrapbook.id)
           .eq('user_id', userId);
 
-      // Delete image from storage if it's a cloud URL
-      if (imagePath.startsWith('http')) {
+      // Delete main image from storage if it's a cloud URL
+      if (scrapbook.imagePath.startsWith('http')) {
         try {
-          await _imageStorageService.deleteImage(imagePath);
+          await _imageStorageService.deleteImage(scrapbook.imagePath);
+          print('✅ Main image deleted from cloud: ${scrapbook.imagePath}');
         } catch (e) {
-          print('⚠️ Failed to delete image from cloud: $e');
+          print('⚠️ Failed to delete main image from cloud: $e');
+        }
+      }
+
+      // Delete additional photos from storage if they are cloud URLs
+      for (final photo in scrapbook.additionalPhotos) {
+        if (photo.imagePath.startsWith('http')) {
+          try {
+            await _imageStorageService.deleteImage(photo.imagePath);
+            print('✅ Additional photo deleted from cloud: ${photo.imagePath}');
+          } catch (e) {
+            print('⚠️ Failed to delete additional photo from cloud: $e');
+          }
         }
       }
 

@@ -786,12 +786,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                         ),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(1),
-                          child: Image.file(
-                            File(widget.imagePath),
-                            fit: BoxFit.cover,
-                            width: double.infinity,
-                            height: double.infinity,
-                          ),
+                          child: _buildMainImage(),
                         ),
                       ),
                     ),
@@ -809,6 +804,72 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
         ),
       ),
     );
+  }
+
+  /// Build the main scrapbook image (supports both local path and HTTP URL)
+  Widget _buildMainImage() {
+    // Check if path is HTTP/HTTPS URL
+    final isNetworkUrl = widget.imagePath.startsWith('http://') ||
+        widget.imagePath.startsWith('https://');
+
+    if (isNetworkUrl) {
+      // Network URL - use Image.network
+      return Image.network(
+        widget.imagePath,
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+        errorBuilder: (context, error, stackTrace) {
+          return Container(
+            color: Colors.grey.shade300,
+            child: const Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.broken_image, color: Colors.grey, size: 48),
+                  SizedBox(height: 8),
+                  Text('Failed to load image',
+                      style: TextStyle(color: Colors.grey, fontSize: 12)),
+                ],
+              ),
+            ),
+          );
+        },
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Container(
+            color: Colors.grey.shade200,
+            child: const Center(
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          );
+        },
+      );
+    } else {
+      // Local file - use Image.file
+      return Image.file(
+        File(widget.imagePath),
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+        errorBuilder: (context, error, stackTrace) {
+          return Container(
+            color: Colors.grey.shade300,
+            child: const Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.broken_image, color: Colors.red, size: 48),
+                  SizedBox(height: 8),
+                  Text('File not found',
+                      style: TextStyle(color: Colors.red, fontSize: 12)),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    }
   }
 
   Widget _buildElementOverlay() {
@@ -1495,8 +1556,12 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
 
   /// Build widget for additional photo (supports both local path and HTTP URL)
   Widget _buildAdditionalPhotoWidget(ScrapbookPhoto photo) {
-    // Check if path is HTTP URL
-    if (photo.imagePath.startsWith('http')) {
+    // Check if path is HTTP/HTTPS URL (do this first, before cache check)
+    final isNetworkUrl = photo.imagePath.startsWith('http://') ||
+        photo.imagePath.startsWith('https://');
+
+    if (isNetworkUrl) {
+      // Network URL - use Image.network
       return Image.network(
         photo.imagePath,
         fit: BoxFit.cover,
@@ -1526,34 +1591,62 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
           );
         },
       );
-    } else {
-      // Local file path - check file existence only once and cache result
-      if (!_checkedFilePaths.contains(photo.imagePath)) {
-        // First time checking this file
-        WidgetsBinding.instance.addPostFrameCallback((_) async {
-          final file = File(photo.imagePath);
-          final exists = await file.exists();
+    }
+
+    // Local file path - check file existence only once and cache result
+    if (!_checkedFilePaths.contains(photo.imagePath)) {
+      // First time checking this file
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        final file = File(photo.imagePath);
+        final exists = await file.exists();
+        setState(() {
+          _checkedFilePaths.add(photo.imagePath);
+          if (exists) {
+            _existingFilePaths.add(photo.imagePath);
+          }
+        });
+      });
+      // Show loading while checking
+      return Container(
+        color: Colors.grey.shade200,
+        child: const Center(
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
+    }
+
+    // Use cached result
+    final fileExists = _existingFilePaths.contains(photo.imagePath);
+
+    if (!fileExists) {
+      // File doesn't exist - show error (cached)
+      return Container(
+        color: Colors.grey.shade300,
+        child: const Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.broken_image, color: Colors.red, size: 32),
+              SizedBox(height: 4),
+              Text('File not found',
+                  style: TextStyle(color: Colors.red, fontSize: 10)),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // File exists - show it with FileImage for better caching
+    return Image(
+      image: FileImage(File(photo.imagePath)),
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) {
+        // If loading fails, update cache
+        WidgetsBinding.instance.addPostFrameCallback((_) {
           setState(() {
-            _checkedFilePaths.add(photo.imagePath);
-            if (exists) {
-              _existingFilePaths.add(photo.imagePath);
-            }
+            _existingFilePaths.remove(photo.imagePath);
           });
         });
-        // Show loading while checking
-        return Container(
-          color: Colors.grey.shade200,
-          child: const Center(
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-        );
-      }
-
-      // Use cached result
-      final fileExists = _existingFilePaths.contains(photo.imagePath);
-
-      if (!fileExists) {
-        // File doesn't exist - show error (cached)
         return Container(
           color: Colors.grey.shade300,
           child: const Center(
@@ -1562,42 +1655,14 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
               children: [
                 Icon(Icons.broken_image, color: Colors.red, size: 32),
                 SizedBox(height: 4),
-                Text('File not found',
+                Text('Failed to load',
                     style: TextStyle(color: Colors.red, fontSize: 10)),
               ],
             ),
           ),
         );
-      }
-
-      // File exists - show it with FileImage for better caching
-      return Image(
-        image: FileImage(File(photo.imagePath)),
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) {
-          // If loading fails, update cache
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            setState(() {
-              _existingFilePaths.remove(photo.imagePath);
-            });
-          });
-          return Container(
-            color: Colors.grey.shade300,
-            child: const Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.broken_image, color: Colors.red, size: 32),
-                  SizedBox(height: 4),
-                  Text('Failed to load',
-                      style: TextStyle(color: Colors.red, fontSize: 10)),
-                ],
-              ),
-            ),
-          );
-        },
-      );
-    }
+      },
+    );
   }
 
   Widget _buildAdditionalPhoto(ScrapbookPhoto photo) {
@@ -1992,7 +2057,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                   backgroundColor:
                       DesignTokens.brandColor.withValues(alpha: 0.15),
                 ),
-              ),
+              ), 
               if (i < pairedSentences.length - 1)
                 const SizedBox(height: DesignTokens.spacingSmall),
             ],
