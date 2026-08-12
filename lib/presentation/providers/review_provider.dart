@@ -25,6 +25,7 @@ class ReviewState {
   final double averageTimePerCard; // Average seconds per card (from historical data)
   final bool canUndo; // Whether undo is available (for last swipe)
   final WordCardModel? previousCardState; // Card state before last swipe (for undo)
+  final String? currentTopicFilter; // Current topic filter being applied
 
   const ReviewState({
     this.cards = const [],
@@ -41,6 +42,7 @@ class ReviewState {
     this.averageTimePerCard = 7.0, // Default 7 seconds (FSRS team baseline)
     this.canUndo = false,
     this.previousCardState,
+    this.currentTopicFilter,
   });
 
   ReviewState copyWith({
@@ -58,6 +60,7 @@ class ReviewState {
     double? averageTimePerCard,
     bool? canUndo,
     WordCardModel? previousCardState,
+    String? currentTopicFilter,
   }) {
     return ReviewState(
       cards: cards ?? this.cards,
@@ -74,6 +77,7 @@ class ReviewState {
       averageTimePerCard: averageTimePerCard ?? this.averageTimePerCard,
       canUndo: canUndo ?? this.canUndo,
       previousCardState: previousCardState ?? this.previousCardState,
+      currentTopicFilter: currentTopicFilter ?? this.currentTopicFilter,
     );
   }
 
@@ -123,7 +127,8 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
   /// Load review session (due cards + new cards to fill 5)
   /// Optionally filter by topic
   Future<void> loadSession({String? topicFilter}) async {
-    print('🔍 loadSession called: topicFilter=$topicFilter');
+    final caller = StackTrace.current.toString().split('\n')[1];
+    print('🔍 loadSession called: topicFilter=$topicFilter | from: $caller');
     try {
       state = state.copyWith(isLoading: true, error: null);
       print('🔍 Loading review session...');
@@ -131,8 +136,8 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
       final sessionCards = await _reviewService.getReviewSession(topicFilter: topicFilter);
       print('🔍 Session cards loaded: ${sessionCards.length}');
 
-      // Check if there are more due cards remaining
-      final remainingDue = await _reviewService.getRemainingDueCount();
+      // Check if there are more due cards remaining (with same topic filter)
+      final remainingDue = await _reviewService.getRemainingDueCount(topicFilter: topicFilter);
       print('🔍 Remaining due: $remainingDue');
 
       // Load user stats for adaptive time estimation
@@ -154,6 +159,7 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
         averageTimePerCard: userStats?.averageTimePerCard ?? 7.0,
         canUndo: false,
         previousCardState: null,
+        currentTopicFilter: topicFilter, // Save current topic filter
       );
     } catch (e) {
       state = ReviewState(
@@ -162,6 +168,7 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
         reviewedCardIds: {},
         canUndo: false,
         previousCardState: null,
+        currentTopicFilter: topicFilter,
       );
     }
   }
@@ -171,9 +178,10 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
     try {
       state = state.copyWith(isLoading: true, error: null);
 
-      // Get more cards, excluding already reviewed ones
+      // Get more cards, excluding already reviewed ones (with current topic filter)
       final moreCards = await _reviewService.getMoreCards(
         excludeIds: state.reviewedCardIds.toList(),
+        topicFilter: state.currentTopicFilter,
       );
 
       if (moreCards.isEmpty) {
@@ -186,8 +194,10 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
       final currentCards = List<WordCardModel>.from(state.cards);
       currentCards.addAll(moreCards);
 
-      // Update remaining count
-      final remainingDue = await _reviewService.getRemainingDueCount();
+      // Update remaining count (with current topic filter)
+      final remainingDue = await _reviewService.getRemainingDueCount(
+        topicFilter: state.currentTopicFilter,
+      );
 
       state = ReviewState(
         cards: currentCards,
@@ -198,6 +208,7 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
         reviewedCardIds: state.reviewedCardIds, // Keep tracking
         canUndo: false,
         previousCardState: null,
+        currentTopicFilter: state.currentTopicFilter, // Keep topic filter
       );
     } catch (e) {
       state = state.copyWith(
