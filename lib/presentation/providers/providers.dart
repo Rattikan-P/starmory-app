@@ -19,6 +19,10 @@ import 'review_provider.dart';
 export 'review_provider.dart';
 // Export streak providers
 export 'streak_provider.dart';
+// Export badge providers
+export 'badge_provider.dart';
+// Export sticker providers
+export 'sticker_provider.dart';
 
 // ============= Service Providers =============
 
