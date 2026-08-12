@@ -58,8 +58,14 @@ class ReviewService {
 
       // Apply topic filter if specified
       if (topicFilter != null && topicFilter.isNotEmpty) {
-        dueCards = dueCards.where((card) =>
-          card.vocabulary?.topic == topicFilter).toList();
+        final beforeFilter = dueCards.length;
+        print('🔍 Applying topic filter: $topicFilter');
+        dueCards = dueCards.where((card) {
+          final cardTopic = card.vocabulary?.topic;
+          print('   Card ${card.id}: topic="$cardTopic", match=${cardTopic == topicFilter}');
+          return cardTopic == topicFilter;
+        }).toList();
+        print('🔍 After filter: ${dueCards.length} cards (was $beforeFilter)');
       }
 
       // Sort by due date (FSRS determines when cards are due)
@@ -79,7 +85,11 @@ class ReviewService {
       print('🔍 _getDueCardsFromSupabase: userId=$userId, limit=$limit, topicFilter=$topicFilter');
 
       final response = await _client
-          .rpc('get_due_cards', params: {'p_user_id': userId, 'p_limit': limit});
+          .rpc('get_due_cards', params: {
+            'p_user_id': userId,
+            'p_limit': limit,
+            'p_topic_filter': topicFilter
+          });
 
       print('🔍 Supabase response: $response');
 
@@ -90,6 +100,13 @@ class ReviewService {
 
       final List<dynamic> data = response as List<dynamic>;
       print('🔍 Data length: ${data.length}');
+
+      // 🔍 DEBUG: Print ALL topics from response to see what's in database
+      print('🔍 Topics in database response:');
+      for (var item in data) {
+        final json = item as Map<String, dynamic>;
+        print('   - word: ${json['word']}, topic: "${json['topic']}" (type: ${json['topic'].runtimeType})');
+      }
 
       final cards = data
           .map((json) => WordCardModel.fromSupabaseWithVocabulary(
@@ -362,26 +379,32 @@ class ReviewService {
   }
 
   /// Check if there are more due cards available (for Continue button)
-  Future<int> getRemainingDueCount() async {
+  Future<int> getRemainingDueCount({String? topicFilter}) async {
     final userId = currentUserId;
 
     if (userId == null) {
       // Guest mode: count from Hive
-      return _getRemainingDueFromHive();
+      return _getRemainingDueFromHive(topicFilter);
     } else {
       // Registered mode: count from Supabase
-      return _getRemainingDueFromSupabase(userId);
+      return _getRemainingDueFromSupabase(userId, topicFilter);
     }
   }
 
   /// Get remaining due cards from Hive (Guest mode)
-  Future<int> _getRemainingDueFromHive() async {
+  Future<int> _getRemainingDueFromHive(String? topicFilter) async {
     try {
       final allCards = await _hiveService.getWordCards();
       final now = DateTime.now();
 
-      // Count due cards
-      final dueCards = allCards.where((card) => card.isDue).toList();
+      // Filter and count due cards
+      var dueCards = allCards.where((card) => card.isDue).toList();
+
+      // Apply topic filter if specified
+      if (topicFilter != null && topicFilter.isNotEmpty) {
+        dueCards = dueCards.where((card) => card.vocabulary?.topic == topicFilter).toList();
+      }
+
       return dueCards.length;
     } catch (e) {
       print('❌ Error counting due cards from Hive: $e');
@@ -390,11 +413,15 @@ class ReviewService {
   }
 
   /// Get remaining due cards from Supabase (Registered mode)
-  Future<int> _getRemainingDueFromSupabase(String userId) async {
+  Future<int> _getRemainingDueFromSupabase(String userId, String? topicFilter) async {
     try {
       // Count all due cards (no limit)
       final response = await _client
-          .rpc('get_due_cards', params: {'p_user_id': userId, 'p_limit': 999});
+          .rpc('get_due_cards', params: {
+            'p_user_id': userId,
+            'p_limit': 999,
+            'p_topic_filter': topicFilter
+          });
 
       if (response == null) return 0;
 
@@ -527,26 +554,31 @@ class ReviewService {
   }
 
   /// Load more cards for review (when user clicks Continue)
-  Future<List<WordCardModel>> getMoreCards({int batchSize = 5, List<String>? excludeIds}) async {
+  Future<List<WordCardModel>> getMoreCards({int batchSize = 5, List<String>? excludeIds, String? topicFilter}) async {
     final userId = currentUserId;
 
     if (userId == null) {
       // Guest mode: get from Hive
-      return _getMoreCardsFromHive(batchSize, excludeIds);
+      return _getMoreCardsFromHive(batchSize, excludeIds, topicFilter);
     } else {
       // Registered mode: get from Supabase
-      return _getMoreCardsFromSupabase(userId, batchSize, excludeIds);
+      return _getMoreCardsFromSupabase(userId, batchSize, excludeIds, topicFilter);
     }
   }
 
   /// Get more cards from Hive (Guest mode)
-  Future<List<WordCardModel>> _getMoreCardsFromHive(int batchSize, List<String>? excludeIds) async {
+  Future<List<WordCardModel>> _getMoreCardsFromHive(int batchSize, List<String>? excludeIds, String? topicFilter) async {
     try {
       final allCards = await _hiveService.getWordCards();
       final now = DateTime.now();
 
       // Filter due cards
       var dueCards = allCards.where((card) => card.isDue).toList();
+
+      // Apply topic filter if specified
+      if (topicFilter != null && topicFilter.isNotEmpty) {
+        dueCards = dueCards.where((card) => card.vocabulary?.topic == topicFilter).toList();
+      }
 
       // Exclude already reviewed cards
       if (excludeIds != null && excludeIds.isNotEmpty) {
@@ -565,11 +597,15 @@ class ReviewService {
   }
 
   /// Get more cards from Supabase (Registered mode)
-  Future<List<WordCardModel>> _getMoreCardsFromSupabase(String userId, int batchSize, List<String>? excludeIds) async {
+  Future<List<WordCardModel>> _getMoreCardsFromSupabase(String userId, int batchSize, List<String>? excludeIds, String? topicFilter) async {
     try {
       // Get due cards with higher limit to get more
       final response = await _client
-          .rpc('get_due_cards', params: {'p_user_id': userId, 'p_limit': 100});
+          .rpc('get_due_cards', params: {
+            'p_user_id': userId,
+            'p_limit': 100,
+            'p_topic_filter': topicFilter
+          });
 
       if (response == null) return [];
 

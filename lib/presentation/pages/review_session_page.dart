@@ -24,17 +24,22 @@ class _ReviewSessionPageState extends ConsumerState<ReviewSessionPage> {
   void initState() {
     super.initState();
     _currentTopicFilter = widget.topicFilter;
+    print('🔍 ReviewSessionPage initState: initialTopicFilter=$_currentTopicFilter');
   }
 
   @override
   Widget build(BuildContext context) {
     final reviewState = ref.watch(reviewStateProvider);
 
+    print('🔍 ReviewSessionPage build: _currentTopicFilter=$_currentTopicFilter, _hasTriedLoading=$_hasTriedLoading, cards=${reviewState.cards.length}');
+
     // Load session with topic filter on first build only
+    // Use _currentTopicFilter instead of widget.topicFilter to respect filter changes
     if (!_hasTriedLoading && !reviewState.isLoading && reviewState.cards.isEmpty && reviewState.error == null) {
       _hasTriedLoading = true;
+      print('🔍 ReviewSessionPage: First load, calling loadSession with topicFilter=$_currentTopicFilter');
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        ref.read(reviewStateProvider.notifier).loadSession(topicFilter: widget.topicFilter);
+        ref.read(reviewStateProvider.notifier).loadSession(topicFilter: _currentTopicFilter);
       });
     }
 
@@ -183,7 +188,7 @@ class _ReviewSessionPageState extends ConsumerState<ReviewSessionPage> {
               return Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: _buildFilterChip(
-                  label: TopicCategories.getDisplayNameTh(topic),
+                  label: TopicCategories.getDisplayNameEn(topic),
                   isSelected: _currentTopicFilter == topic,
                   onTap: () => _applyFilter(topic),
                 ),
@@ -209,8 +214,8 @@ class _ReviewSessionPageState extends ConsumerState<ReviewSessionPage> {
       checkmarkColor: const Color(0xFF8B7CF6),
       backgroundColor: Colors.white.withValues(alpha: 0.1),
       labelStyle: TextStyle(
-        color: isSelected ? const Color(0xFF8B7CF6) : Colors.white70,
-        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+        color: isSelected ? const Color(0xFF8B7CF6) : Colors.black87,
+        fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
       ),
       side: BorderSide(
         color: isSelected ? const Color(0xFF8B7CF6) : Colors.white.withValues(alpha: 0.3),
@@ -225,6 +230,7 @@ class _ReviewSessionPageState extends ConsumerState<ReviewSessionPage> {
   void _applyFilter(String? topic) {
     setState(() {
       _currentTopicFilter = topic;
+      _hasTriedLoading = true; // Prevent duplicate load on rebuild
     });
     ref.read(reviewStateProvider.notifier).loadSession(topicFilter: topic);
   }
