@@ -26,17 +26,111 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
+  // Lazy loading state
+  static const int _itemsPerPage = 20;
+  final ScrollController _scrollController = ScrollController();
+  List<VocabularyModel> _displayedVocabs = [];
+  bool _isLoadingMore = false;
+  List<VocabularyModel> _allFilteredVocabs = []; // Store filtered results
+  bool _isInitialized = false; // Prevent infinite loop
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+    _isInitialized = false;
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent * 0.8) {
+      _loadMoreItems();
+    }
+  }
+
+  void _loadMoreItems() {
+    if (_isLoadingMore) return;
+    if (_displayedVocabs.length >= _allFilteredVocabs.length) return;
+
+    setState(() {
+      _isLoadingMore = true;
+    });
+
+    // Simulate async loading (in real app, this might be from pagination API)
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (mounted) {
+        final nextIndex = _displayedVocabs.length;
+        final endIndex = (nextIndex + _itemsPerPage)
+            .clamp(0, _allFilteredVocabs.length);
+
+        setState(() {
+          _displayedVocabs =
+              _allFilteredVocabs.sublist(0, endIndex);
+          _isLoadingMore = false;
+        });
+      }
+    });
+  }
+
+  void _applyFiltersAndLoadInitial(List<VocabularyModel> allVocabularies) {
+    // Apply filters
+    final filtered = _applyFilters(allVocabularies);
+
+    // Sort if needed
+    _sortAndDisplayVocabs(filtered);
+  }
+
+  Future<void> _sortAndDisplayVocabs(List<VocabularyModel> filteredVocabularies) async {
+    try {
+      final hiveService = ref.read(hiveServiceProvider);
+      final sorted = await _sortVocabulariesByDueDate(filteredVocabularies, hiveService);
+
+      setState(() {
+        _allFilteredVocabs = sorted;
+        // Keep existing displayed items if sorted list is the same
+        if (_displayedVocabs.isEmpty || !_listsAreEqual(_displayedVocabs, sorted)) {
+          // Load initial items only if list changed
+          final initialCount = _itemsPerPage.clamp(0, sorted.length);
+          _displayedVocabs = sorted.sublist(0, initialCount);
+        }
+        _isLoadingMore = false;
+      });
+    } catch (e) {
+      print('Error sorting vocabularies: $e');
+      setState(() {
+        _allFilteredVocabs = filteredVocabularies;
+        // Keep existing if error
+        if (_displayedVocabs.isEmpty) {
+          final initialCount = _itemsPerPage.clamp(0, filteredVocabularies.length);
+          _displayedVocabs = filteredVocabularies.sublist(0, initialCount);
+        }
+        _isLoadingMore = false;
+      });
+    }
+  }
+
+  // Check if two lists are equal (same items in same order)
+  bool _listsAreEqual(List<VocabularyModel> list1, List<VocabularyModel> list2) {
+    if (list1.length != list2.length) return false;
+    for (int i = 0; i < list1.length; i++) {
+      if (list1[i].id != list2[i].id) return false;
+    }
+    return true;
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    print('🔄 Build called - _isInitialized: $_isInitialized, _displayedVocabs: ${_displayedVocabs.length}');
+
     final vocabState = ref.watch(vocabularyStateProvider);
     final streakData = ref.watch(streakProvider);
-    final hiveService = ref.watch(hiveServiceProvider);
 
     // Get all vocabularies
     final allVocabularies = vocabState.vocabularies;
@@ -48,6 +142,21 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
     final daysLearning = streakData?.currentStreak ?? 0;
     final shields = streakData?.shieldsAvailable ?? 0;
     final streakMultiplier = _calculateStreakMultiplier(daysLearning);
+
+    // Initialize or update displayed vocabs when vocab list changes
+    if (!_isInitialized ||
+        _allFilteredVocabs.length != allVocabularies.length ||
+        (_allFilteredVocabs.isEmpty && allVocabularies.isNotEmpty)) {
+      print('📋 Scheduling load - allVocabs: ${allVocabularies.length}, _allFiltered: ${_allFilteredVocabs.length}');
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        print('📋 PostFrame callback executing');
+        if (!_isInitialized) {
+          _isInitialized = true;
+          print('✅ Set _isInitialized = true');
+        }
+        _applyFiltersAndLoadInitial(allVocabularies);
+      });
+    }
 
     return GalaxyScreenBackground(
       child: Scaffold(
@@ -61,6 +170,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
               // Content
               Expanded(
                 child: SingleChildScrollView(
+                  controller: _scrollController,
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -87,30 +197,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
 
                       // Tab content
                       if (_selectedTab == 'Vocab')
-                        FutureBuilder<List<VocabularyModel>>(
-                          future: _sortVocabulariesByDueDate(allVocabularies, hiveService),
-                          builder: (context, snapshot) {
-                            if (snapshot.connectionState == ConnectionState.waiting) {
-                              // Show loading indicator while sorting
-                              return Center(
-                                child: CircularProgressIndicator(
-                                  color: Color(0xFF8B5CF6),
-                                ),
-                              );
-                            }
-
-                            if (snapshot.hasError) {
-                              // Show error state
-                              return _buildGalaxyCollectionSection(allVocabularies, totalStars);
-                            }
-
-                            // Apply filters to sorted vocabularies
-                            final sortedVocabs = snapshot.data ?? allVocabularies;
-                            final filteredVocabularies = _applyFilters(sortedVocabs);
-
-                            return _buildGalaxyCollectionSection(filteredVocabularies, totalStars);
-                          },
-                        )
+                        _buildGalaxyCollectionSection(totalStars)
                       else
                         _buildRewardSection(),
 
@@ -273,7 +360,6 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
 
   Widget _buildStarsStatsCard(int totalStars) {
     // Calculate progress toward next badge (every 50 stars)
-    final nextBadgeThreshold = ((totalStars ~/ 50) + 1) * 50;
     final progress = totalStars % 50;
     final progressPercent = progress / 50;
 
@@ -591,7 +677,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
     );
   }
 
-  Widget _buildGalaxyCollectionSection(List<VocabularyModel> filteredVocabularies, int totalCount) {
+  Widget _buildGalaxyCollectionSection(int totalCount) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -617,10 +703,10 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
         const SizedBox(height: 12),
 
         // Vocabulary list
-        if (filteredVocabularies.isEmpty)
+        if (_displayedVocabs.isEmpty)
           _buildEmptyState()
         else
-          _buildVocabularyList(filteredVocabularies),
+          _buildVocabularyList(),
       ],
     );
   }
@@ -958,6 +1044,9 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
           setState(() {
             _searchQuery = value;
           });
+          // Reload list with new filter
+          final vocabState = ref.read(vocabularyStateProvider);
+          _applyFiltersAndLoadInitial(vocabState.vocabularies);
         },
         decoration: InputDecoration(
           hintText: 'Find vocab or sentence...',
@@ -1007,7 +1096,6 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
   }
 
   List<String> _getPopularCategories(int totalCount) {
-    final allCategories = _getAllCategories();
     final vocabState = ref.read(vocabularyStateProvider);
     final allVocabs = vocabState.vocabularies;
 
@@ -1048,6 +1136,9 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
         setState(() {
           _selectedCategory = category;
         });
+        // Reload list with new filter
+        final vocabState = ref.read(vocabularyStateProvider);
+        _applyFiltersAndLoadInitial(vocabState.vocabularies);
       },
       borderRadius: BorderRadius.circular(20),
       child: Container(
@@ -1168,6 +1259,9 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                             _selectedCategory = cat;
                           });
                           Navigator.pop(context);
+                          // Reload list with new filter
+                          final vocabState = ref.read(vocabularyStateProvider);
+                          _applyFiltersAndLoadInitial(vocabState.vocabularies);
                         },
                         borderRadius: BorderRadius.circular(20),
                         child: Container(
@@ -1239,11 +1333,24 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
     return filtered;
   }
 
-  Widget _buildVocabularyList(List<VocabularyModel> vocabularies) {
+  Widget _buildVocabularyList() {
     return Column(
-      children: vocabularies.map((vocab) {
-        return _buildVocabularyItem(vocab, vocabularies);
-      }).toList(),
+      children: [
+        // Display all current vocabularies
+        ..._displayedVocabs.map((vocab) =>
+          _buildVocabularyItem(vocab, _displayedVocabs)
+        ).toList(),
+
+        // Loading indicator at bottom
+        if (_isLoadingMore)
+          Container(
+            padding: const EdgeInsets.all(16),
+            alignment: Alignment.center,
+            child: CircularProgressIndicator(
+              color: const Color(0xFF8B5CF6),
+            ),
+          ),
+      ],
     );
   }
 
@@ -1256,12 +1363,12 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
         color: Colors.white.withValues(alpha: 0.95),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: const Color(0xFFE2D1F9).withValues(alpha: 0.3),
-          width: 1,
+          color: const Color(0xFFE2D1F9).withValues(alpha: 0.4),
+          width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
+            color: const Color(0xFF8B5CF6).withValues(alpha: 0.1),
             blurRadius: 12,
             offset: const Offset(0, 2),
           ),
@@ -1283,33 +1390,45 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
         },
         borderRadius: BorderRadius.circular(16),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           child: Row(
             children: [
               // Star icon (reviewed/unreviewed)
-              Icon(
-                isReviewed ? Icons.star : Icons.star_border,
-                color: isReviewed
-                    ? const Color(0xFFfbbf24) // Gold
-                    : const Color(0xFFd1d5db), // Gray
-                size: 24,
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: isReviewed
+                      ? const Color(0xFFfbbf24).withValues(alpha: 0.15)
+                      : const Color(0xFFE5E7EB),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  isReviewed ? Icons.star : Icons.star_border,
+                  color: isReviewed
+                      ? const Color(0xFFfbbf24) // Gold
+                      : const Color(0xFF9ca3af), // Gray
+                  size: 22,
+                ),
               ),
 
-              const SizedBox(width: 12),
+              const SizedBox(width: 14),
 
-              // Vocabulary info
+              // Vocabulary info (vertical layout)
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Word
+                    // English word
                     Text(
                       vocab.word,
                       style: GoogleFonts.lexend(
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
                         color: const Color(0xFF1f2937),
+                        height: 1.2,
                       ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
                     const SizedBox(height: 4),
                     // Thai translation
@@ -1319,11 +1438,16 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                         fontSize: 15,
                         fontWeight: FontWeight.w500,
                         color: const Color(0xFF6b7280),
+                        height: 1.3,
                       ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
                   ],
                 ),
               ),
+
+              const SizedBox(width: 8),
 
               // Arrow
               Icon(
