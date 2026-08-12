@@ -88,6 +88,12 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
       -1; // -1 = none, 0 = text, 1 = sticker, 2 = photo, 3 = background
   String? _selectedStickerSetId; // For sticker picker
 
+  // Language flip state for sentences only
+  bool _showThaiSentences = false; // false = show English, true = show Thai for sentences
+
+  // Flip animation
+  bool _isFlipping = false;
+
   // Dragging state
   String? _draggingId; // ID of item being dragged
   String? _draggingType; // 'text', 'sticker', or 'photo'
@@ -1981,34 +1987,18 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
         .where((s) => s.isNotEmpty)
         .toList();
 
+    // Select sentences based on current language state
+    final selectedSentences =
+        _showThaiSentences ? thaiSentences : englishSentences;
+    final isEnglish = !_showThaiSentences;
+
     // Get vocabulary words for highlighting (English only)
     final englishWords = widget.vocabularyWords
         .map((v) => v.word)
         .where((w) => w.isNotEmpty)
         .toList();
 
-    // Pair English and Thai sentences, interleave them
-    final pairedSentences = <Map<String, dynamic>>[];
-    final maxLength = englishSentences.length > thaiSentences.length
-        ? englishSentences.length
-        : thaiSentences.length;
-
-    for (int i = 0; i < maxLength; i++) {
-      if (i < englishSentences.length && englishSentences[i].isNotEmpty) {
-        pairedSentences.add({
-          'type': 'en',
-          'text': englishSentences[i],
-        });
-      }
-      if (i < thaiSentences.length && thaiSentences[i].isNotEmpty) {
-        pairedSentences.add({
-          'type': 'th',
-          'text': thaiSentences[i],
-        });
-      }
-    }
-
-    if (pairedSentences.isEmpty) return const SizedBox.shrink();
+    if (selectedSentences.isEmpty) return const SizedBox.shrink();
 
     return Padding(
       padding: const EdgeInsets.only(
@@ -2016,52 +2006,102 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
         right: DesignTokens.spacingLarge,
         bottom: DesignTokens.spacingLarge,
       ),
-      child: Container(
-        padding: const EdgeInsets.all(DesignTokens.spacingLarge),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.82),
-          borderRadius: BorderRadius.circular(DesignTokens.radiusLarge),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            for (int i = 0; i < pairedSentences.length; i++) ...[
-              _buildHighlightedText(
-                text: pairedSentences[i]['text'],
-                highlightWords: pairedSentences[i]['type'] == 'en'
-                    ? englishWords
-                    : [], // No highlighting for Thai
-                baseStyle: GoogleFonts.lexend(
-                  fontSize: pairedSentences[i]['type'] == 'en'
-                      ? DesignTokens.fontSizeBodyLarge
-                      : DesignTokens.fontSizeBody,
-                  fontWeight: pairedSentences[i]['type'] == 'en'
-                      ? DesignTokens.weightSemiBold
-                      : DesignTokens.weightMedium,
-                  color: pairedSentences[i]['type'] == 'en'
-                      ? DesignTokens.textPrimary
-                      : DesignTokens.textSecondary,
-                  height: 1.4,
-                  letterSpacing: pairedSentences[i]['type'] == 'en' ? -0.2 : 0,
+      child: GestureDetector(
+        onTap: () {
+          if (!_isFlipping) {
+            setState(() {
+              _isFlipping = true;
+            });
+            // Pop animation: scale down -> change -> scale up with bounce
+            Future.delayed(const Duration(milliseconds: 100), () {
+              if (mounted) {
+                setState(() {
+                  _showThaiSentences = !_showThaiSentences;
+                });
+                Future.delayed(const Duration(milliseconds: 50), () {
+                  if (mounted) {
+                    setState(() {
+                      _isFlipping = false;
+                    });
+                  }
+                });
+              }
+            });
+          }
+          HapticFeedback.lightImpact();
+        },
+        child: AnimatedScale(
+          scale: _isFlipping ? 0.92 : 1.0,
+          duration: const Duration(milliseconds: 150),
+          curve: Curves.easeInOut,
+          child: Container(
+            padding: const EdgeInsets.all(DesignTokens.spacingLarge),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.82),
+              borderRadius: BorderRadius.circular(DesignTokens.radiusLarge),
+              boxShadow: _isFlipping
+                  ? [
+                      BoxShadow(
+                        color: DesignTokens.brandColor.withValues(alpha: 0.2),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Compact header - just icon and language indicator
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Icon(
+                      Icons.language_rounded,
+                      size: 14,
+                      color: DesignTokens.brandColor.withValues(alpha: 0.6),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      isEnglish ? 'EN' : 'TH',
+                      style: GoogleFonts.lexend(
+                        fontSize: 11,
+                        fontWeight: DesignTokens.weightSemiBold,
+                        color: DesignTokens.brandColor.withValues(alpha: 0.7),
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
                 ),
-                highlightStyle: GoogleFonts.lexend(
-                  fontSize: pairedSentences[i]['type'] == 'en'
-                      ? DesignTokens.fontSizeBodyLarge
-                      : DesignTokens.fontSizeBody,
-                  fontWeight: pairedSentences[i]['type'] == 'en'
-                      ? DesignTokens.weightBold
-                      : DesignTokens.weightSemiBold,
-                  color: DesignTokens.brandColor,
-                  height: 1.4,
-                  letterSpacing: pairedSentences[i]['type'] == 'en' ? -0.2 : 0,
-                  backgroundColor:
-                      DesignTokens.brandColor.withValues(alpha: 0.15),
-                ),
-              ), 
-              if (i < pairedSentences.length - 1)
                 const SizedBox(height: DesignTokens.spacingSmall),
-            ],
-          ],
+                // Sentences - English and Thai same size
+                for (int i = 0; i < selectedSentences.length; i++) ...[
+                  _buildHighlightedText(
+                    text: selectedSentences[i],
+                    highlightWords: isEnglish ? englishWords : [],
+                    baseStyle: GoogleFonts.lexend(
+                      fontSize: DesignTokens.fontSizeBodyLarge,
+                      fontWeight: DesignTokens.weightSemiBold,
+                      color: DesignTokens.textPrimary,
+                      height: 1.4,
+                      letterSpacing: isEnglish ? -0.2 : 0,
+                    ),
+                    highlightStyle: GoogleFonts.lexend(
+                      fontSize: DesignTokens.fontSizeBodyLarge,
+                      fontWeight: DesignTokens.weightBold,
+                      color: DesignTokens.brandColor,
+                      height: 1.4,
+                      letterSpacing: isEnglish ? -0.2 : 0,
+                      backgroundColor:
+                          DesignTokens.brandColor.withValues(alpha: 0.15),
+                    ),
+                  ),
+                  if (i < selectedSentences.length - 1)
+                    const SizedBox(height: DesignTokens.spacingSmall),
+                ],
+              ],
+            ),
+          ),
         ),
       ),
     );
