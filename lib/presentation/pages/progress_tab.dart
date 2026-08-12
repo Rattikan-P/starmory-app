@@ -19,7 +19,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
   String _selectedTab = 'Vocab';
 
   // Filter state (for Vocab tab)
-  String _selectedFilter = 'All';
+  String _selectedCategory = 'All';
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
@@ -33,6 +33,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
   Widget build(BuildContext context) {
     final vocabState = ref.watch(vocabularyStateProvider);
     final streakData = ref.watch(streakProvider);
+    final hiveService = ref.watch(hiveServiceProvider);
 
     // Get all vocabularies
     final allVocabularies = vocabState.vocabularies;
@@ -44,9 +45,6 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
     final daysLearning = streakData?.currentStreak ?? 0;
     final shields = streakData?.shieldsAvailable ?? 0;
     final streakMultiplier = _calculateStreakMultiplier(daysLearning);
-
-    // Apply filters
-    List<VocabularyModel> filteredVocabularies = _applyFilters(allVocabularies);
 
     return GalaxyScreenBackground(
       child: Scaffold(
@@ -86,7 +84,30 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
 
                       // Tab content
                       if (_selectedTab == 'Vocab')
-                        _buildGalaxyCollectionSection(filteredVocabularies, totalStars)
+                        FutureBuilder<List<VocabularyModel>>(
+                          future: _sortVocabulariesByDueDate(allVocabularies, hiveService),
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState == ConnectionState.waiting) {
+                              // Show loading indicator while sorting
+                              return Center(
+                                child: CircularProgressIndicator(
+                                  color: Color(0xFF8B5CF6),
+                                ),
+                              );
+                            }
+
+                            if (snapshot.hasError) {
+                              // Show error state
+                              return _buildGalaxyCollectionSection(allVocabularies, totalStars);
+                            }
+
+                            // Apply filters to sorted vocabularies
+                            final sortedVocabs = snapshot.data ?? allVocabularies;
+                            final filteredVocabularies = _applyFilters(sortedVocabs);
+
+                            return _buildGalaxyCollectionSection(filteredVocabularies, totalStars);
+                          },
+                        )
                       else
                         _buildRewardSection(),
 
@@ -107,6 +128,54 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
     if (streak >= 14) return 2;
     if (streak >= 7) return 2;
     return 1;
+  }
+
+  /// Sort vocabularies by their word card's due date
+  /// Vocab with card → sort by dueDate (earliest first)
+  /// Vocab without card → sort by createdAt (newest first) → go to end
+  Future<List<VocabularyModel>> _sortVocabulariesByDueDate(
+    List<VocabularyModel> vocabularies,
+    dynamic hiveService,
+  ) async {
+    try {
+      // Get all word cards
+      final cards = await hiveService.getWordCards();
+
+      // Create map: vocabularyId → dueDate
+      final vocabDueDates = <String, DateTime>{};
+      for (final card in cards) {
+        vocabDueDates[card.vocabularyId] = card.dueDate;
+      }
+
+      // Separate vocabularies into those with cards and without
+      final vocabsWithCards = <VocabularyModel>[];
+      final vocabsWithoutCards = <VocabularyModel>[];
+
+      for (final vocab in vocabularies) {
+        if (vocabDueDates.containsKey(vocab.id)) {
+          vocabsWithCards.add(vocab);
+        } else {
+          vocabsWithoutCards.add(vocab);
+        }
+      }
+
+      // Sort vocab with cards by dueDate
+      vocabsWithCards.sort((a, b) {
+        final dueDateA = vocabDueDates[a.id]!;
+        final dueDateB = vocabDueDates[b.id]!;
+        return dueDateA.compareTo(dueDateB);
+      });
+
+      // Sort vocab without cards by createdAt (newest first)
+      vocabsWithoutCards.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+      // Combine: with cards first, then without cards
+      return [...vocabsWithCards, ...vocabsWithoutCards];
+    } catch (e) {
+      print('Error sorting vocabularies: $e');
+      // Return original list if error
+      return vocabularies;
+    }
   }
 
   Widget _buildHeader() {
@@ -306,6 +375,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
             icon: Icons.photo_library_rounded,
             label: 'photos captured',
             value: '$photos',
+            onTap: () => _showPhotosGallery(context),
           ),
         ),
         const SizedBox(width: 12),
@@ -324,8 +394,9 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
     required IconData icon,
     required String label,
     required String value,
+    VoidCallback? onTap,
   }) {
-    return Container(
+    final card = Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -376,9 +447,32 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
               ],
             ),
           ),
+          // Chevron inside card for consistent size
+          Icon(
+            onTap != null
+                ? Icons.chevron_right
+                : null, // No icon when no onTap
+            color: onTap != null
+                ? const Color(0xFFd1d5db)
+                : Colors.transparent,
+            size: 20,
+          ),
         ],
       ),
     );
+
+    if (onTap != null) {
+      return Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: card,
+        ),
+      );
+    }
+
+    return card;
   }
 
   Widget _buildTabBar() {
@@ -884,25 +978,72 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
   }
 
   Widget _buildFilterChips(int totalCount) {
-    return Row(
-      children: [
-        _buildFilterChip('All', _getFilterCount('All', totalCount)),
-        const SizedBox(width: 8),
-        _buildFilterChip('Reviewed', _getFilterCount('Reviewed', totalCount)),
-        const SizedBox(width: 8),
-        _buildFilterChip('Unreviewed', _getFilterCount('Unreviewed', totalCount)),
-        const SizedBox(width: 8),
-        _buildCategoryDropdown(),
-      ],
+    // Get popular categories (top 4 by count)
+    final popularCategories = _getPopularCategories(totalCount);
+    final hasMore = popularCategories.length < _getAllCategories().length;
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          // All chip
+          _buildCategoryChip('All', _getCategoryCount('All', totalCount)),
+          const SizedBox(width: 6),
+          // Popular category chips with spacing
+          for (int i = 0; i < popularCategories.length; i++) ...[
+            if (i > 0) SizedBox(width: 6),
+            _buildCategoryChip(popularCategories[i], _getCategoryCount(popularCategories[i], totalCount)),
+          ],
+          const SizedBox(width: 6),
+          // More... dropdown if there are more categories
+          if (hasMore)
+            _buildMoreCategoryDropdown(),
+        ],
+      ),
     );
   }
 
-  Widget _buildFilterChip(String label, int count) {
-    final isSelected = _selectedFilter == label;
+  List<String> _getPopularCategories(int totalCount) {
+    final allCategories = _getAllCategories();
+    final vocabState = ref.read(vocabularyStateProvider);
+    final allVocabs = vocabState.vocabularies;
+
+    // Count vocabs per category
+    final categoryCounts = <String, int>{};
+    for (final vocab in allVocabs) {
+      categoryCounts[vocab.topic] = (categoryCounts[vocab.topic] ?? 0) + 1;
+    }
+
+    // Sort by count (descending) and take top 4
+    final sorted = categoryCounts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    return sorted.take(4).map((e) => e.key).toList();
+  }
+
+  List<String> _getAllCategories() {
+    return [
+      'food', 'people', 'nature', 'home', 'daily_life',
+      'clothing', 'hobbies', 'education', 'work',
+      'technology', 'health', 'entertainment', 'other'
+    ];
+  }
+
+  /// Format category name for display (e.g., "daily_life" → "Daily Life")
+  String _formatCategoryName(String category) {
+    if (category == 'All') return 'All';
+    return category
+        .split('_')
+        .map((word) => word[0].toUpperCase() + word.substring(1))
+        .join(' ');
+  }
+
+  Widget _buildCategoryChip(String category, int count) {
+    final isSelected = _selectedCategory == category;
     return InkWell(
       onTap: () {
         setState(() {
-          _selectedFilter = label;
+          _selectedCategory = category;
         });
       },
       borderRadius: BorderRadius.circular(20),
@@ -916,7 +1057,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
           ),
         ),
         child: Text(
-          '$label ($count)',
+          category == 'All' ? 'All ($count)' : '${_formatCategoryName(category)} ($count)',
           style: GoogleFonts.lexend(
             fontSize: 13,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
@@ -927,11 +1068,11 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
     );
   }
 
-  Widget _buildCategoryDropdown() {
+  Widget _buildMoreCategoryDropdown() {
     return InkWell(
       onTap: () {
-        // TODO: Show category dropdown
-        print('Show category dropdown');
+        // Show category bottom sheet
+        _showCategoryBottomSheet();
       },
       borderRadius: BorderRadius.circular(20),
       child: Container(
@@ -946,7 +1087,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
         child: Row(
           children: [
             Text(
-              'Category',
+              'More...',
               style: GoogleFonts.lexend(
                 fontSize: 13,
                 fontWeight: FontWeight.w400,
@@ -965,47 +1106,131 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
     );
   }
 
-  int _getFilterCount(String filter, int totalCount) {
+  void _showCategoryBottomSheet() {
+    final vocabState = ref.read(vocabularyStateProvider);
+    final allVocabs = vocabState.vocabularies;
+    final allCategories = _getAllCategories();
+    final popularCategories = _getPopularCategories(allVocabs.length);
+
+    // Get categories NOT in popular list
+    final remainingCategories = allCategories.where((cat) =>
+      cat != 'All' && !popularCategories.contains(cat)
+    ).toList();
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => Container(
+        width: MediaQuery.of(context).size.width,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle bar
+            Container(
+              margin: EdgeInsets.only(top: 12),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Color(0xFFE5E7EB),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'All Categories',
+                    style: GoogleFonts.lexend(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1f2937),
+                    ),
+                  ),
+                  SizedBox(height: 16),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: remainingCategories.map((cat) {
+                      final count = _getCategoryCount(cat, allVocabs.length);
+                      return InkWell(
+                        onTap: () {
+                          setState(() {
+                            _selectedCategory = cat;
+                          });
+                          Navigator.pop(context);
+                        },
+                        borderRadius: BorderRadius.circular(20),
+                        child: Container(
+                          padding: EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: _selectedCategory == cat
+                                ? Color(0xFFEDE9FE)
+                                : Color(0xFFF9FAFB),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: _selectedCategory == cat
+                                  ? Color(0xFF8B5CF6)
+                                  : Color(0xFFe5e7eb),
+                            ),
+                          ),
+                          child: Text(
+                            '${_formatCategoryName(cat)} ($count)',
+                            style: GoogleFonts.lexend(
+                              fontSize: 13,
+                              fontWeight: _selectedCategory == cat
+                                  ? FontWeight.w600
+                                  : FontWeight.w400,
+                              color: _selectedCategory == cat
+                                  ? Color(0xFF1f2937)
+                                  : Color(0xFF6b7280),
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  int _getCategoryCount(String category, int totalCount) {
     final vocabState = ref.read(vocabularyStateProvider);
     final allVocabs = vocabState.vocabularies;
 
-    switch (filter) {
-      case 'All':
-        return totalCount;
-      case 'Reviewed':
-        // For now, count favorites as "reviewed"
-        return allVocabs.where((v) => v.isFavorite).length;
-      case 'Unreviewed':
-        return allVocabs.where((v) => !v.isFavorite).length;
-      default:
-        return 0;
+    if (category == 'All') {
+      return totalCount;
     }
+
+    return allVocabs.where((v) => v.topic == category).length;
   }
 
   List<VocabularyModel> _applyFilters(List<VocabularyModel> vocabularies) {
     var filtered = vocabularies;
 
-    // Apply search
+    // Apply search (contains matching in word and thai only)
     if (_searchQuery.isNotEmpty) {
+      final searchLower = _searchQuery.toLowerCase();
       filtered = filtered.where((v) {
-        return v.word.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-            v.thaiTranslation.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-            v.englishSentence.toLowerCase().contains(_searchQuery.toLowerCase());
+        return v.word.toLowerCase().contains(searchLower) ||
+            v.thaiTranslation.toLowerCase().contains(searchLower);
       }).toList();
     }
 
-    // Apply selected filter
-    switch (_selectedFilter) {
-      case 'Reviewed':
-        filtered = filtered.where((v) => v.isFavorite).toList();
-        break;
-      case 'Unreviewed':
-        filtered = filtered.where((v) => !v.isFavorite).toList();
-        break;
-      case 'All':
-      default:
-        // No filter
-        break;
+    // Apply category filter
+    if (_selectedCategory != 'All') {
+      filtered = filtered.where((v) => v.topic == _selectedCategory).toList();
     }
 
     return filtered;
@@ -1336,6 +1561,432 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
           ),
         ),
       ],
+    );
+  }
+
+  void _showPhotosGallery(BuildContext context) {
+    final vocabState = ref.read(vocabularyStateProvider);
+    final allVocabularies = vocabState.vocabularies;
+
+    // Get unique images only (group vocabularies by image URL)
+    final uniqueImagesMap = <String, List<VocabularyModel>>{};
+
+    for (final vocab in allVocabularies) {
+      if (vocab.imageUrl.isNotEmpty) {
+        uniqueImagesMap.putIfAbsent(vocab.imageUrl, () => []).add(vocab);
+      }
+    }
+
+    if (uniqueImagesMap.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No photos to display yet'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    // Convert to list of unique photo entries
+    final photoEntries = uniqueImagesMap.entries.map((entry) {
+      return PhotoEntry(
+        imageUrl: entry.key,
+        vocabularies: entry.value,
+      );
+    }).toList();
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PhotosGalleryPage(photoEntries: photoEntries),
+      ),
+    );
+  }
+}
+
+// Photo entry model (groups vocabularies by image)
+class PhotoEntry {
+  final String imageUrl;
+  final List<VocabularyModel> vocabularies;
+
+  PhotoEntry({
+    required this.imageUrl,
+    required this.vocabularies,
+  });
+}
+
+// Photos Gallery Page
+class PhotosGalleryPage extends StatelessWidget {
+  final List<PhotoEntry> photoEntries;
+
+  const PhotosGalleryPage({super.key, required this.photoEntries});
+
+  @override
+  Widget build(BuildContext context) {
+    return GalaxyScreenBackground(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            onPressed: () => Navigator.pop(context),
+          ),
+          title: Text(
+            'My Photos',
+            style: GoogleFonts.lexend(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
+          ),
+        ),
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: GridView.builder(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: 1,
+              ),
+              itemCount: photoEntries.length,
+              itemBuilder: (context, index) {
+                final entry = photoEntries[index];
+                return _buildPhotoCard(context, entry);
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPhotoCard(BuildContext context, PhotoEntry entry) {
+    final wordCount = entry.vocabularies.length;
+    final firstVocab = entry.vocabularies.first;
+
+    return InkWell(
+      onTap: () {
+        showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          backgroundColor: Colors.transparent,
+          builder: (context) => PhotoWordsBottomSheet(photoEntry: entry),
+        );
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
+              blurRadius: 12,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Photo
+              Image.network(
+                entry.imageUrl,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    color: const Color(0xFFEDE9FE),
+                    child: const Icon(
+                      Icons.broken_image,
+                      size: 40,
+                      color: Color(0xFF8B5CF6),
+                    ),
+                  );
+                },
+              ),
+              // Gradient overlay
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      Colors.black.withValues(alpha: 0.7),
+                    ],
+                  ),
+                ),
+              ),
+              // Word count badge (top right)
+              if (wordCount > 1)
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.9),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.photo_library,
+                          size: 12,
+                          color: Color(0xFF8B5CF6),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '$wordCount',
+                          style: GoogleFonts.lexend(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF8B5CF6),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              // Word label at bottom
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Text(
+                    wordCount == 1 ? firstVocab.word : '$wordCount words',
+                    style: GoogleFonts.lexend(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+              // Tap indicator
+              Positioned(
+                top: 8,
+                left: 8,
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.3),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.touch_app,
+                    size: 14,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// Photo Words Bottom Sheet - shows all words for a specific photo
+class PhotoWordsBottomSheet extends StatelessWidget {
+  final PhotoEntry photoEntry;
+
+  const PhotoWordsBottomSheet({super.key, required this.photoEntry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.8,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        children: [
+          // Handle bar
+          Container(
+            margin: EdgeInsets.only(top: 12),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Color(0xFFE5E7EB),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+
+          // Header
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              children: [
+                Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF8B5CF6).withValues(alpha: 0.15),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.network(
+                      photoEntry.imageUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          color: const Color(0xFFEDE9FE),
+                          child: const Icon(
+                            Icons.broken_image,
+                            size: 24,
+                            color: Color(0xFF8B5CF6),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        photoEntry.vocabularies.length == 1
+                            ? photoEntry.vocabularies.first.word
+                            : '${photoEntry.vocabularies.length} Words',
+                        style: GoogleFonts.lexend(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF1f2937),
+                        ),
+                      ),
+                      Text(
+                        photoEntry.vocabularies.length == 1
+                            ? 'Click to see pronunciation'
+                            : 'All words using this photo',
+                        style: GoogleFonts.lexend(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                          color: const Color(0xFF6b7280),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, color: Color(0xFF9ca3af)),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+          ),
+
+          // Divider
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20),
+            child: Divider(height: 1),
+          ),
+
+          // Words list
+          Expanded(
+            child: ListView.separated(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+              itemCount: photoEntry.vocabularies.length,
+              separatorBuilder: (context, index) => const SizedBox(height: 12),
+              itemBuilder: (context, index) {
+                final vocab = photoEntry.vocabularies[index];
+                return _buildWordCard(context, vocab);
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWordCard(BuildContext context, VocabularyModel vocab) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF9FAFB),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFFE5E7EB),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Word
+          Text(
+            vocab.word,
+            style: GoogleFonts.lexend(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF1f2937),
+            ),
+          ),
+          const SizedBox(height: 6),
+          // Thai translation
+          Text(
+            vocab.thaiTranslation,
+            style: GoogleFonts.lexend(
+              fontSize: 15,
+              fontWeight: FontWeight.w500,
+              color: const Color(0xFF6b7280),
+            ),
+          ),
+          const SizedBox(height: 10),
+          // Example sentence
+          if (vocab.englishSentence.isNotEmpty)
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEDE9FE),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.format_quote,
+                    color: Color(0xFF8B5CF6),
+                    size: 16,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      vocab.englishSentence,
+                      style: GoogleFonts.lexend(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w400,
+                        color: const Color(0xFF5E3A8E),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
