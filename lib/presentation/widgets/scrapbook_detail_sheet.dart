@@ -63,15 +63,6 @@ class _ScrapbookDetailSheet extends StatelessWidget {
     return words.values.toList();
   }
 
-  String get story {
-    for (final entry in scrapbooks) {
-      if (entry.englishSentence.trim().isNotEmpty) {
-        return entry.englishSentence.trim();
-      }
-    }
-    return '';
-  }
-
   String _formatDate(DateTime date) {
     const months = [
       'Jan',
@@ -135,8 +126,6 @@ class _ScrapbookDetailSheet extends StatelessWidget {
                 24 + MediaQuery.paddingOf(context).bottom,
               ),
               children: [
-                _buildStory(context),
-                const SizedBox(height: 28),
                 _SectionTitle(title: 'Photos', count: photoScrapbooks.length),
                 const SizedBox(height: 14),
                 _PhotoStrip(
@@ -147,16 +136,6 @@ class _ScrapbookDetailSheet extends StatelessWidget {
                 const _SectionTitle(title: 'Vocab · tap to review'),
                 const SizedBox(height: 14),
                 _buildVocabulary(context),
-                if (scrapbooks.length > 1) ...[
-                  const SizedBox(height: 24),
-                  Text(
-                    '${scrapbooks.length} memories saved on this day',
-                    style: GoogleFonts.lexend(
-                      fontSize: 12,
-                      color: DesignTokens.textSecondary,
-                    ),
-                  ),
-                ],
               ],
             ),
           ),
@@ -169,15 +148,32 @@ class _ScrapbookDetailSheet extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(26, 18, 18, 16),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
-            child: Text(
-              _formatDate(scrapbook.date),
-              style: GoogleFonts.lexend(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFF2D2B30),
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _formatDate(scrapbook.date),
+                  style: GoogleFonts.lexend(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF2D2B30),
+                  ),
+                ),
+                if (scrapbooks.length > 1)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 3),
+                    child: Text(
+                      '${scrapbooks.length} memories saved on this day',
+                      style: GoogleFonts.lexend(
+                        fontSize: 12,
+                        color: DesignTokens.textSecondary,
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
           _buildHeaderEmojis(context),
@@ -221,40 +217,6 @@ class _ScrapbookDetailSheet extends StatelessWidget {
               ),
             );
           }).toList(),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStory(BuildContext context) {
-    final hasStory = story.isNotEmpty;
-    return Semantics(
-      button: true,
-      label: hasStory ? 'Edit story' : 'Add a story',
-      child: InkWell(
-        onTap: () => _openEditor(context),
-        borderRadius: BorderRadius.circular(DesignTokens.radiusLarge),
-        child: Ink(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF5F4F6),
-            borderRadius: BorderRadius.circular(DesignTokens.radiusLarge),
-          ),
-          child: Text(
-            hasStory ? story : 'Tap to add a story about these photos…',
-            textAlign: TextAlign.center,
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.lexend(
-              fontSize: 14,
-              height: 1.45,
-              fontWeight: FontWeight.w400,
-              color: hasStory
-                  ? const Color(0xFF4E4A52)
-                  : const Color(0xFF68636D),
-            ),
-          ),
         ),
       ),
     );

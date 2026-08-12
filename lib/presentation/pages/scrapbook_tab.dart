@@ -9,6 +9,7 @@ import '../providers/scrapbook_provider.dart';
 import '../widgets/galaxy_screen_background.dart';
 import '../widgets/scrapbook_detail_sheet.dart';
 import '../widgets/scrapbook_polaroid.dart';
+import 'edit_scrapbook_screen.dart';
 
 /// Calendar-led archive of the learner's saved memories.
 class ScrapbookTab extends ConsumerStatefulWidget {
@@ -28,6 +29,7 @@ class _ScrapbookTabState extends ConsumerState<ScrapbookTab> {
 
   DateTime _focusedDay = DateTime.now();
   DateTime _selectedDay = DateTime.now();
+  DateTime? _visuallySelectedDay;
 
   @override
   Widget build(BuildContext context) {
@@ -139,7 +141,7 @@ class _ScrapbookTabState extends ConsumerState<ScrapbookTab> {
             firstDay: DateTime(2015, 1, 1),
             lastDay: DateTime(DateTime.now().year + 5, 12, 31),
             focusedDay: _focusedDay,
-            selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+            selectedDayPredicate: (day) => isSameDay(_visuallySelectedDay ?? _selectedDay, day),
             eventLoader: (day) => state
                 .getScrapbooksForDate(day)
                 .map((scrapbook) => scrapbook.id)
@@ -183,9 +185,28 @@ class _ScrapbookTabState extends ConsumerState<ScrapbookTab> {
             ),
             onDaySelected: (selectedDay, focusedDay) {
               setState(() {
-                _selectedDay = selectedDay;
                 _focusedDay = focusedDay;
+                _visuallySelectedDay = selectedDay;
+                _selectedDay = selectedDay;
               });
+
+              // Show the detail sheet for the selected day
+              final entries = state.getScrapbooksForDate(selectedDay);
+              if (entries.isNotEmpty) {
+                _showDayScrapbooks(entries, selectedDay);
+              } else {
+                // Show feedback for empty days
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('No memories saved on this day'),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                }
+                // Reset visual selection
+                setState(() => _visuallySelectedDay = null);
+              }
             },
             onPageChanged: (focusedDay) {
               setState(() => _focusedDay = focusedDay);
@@ -305,22 +326,7 @@ class _ScrapbookTabState extends ConsumerState<ScrapbookTab> {
                   ),
                 ],
               ),
-            ),
-            if (entries.isNotEmpty)
-              TextButton.icon(
-                onPressed: () => _showDayScrapbooks(entries),
-                icon: const Icon(Icons.arrow_forward_rounded, size: 17),
-                label: const Text('View all'),
-                iconAlignment: IconAlignment.end,
-                style: TextButton.styleFrom(
-                  foregroundColor: DesignTokens.brandColor,
-                  minimumSize: const Size(0, DesignTokens.touchTarget),
-                  textStyle: GoogleFonts.lexend(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
+            )
           ],
         ),
         const SizedBox(height: 15),
@@ -333,7 +339,7 @@ class _ScrapbookTabState extends ConsumerState<ScrapbookTab> {
               : _MemoryStrip(
                   key: ValueKey(_dateKey(_selectedDay)),
                   entries: entries,
-                  onTap: () => _showDayScrapbooks(entries),
+                  onEntryTap: (entry) => _openEditor(context, entry),
                 ),
         ),
       ],
@@ -351,11 +357,32 @@ class _ScrapbookTabState extends ConsumerState<ScrapbookTab> {
     setState(() {
       _focusedDay = today;
       _selectedDay = today;
+      _visuallySelectedDay = null;
     });
   }
 
-  void _showDayScrapbooks(List<ScrapbookModel> scrapbooks) {
-    showScrapbookDetailSheet(context, scrapbooks: scrapbooks);
+  void _showDayScrapbooks(List<ScrapbookModel> scrapbooks, [DateTime? selectedDay]) async {
+    await showScrapbookDetailSheet(context, scrapbooks: scrapbooks);
+    // Reset visual selection after sheet closes
+    if (mounted && selectedDay != null) {
+      setState(() => _visuallySelectedDay = null);
+    }
+  }
+
+  void _openEditor(BuildContext context, ScrapbookModel entry) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => EditScrapbookScreen(
+          scrapbookId: entry.id,
+          imagePath: entry.imagePath,
+          vocabularyWords: entry.vocabularyWords,
+          englishSentence: entry.englishSentence,
+          thaiSentence: entry.thaiSentence,
+          selectedEmoji: entry.selectedEmoji,
+          date: entry.date,
+        ),
+      ),
+    );
   }
 
   TextStyle _dayTextStyle(Color color, [FontWeight weight = FontWeight.w500]) {
@@ -414,11 +441,11 @@ class _MemoryStrip extends StatelessWidget {
   const _MemoryStrip({
     super.key,
     required this.entries,
-    required this.onTap,
+    required this.onEntryTap,
   });
 
   final List<ScrapbookModel> entries;
-  final VoidCallback onTap;
+  final ValueChanged<ScrapbookModel> onEntryTap;
 
   @override
   Widget build(BuildContext context) {
@@ -439,7 +466,7 @@ class _MemoryStrip extends StatelessWidget {
               backgroundColor: Color(entry.backgroundColor),
               vocabularyCount: entry.vocabularyWords.length,
               semanticLabel: 'Open memory ${index + 1}',
-              onTap: onTap,
+              onTap: () => onEntryTap(entry),
             ),
           );
         },
