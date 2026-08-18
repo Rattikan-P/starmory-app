@@ -57,9 +57,17 @@ class _ReviewSessionPageState extends ConsumerState<ReviewSessionPage> {
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppBar(
-          title: const Text('Your Photos'),
+          title: const Text(
+            'Review session',
+            style: TextStyle(
+              color: Color(0xFF2F2855),
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
           backgroundColor: Colors.transparent,
           elevation: 0,
+          iconTheme: const IconThemeData(color: Color(0xFF2F2855)),
           actions: [
             // Auto-saved hint
             Padding(
@@ -67,8 +75,9 @@ class _ReviewSessionPageState extends ConsumerState<ReviewSessionPage> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.green.withValues(alpha: 0.2),
+                  color: Colors.white.withValues(alpha: 0.68),
                   borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFBCE8D1)),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -78,7 +87,7 @@ class _ReviewSessionPageState extends ConsumerState<ReviewSessionPage> {
                     Text(
                       'Auto-saved',
                       style: TextStyle(
-                        color: Colors.green.withValues(alpha: 0.9),
+                        color: const Color(0xFF2D8B5A),
                         fontSize: 11,
                         fontWeight: FontWeight.w500,
                       ),
@@ -87,31 +96,26 @@ class _ReviewSessionPageState extends ConsumerState<ReviewSessionPage> {
                 ),
               ),
             ),
-            if (!reviewState.isLoading && reviewState.cards.isNotEmpty)
+            if (!reviewState.isLoading &&
+                reviewState.cards.isNotEmpty &&
+                !reviewState.isComplete)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    // Current batch progress (primary)
-                    Text(
-                      '${reviewState.currentIndex + 1}/${reviewState.sessionCount}',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.70),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFFD9D2FF)),
+                  ),
+                  child: Text(
+                    '${reviewState.currentIndex + 1} / ${reviewState.sessionCount}',
+                    style: const TextStyle(
+                      color: Color(0xFF5C4EB6),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
                     ),
-                    // Remaining cards count (secondary)
-                    if (reviewState.remainingDueCount > 0)
-                      Text(
-                        '+${reviewState.remainingDueCount} more',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.white.withValues(alpha: 0.7),
-                        ),
-                      ),
-                  ],
+                  ),
                 ),
               ),
           ],
@@ -152,7 +156,12 @@ class _ReviewSessionPageState extends ConsumerState<ReviewSessionPage> {
 
     // Empty state (no cards)
     if (state.cards.isEmpty) {
-      return _buildEmptyState(context);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && Navigator.canPop(context)) {
+          Navigator.pop(context);
+        }
+      });
+      return const SizedBox.shrink();
     }
 
     // Show feedback
@@ -163,50 +172,10 @@ class _ReviewSessionPageState extends ConsumerState<ReviewSessionPage> {
     // Show card
     final currentCard = state.currentCard;
     if (currentCard == null) {
-      return _buildCompleteState(context, ref);
+      return _buildCompleteState(context);
     }
 
     return _buildCardSwipe(context, ref, currentCard);
-  }
-
-  Widget _buildEmptyState(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.check_circle_outline,
-            size: 80,
-            color: Colors.green.withValues(alpha: 0.7),
-          ),
-          const SizedBox(height: 24),
-          const Text(
-            "You're all done!",
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'No photos to review right now.',
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey[400],
-            ),
-          ),
-          const SizedBox(height: 32),
-          ElevatedButton.icon(
-            onPressed: () => Navigator.pop(context),
-            icon: const Icon(Icons.home),
-            label: const Text('Back to Your Photos'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF8b7cf6),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   Widget _buildCardSwipe(
@@ -250,202 +219,263 @@ class _ReviewSessionPageState extends ConsumerState<ReviewSessionPage> {
 
     final remembered = state.lastRating ?? false;
 
-    return Container(
-      color: Colors.black.withValues(alpha: 0.8),
+    final resultColor = remembered
+        ? const Color(0xFF2D9C72)
+        : const Color(0xFFE49A2F);
+    final resultBackground = remembered
+        ? const Color(0xFFE3F6EC)
+        : const Color(0xFFFFF0D8);
+
+    return SafeArea(
       child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Result icon - friendly celebration instead of harsh X
-              Icon(
-                remembered ? Icons.celebration : Icons.auto_awesome,
-                size: 80,
-                color: remembered ? Colors.green : Colors.amber,
-              ),
-              const SizedBox(height: 16),
-              // Friendly message
-              Text(
-                remembered ? 'You remember!' : "Not yet - that's okay!",
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              // Word
-              Text(
-                vocab.word,
-                style: const TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              // "means" label
-              Text(
-                'means',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.white.withValues(alpha: 0.7),
-                  letterSpacing: 1.2,
-                ),
-              ),
-              const SizedBox(height: 8),
-              // Meaning
-              Text(
-                vocab.thaiTranslation,
-                style: const TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              // Example sentence
-              if (vocab.englishSentence.isNotEmpty)
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 28),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 460),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  width: 76,
+                  height: 76,
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
+                    color: resultBackground,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 5),
+                    boxShadow: [
+                      BoxShadow(
+                        color: resultColor.withValues(alpha: 0.22),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
                   ),
-                  child: Text(
-                    vocab.englishSentence,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      color: Colors.white60,
-                      fontStyle: FontStyle.italic,
-                    ),
-                    textAlign: TextAlign.center,
+                  child: Icon(
+                    remembered
+                        ? Icons.check_rounded
+                        : Icons.auto_awesome_rounded,
+                    size: 36,
+                    color: resultColor,
                   ),
                 ),
-              const SizedBox(height: 32),
-              // Undo button (if available)
-              if (state.canUndo)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: TextButton.icon(
-                    onPressed: () => ref.read(reviewStateProvider.notifier).undoSwipe(),
-                    icon: const Icon(Icons.undo, color: Colors.white54),
+                const SizedBox(height: 14),
+                Text(
+                  remembered ? 'Nice work!' : "That is okay!",
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF2F2855),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  remembered
+                      ? 'You remembered this word.'
+                      : 'Seeing it again helps it stick.',
+                  style: const TextStyle(fontSize: 14, color: Color(0xFF655D80)),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 22),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(22),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFFFFEFF), Color(0xFFF0ECFF)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: const Color(0xFFD8D0FF)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF695C9E).withValues(alpha: 0.15),
+                        blurRadius: 20,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        vocab.word,
+                        style: const TextStyle(
+                          fontSize: 32,
+                          height: 1.1,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF2F2855),
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 14),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEAE6FF),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Text(
+                          'MEANING',
+                          style: TextStyle(
+                            fontSize: 10,
+                            letterSpacing: 1.1,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF6354B5),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        vocab.thaiTranslation,
+                        style: const TextStyle(
+                          fontSize: 25,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF3A3263),
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      if (vocab.englishSentence.isNotEmpty) ...[
+                        const SizedBox(height: 18),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.72),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Text(
+                            vocab.englishSentence,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              height: 1.4,
+                              color: Color(0xFF655D80),
+                              fontStyle: FontStyle.italic,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  height: 54,
+                  child: ElevatedButton.icon(
+                    onPressed: () => ref.read(reviewStateProvider.notifier).nextCard(),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF8B7CF6),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    icon: const Icon(Icons.arrow_forward_rounded),
                     label: const Text(
-                      'Undo',
-                      style: TextStyle(color: Colors.white70, fontSize: 14),
+                      'Next card',
+                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
                     ),
                   ),
                 ),
-              // Continue button - friendly label
-              ElevatedButton(
-                onPressed: () => ref.read(reviewStateProvider.notifier).nextCard(),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 48,
-                    vertical: 16,
+                if (state.canUndo) ...[
+                  const SizedBox(height: 8),
+                  TextButton.icon(
+                    onPressed: () => ref.read(reviewStateProvider.notifier).undoSwipe(),
+                    icon: const Icon(Icons.undo_rounded, size: 18),
+                    label: const Text('Change my rating'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: const Color(0xFF655D80),
+                    ),
                   ),
-                ),
-                child: const Text('Next photo'),
-              ),
-            ],
+                ],
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildCompleteState(BuildContext context, WidgetRef ref) {
-    final reviewState = ref.watch(reviewStateProvider);
-    final remaining = reviewState.remainingDueCount;
-
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.celebration,
-            size: 80,
-            color: Colors.amber.withValues(alpha: 0.8),
-          ),
-          const SizedBox(height: 24),
-          const Text(
-            "Great job! You're done!",
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '${reviewState.sessionCount} photos reviewed',
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey[400],
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // Show Continue button if there are more cards
-          if (remaining > 0) ...[
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 32),
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  ref.read(reviewStateProvider.notifier).loadMore();
-                },
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 32,
-                    vertical: 16,
+  Widget _buildCompleteState(BuildContext context) {
+    return SafeArea(
+      child: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 460),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 96,
+                  height: 96,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFFFE5A5), Color(0xFFFFC96B)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 6),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFE3A23A).withValues(alpha: 0.28),
+                        blurRadius: 28,
+                        offset: const Offset(0, 12),
+                      ),
+                    ],
                   ),
-                  backgroundColor: const Color(0xFF8b7cf6),
-                ),
-                icon: const Icon(Icons.add_circle_outline, size: 22),
-                label: Text('Continue with $remaining more photos'),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(
-                'Done for today',
-                style: TextStyle(
-                  color: Colors.grey[500],
-                  fontSize: 14,
-                ),
-              ),
-            ),
-          ] else ...[
-            // All caught up - just show Finish button
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 32),
-              child: ElevatedButton.icon(
-                onPressed: () => Navigator.pop(context),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 32,
-                    vertical: 16,
+                  child: const Icon(
+                    Icons.celebration_rounded,
+                    size: 46,
+                    color: Color(0xFF8E5B00),
                   ),
-                  backgroundColor: const Color(0xFF8b7cf6),
                 ),
-                icon: const Icon(Icons.check),
-                label: const Text('All done'),
-              ),
+                const SizedBox(height: 20),
+                const Text(
+                  'Review complete!',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF2F2855),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'A little practice today goes a long way.',
+                  style: TextStyle(fontSize: 15, color: Color(0xFF655D80)),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 32),
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: ElevatedButton.icon(
+                    onPressed: () => Navigator.pop(context),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF8B7CF6),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    icon: const Icon(Icons.check_rounded),
+                    label: const Text(
+                      'Done',
+                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
-            Text(
-              "🎉 You're all caught up!",
-              style: TextStyle(
-                color: Colors.grey[500],
-                fontSize: 14,
-              ),
-            ),
-          ],
-        ],
+          ),
+        ),
       ),
     );
   }

@@ -698,10 +698,7 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
                 height: 58,
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [
-                      Color(0xFFFF6B9D),
-                      Color(0xFFE84393),
-                    ],
+                    colors: [Color(0xFFFF6B9D), Color(0xFFE84393)],
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                   ),
@@ -721,12 +718,7 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
                       Icons.spa_outlined,
                       color: Colors.white,
                       size: 24,
-                      shadows: [
-                        Shadow(
-                          color: Colors.black26,
-                          blurRadius: 4,
-                        ),
-                      ],
+                      shadows: [Shadow(color: Colors.black26, blurRadius: 4)],
                     ),
                     SizedBox(height: 2),
                     Text(
@@ -735,12 +727,7 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
-                        shadows: [
-                          Shadow(
-                            color: Colors.black26,
-                            blurRadius: 4,
-                          ),
-                        ],
+                        shadows: [Shadow(color: Colors.black26, blurRadius: 4)],
                       ),
                     ),
                   ],
@@ -756,10 +743,7 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
                 height: 58,
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [
-                      Color(0xFF74B9FF),
-                      Color(0xFF0984E3),
-                    ],
+                    colors: [Color(0xFF74B9FF), Color(0xFF0984E3)],
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                   ),
@@ -779,12 +763,7 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
                       Icons.star_outlined,
                       color: Colors.white,
                       size: 24,
-                      shadows: [
-                        Shadow(
-                          color: Colors.black26,
-                          blurRadius: 4,
-                        ),
-                      ],
+                      shadows: [Shadow(color: Colors.black26, blurRadius: 4)],
                     ),
                     SizedBox(height: 2),
                     Text(
@@ -793,12 +772,7 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
-                        shadows: [
-                          Shadow(
-                            color: Colors.black26,
-                            blurRadius: 4,
-                          ),
-                        ],
+                        shadows: [Shadow(color: Colors.black26, blurRadius: 4)],
                       ),
                     ),
                   ],

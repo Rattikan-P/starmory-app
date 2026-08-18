@@ -21,8 +21,6 @@ class MainNavigationScreen extends ConsumerStatefulWidget {
 }
 
 class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
-  int _currentIndex = 0;
-
   final List<Widget> _tabs = const [
     HomeTab(),
     ReviewTab(),
@@ -85,10 +83,12 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final currentIndex = ref.watch(mainNavigationIndexProvider);
+
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: IndexedStack(
-        index: _currentIndex,
+        index: currentIndex,
         children: _tabs,
       ),
       bottomNavigationBar: Container(
@@ -103,11 +103,9 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
           ],
         ),
         child: BottomNavigationBar(
-          currentIndex: _currentIndex,
+          currentIndex: currentIndex,
           onTap: (index) {
-            setState(() {
-              _currentIndex = index;
-            });
+            ref.read(mainNavigationIndexProvider.notifier).state = index;
           },
           type: BottomNavigationBarType.fixed,
           backgroundColor: Colors.transparent,

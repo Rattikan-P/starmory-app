@@ -127,6 +127,7 @@ class WordCardModel extends Equatable {
       'communicative_function': '',
       'language_variant': 'US',
       'image_url': json['photo_url'] as String,
+      'topic': json['topic'] as String? ?? 'other',
       'created_at': json['due_date'] as String, // fallback
       'updated_at': null,
       'tags': [],

@@ -76,6 +76,9 @@ final appInitializationProvider = StateProvider<AppInitialization>((ref) {
   return AppInitialization.uninitialized;
 });
 
+/// Active tab in the main navigation. Other flows can return users to Home.
+final mainNavigationIndexProvider = StateProvider<int>((ref) => 0);
+
 /// Initialize App
 Future<void> initializeApp(Ref ref) async {
   try {

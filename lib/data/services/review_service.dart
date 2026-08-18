@@ -397,6 +397,63 @@ class ReviewService {
     return dueCount + newVocabCount;
   }
 
+  /// Returns the number of cards that can be reviewed for each topic.
+  /// An available card is either already due or a new vocabulary without a card.
+  Future<Map<String, int>> getAvailableCardCountsByTopic() async {
+    final userId = currentUserId;
+    final counts = <String, int>{};
+
+    void addTopic(String? topic) {
+      if (topic == null || topic.isEmpty) return;
+      counts[topic] = (counts[topic] ?? 0) + 1;
+    }
+
+    if (userId == null) {
+      final allCards = await _hiveService.getWordCards();
+      final allVocabulary = await _hiveService.getAllVocabulary();
+      final cardVocabularyIds = allCards.map((card) => card.vocabularyId).toSet();
+      final vocabularyById = {
+        for (final vocabulary in allVocabulary) vocabulary.id: vocabulary,
+      };
+
+      for (final card in allCards.where((card) => card.isDue)) {
+        // Older locally stored cards may not include the embedded vocabulary.
+        addTopic(card.vocabulary?.topic ?? vocabularyById[card.vocabularyId]?.topic);
+      }
+      for (final vocabulary
+          in allVocabulary.where((vocabulary) => !cardVocabularyIds.contains(vocabulary.id))) {
+        addTopic(vocabulary.topic);
+      }
+      return counts;
+    }
+
+    // The RPC already applies the same due-date rules as review sessions.
+    final dueCards = await getDueCards(limit: 10000);
+    for (final card in dueCards) {
+      addTopic(card.vocabulary?.topic);
+    }
+
+    final existingCardsResponse = await _client
+        .from('word_cards')
+        .select('vocabulary_id')
+        .eq('user_id', userId);
+    final existingVocabularyIds = (existingCardsResponse as List<dynamic>)
+        .map((row) => row['vocabulary_id'] as String)
+        .toSet();
+    final vocabulariesResponse = await _client
+        .from('vocabularies')
+        .select('id, topic')
+        .eq('user_id', userId);
+
+    for (final row in vocabulariesResponse as List<dynamic>) {
+      final vocabulary = row as Map<String, dynamic>;
+      if (!existingVocabularyIds.contains(vocabulary['id'] as String)) {
+        addTopic(vocabulary['topic'] as String?);
+      }
+    }
+    return counts;
+  }
+
   /// Get remaining due count (due cards only, no limit)
   Future<int> getRemainingDueCount({String? topicFilter}) async {
     final userId = currentUserId;
