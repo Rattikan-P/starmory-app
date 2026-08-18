@@ -29,13 +29,14 @@ class ReviewService {
   /// Guest: from Hive | Registered: from Supabase
   Future<List<WordCardModel>> getDueCards({int limit = 5, String? topicFilter}) async {
     final userId = currentUserId;
-
     if (userId == null) {
       // Guest mode: get from Hive
-      return _getDueCardsFromHive(limit, topicFilter);
+      final result = await _getDueCardsFromHive(limit, topicFilter);
+      return result;
     } else {
       // Registered mode: get from Supabase
-      return _getDueCardsFromSupabase(userId, limit, topicFilter);
+      final result = await _getDueCardsFromSupabase(userId, limit, topicFilter);
+      return result;
     }
   }
 
@@ -43,29 +44,16 @@ class ReviewService {
   Future<List<WordCardModel>> _getDueCardsFromHive(int limit, String? topicFilter) async {
     try {
       final allCards = await _hiveService.getWordCards();
-      final now = DateTime.now();
-
-      // 🔍 DEBUG: Print all cards with due status
-      print('🔍 _getDueCardsFromHive: Total cards = ${allCards.length}');
-      print('🔍 Current time: $now (milliseconds: ${now.millisecondsSinceEpoch})');
-      for (var card in allCards) {
-        print('   Card ${card.id}: dueDate=${card.dueDate} (ms: ${card.dueDate.millisecondsSinceEpoch}), isDue=${card.isDue}');
-      }
 
       // Filter due cards
       var dueCards = allCards.where((card) => card.isDue).toList();
-      print('🔍 Due cards found: ${dueCards.length}');
 
       // Apply topic filter if specified
       if (topicFilter != null && topicFilter.isNotEmpty) {
-        final beforeFilter = dueCards.length;
-        print('🔍 Applying topic filter: $topicFilter');
         dueCards = dueCards.where((card) {
           final cardTopic = card.vocabulary?.topic;
-          print('   Card ${card.id}: topic="$cardTopic", match=${cardTopic == topicFilter}');
           return cardTopic == topicFilter;
         }).toList();
-        print('🔍 After filter: ${dueCards.length} cards (was $beforeFilter)');
       }
 
       // Sort by due date (FSRS determines when cards are due)
@@ -74,7 +62,6 @@ class ReviewService {
       // Limit
       return dueCards.take(limit).toList();
     } catch (e) {
-      print('❌ Error getting due cards from Hive: $e');
       return [];
     }
   }
@@ -82,8 +69,6 @@ class ReviewService {
   /// Get due cards from Supabase (Registered mode)
   Future<List<WordCardModel>> _getDueCardsFromSupabase(String userId, int limit, String? topicFilter) async {
     try {
-      print('🔍 _getDueCardsFromSupabase: userId=$userId, limit=$limit, topicFilter=$topicFilter');
-
       final response = await _client
           .rpc('get_due_cards', params: {
             'p_user_id': userId,
@@ -91,41 +76,22 @@ class ReviewService {
             'p_topic_filter': topicFilter
           });
 
-      print('🔍 Supabase response: $response');
-
       if (response == null) {
-        print('🔍 Response is null');
         return [];
       }
 
       final List<dynamic> data = response as List<dynamic>;
-      print('🔍 Data length: ${data.length}');
-
-      // 🔍 DEBUG: Print ALL topics from response to see what's in database
-      print('🔍 Topics in database response:');
-      for (var item in data) {
-        final json = item as Map<String, dynamic>;
-        print('   - word: ${json['word']}, topic: "${json['topic']}" (type: ${json['topic'].runtimeType})');
-      }
 
       final cards = data
           .map((json) => WordCardModel.fromSupabaseWithVocabulary(
               json as Map<String, dynamic>))
           .toList();
 
-      // Debug: Print card info
-      final now = DateTime.now();
-      print('🔍 Current time: $now (ms: ${now.millisecondsSinceEpoch})');
-      for (var card in cards) {
-        print('   Card ${card.id}: dueDate=${card.dueDate} (ms: ${card.dueDate.millisecondsSinceEpoch}), isDue=${card.isDue}');
-      }
-
       // Sort by due date (FSRS determines when cards are due)
       cards.sort((a, b) => a.dueDate.compareTo(b.dueDate));
 
       return cards;
     } catch (e) {
-      print('❌ Error getting due cards from Supabase: $e');
       return [];
     }
   }
@@ -185,18 +151,21 @@ class ReviewService {
           .toList() ?? <String>[];
 
       // Then get vocabularies NOT in that list
-      final response = existingVocabIds.isEmpty
-          ? await _client
-              .from('vocabularies')
-              .select('id, word, part_of_speech, thai_translation, english_sentence, thai_sentence, cefr_level, communicative_function, language_variant, image_url, created_at, updated_at, tags, is_favorite, topic')
-              .eq('user_id', userId)
-              .limit(limit)
-          : await _client
-              .from('vocabularies')
-              .select('id, word, part_of_speech, thai_translation, english_sentence, thai_sentence, cefr_level, communicative_function, language_variant, image_url, created_at, updated_at, tags, is_favorite, topic')
-              .eq('user_id', userId)
-              .not('id', 'in', existingVocabIds)
-              .limit(limit);
+      var query = _client
+          .from('vocabularies')
+          .select('id, word, part_of_speech, thai_translation, english_sentence, thai_sentence, cefr_level, communicative_function, language_variant, image_url, created_at, updated_at, tags, is_favorite, topic')
+          .eq('user_id', userId);
+
+      if (existingVocabIds.isNotEmpty) {
+        query = query.not('id', 'in', existingVocabIds);
+      }
+
+      // Apply topic filter if specified
+      if (topicFilter != null && topicFilter.isNotEmpty) {
+        query = query.eq('topic', topicFilter);
+      }
+
+      final response = await query.limit(limit);
 
       if (response == null) return [];
 
@@ -347,23 +316,21 @@ class ReviewService {
     }
   }
 
-  /// Get a complete review session (due cards + new cards to fill 5)
-  /// Optionally filter by topic category
-  Future<List<WordCardModel>> getReviewSession({String? topicFilter}) async {
+  /// Get a complete review session (due cards + new cards to fill batchSize)
+  /// Optionally filter by topic
+  Future<List<WordCardModel>> getReviewSession({String? topicFilter, int batchSize = 5}) async {
     final userId = currentUserId;
-    print('🔍 getReviewSession: userId=$userId, isLoggedIn=$isLoggedIn');
 
     // Get due cards first
-    final dueCards = await getDueCards(limit: 5, topicFilter: topicFilter);
-    print('🔍 getReviewSession: dueCards=${dueCards.length}');
+    final dueCards = await getDueCards(limit: batchSize, topicFilter: topicFilter);
 
-    // If already have 5, return
-    if (dueCards.length >= 5) {
+    // If already have batchSize, return
+    if (dueCards.length >= batchSize) {
       return dueCards;
     }
 
     // Fill with new vocabularies
-    final needed = 5 - dueCards.length;
+    final needed = batchSize - dueCards.length;
     final newVocab = await getNewVocabularies(limit: needed, topicFilter: topicFilter);
 
     // Create cards for new vocabularies with vocabulary data included
@@ -378,7 +345,59 @@ class ReviewService {
     return sessionCards;
   }
 
-  /// Check if there are more due cards available (for Continue button)
+  /// Get total count of cards available for review (due + new)
+  Future<int> getTotalAvailableCardsCount({String? topicFilter}) async {
+    final userId = currentUserId;
+
+    // 1. Count due cards
+    final dueCount = await getRemainingDueCount(topicFilter: topicFilter);
+
+    // 2. Count new vocabularies
+    int newVocabCount = 0;
+    if (userId == null) {
+      // Guest mode
+      final allVocab = await _hiveService.getAllVocabulary();
+      final allCards = await _hiveService.getWordCards();
+      final cardVocabIds = allCards.map((c) => c.vocabularyId).toSet();
+      var newVocab = allVocab.where((v) => !cardVocabIds.contains(v.id)).toList();
+      if (topicFilter != null && topicFilter.isNotEmpty) {
+        newVocab = newVocab.where((v) => v.topic == topicFilter).toList();
+      }
+      newVocabCount = newVocab.length;
+    } else {
+      // Registered mode - count new vocabularies
+      final existingCardsResponse = await _client
+          .from('word_cards')
+          .select('vocabulary_id')
+          .eq('user_id', userId);
+
+      final existingVocabIds = (existingCardsResponse as List<dynamic>?)
+          ?.map((row) => row['vocabulary_id'] as String)
+          .toList() ?? <String>[];
+
+      // Build query to get vocabularies without cards
+      var query = _client
+          .from('vocabularies')
+          .select('id')
+          .eq('user_id', userId);
+
+      if (existingVocabIds.isNotEmpty) {
+        query = query.not('id', 'in', existingVocabIds);
+      }
+
+      // Apply topic filter if specified
+      if (topicFilter != null && topicFilter.isNotEmpty) {
+        query = query.eq('topic', topicFilter);
+      }
+
+      final response = await query;
+      newVocabCount = (response as List<dynamic>).length;
+    }
+
+    return dueCount + newVocabCount;
+  }
+
+  /// Get remaining due count (due cards only, no limit)
   Future<int> getRemainingDueCount({String? topicFilter}) async {
     final userId = currentUserId;
 

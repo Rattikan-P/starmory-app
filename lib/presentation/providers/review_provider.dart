@@ -124,25 +124,22 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
   ReviewNotifier(this._reviewService)
       : super(const ReviewState(isLoading: true));
 
-  /// Load review session (due cards + new cards to fill 5)
+  /// Load review session (due cards + new cards to fill batchSize)
   /// Optionally filter by topic
-  Future<void> loadSession({String? topicFilter}) async {
-    final caller = StackTrace.current.toString().split('\n')[1];
-    print('🔍 loadSession called: topicFilter=$topicFilter | from: $caller');
+  Future<void> loadSession({String? topicFilter, int batchSize = 5}) async {
     try {
       state = state.copyWith(isLoading: true, error: null);
-      print('🔍 Loading review session...');
 
-      final sessionCards = await _reviewService.getReviewSession(topicFilter: topicFilter);
-      print('🔍 Session cards loaded: ${sessionCards.length}');
-
+      final sessionCards = await _reviewService.getReviewSession(
+        topicFilter: topicFilter, 
+        batchSize: batchSize
+      );
+      
       // Check if there are more due cards remaining (with same topic filter)
       final remainingDue = await _reviewService.getRemainingDueCount(topicFilter: topicFilter);
-      print('🔍 Remaining due: $remainingDue');
 
       // Load user stats for adaptive time estimation
       final userStats = await _reviewService.hiveService.getUserStats();
-      print('🔍 User stats loaded: reviews=${userStats?.totalReviewsCompleted}');
 
       // Reset streak update flag for new session
       _hasUpdatedStreakThisSession = false;
