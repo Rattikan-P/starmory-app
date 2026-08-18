@@ -80,9 +80,15 @@ class ScrapbookNotifier extends StateNotifier<ScrapbookState> {
   StreamSubscription<AuthState>? _authSubscription;
   String? _currentUserId; // Track current user to detect account changes
 
-  ScrapbookNotifier(this._hiveService, this._imageStorageService)
-      : super(const ScrapbookState(isLoading: true)) {
-    _waitForInitializationAndLoad();
+  ScrapbookNotifier(
+    this._hiveService,
+    this._imageStorageService, {
+    ScrapbookState? initialState,
+    bool autoLoad = true,
+  }) : super(initialState ?? const ScrapbookState(isLoading: true)) {
+    if (autoLoad) {
+      _waitForInitializationAndLoad();
+    }
   }
 
   Future<void> _waitForInitializationAndLoad() async {
@@ -275,6 +281,21 @@ class ScrapbookNotifier extends StateNotifier<ScrapbookState> {
     }
   }
 
+  /// Combines cloud data with local-only memories. A cloud record is
+  /// authoritative when both sources contain the same ID.
+  static List<ScrapbookModel> mergeCloudAndLocal(
+    List<ScrapbookModel> cloudScrapbooks,
+    List<ScrapbookModel> localScrapbooks,
+  ) {
+    final merged = [...cloudScrapbooks];
+    final cloudIds = cloudScrapbooks.map((scrapbook) => scrapbook.id).toSet();
+    merged.addAll(
+      localScrapbooks.where((scrapbook) => !cloudIds.contains(scrapbook.id)),
+    );
+    merged.sort((first, second) => second.createdAt.compareTo(first.createdAt));
+    return merged;
+  }
+
   // ============= Cloud Sync Methods =============
 
   /// Load scrapbooks from Supabase cloud database
@@ -353,21 +374,10 @@ class ScrapbookNotifier extends StateNotifier<ScrapbookState> {
 
       // Update state with merged scrapbooks
       // Priority: newer version wins based on updated_at
-      final mergedScrapbooks = <ScrapbookModel>[];
-
-      // Add all cloud scrapbooks
-      mergedScrapbooks.addAll(cloudScrapbooks);
-
-      // Add local-only scrapbooks (not in cloud)
-      final cloudIds = cloudScrapbooks.map((s) => s.id).toSet();
-      for (final local in localScrapbooks) {
-        if (!cloudIds.contains(local.id)) {
-          mergedScrapbooks.add(local);
-        }
-      }
-
-      // Sort the merged list by createdAt descending (newest first)
-      mergedScrapbooks.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      final mergedScrapbooks = mergeCloudAndLocal(
+        cloudScrapbooks,
+        localScrapbooks,
+      );
       state = ScrapbookState(scrapbooks: mergedScrapbooks);
       print('✅ State updated with ${mergedScrapbooks.length} total scrapbooks');
     } catch (e) {

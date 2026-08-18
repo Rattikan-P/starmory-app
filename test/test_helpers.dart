@@ -347,3 +347,11 @@ void printTestSummary(Map<String, dynamic> results) {
   print(separator);
   print('');
 }
+
+/// Format an ARGB color integer to a hex string with proper padding
+/// Example: 0xFFFFFFFF -> '0xFFFFFFFF', 0x00000000 -> '0x00000000'
+String formatArgbColor(int color) {
+  // Convert to 8-character hex string with uppercase
+  final hex = color.toRadixString(16).padLeft(8, '0').toUpperCase();
+  return '0x$hex';
+}

@@ -2489,6 +2489,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                     ),
                     autofocus: true,
                     maxLines: null,
+                    maxLength: 200,
                     style: TextStyle(
                       color: DesignTokens.textPrimary,
                       fontSize: 18,

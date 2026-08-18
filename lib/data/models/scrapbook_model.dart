@@ -1,31 +1,47 @@
 import 'package:equatable/equatable.dart';
 
-/// Text overlay on a scrapbook page
-class ScrapbookTextOverlay extends Equatable {
+/// Base class for all scrapbook elements (text, stickers, photos)
+abstract class ScrapbookElement extends Equatable {
   final String id;
-  final String text;
-  final double x; // Position 0.0 - 1.0 (relative to image)
+  final double x;
   final double y;
+  final double scale;
+  final double rotation;
+  final bool flip;
+
+  const ScrapbookElement({
+    required this.id,
+    required this.x,
+    required this.y,
+    this.scale = 1.0,
+    this.rotation = 0.0,
+    this.flip = false,
+  });
+
+  @override
+  List<Object?> get props => [id, x, y, scale, rotation, flip];
+}
+
+/// Text overlay on a scrapbook page
+class ScrapbookTextOverlay extends ScrapbookElement {
+  final String text;
   final int color; // ARGB color
   final double fontSize;
   final String fontFamily;
-  final double scale; // Scale multiplier for resizing
-  final double rotation; // Rotation in radians
-  final bool flip; // Horizontal flip (mirror)
   final int? backgroundColor; // ARGB background color, null = transparent
   final double? width; // Width as fraction of canvas width (0.0 - 1.0), null = auto
 
   const ScrapbookTextOverlay({
-    required this.id,
+    required super.id,
     required this.text,
-    required this.x,
-    required this.y,
+    required super.x,
+    required super.y,
     this.color = 0xFF000000,
     this.fontSize = 16.0,
     this.fontFamily = 'Lexend',
-    this.scale = 1.0,
-    this.rotation = 0.0,
-    this.flip = false,
+    super.scale = 1.0,
+    super.rotation = 0.0,
+    super.flip = false,
     this.backgroundColor,
     this.width,
   });
@@ -95,27 +111,21 @@ class ScrapbookTextOverlay extends Equatable {
   }
 
   @override
-  List<Object?> get props => [id, text, x, y, color, fontSize, fontFamily, scale, rotation, flip, backgroundColor, width];
+  List<Object?> get props => [...super.props, text, color, fontSize, fontFamily, backgroundColor, width];
 }
 
 /// Sticker/emoji on a scrapbook page
-class ScrapbookSticker extends Equatable {
-  final String id;
+class ScrapbookSticker extends ScrapbookElement {
   final String emoji;
-  final double x; // Position 0.0 - 1.0
-  final double y;
-  final double scale;
-  final double rotation; // Rotation in radians
-  final bool flip; // Horizontal flip (mirror)
 
   const ScrapbookSticker({
-    required this.id,
+    required super.id,
     required this.emoji,
-    required this.x,
-    required this.y,
-    this.scale = 1.0,
-    this.rotation = 0.0,
-    this.flip = false,
+    required super.x,
+    required super.y,
+    super.scale = 1.0,
+    super.rotation = 0.0,
+    super.flip = false,
   });
 
   ScrapbookSticker copyWith({
@@ -163,29 +173,24 @@ class ScrapbookSticker extends Equatable {
   }
 
   @override
-  List<Object?> get props => [id, emoji, x, y, scale, rotation, flip];
+  List<Object?> get props => [...super.props, emoji];
 }
 
 /// Additional photo on a scrapbook page
-class ScrapbookPhoto extends Equatable {
-  final String id;
+class ScrapbookPhoto extends ScrapbookElement {
   final String imagePath;
-  final double x; // Position 0.0 - 1.0 (relative to canvas)
-  final double y;
   final double width; // Width as fraction of canvas width (0.0 - 1.0)
   final double height; // Height as fraction of canvas height (0.0 - 1.0)
-  final double rotation; // Rotation in radians
-  final bool flip; // Horizontal flip (mirror)
 
   const ScrapbookPhoto({
-    required this.id,
+    required super.id,
     required this.imagePath,
-    required this.x,
-    required this.y,
+    required super.x,
+    required super.y,
     this.width = 0.25, // Default to 25% of canvas width
     this.height = 0.25, // Default to 25% of canvas height
-    this.rotation = 0.0,
-    this.flip = false,
+    super.rotation = 0.0,
+    super.flip = false,
   });
 
   ScrapbookPhoto copyWith({
@@ -237,7 +242,7 @@ class ScrapbookPhoto extends Equatable {
   }
 
   @override
-  List<Object?> get props => [id, imagePath, x, y, width, height, rotation, flip];
+  List<Object?> get props => [...super.props, imagePath, width, height];
 }
 
 /// Vocabulary word reference in a scrapbook
