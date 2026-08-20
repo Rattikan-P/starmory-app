@@ -1,228 +1,302 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../data/sticker_sets.dart';
+import '../widgets/sticker_pack_unlock_dialog.dart';
+import 'providers.dart';
 
-// Sticker model
-class Sticker {
-  final String id;
-  final String name;
-  final String icon;
-  final String description;
-  final bool isLocked;
-  final int requiredStars;
-  final String packName;
+/// Upcoming Sticker Pack Info for progress display
+class UpcomingStickerPackInfo {
+  final StickerSet pack;
+  final int currentProgress;
+  final int targetProgress;
+  final double progressPercentage;
+  final String progressLabel;
 
-  Sticker({
-    required this.id,
-    required this.name,
-    required this.icon,
-    required this.description,
-    this.isLocked = true,
-    required this.requiredStars,
-    this.packName = 'Daily',
+  const UpcomingStickerPackInfo({
+    required this.pack,
+    required this.currentProgress,
+    required this.targetProgress,
+    required this.progressPercentage,
+    required this.progressLabel,
   });
 }
 
-// Sticker state
+/// Sticker state holding list of sticker packs and unlocked statistics
 class StickerState {
-  final List<Sticker> stickers;
+  final List<StickerSet> packs;
   final int unlockedCount;
+  final StickerSet? latestUnlockedPack;
 
   StickerState({
-    required this.stickers,
+    required this.packs,
     required this.unlockedCount,
+    this.latestUnlockedPack,
   });
 
   factory StickerState.initial() {
     return StickerState(
-      stickers: [],
-      unlockedCount: 0,
+      packs: stickerSets,
+      unlockedCount: stickerSets.where((p) => !p.isLocked).length,
     );
   }
 
-  /// Get distinct pack names
-  List<String> get availablePacks {
-    final packs = stickers.map((s) => s.packName).toSet().toList();
-    packs.sort();
-    return ['All', ...packs];
+  int get totalPacksCount => packs.length;
+
+  /// Check if a specific pack is unlocked
+  bool isPackUnlocked(String packId) {
+    try {
+      final pack = packs.firstWhere((p) => p.id == packId);
+      return !pack.isLocked;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Get current progress value for a pack
+  int getProgress(
+    StickerSet pack, {
+    int totalStars = 0,
+    int streakDays = 0,
+    int natureVocabCount = 0,
+  }) {
+    switch (pack.unlockType) {
+      case StickerUnlockType.free:
+        return 1;
+      case StickerUnlockType.streak:
+        return streakDays;
+      case StickerUnlockType.category:
+        if (pack.requiredCategory?.toLowerCase() == 'nature') {
+          return natureVocabCount;
+        }
+        return 0;
+      case StickerUnlockType.stars:
+        return totalStars;
+    }
+  }
+
+  /// Get target value for a pack
+  int getTarget(StickerSet pack) {
+    switch (pack.unlockType) {
+      case StickerUnlockType.free:
+        return 1;
+      case StickerUnlockType.streak:
+        return pack.requiredStreakDays ?? 0;
+      case StickerUnlockType.category:
+        return pack.requiredCategoryCount ?? 0;
+      case StickerUnlockType.stars:
+        return pack.requiredStars ?? 0;
+    }
+  }
+
+  /// Get progress ratio between 0.0 and 1.0
+  double getProgressRatio(
+    StickerSet pack, {
+    int totalStars = 0,
+    int streakDays = 0,
+    int natureVocabCount = 0,
+  }) {
+    if (!pack.isLocked) return 1.0;
+    final target = getTarget(pack);
+    if (target <= 0) return 1.0;
+    final current = getProgress(
+      pack,
+      totalStars: totalStars,
+      streakDays: streakDays,
+      natureVocabCount: natureVocabCount,
+    );
+    return (current / target).clamp(0.0, 1.0);
+  }
+
+  /// Get human-readable progress label
+  String getProgressLabel(
+    StickerSet pack, {
+    int totalStars = 0,
+    int streakDays = 0,
+    int natureVocabCount = 0,
+  }) {
+    if (!pack.isLocked) return 'ปลดล็อกแล้ว (Unlocked)';
+
+    final current = getProgress(
+      pack,
+      totalStars: totalStars,
+      streakDays: streakDays,
+      natureVocabCount: natureVocabCount,
+    );
+    final target = getTarget(pack);
+
+    switch (pack.unlockType) {
+      case StickerUnlockType.free:
+        return 'ฟรี (Free)';
+      case StickerUnlockType.streak:
+        return '$current / $target วัน (Days)';
+      case StickerUnlockType.category:
+        if (pack.requiredCategory?.toLowerCase() == 'nature') {
+          return '$current / $target คำธรรมชาติ (Nature)';
+        }
+        return '$current / $target คำ';
+      case StickerUnlockType.stars:
+        return '$current / $target ดาว (Stars)';
+    }
   }
 
   StickerState copyWith({
-    List<Sticker>? stickers,
+    List<StickerSet>? packs,
     int? unlockedCount,
+    StickerSet? latestUnlockedPack,
   }) {
     return StickerState(
-      stickers: stickers ?? this.stickers,
+      packs: packs ?? this.packs,
       unlockedCount: unlockedCount ?? this.unlockedCount,
+      latestUnlockedPack: latestUnlockedPack ?? this.latestUnlockedPack,
     );
   }
 }
 
-// Sticker controller
+/// Controller managing Sticker Sets, unlocks, and sync with UserModel
 class StickerController extends StateNotifier<StickerState> {
-  StickerController() : super(StickerState.initial()) {
-    _initializeStickers();
+  final Ref _ref;
+
+  StickerController(this._ref) : super(StickerState.initial()) {
+    _initUserListener();
   }
 
-  void _initializeStickers() {
-    final stickers = [
-      Sticker(
-        id: 'happy_face',
-        name: 'Happy',
-        icon: '😊',
-        description: 'Keep smiling while learning!',
-        isLocked: false,
-        requiredStars: 5,
-        packName: 'Daily',
-      ),
-      Sticker(
-        id: 'rocket',
-        name: 'Rocket',
-        icon: '🚀',
-        description: 'Blast off to learning success!',
-        isLocked: false,
-        requiredStars: 10,
-        packName: 'Space',
-      ),
-      Sticker(
-        id: 'ufo',
-        name: 'UFO',
-        icon: '🛸',
-        description: 'Exploring unknown vocabulary!',
-        isLocked: true,
-        requiredStars: 15,
-        packName: 'Space',
-      ),
-      Sticker(
-        id: 'star_struck',
-        name: 'Star Struck',
-        icon: '🤩',
-        description: 'Amazing progress!',
-        isLocked: true,
-        requiredStars: 25,
-        packName: 'Daily',
-      ),
-      Sticker(
-        id: 'saturn',
-        name: 'Saturn',
-        icon: '🪐',
-        description: 'Ring of knowledge!',
-        isLocked: true,
-        requiredStars: 35,
-        packName: 'Space',
-      ),
-      Sticker(
-        id: 'rainbow',
-        name: 'Rainbow',
-        icon: '🌈',
-        description: 'Colorful vocabulary journey!',
-        isLocked: true,
-        requiredStars: 50,
-        packName: 'Daily',
-      ),
-      Sticker(
-        id: 'comet',
-        name: 'Comet',
-        icon: '☄️',
-        description: 'Blazing through words fast!',
-        isLocked: true,
-        requiredStars: 60,
-        packName: 'Space',
-      ),
-      Sticker(
-        id: 'sparkles',
-        name: 'Sparkles',
-        icon: '✨',
-        description: 'Shining bright!',
-        isLocked: true,
-        requiredStars: 75,
-        packName: 'Daily',
-      ),
-      Sticker(
-        id: 'astronaut',
-        name: 'Astronaut',
-        icon: '👨‍🚀',
-        description: 'Cosmic language explorer!',
-        isLocked: true,
-        requiredStars: 90,
-        packName: 'Space',
-      ),
-      Sticker(
-        id: 'trophy',
-        name: 'Trophy',
-        icon: '🏆',
-        description: 'Champion learner!',
-        isLocked: true,
-        requiredStars: 100,
-        packName: 'Legend',
-      ),
-      Sticker(
-        id: 'nebula',
-        name: 'Nebula',
-        icon: '🌌',
-        description: 'Deep cosmic vocabulary master!',
-        isLocked: true,
-        requiredStars: 150,
-        packName: 'Space',
-      ),
-      Sticker(
-        id: 'crystal',
-        name: 'Crystal',
-        icon: '💎',
-        description: 'Pure crystal-clear memory!',
-        isLocked: true,
-        requiredStars: 200,
-        packName: 'Legend',
-      ),
-      Sticker(
-        id: 'crown',
-        name: 'Crown',
-        icon: '👑',
-        description: 'Ruler of the Starmory galaxy!',
-        isLocked: true,
-        requiredStars: 250,
-        packName: 'Legend',
-      ),
-    ];
+  void _initUserListener() {
+    final user = _ref.read(userStateProvider).user;
+    if (user != null) {
+      _syncWithUser(user);
+    }
 
-    state = state.copyWith(
-      stickers: stickers,
-      unlockedCount: stickers.where((s) => !s.isLocked).length,
-    );
-  }
-
-  void unlockSticker(String stickerId) {
-    final updatedStickers = state.stickers.map((sticker) {
-      if (sticker.id == stickerId) {
-        return Sticker(
-          id: sticker.id,
-          name: sticker.name,
-          icon: sticker.icon,
-          description: sticker.description,
-          isLocked: false,
-          requiredStars: sticker.requiredStars,
-          packName: sticker.packName,
-        );
+    _ref.listen(userStateProvider, (previous, next) {
+      final nextUser = next.user;
+      if (nextUser != null) {
+        _syncWithUser(nextUser);
       }
-      return sticker;
+    });
+  }
+
+  void _syncWithUser(dynamic user) {
+    final userStickers = Set<String>.from(user.stickers);
+    userStickers.add('doodle'); // Doodle is always free and unlocked
+
+    final updatedPacks = state.packs.map((pack) {
+      final shouldBeUnlocked = userStickers.contains(pack.id) || pack.unlockType == StickerUnlockType.free;
+      return pack.copyWith(isLocked: !shouldBeUnlocked);
     }).toList();
 
     state = state.copyWith(
-      stickers: updatedStickers,
-      unlockedCount: updatedStickers.where((s) => !s.isLocked).length,
+      packs: updatedPacks,
+      unlockedCount: updatedPacks.where((p) => !p.isLocked).length,
     );
   }
 
-  void checkAndUnlockStickers(int totalStars) {
-    for (var sticker in state.stickers) {
-      if (!sticker.isLocked) continue;
+  /// Check all locked packs and unlock if user meets criteria
+  Future<List<StickerSet>> checkAndUnlockPacks({
+    required int totalStars,
+    required int streakDays,
+    required int natureVocabCount,
+    BuildContext? context,
+  }) async {
+    final user = _ref.read(userStateProvider).user;
+    if (user == null) return [];
 
-      if (totalStars >= sticker.requiredStars) {
-        unlockSticker(sticker.id);
+    final currentUnlocked = Set<String>.from(user.stickers);
+    currentUnlocked.add('doodle');
+
+    final newlyUnlocked = <StickerSet>[];
+
+    for (final pack in state.packs) {
+      if (!pack.isLocked || currentUnlocked.contains(pack.id)) continue;
+
+      bool meetsCriteria = false;
+
+      switch (pack.unlockType) {
+        case StickerUnlockType.free:
+          meetsCriteria = true;
+          break;
+        case StickerUnlockType.streak:
+          final reqStreak = pack.requiredStreakDays ?? 0;
+          if (reqStreak > 0 && streakDays >= reqStreak) {
+            meetsCriteria = true;
+          }
+          break;
+        case StickerUnlockType.category:
+          if (pack.requiredCategory?.toLowerCase() == 'nature') {
+            final reqCount = pack.requiredCategoryCount ?? 0;
+            if (reqCount > 0 && natureVocabCount >= reqCount) {
+              meetsCriteria = true;
+            }
+          }
+          break;
+        case StickerUnlockType.stars:
+          final reqStars = pack.requiredStars ?? 0;
+          if (reqStars > 0 && totalStars >= reqStars) {
+            meetsCriteria = true;
+          }
+          break;
       }
+
+      if (meetsCriteria) {
+        newlyUnlocked.add(pack.copyWith(isLocked: false));
+        currentUnlocked.add(pack.id);
+      }
+    }
+
+    if (newlyUnlocked.isEmpty) return [];
+
+    // Save to UserModel (SSOT)
+    final updatedUser = user.copyWith(
+      stickers: currentUnlocked.toList(),
+    );
+    await _ref.read(userStateProvider.notifier).updateUser(updatedUser);
+
+    // Update local state
+    final updatedPacks = state.packs.map((pack) {
+      if (currentUnlocked.contains(pack.id)) {
+        return pack.copyWith(isLocked: false);
+      }
+      return pack;
+    }).toList();
+
+    state = state.copyWith(
+      packs: updatedPacks,
+      unlockedCount: updatedPacks.where((p) => !p.isLocked).length,
+      latestUnlockedPack: newlyUnlocked.last,
+    );
+
+    // Show celebration dialogs if context is mounted
+    if (context != null && context.mounted) {
+      for (final pack in newlyUnlocked) {
+        await StickerPackUnlockDialog.show(context, stickerSet: pack);
+      }
+    }
+
+    return newlyUnlocked;
+  }
+
+  /// Manually unlock a specific pack
+  Future<void> unlockPack(String packId, {BuildContext? context}) async {
+    final user = _ref.read(userStateProvider).user;
+    if (user == null) return;
+
+    final currentUnlocked = Set<String>.from(user.stickers);
+    currentUnlocked.add(packId);
+
+    final updatedUser = user.copyWith(stickers: currentUnlocked.toList());
+    await _ref.read(userStateProvider.notifier).updateUser(updatedUser);
+
+    final targetPack = state.packs.firstWhere((p) => p.id == packId);
+    final unlockedPack = targetPack.copyWith(isLocked: false);
+
+    if (context != null && context.mounted) {
+      await StickerPackUnlockDialog.show(context, stickerSet: unlockedPack);
     }
   }
 }
 
-// Provider
+/// Provider for Sticker State and Controller
 final stickerStateProvider = StateNotifierProvider<StickerController, StickerState>((ref) {
-  return StickerController();
+  return StickerController(ref);
 });
+
+/// Alias provider for convenience
+final stickerProvider = stickerStateProvider;

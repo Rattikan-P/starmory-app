@@ -35,7 +35,7 @@ class UserModel extends Equatable {
     this.shields = 0,
     this.lastStreakActivityDate,
     this.badges = const [],
-    this.stickers = const [],
+    this.stickers = const ['doodle'],
     required this.quotaManager,
     this.preferences = const {},
   });
@@ -349,7 +349,13 @@ class UserModel extends Equatable {
           ? DateTime.parse(json['lastStreakActivityDate'] as String)
           : null,
       badges: (json['badges'] as List<dynamic>?)?.cast<String>() ?? [],
-      stickers: (json['stickers'] as List<dynamic>?)?.cast<String>() ?? [],
+      stickers: () {
+        final list = (json['stickers'] as List<dynamic>?)?.cast<String>() ?? [];
+        if (!list.contains('doodle')) {
+          return ['doodle', ...list];
+        }
+        return list;
+      }(),
       quotaManager: QuotaManager.fromJson(
           json['quotaManager'] as Map<String, dynamic>? ?? {}),
       preferences: (json['preferences'] as Map<String, dynamic>?) ?? {},

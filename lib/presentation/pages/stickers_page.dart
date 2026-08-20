@@ -1,9 +1,10 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../data/sticker_sets.dart';
 import '../providers/providers.dart';
 import '../widgets/galaxy_screen_background.dart';
-import '../widgets/reward_icon_widget.dart';
 
 class StickersPage extends ConsumerStatefulWidget {
   const StickersPage({super.key});
@@ -13,28 +14,41 @@ class StickersPage extends ConsumerStatefulWidget {
 }
 
 class _StickersPageState extends ConsumerState<StickersPage> {
-  String _selectedPack = 'All';
+  String _filter = 'All'; // 'All', 'Unlocked', 'Locked'
 
   @override
   Widget build(BuildContext context) {
     final stickerState = ref.watch(stickerStateProvider);
+    final userState = ref.watch(userStateProvider);
     final vocabState = ref.watch(vocabularyStateProvider);
-    final totalStars = vocabState.vocabularies.length;
 
-    final availablePacks = stickerState.availablePacks;
-    final totalStickers = stickerState.stickers.length;
+    final totalStars = vocabState.vocabularies.length;
+    final streakDays = userState.user?.currentStreak ?? 0;
+    final natureVocabCount = vocabState.vocabularies
+        .where((v) => v.topic.toLowerCase() == 'nature')
+        .length;
+
+    final totalPacks = stickerState.totalPacksCount;
     final unlockedCount = stickerState.unlockedCount;
-    final progressPercent = totalStickers > 0 ? (unlockedCount / totalStickers) : 0.0;
+    final progressPercent = totalPacks > 0 ? (unlockedCount / totalPacks) : 0.0;
     final progressPercentInt = (progressPercent * 100).toInt();
 
-    final filteredStickers = _selectedPack == 'All'
-        ? stickerState.stickers
-        : stickerState.stickers.where((s) => s.packName == _selectedPack).toList();
-
-    // Check and unlock stickers if eligible
+    // Check and unlock packs if eligible
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(stickerStateProvider.notifier).checkAndUnlockStickers(totalStars);
+      ref.read(stickerStateProvider.notifier).checkAndUnlockPacks(
+            totalStars: totalStars,
+            streakDays: streakDays,
+            natureVocabCount: natureVocabCount,
+            context: context,
+          );
     });
+
+    final packs = stickerState.packs;
+    final filteredPacks = packs.where((pack) {
+      if (_filter == 'Unlocked') return !pack.isLocked;
+      if (_filter == 'Locked') return pack.isLocked;
+      return true;
+    }).toList();
 
     return GalaxyScreenBackground(
       child: Scaffold(
@@ -47,7 +61,7 @@ class _StickersPageState extends ConsumerState<StickersPage> {
             onPressed: () => Navigator.pop(context),
           ),
           title: Text(
-            'My Stickers',
+            'Sticker Collection',
             style: GoogleFonts.lexend(
               fontSize: 20,
               fontWeight: FontWeight.w700,
@@ -68,7 +82,7 @@ class _StickersPageState extends ConsumerState<StickersPage> {
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
                         color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
@@ -83,24 +97,52 @@ class _StickersPageState extends ConsumerState<StickersPage> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            'Sticker Collection',
-                            style: GoogleFonts.lexend(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: const Color(0xFF1F2937),
-                            ),
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFEDE9FE),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Text('🎨', style: TextStyle(fontSize: 20)),
+                              ),
+                              const SizedBox(width: 12),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Scrapbook Stickers',
+                                    style: GoogleFonts.lexend(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w700,
+                                      color: const Color(0xFF1F2937),
+                                    ),
+                                  ),
+                                  Text(
+                                    'Unlocked $unlockedCount of $totalPacks packs',
+                                    style: GoogleFonts.lexend(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w400,
+                                      color: const Color(0xFF6B7280),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF8B5CF6),
-                              borderRadius: BorderRadius.circular(12),
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFF8B5CF6), Color(0xFF6366F1)],
+                              ),
+                              borderRadius: BorderRadius.circular(14),
                             ),
                             child: Text(
                               '$progressPercentInt%',
                               style: GoogleFonts.lexend(
-                                fontSize: 12,
+                                fontSize: 13,
                                 fontWeight: FontWeight.w700,
                                 color: Colors.white,
                               ),
@@ -108,16 +150,7 @@ class _StickersPageState extends ConsumerState<StickersPage> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Unlocked $unlockedCount of $totalStickers stickers',
-                        style: GoogleFonts.lexend(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
-                          color: const Color(0xFF6B7280),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 14),
                       ClipRRect(
                         borderRadius: BorderRadius.circular(8),
                         child: LinearProgressIndicator(
@@ -135,61 +168,63 @@ class _StickersPageState extends ConsumerState<StickersPage> {
 
                 const SizedBox(height: 16),
 
-                // Pack Tabs / Filter Chips
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: availablePacks.map((pack) {
-                      final isSelected = _selectedPack == pack;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: ChoiceChip(
-                          label: Text(
-                            pack == 'All' ? '🌟 All Packs' : '📦 $pack Pack',
-                            style: GoogleFonts.lexend(
-                              fontSize: 13,
-                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                              color: isSelected ? Colors.white : const Color(0xFF4B5563),
-                            ),
+                // Filter Chips
+                Row(
+                  children: ['All', 'Unlocked', 'Locked'].map((filterName) {
+                    final isSelected = _filter == filterName;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ChoiceChip(
+                        label: Text(
+                          filterName == 'All'
+                              ? '🌟 All ($totalPacks)'
+                              : filterName == 'Unlocked'
+                                  ? '✨ Unlocked ($unlockedCount)'
+                                  : '🔒 Locked (${totalPacks - unlockedCount})',
+                          style: GoogleFonts.lexend(
+                            fontSize: 13,
+                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                            color: isSelected ? Colors.white : const Color(0xFF4B5563),
                           ),
-                          selected: isSelected,
-                          selectedColor: const Color(0xFF8B5CF6),
-                          backgroundColor: Colors.white,
-                          side: BorderSide(
-                            color: isSelected
-                                ? const Color(0xFF8B5CF6)
-                                : const Color(0xFFE5E7EB),
-                          ),
-                          onSelected: (selected) {
-                            if (selected) {
-                              setState(() {
-                                _selectedPack = pack;
-                              });
-                            }
-                          },
                         ),
-                      );
-                    }).toList(),
-                  ),
+                        selected: isSelected,
+                        selectedColor: const Color(0xFF8B5CF6),
+                        backgroundColor: Colors.white,
+                        side: BorderSide(
+                          color: isSelected
+                              ? const Color(0xFF8B5CF6)
+                              : const Color(0xFFE5E7EB),
+                        ),
+                        onSelected: (selected) {
+                          if (selected) {
+                            setState(() => _filter = filterName);
+                          }
+                        },
+                      ),
+                    );
+                  }).toList(),
                 ),
 
                 const SizedBox(height: 16),
 
-                // Stickers Grid
+                // Sticker Packs List
                 Expanded(
-                  child: filteredStickers.isEmpty
+                  child: filteredPacks.isEmpty
                       ? _buildEmptyState()
-                      : GridView.builder(
-                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 3,
-                            crossAxisSpacing: 12,
-                            mainAxisSpacing: 12,
-                            childAspectRatio: 0.85,
-                          ),
-                          itemCount: filteredStickers.length,
+                      : ListView.separated(
+                          padding: const EdgeInsets.only(bottom: 24),
+                          itemCount: filteredPacks.length,
+                          separatorBuilder: (_, __) => const SizedBox(height: 14),
                           itemBuilder: (context, index) {
-                            final sticker = filteredStickers[index];
-                            return _buildStickerCard(context, sticker, totalStars);
+                            final pack = filteredPacks[index];
+                            return _buildPackCard(
+                              context,
+                              pack,
+                              totalStars: totalStars,
+                              streakDays: streakDays,
+                              natureVocabCount: natureVocabCount,
+                              stickerState: stickerState,
+                            );
                           },
                         ),
                 ),
@@ -201,110 +236,376 @@ class _StickersPageState extends ConsumerState<StickersPage> {
     );
   }
 
-  Widget _buildStickerCard(BuildContext context, dynamic sticker, int totalStars) {
-    final isLocked = sticker.isLocked;
+  Widget _buildPackCard(
+    BuildContext context,
+    StickerSet pack, {
+    required int totalStars,
+    required int streakDays,
+    required int natureVocabCount,
+    required StickerState stickerState,
+  }) {
+    final isLocked = pack.isLocked;
+    final gradient = pack.gradientColors.isNotEmpty
+        ? pack.gradientColors
+        : const [Color(0xFF8B5CF6), Color(0xFF6366F1)];
+
+    final progressRatio = stickerState.getProgressRatio(
+      pack,
+      totalStars: totalStars,
+      streakDays: streakDays,
+      natureVocabCount: natureVocabCount,
+    );
+    final progressLabel = stickerState.getProgressLabel(
+      pack,
+      totalStars: totalStars,
+      streakDays: streakDays,
+      natureVocabCount: natureVocabCount,
+    );
 
     return InkWell(
-      onTap: () => _showStickerDetailModal(context, sticker, totalStars),
-      borderRadius: BorderRadius.circular(16),
+      onTap: () => _showPackDetailModal(
+        context,
+        pack,
+        totalStars: totalStars,
+        streakDays: streakDays,
+        natureVocabCount: natureVocabCount,
+        stickerState: stickerState,
+      ),
+      borderRadius: BorderRadius.circular(20),
       child: Container(
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isLocked
                 ? Colors.grey.withValues(alpha: 0.2)
-                : const Color(0xFFE2D1F9).withValues(alpha: 0.6),
+                : gradient.first.withValues(alpha: 0.35),
             width: 1.5,
           ),
           boxShadow: [
             BoxShadow(
               color: isLocked
                   ? Colors.black.withValues(alpha: 0.03)
-                  : const Color(0xFF8B5CF6).withValues(alpha: 0.12),
-              blurRadius: 10,
-              offset: const Offset(0, 3),
+                  : gradient.first.withValues(alpha: 0.1),
+              blurRadius: 14,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Top Row: Pack Icon Preview + Info + Unlock Badge
+            Row(
+              children: [
+                // Pack Avatar / Icon
+                Container(
+                  width: 58,
+                  height: 58,
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: isLocked
+                        ? Colors.grey.shade100
+                        : const Color(0xFFEDE9FE),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: isLocked
+                          ? Colors.grey.shade300
+                          : gradient.first.withValues(alpha: 0.4),
+                      width: 1.2,
+                    ),
+                  ),
+                  child: ColorFiltered(
+                    colorFilter: isLocked
+                        ? const ColorFilter.matrix(<double>[
+                            0.2126, 0.7152, 0.0722, 0, 0,
+                            0.2126, 0.7152, 0.0722, 0, 0,
+                            0.2126, 0.7152, 0.0722, 0, 0,
+                            0,      0,      0,      0.45, 0,
+                          ])
+                        : const ColorFilter.mode(
+                            Colors.transparent,
+                            BlendMode.dst,
+                          ),
+                    child: Image.asset(
+                      pack.previewAsset,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) => const Icon(
+                        Icons.image_outlined,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 14),
+
+                // Name & Subtitle
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              '${pack.name} Pack',
+                              style: GoogleFonts.lexend(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: isLocked
+                                    ? const Color(0xFF4B5563)
+                                    : const Color(0xFF1F2937),
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF8B5CF6).withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              '${pack.count} รูป',
+                              style: GoogleFonts.lexend(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xFF8B5CF6),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        pack.nameTh,
+                        style: GoogleFonts.kanit(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: const Color(0xFF6B7280),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Status Pill
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: isLocked
+                        ? Colors.grey.shade100
+                        : const Color(0xFF10B981).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isLocked ? Icons.lock_rounded : Icons.check_circle_rounded,
+                        size: 13,
+                        color: isLocked ? Colors.grey.shade600 : const Color(0xFF10B981),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        isLocked ? 'Locked' : 'Ready',
+                        style: GoogleFonts.lexend(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: isLocked ? Colors.grey.shade600 : const Color(0xFF10B981),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 12),
+
+            // Description
+            Text(
+              pack.descriptionTh.isNotEmpty ? pack.descriptionTh : pack.description,
+              style: GoogleFonts.kanit(
+                fontSize: 12,
+                color: const Color(0xFF4B5563),
+                height: 1.35,
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            // Sample Stickers Row (first 5 PNGs)
             Container(
-              width: 52,
-              height: 52,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
               decoration: BoxDecoration(
-                color: isLocked
-                    ? Colors.grey.withValues(alpha: 0.12)
-                    : const Color(0xFFEDE9FE),
-                shape: BoxShape.circle,
+                color: const Color(0xFFF9FAFB),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFF3F4F6)),
               ),
-              child: Center(
-                child: RewardIconWidget(
-                  icon: sticker.icon,
-                  size: 28,
-                  isLocked: isLocked,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: List.generate(
+                  math.min(5, pack.count),
+                  (idx) => Container(
+                    width: 42,
+                    height: 42,
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFE5E7EB)),
+                    ),
+                    child: ColorFiltered(
+                      colorFilter: isLocked
+                          ? const ColorFilter.matrix(<double>[
+                              0.2126, 0.7152, 0.0722, 0, 0,
+                              0.2126, 0.7152, 0.0722, 0, 0,
+                              0.2126, 0.7152, 0.0722, 0, 0,
+                              0,      0,      0,      0.4, 0,
+                            ])
+                          : const ColorFilter.mode(
+                              Colors.transparent,
+                              BlendMode.dst,
+                            ),
+                      child: Image.asset(
+                        getStickerAsset(pack.id, idx),
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, __, ___) => const Icon(
+                          Icons.image,
+                          size: 20,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
-            const SizedBox(height: 8),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 6),
-              child: Text(
-                sticker.name,
-                style: GoogleFonts.lexend(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: isLocked ? Colors.grey : const Color(0xFF1F2937),
+
+            const SizedBox(height: 12),
+
+            // Unlock Requirement & Progress Bar (if locked)
+            if (isLocked) ...[
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      _getUnlockRequirementTitle(pack),
+                      style: GoogleFonts.kanit(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF6B7280),
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    progressLabel,
+                    style: GoogleFonts.lexend(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF8B5CF6),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: LinearProgressIndicator(
+                  value: progressRatio,
+                  backgroundColor: const Color(0xFFF3F4F6),
+                  valueColor: AlwaysStoppedAnimation<Color>(gradient.first),
+                  minHeight: 6,
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
               ),
-            ),
-            const SizedBox(height: 4),
-            if (isLocked)
+            ] else ...[
               Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Icon(Icons.lock_rounded, size: 11, color: Colors.grey.shade500),
-                  const SizedBox(width: 2),
-                  Text(
-                    '${sticker.requiredStars} ⭐',
-                    style: GoogleFonts.lexend(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.grey.shade500,
+                  Expanded(
+                    child: Row(
+                      children: [
+                        const Icon(Icons.palette_outlined, size: 14, color: Color(0xFF8B5CF6)),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            'พร้อมใช้งานในหน้าตกแต่ง Scrapbook',
+                            style: GoogleFonts.kanit(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              color: const Color(0xFF6B7280),
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
-              )
-            else
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.check_circle_rounded, size: 11, color: Color(0xFF10B981)),
-                  const SizedBox(width: 2),
+                  const SizedBox(width: 8),
                   Text(
-                    'Ready to use',
-                    style: GoogleFonts.lexend(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
-                      color: const Color(0xFF10B981),
+                    'ดูทั้งหมด ${pack.count} รูป ›',
+                    style: GoogleFonts.kanit(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF8B5CF6),
                     ),
                   ),
                 ],
               ),
+            ],
           ],
         ),
       ),
     );
   }
 
-  void _showStickerDetailModal(BuildContext context, dynamic sticker, int totalStars) {
-    final isLocked = sticker.isLocked;
-    final remainingStars = (sticker.requiredStars - totalStars).clamp(0, 999999);
-    final progress = (totalStars / sticker.requiredStars).clamp(0.0, 1.0);
+  String _getUnlockRequirementTitle(StickerSet pack) {
+    switch (pack.unlockType) {
+      case StickerUnlockType.free:
+        return 'ฟรีสำหรับทุกคน';
+      case StickerUnlockType.streak:
+        return '🎯 เงื่อนไข: สตรีค ${pack.requiredStreakDays} วัน';
+      case StickerUnlockType.category:
+        if (pack.requiredCategory?.toLowerCase() == 'nature') {
+          return '🌿 เงื่อนไข: สะสมศัพท์หมวดธรรมชาติ ${pack.requiredCategoryCount} คำ';
+        }
+        return 'เงื่อนไข: สะสมศัพท์หมวด ${pack.requiredCategory} ${pack.requiredCategoryCount} คำ';
+      case StickerUnlockType.stars:
+        return '⭐ เงื่อนไข: สะสมครบ ${pack.requiredStars} ดาว';
+    }
+  }
+
+  void _showPackDetailModal(
+    BuildContext context,
+    StickerSet pack, {
+    required int totalStars,
+    required int streakDays,
+    required int natureVocabCount,
+    required StickerState stickerState,
+  }) {
+    final isLocked = pack.isLocked;
+    final gradient = pack.gradientColors.isNotEmpty
+        ? pack.gradientColors
+        : const [Color(0xFF8B5CF6), Color(0xFF6366F1)];
+
+    final progressRatio = stickerState.getProgressRatio(
+      pack,
+      totalStars: totalStars,
+      streakDays: streakDays,
+      natureVocabCount: natureVocabCount,
+    );
+    final progressLabel = stickerState.getProgressLabel(
+      pack,
+      totalStars: totalStars,
+      streakDays: streakDays,
+      natureVocabCount: natureVocabCount,
+    );
 
     showModalBottomSheet(
       context: context,
@@ -312,85 +613,74 @@ class _StickersPageState extends ConsumerState<StickersPage> {
       isScrollControlled: true,
       builder: (context) {
         return Container(
-          padding: const EdgeInsets.all(24),
+          height: MediaQuery.of(context).size.height * 0.85,
+          padding: const EdgeInsets.all(20),
           decoration: const BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
           ),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Container(
-                width: 100,
-                height: 100,
-                decoration: BoxDecoration(
-                  color: isLocked
-                      ? Colors.grey.shade100
-                      : const Color(0xFFEDE9FE),
-                  shape: BoxShape.circle,
-                  boxShadow: isLocked
-                      ? []
-                      : [
-                          BoxShadow(
-                            color: const Color(0xFF8B5CF6).withValues(alpha: 0.25),
-                            blurRadius: 20,
-                            spreadRadius: 4,
-                          ),
-                        ],
-                ),
-                child: Center(
-                  child: RewardIconWidget(
-                    icon: sticker.icon,
-                    size: 56,
-                    isLocked: isLocked,
+              // Drag Handle
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
               ),
               const SizedBox(height: 16),
-              Text(
-                sticker.name,
-                style: GoogleFonts.lexend(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF1F2937),
-                ),
-              ),
-              const SizedBox(height: 6),
+
+              // Header Pack Info
               Row(
-                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    width: 56,
+                    height: 56,
+                    padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF8B5CF6).withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
+                      color: const Color(0xFFEDE9FE),
+                      borderRadius: BorderRadius.circular(16),
                     ),
-                    child: Text(
-                      '📦 ${sticker.packName} Pack',
-                      style: GoogleFonts.lexend(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF8B5CF6),
-                      ),
+                    child: Image.asset(
+                      pack.previewAsset,
+                      fit: BoxFit.contain,
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${pack.name} Pack',
+                          style: GoogleFonts.lexend(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF1F2937),
+                          ),
+                        ),
+                        Text(
+                          '${pack.nameTh} • ${pack.count} สติกเกอร์',
+                          style: GoogleFonts.kanit(
+                            fontSize: 13,
+                            color: const Color(0xFF6B7280),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
                       color: isLocked
                           ? Colors.grey.shade100
                           : const Color(0xFF10B981).withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
                       isLocked ? '🔒 Locked' : '✨ Unlocked',
@@ -403,83 +693,112 @@ class _StickersPageState extends ConsumerState<StickersPage> {
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF9FAFB),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.grey.shade200),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Description',
-                      style: GoogleFonts.lexend(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF374151),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      sticker.description,
-                      style: GoogleFonts.lexend(
-                        fontSize: 14,
-                        color: const Color(0xFF4B5563),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Required Stars',
-                          style: GoogleFonts.lexend(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.grey.shade600,
-                          ),
+
+              const SizedBox(height: 12),
+
+              // Description & Progress if locked
+              if (isLocked) ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF9FAFB),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _getUnlockRequirementTitle(pack),
+                        style: GoogleFonts.kanit(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF374151),
                         ),
-                        Text(
-                          '${sticker.requiredStars} ⭐',
-                          style: GoogleFonts.lexend(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: const Color(0xFF8B5CF6),
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (isLocked) ...[
-                      const SizedBox(height: 8),
+                      ),
+                      const SizedBox(height: 6),
                       ClipRRect(
                         borderRadius: BorderRadius.circular(6),
                         child: LinearProgressIndicator(
-                          value: progress,
+                          value: progressRatio,
                           backgroundColor: Colors.grey.shade200,
-                          valueColor: const AlwaysStoppedAnimation<Color>(
-                            Color(0xFF8B5CF6),
-                          ),
-                          minHeight: 8,
+                          valueColor: AlwaysStoppedAnimation<Color>(gradient.first),
+                          minHeight: 6,
                         ),
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        '$remainingStars more stars needed to unlock',
-                        style: GoogleFonts.lexend(
+                        'ความคืบหน้าปัจจุบัน: $progressLabel',
+                        style: GoogleFonts.kanit(
                           fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                          color: const Color(0xFFE11D48),
+                          color: const Color(0xFF6B7280),
                         ),
                       ),
                     ],
-                  ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+              ],
+
+              Text(
+                'สติกเกอร์ทั้งหมดในแพ็ค (${pack.count} รูป)',
+                style: GoogleFonts.kanit(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF374151),
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 10),
+
+              // Full Grid of all PNG Stickers in this pack
+              Expanded(
+                child: GridView.builder(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 4,
+                    crossAxisSpacing: 10,
+                    mainAxisSpacing: 10,
+                    childAspectRatio: 1,
+                  ),
+                  itemCount: pack.count,
+                  itemBuilder: (context, index) {
+                    return Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF9FAFB),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: const Color(0xFFE5E7EB),
+                        ),
+                      ),
+                      child: ColorFiltered(
+                        colorFilter: isLocked
+                            ? const ColorFilter.matrix(<double>[
+                                0.2126, 0.7152, 0.0722, 0, 0,
+                                0.2126, 0.7152, 0.0722, 0, 0,
+                                0.2126, 0.7152, 0.0722, 0, 0,
+                                0,      0,      0,      0.4, 0,
+                              ])
+                            : const ColorFilter.mode(
+                                Colors.transparent,
+                                BlendMode.dst,
+                              ),
+                        child: Image.asset(
+                          getStickerAsset(pack.id, index),
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, __, ___) => const Icon(
+                            Icons.star,
+                            color: Colors.amber,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+
+              const SizedBox(height: 14),
+
+              // Action Button
               SizedBox(
                 width: double.infinity,
                 height: 48,
@@ -492,8 +811,8 @@ class _StickersPageState extends ConsumerState<StickersPage> {
                     ),
                   ),
                   child: Text(
-                    'Got It!',
-                    style: GoogleFonts.lexend(
+                    isLocked ? 'เข้าใจแล้ว (Got It)' : 'ปิดหน้าต่าง (Close)',
+                    style: GoogleFonts.kanit(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
                       color: Colors.white,
@@ -520,8 +839,8 @@ class _StickersPageState extends ConsumerState<StickersPage> {
           ),
           const SizedBox(height: 16),
           Text(
-            'No stickers in this pack',
-            style: GoogleFonts.lexend(
+            'ไม่พบแพ็คสติกเกอร์ในหมวดหมู่นี้',
+            style: GoogleFonts.kanit(
               fontSize: 16,
               fontWeight: FontWeight.w500,
               color: const Color(0xFF4B5563),

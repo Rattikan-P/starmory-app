@@ -3430,7 +3430,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
   }
 
   void _showStickerPicker() {
-    _selectedStickerSetId ??= stickerSets.first.id;
+    final stickerPacks = ref.read(stickerStateProvider).packs;
+    _selectedStickerSetId ??= stickerPacks.first.id;
     var selectedSetId = _selectedStickerSetId!;
 
     showModalBottomSheet(
@@ -3442,8 +3443,10 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
       constraints: const BoxConstraints(maxWidth: 640),
       builder: (context) => StatefulBuilder(
         builder: (context, setModalState) {
-          final selectedSet = stickerSets.firstWhere(
+          final packs = ref.watch(stickerStateProvider).packs;
+          final selectedSet = packs.firstWhere(
             (set) => set.id == selectedSetId,
+            orElse: () => packs.first,
           );
 
           return Container(
@@ -3501,9 +3504,9 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                     padding: const EdgeInsets.symmetric(
                       horizontal: DesignTokens.spacingXLarge,
                     ),
-                    itemCount: stickerSets.length,
+                    itemCount: packs.length,
                     itemBuilder: (context, index) {
-                      final set = stickerSets[index];
+                      final set = packs[index];
                       final isSelected = selectedSetId == set.id;
 
                       return Padding(
@@ -3548,14 +3551,37 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                                   width: isSelected ? 1.5 : 1,
                                 ),
                               ),
-                              child: Image.asset(
-                                getStickerAsset(set.id, 0),
-                                fit: BoxFit.contain,
-                                errorBuilder: (_, __, ___) => const Icon(
-                                  Icons.emoji_emotions_outlined,
-                                  color: DesignTokens.textMuted,
-                                  size: 20,
-                                ),
+                              child: Stack(
+                                children: [
+                                  Center(
+                                    child: Image.asset(
+                                      getStickerAsset(set.id, 0),
+                                      fit: BoxFit.contain,
+                                      errorBuilder: (_, __, ___) => const Icon(
+                                        Icons.emoji_emotions_outlined,
+                                        color: DesignTokens.textMuted,
+                                        size: 20,
+                                      ),
+                                    ),
+                                  ),
+                                  if (set.isLocked)
+                                    Positioned(
+                                      right: 0,
+                                      bottom: 0,
+                                      child: Container(
+                                        padding: const EdgeInsets.all(2),
+                                        decoration: const BoxDecoration(
+                                          color: Colors.black54,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(
+                                          Icons.lock,
+                                          size: 10,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                ],
                               ),
                             ),
                           ),
@@ -3611,9 +3637,9 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                 ),
                 const SizedBox(height: DesignTokens.spacingSmall),
                 Text(
-                  'Keep your learning streak for ${set.requiredStreakDays ?? 0} days to unlock this pack.',
+                  _getStickerPackLockMessage(set),
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.lexend(
+                  style: GoogleFonts.kanit(
                     fontSize: DesignTokens.fontSizeBody,
                     color: DesignTokens.textSecondary,
                     height: 1.45,
@@ -3689,6 +3715,22 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
         },
       ),
     );
+  }
+
+  String _getStickerPackLockMessage(StickerSet set) {
+    switch (set.unlockType) {
+      case StickerUnlockType.free:
+        return 'ชุดสติกเกอร์นี้พร้อมใช้งานแล้ว';
+      case StickerUnlockType.streak:
+        return 'รักษาสถิติการเรียนต่อเนื่อง ${set.requiredStreakDays ?? 7} วัน เพื่อปลดล็อกแพ็คนี้';
+      case StickerUnlockType.category:
+        if (set.requiredCategory?.toLowerCase() == 'nature') {
+          return 'สะสมคำศัพท์หมวดธรรมชาติครบ ${set.requiredCategoryCount ?? 100} คำ เพื่อปลดล็อกแพ็คนี้';
+        }
+        return 'สะสมคำศัพท์หมวด ${set.requiredCategory} ครบ ${set.requiredCategoryCount ?? 100} คำ เพื่อปลดล็อกแพ็คนี้';
+      case StickerUnlockType.stars:
+        return 'สะสมครบ ${set.requiredStars ?? 50} ดาว เพื่อปลดล็อกแพ็คนี้';
+    }
   }
 
   /// Copy image to app's permanent storage directory
