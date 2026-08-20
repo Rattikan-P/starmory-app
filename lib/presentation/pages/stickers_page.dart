@@ -31,6 +31,11 @@ class _StickersPageState extends ConsumerState<StickersPage> {
         ? stickerState.stickers
         : stickerState.stickers.where((s) => s.packName == _selectedPack).toList();
 
+    // Check and unlock stickers if eligible
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(stickerStateProvider.notifier).checkAndUnlockStickers(totalStars);
+    });
+
     return GalaxyScreenBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,

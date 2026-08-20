@@ -11,7 +11,9 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path_pkg;
 import '../providers/scrapbook_provider.dart';
+import '../providers/providers.dart';
 import '../../data/models/scrapbook_model.dart';
+import '../../data/models/vocabulary_model.dart';
 import '../../constants/design_tokens.dart';
 import '../widgets/galaxy_screen_background.dart';
 import '../../data/sticker_sets.dart';
@@ -32,6 +34,7 @@ class _BackgroundColorOption {
 class EditScrapbookScreen extends ConsumerStatefulWidget {
   final String imagePath;
   final List<ScrapbookVocabularyWord> vocabularyWords;
+  final List<VocabularyModel>? vocabulariesToSave;
   final String englishSentence;
   final String thaiSentence;
   final String selectedEmoji;
@@ -42,6 +45,7 @@ class EditScrapbookScreen extends ConsumerStatefulWidget {
     super.key,
     required this.imagePath,
     required this.vocabularyWords,
+    this.vocabulariesToSave,
     required this.englishSentence,
     required this.thaiSentence,
     this.selectedEmoji = '😊',
@@ -3931,6 +3935,35 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
             .updateScrapbook(scrapbook);
       } else {
         await ref.read(scrapbookStateProvider.notifier).addScrapbook(scrapbook);
+      }
+
+      // If there are newly generated vocabularies to save, save them to vocabularyStateProvider
+      if (widget.vocabulariesToSave != null && widget.vocabulariesToSave!.isNotEmpty) {
+        String finalImageUrl = widget.imagePath;
+        final currentUser = ref.read(currentUserProvider);
+        final imageStorageService = ref.read(imageStorageServiceProvider);
+
+        if (currentUser != null && !currentUser.isGuest) {
+          try {
+            final imageUrl = await imageStorageService.uploadVocabularyImage(
+              imageFile: File(widget.imagePath),
+              userId: currentUser.id,
+            );
+            finalImageUrl = imageUrl;
+          } catch (e) {
+            // Continue with local path on error
+          }
+        }
+
+        final updatedVocabs = widget.vocabulariesToSave!
+            .map((v) => v.copyWith(imageUrl: finalImageUrl))
+            .toList();
+        await ref.read(vocabularyStateProvider.notifier).addVocabularies(updatedVocabs);
+        ref.invalidate(reviewStateProvider);
+
+        // Update streak when acquiring vocabulary
+        final streakNotifier = ref.read(streakProvider.notifier);
+        await streakNotifier.recordVocabularyAcquired();
       }
 
       if (!mounted) return;

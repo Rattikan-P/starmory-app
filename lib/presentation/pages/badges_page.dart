@@ -34,6 +34,11 @@ class _BadgesPageState extends ConsumerState<BadgesPage> {
         ? badgeState.badges
         : badgeState.badges.where((b) => b.category == _selectedCategory).toList();
 
+    // Check and unlock badges if eligible
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(badgeStateProvider.notifier).checkAndUnlockBadges(totalStars, currentStreak);
+    });
+
     return GalaxyScreenBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
@@ -323,8 +328,29 @@ class _BadgesPageState extends ConsumerState<BadgesPage> {
   ) {
     final isLocked = badge.isLocked;
     final isStreak = badge.category == 'Streak';
-    final current = isStreak ? currentStreak : totalStars;
-    final target = badge.requiredStars;
+    final isStars = badge.category == 'Stars';
+    final badgeState = ref.read(badgeStateProvider);
+
+    int current;
+    int target = badge.requiredStars;
+    String unit;
+    bool showProgress = isLocked;
+
+    if (isStars) {
+      current = totalStars;
+      unit = 'Stars';
+    } else if (isStreak) {
+      current = currentStreak;
+      unit = 'Days';
+    } else if (badge.id == 'perfect_review') {
+      current = 0;
+      unit = '';
+      showProgress = false;
+    } else {
+      current = badgeState.getProgress(badge);
+      unit = 'Times';
+    }
+
     final progress = target > 0 ? (current / target).clamp(0.0, 1.0) : 0.0;
 
     showModalBottomSheet(
@@ -464,7 +490,7 @@ class _BadgesPageState extends ConsumerState<BadgesPage> {
                         color: const Color(0xFF4B5563),
                       ),
                     ),
-                    if (isLocked) ...[
+                    if (showProgress) ...[
                       const SizedBox(height: 14),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -478,9 +504,7 @@ class _BadgesPageState extends ConsumerState<BadgesPage> {
                             ),
                           ),
                           Text(
-                            isStreak
-                                ? '$current / $target Days'
-                                : '$current / $target Stars',
+                            '$current / $target $unit',
                             style: GoogleFonts.lexend(
                               fontSize: 12,
                               fontWeight: FontWeight.w700,

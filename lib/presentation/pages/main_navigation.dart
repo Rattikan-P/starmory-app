@@ -60,19 +60,15 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
 
       print('📦 [App Open] Found ${localVocabs.length} local vocabularies');
 
-      if (localVocabs.isNotEmpty) {
-        // Use mergeWithCloud to avoid duplicates
-        print('☁️ [App Open] Merging with cloud...');
-        final syncedVocabs = await vocabSyncService.mergeWithCloud(localVocabs);
-        // Update local storage with merged vocabularies
-        await hiveService.clearAllVocabulary();
-        for (final vocab in syncedVocabs) {
-          await hiveService.saveVocabulary(vocab);
-        }
-        print('✅ [App Open] Sync complete! Total vocabularies: ${syncedVocabs.length}');
-      } else {
-        print('ℹ️ [App Open] No local vocabularies to sync');
+      print('☁️ [App Open] Merging with cloud...');
+      final syncedVocabs = await vocabSyncService.mergeWithCloud(localVocabs);
+      // Update local storage with merged vocabularies
+      await hiveService.clearAllVocabulary();
+      for (final vocab in syncedVocabs) {
+        await hiveService.saveVocabulary(vocab);
       }
+      print('✅ [App Open] Sync complete! Total vocabularies: ${syncedVocabs.length}');
+      await ref.read(vocabularyStateProvider.notifier).refresh();
 
       // Mark as synced for this session
       _hasSyncedThisSession = true;

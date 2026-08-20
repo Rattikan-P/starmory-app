@@ -2028,6 +2028,25 @@ class _InteractiveVocabularyScreenState
       );
     }).toList();
 
+    // Convert selected dots to full VocabularyModel list to save to collection
+    final vocabulariesToSave = selectedDots.map((dot) {
+      return VocabularyModel(
+        id: dot.id,
+        word: dot.word,
+        partOfSpeech: dot.partOfSpeech,
+        thaiTranslation: dot.thaiTranslation,
+        englishSentence: dot.englishSentence,
+        thaiSentence: dot.thaiSentence,
+        cefrLevel: widget.cefrLevel,
+        communicativeFunction: widget.communicativeFunction,
+        languageVariant: widget.englishVariant,
+        imageUrl: widget.imagePath,
+        topic: dot.topic,
+        tags: [dot.tone, dot.category],
+        createdAt: DateTime.now(),
+      );
+    }).toList();
+
     // Navigate to Edit Scrapbook Screen
     Navigator.push(
       context,
@@ -2035,6 +2054,7 @@ class _InteractiveVocabularyScreenState
         builder: (context) => EditScrapbookScreen(
           imagePath: widget.imagePath,
           vocabularyWords: vocabularyWords,
+          vocabulariesToSave: vocabulariesToSave,
           englishSentence: englishSentence,
           thaiSentence: thaiSentence,
           selectedEmoji: '😊', // Default emoji, user can change in edit screen

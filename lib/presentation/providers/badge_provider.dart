@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart' hide Badge;
+import 'package:flutter/material.dart' hide Badge;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../widgets/badge_unlock_dialog.dart';
 import 'providers.dart';
@@ -194,22 +194,61 @@ class BadgeState {
   }
 
   /// Calculates the next closest badge to unlock based on user stars and streak
-  UpcomingBadgeInfo? getNextUpcomingBadge(int totalStars, int streakDays) {
-    final lockedBadges = badges.where((b) => b.isLocked).toList();
-    if (lockedBadges.isEmpty) return null;
+  UpcomingBadgeInfo? getNextUpcomingBadge(int totalStars, int streakDays, {String? category}) {
+    var candidateBadges = badges.where((b) => b.isLocked).toList();
+    if (category != null) {
+      candidateBadges = candidateBadges.where((b) => b.category == category).toList();
+    }
+    if (candidateBadges.isEmpty) return null;
+
+    // For Stars category, find the next star milestone badge (target > totalStars, smallest target)
+    if (category == 'Stars' || (category == null && candidateBadges.any((b) => b.category == 'Stars' && b.requiredStars > totalStars))) {
+      final starBadges = candidateBadges
+          .where((b) => b.category == 'Stars' && b.requiredStars > totalStars)
+          .toList();
+      if (starBadges.isNotEmpty) {
+        starBadges.sort((a, b) => a.requiredStars.compareTo(b.requiredStars));
+        final nextBadge = starBadges.first;
+        final target = nextBadge.requiredStars;
+        final ratio = target > 0 ? (totalStars / target).clamp(0.0, 1.0) : 0.0;
+        return UpcomingBadgeInfo(
+          badge: nextBadge,
+          currentProgress: totalStars,
+          targetProgress: target,
+          progressPercentage: ratio,
+          progressLabel: '$totalStars / $target Stars',
+        );
+      }
+    }
 
     UpcomingBadgeInfo? closest;
     double maxRatio = -1.0;
     int minRemaining = 999999;
 
-    for (final badge in lockedBadges) {
+    for (final badge in candidateBadges) {
       final isStreak = badge.category == 'Streak';
-      final isTime = badge.category == 'Time';
-      final current = isTime
-          ? getProgress(badge)
-          : (isStreak ? streakDays : totalStars);
-      final target = badge.requiredStars;
-      final ratio = target > 0 ? (current / target).clamp(0.0, 1.0) : 0.0;
+      final isStars = badge.category == 'Stars';
+
+      int current;
+      int target = badge.requiredStars;
+      String unit;
+
+      if (isStars) {
+        current = totalStars;
+        unit = 'Stars';
+      } else if (isStreak) {
+        current = streakDays;
+        unit = 'Days';
+      } else {
+        // Special badges with numerical stats (night owl, early bird, etc.)
+        current = getProgress(badge);
+        unit = 'Actions';
+      }
+
+      // Skip badges that have already met requirements or have no target
+      if (target <= 0 || current >= target) continue;
+
+      final ratio = (current / target).clamp(0.0, 1.0);
       final remaining = (target - current).clamp(0, 999999);
 
       if (ratio > maxRatio || (ratio == maxRatio && remaining < minRemaining)) {
@@ -220,9 +259,7 @@ class BadgeState {
           currentProgress: current,
           targetProgress: target,
           progressPercentage: ratio,
-          progressLabel: isTime
-              ? '$current / $target Actions'
-              : (isStreak ? '$current / $target Days' : '$current / $target Stars'),
+          progressLabel: '$current / $target $unit',
         );
       }
     }

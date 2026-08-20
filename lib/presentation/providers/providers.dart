@@ -18,6 +18,8 @@ import 'scrapbook_provider.dart';
 import 'navigation_provider.dart';
 import 'review_provider.dart';
 
+// Export scrapbook providers
+export 'scrapbook_provider.dart';
 // Export review providers
 export 'review_provider.dart';
 // Export streak providers
@@ -906,7 +908,55 @@ class VocabularyNotifier extends StateNotifier<VocabularyState> {
 
   Future<void> _loadVocabularies() async {
     try {
-      final vocabularies = await _hiveService.getAllVocabulary();
+      var vocabularies = await _hiveService.getAllVocabulary();
+
+      // Auto-backfill: check if any scrapbooks contain vocabulary words not yet in local storage
+      try {
+        final scrapbooks = await _hiveService.getAllScrapbooks();
+        final existingWords = vocabularies.map((v) => v.word.toLowerCase().trim()).toSet();
+        final missingVocabs = <VocabularyModel>[];
+
+        for (final sb in scrapbooks) {
+          for (final sbWord in sb.vocabularyWords) {
+            final wordKey = sbWord.word.toLowerCase().trim();
+            if (wordKey.isNotEmpty && !existingWords.contains(wordKey)) {
+              existingWords.add(wordKey);
+              final newVocab = VocabularyModel(
+                id: 'sb_${sb.id}_${sbWord.word.replaceAll(' ', '_')}',
+                word: sbWord.word,
+                partOfSpeech: sbWord.partOfSpeech.isNotEmpty ? sbWord.partOfSpeech : 'noun',
+                thaiTranslation: sbWord.thaiTranslation,
+                englishSentence: sb.englishSentence,
+                thaiSentence: sb.thaiSentence,
+                cefrLevel: 'A1',
+                communicativeFunction: 'Daily Life',
+                languageVariant: 'US',
+                imageUrl: sb.imagePath,
+                topic: 'other',
+                tags: const [],
+                createdAt: sb.createdAt,
+              );
+              missingVocabs.add(newVocab);
+            }
+          }
+        }
+
+        if (missingVocabs.isNotEmpty) {
+          print('🔄 [VocabularyNotifier] Backfilling ${missingVocabs.length} words from scrapbooks...');
+          for (final vocab in missingVocabs) {
+            await _hiveService.saveVocabulary(vocab);
+            if (_syncService.isLoggedIn) {
+              await _syncService.saveToCloud(vocab);
+            } else {
+              await _reviewService.createCard(vocab.id);
+            }
+          }
+          vocabularies = await _hiveService.getAllVocabulary();
+        }
+      } catch (e) {
+        print('⚠️ [VocabularyNotifier] Backfill check error: $e');
+      }
+
       state = VocabularyState(vocabularies: vocabularies);
     } catch (e) {
       state = VocabularyState(error: e.toString());
@@ -929,8 +979,36 @@ class VocabularyNotifier extends StateNotifier<VocabularyState> {
         print('✅ Word card created: ${vocabulary.word}');
       }
 
+      final currentWithoutNew = state.vocabularies.where((v) => v.id != vocabulary.id).toList();
       state = VocabularyState(
-        vocabularies: [...state.vocabularies, vocabulary],
+        vocabularies: [...currentWithoutNew, vocabulary],
+      );
+    } catch (e) {
+      state = VocabularyState(
+        vocabularies: state.vocabularies,
+        error: e.toString(),
+      );
+    }
+  }
+
+  Future<void> addVocabularies(List<VocabularyModel> vocabularies) async {
+    if (vocabularies.isEmpty) return;
+    try {
+      for (final vocabulary in vocabularies) {
+        await _hiveService.saveVocabulary(vocabulary);
+        if (_syncService.isLoggedIn) {
+          await _syncService.saveToCloud(vocabulary);
+          print('✅ Vocabulary synced to cloud: ${vocabulary.word}');
+        } else {
+          await _reviewService.createCard(vocabulary.id);
+          print('✅ Word card created: ${vocabulary.word}');
+        }
+      }
+
+      final existingIds = vocabularies.map((v) => v.id).toSet();
+      final currentFiltered = state.vocabularies.where((v) => !existingIds.contains(v.id)).toList();
+      state = VocabularyState(
+        vocabularies: [...currentFiltered, ...vocabularies],
       );
     } catch (e) {
       state = VocabularyState(

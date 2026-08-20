@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart' hide Badge;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -34,12 +35,14 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
   bool _isLoadingMore = false;
   List<VocabularyModel> _allFilteredVocabs = []; // Store filtered results
   bool _isInitialized = false; // Prevent infinite loop
+  int _lastVocabLength = -1;
 
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
     _isInitialized = false;
+    _lastVocabLength = -1;
   }
 
   void _onScroll() {
@@ -140,15 +143,42 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
     final totalStars = allVocabularies.length;
     final uniqueImages = allVocabularies.map((v) => v.imageUrl).toSet();
     final totalPhotos = uniqueImages.where((url) => url.isNotEmpty).length;
-    final daysLearning = streakData?.currentStreak ?? 0;
+    final streakDays = streakData?.currentStreak ?? 0;
+    final longestStreak = streakData?.longestStreak ?? 0;
     final shields = streakData?.shieldsAvailable ?? 0;
-    final streakMultiplier = _calculateStreakMultiplier(daysLearning);
+    final streakMultiplier = _calculateStreakMultiplier(streakDays);
+
+    // Calculate total unique learning days across all vocabularies, scrapbooks, and streak
+    final scrapbookState = ref.watch(scrapbookStateProvider);
+    final learningDates = <String>{};
+    for (final v in allVocabularies) {
+      final local = v.createdAt.toLocal();
+      learningDates.add('${local.year}-${local.month.toString().padLeft(2, '0')}-${local.day.toString().padLeft(2, '0')}');
+    }
+    for (final sb in scrapbookState.scrapbooks) {
+      final local = sb.createdAt.toLocal();
+      learningDates.add('${local.year}-${local.month.toString().padLeft(2, '0')}-${local.day.toString().padLeft(2, '0')}');
+    }
+    if (allVocabularies.isNotEmpty || scrapbookState.scrapbooks.isNotEmpty || streakDays > 0) {
+      final now = DateTime.now();
+      learningDates.add('${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}');
+    }
+    final daysLearning = [
+      learningDates.length,
+      streakDays,
+      longestStreak,
+    ].reduce((a, b) => a > b ? a : b);
+
+    // Check and unlock badges / stickers if eligible
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(badgeStateProvider.notifier).checkAndUnlockBadges(totalStars, streakDays);
+      ref.read(stickerStateProvider.notifier).checkAndUnlockStickers(totalStars);
+    });
 
     // Initialize or update displayed vocabs when vocab list changes
-    if (!_isInitialized ||
-        _allFilteredVocabs.length != allVocabularies.length ||
-        (_allFilteredVocabs.isEmpty && allVocabularies.isNotEmpty)) {
-      print('📋 Scheduling load - allVocabs: ${allVocabularies.length}, _allFiltered: ${_allFilteredVocabs.length}');
+    if (!_isInitialized || _lastVocabLength != allVocabularies.length) {
+      _lastVocabLength = allVocabularies.length;
+      print('📋 Scheduling load - allVocabs: ${allVocabularies.length}');
       WidgetsBinding.instance.addPostFrameCallback((_) {
         print('📋 PostFrame callback executing');
         if (!_isInitialized) {
@@ -177,12 +207,12 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Streak Banner
-                      _buildStreakBanner(daysLearning, streakMultiplier, shields),
+                      _buildStreakBanner(streakDays, streakMultiplier, shields),
 
                       const SizedBox(height: 12),
 
                       // Stars Stats Card
-                      _buildStarsStatsCard(totalStars, daysLearning),
+                      _buildStarsStatsCard(totalStars, streakDays),
 
                       const SizedBox(height: 12),
 
@@ -200,7 +230,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                       if (_selectedTab == 'Vocab')
                         _buildGalaxyCollectionSection(totalStars)
                       else
-                        _buildRewardSection(totalStars, daysLearning),
+                        _buildRewardSection(totalStars, streakDays),
 
                       const SizedBox(height: 32),
                     ],
@@ -361,7 +391,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
 
   Widget _buildStarsStatsCard(int totalStars, int streakDays) {
     final badgeState = ref.watch(badgeStateProvider);
-    final upcoming = badgeState.getNextUpcomingBadge(totalStars, streakDays);
+    final upcoming = badgeState.getNextUpcomingBadge(totalStars, streakDays, category: 'Stars');
 
     final progressText = upcoming != null
         ? upcoming.progressLabel
@@ -1072,8 +1102,29 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
   ) {
     final isLocked = badge.isLocked;
     final isStreak = badge.category == 'Streak';
-    final current = isStreak ? currentStreak : totalStars;
-    final target = badge.requiredStars;
+    final isStars = badge.category == 'Stars';
+    final badgeState = ref.read(badgeStateProvider);
+
+    int current;
+    int target = badge.requiredStars;
+    String unit;
+    bool showProgress = isLocked;
+
+    if (isStars) {
+      current = totalStars;
+      unit = 'Stars';
+    } else if (isStreak) {
+      current = currentStreak;
+      unit = 'Days';
+    } else if (badge.id == 'perfect_review') {
+      current = 0;
+      unit = '';
+      showProgress = false; // Action badge (1 perfect review required)
+    } else {
+      current = badgeState.getProgress(badge);
+      unit = 'Times';
+    }
+
     final progress = target > 0 ? (current / target).clamp(0.0, 1.0) : 0.0;
 
     showModalBottomSheet(
@@ -1213,7 +1264,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                         color: const Color(0xFF4B5563),
                       ),
                     ),
-                    if (isLocked) ...[
+                    if (showProgress) ...[
                       const SizedBox(height: 14),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1227,9 +1278,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                             ),
                           ),
                           Text(
-                            isStreak
-                                ? '$current / $target Days'
-                                : '$current / $target Stars',
+                            '$current / $target $unit',
                             style: GoogleFonts.lexend(
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
@@ -3082,20 +3131,35 @@ class PhotosGalleryPage extends StatelessWidget {
             fit: StackFit.expand,
             children: [
               // Photo
-              Image.network(
-                entry.imageUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    color: const Color(0xFFEDE9FE),
-                    child: const Icon(
-                      Icons.broken_image,
-                      size: 40,
-                      color: Color(0xFF8B5CF6),
+              entry.imageUrl.startsWith('http://') || entry.imageUrl.startsWith('https://')
+                  ? Image.network(
+                      entry.imageUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          color: const Color(0xFFEDE9FE),
+                          child: const Icon(
+                            Icons.broken_image,
+                            size: 40,
+                            color: Color(0xFF8B5CF6),
+                          ),
+                        );
+                      },
+                    )
+                  : Image.file(
+                      File(entry.imageUrl),
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          color: const Color(0xFFEDE9FE),
+                          child: const Icon(
+                            Icons.broken_image,
+                            size: 40,
+                            color: Color(0xFF8B5CF6),
+                          ),
+                        );
+                      },
                     ),
-                  );
-                },
-              ),
               // Gradient overlay
               Container(
                 decoration: BoxDecoration(
@@ -3233,20 +3297,35 @@ class PhotoWordsBottomSheet extends StatelessWidget {
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(12),
-                    child: Image.network(
-                      photoEntry.imageUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          color: const Color(0xFFEDE9FE),
-                          child: const Icon(
-                            Icons.broken_image,
-                            size: 24,
-                            color: Color(0xFF8B5CF6),
+                    child: photoEntry.imageUrl.startsWith('http://') || photoEntry.imageUrl.startsWith('https://')
+                        ? Image.network(
+                            photoEntry.imageUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                color: const Color(0xFFEDE9FE),
+                                child: const Icon(
+                                  Icons.broken_image,
+                                  size: 24,
+                                  color: Color(0xFF8B5CF6),
+                                ),
+                              );
+                            },
+                          )
+                        : Image.file(
+                            File(photoEntry.imageUrl),
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                color: const Color(0xFFEDE9FE),
+                                child: const Icon(
+                                  Icons.broken_image,
+                                  size: 24,
+                                  color: Color(0xFF8B5CF6),
+                                ),
+                              );
+                            },
                           ),
-                        );
-                      },
-                    ),
                   ),
                 ),
                 const SizedBox(width: 16),
