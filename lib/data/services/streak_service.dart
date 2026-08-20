@@ -187,7 +187,6 @@ class StreakService {
   }
 
   /// Check if streak should be reset due to inactivity
-  /// Grace period: 48 hours (2 days) - if gap > 48 hours, streak is expired
   /// Returns true if streak was reset, false otherwise
   Future<bool> checkAndResetStreakIfExpired() async {
     print('🔍 [StreakService] checkAndResetStreakIfExpired() called');
@@ -206,25 +205,33 @@ class StreakService {
       return false;
     }
 
-    // Calculate hours since last activity
     final now = DateTime.now();
-    final lastActivity = current.lastActivityDate!;
-    final hoursSince = now.difference(lastActivity).inHours;
+    final today = DateTime(now.year, now.month, now.day);
+    final lastLocal = current.lastActivityDate!.toLocal();
+    final lastDay = DateTime(lastLocal.year, lastLocal.month, lastLocal.day);
+    final daysDifference = today.difference(lastDay).inDays;
 
-    print('   [StreakService] Hours since last activity: $hoursSince');
+    print('   [StreakService] Days since last activity: $daysDifference');
 
-    // Grace period: 48 hours allowed
-    // If hoursSince > 48, streak is expired
-    if (hoursSince > 48) {
-      print('🔥 [StreakService] Expired! Last activity was $hoursSince hours ago. Resetting...');
-      return await updateStreakData(
-        currentStreak: 0,
-        lastActivityDate: null,
-      );
+    // daysDifference <= 1: active today or yesterday -> streak safe
+    if (daysDifference <= 1) {
+      print('✅ [StreakService] Streak still active');
+      return false;
     }
 
-    print('✅ [StreakService] Streak still active (within grace period)');
-    return false;
+    // Check if user has enough shields to cover missed days
+    final missedDays = daysDifference - 1;
+    if (current.shieldsAvailable >= missedDays) {
+      print('🛡️ [StreakService] Protected by shields ($missedDays missed, ${current.shieldsAvailable} shields available)');
+      return false;
+    }
+
+    print('🔥 [StreakService] Expired! Resetting streak...');
+    return await updateStreakData(
+      currentStreak: 0,
+      shieldsAvailable: 0,
+      lastActivityDate: null,
+    );
   }
 
   /// Set streak to specific value (for testing/demo)

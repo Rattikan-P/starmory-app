@@ -107,12 +107,11 @@ class UserModel extends Equatable {
 
   /// Increment streak after activity
   /// Returns updated user with incremented streak and potentially earned shields
-  /// Logic matches database trigger: update_streak_after_activity()
-  /// Grace Period: Allow 48 hours (2 days) gap without breaking streak
   UserModel incrementStreak() {
-    final today = DateTime.now().toIso8601String().split('T')[0];
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
 
-    print('🔥 [Guest Streak] incrementStreak() called');
+    print('🔥 [Streak] incrementStreak() called');
     print('   Current: streak=$currentStreak, longest=$longestStreak, shields=$shields');
     print('   Last activity: ${lastStreakActivityDate?.toIso8601String().split('T')[0] ?? "null"}');
 
@@ -122,66 +121,83 @@ class UserModel extends Equatable {
       return copyWith(
         currentStreak: 1,
         longestStreak: longestStreak < 1 ? 1 : longestStreak,
-        lastStreakActivityDate: DateTime.now(),
+        lastStreakActivityDate: now,
       );
     }
 
-    // Check if already did activity today
-    final lastActivityStr = lastStreakActivityDate!.toIso8601String().split('T')[0];
-    if (lastActivityStr == today) {
+    final lastLocal = lastStreakActivityDate!.toLocal();
+    final lastDay = DateTime(lastLocal.year, lastLocal.month, lastLocal.day);
+    final daysDifference = today.difference(lastDay).inDays;
+
+    print('   Calendar days since last activity: $daysDifference');
+
+    // Already did activity today
+    if (daysDifference == 0) {
       print('   ℹ️ Already updated today → no change');
-      return this; // Already updated today
+      return this;
     }
 
-    // Check if within grace period (within 48 hours = 2 days)
-    // This handles edge case: activity at 23:59 yesterday and 00:01 today
-    final now = DateTime.now();
-    final lastActivity = lastStreakActivityDate!;
-    final hoursSince = now.difference(lastActivity).inHours;
-
-    print('   Hours since last activity: $hoursSince');
-
-    // Grace period: 48 hours (2 days)
-    if (hoursSince <= 48) {
-      // Within grace period - increment streak
+    // Consecutive day (yesterday -> today, daysDifference == 1)
+    if (daysDifference == 1) {
       final newStreak = currentStreak + 1;
       final newLongestStreak = newStreak > longestStreak ? newStreak : longestStreak;
 
-      // Earn shield every 7 days
       int newShields = shields;
-      bool earnedShield = false;
       if (newStreak % 7 == 0 && newStreak > currentStreak) {
         newShields = shields + 1;
-        earnedShield = true;
       }
 
-      print('   ✅ Within grace period → streak=$newStreak (earnedShield=$earnedShield)');
+      print('   ✅ Consecutive day → streak=$newStreak, shields=$newShields');
       return copyWith(
         currentStreak: newStreak,
         longestStreak: newLongestStreak,
         shields: newShields,
-        lastStreakActivityDate: DateTime.now(),
+        lastStreakActivityDate: now,
       );
-    } else {
-      // Outside grace period - use shield if available, otherwise reset
-      int newShields = shields;
-      int newStreak = currentStreak; // Keep streak if shield used
+    }
 
+    // Missed 1 day (e.g. Monday -> Wednesday, missed Tuesday, daysDifference == 2)
+    if (daysDifference == 2) {
       if (shields > 0) {
-        // Use one shield - protect streak
-        newShields = shields - 1;
-        print('   🛡️ Outside grace period → using shield (shields=$newShields)');
-        // Don't reset streak - shield protects it
+        final newShields = shields - 1;
+        final newStreak = currentStreak + 1;
+        final newLongestStreak = newStreak > longestStreak ? newStreak : longestStreak;
+        print('   🛡️ Protected by shield! → streak=$newStreak, shields=$newShields');
+        return copyWith(
+          currentStreak: newStreak,
+          longestStreak: newLongestStreak,
+          shields: newShields,
+          lastStreakActivityDate: now,
+        );
       } else {
-        // No shields - reset streak to 1
-        newStreak = 1;
-        print('   💀 Outside grace period, no shields → streak reset to 1');
+        print('   💀 Missed 1 day without shields → streak reset to 1');
+        return copyWith(
+          currentStreak: 1,
+          shields: shields,
+          lastStreakActivityDate: now,
+        );
       }
+    }
 
+    // Missed multiple days (daysDifference > 2)
+    final missedDays = daysDifference - 1;
+    if (shields >= missedDays) {
+      final newShields = shields - missedDays;
+      final newStreak = currentStreak + 1;
+      final newLongestStreak = newStreak > longestStreak ? newStreak : longestStreak;
+      print('   🛡️ Protected by $missedDays shields! → streak=$newStreak, shields=$newShields');
       return copyWith(
         currentStreak: newStreak,
+        longestStreak: newLongestStreak,
         shields: newShields,
-        lastStreakActivityDate: DateTime.now(),
+        lastStreakActivityDate: now,
+      );
+    } else {
+      print('   💀 Missed $missedDays days (insufficient shields) → streak reset to 1');
+      return copyWith(
+        currentStreak: 1,
+        shields: 0,
+        lastStreakActivityDate: now,
       );
     }
   }
