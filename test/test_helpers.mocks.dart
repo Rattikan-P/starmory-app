@@ -4,19 +4,20 @@
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'dart:async' as _i3;
-import 'dart:io' as _i13;
+import 'dart:io' as _i14;
 
-import 'package:image_picker/image_picker.dart' as _i14;
+import 'package:image_picker/image_picker.dart' as _i15;
 import 'package:mockito/mockito.dart' as _i1;
 import 'package:mockito/src/dummies.dart' as _i6;
-import 'package:starmory_app/core/utils/quota_manager.dart' as _i11;
-import 'package:starmory_app/data/models/user_model.dart' as _i9;
-import 'package:starmory_app/data/models/user_stats_model.dart' as _i10;
+import 'package:starmory_app/core/utils/quota_manager.dart' as _i12;
+import 'package:starmory_app/data/models/scrapbook_model.dart' as _i8;
+import 'package:starmory_app/data/models/user_model.dart' as _i10;
+import 'package:starmory_app/data/models/user_stats_model.dart' as _i11;
 import 'package:starmory_app/data/models/vocabulary_model.dart' as _i7;
-import 'package:starmory_app/data/models/word_card_model.dart' as _i8;
+import 'package:starmory_app/data/models/word_card_model.dart' as _i9;
 import 'package:starmory_app/data/repositories/profile_repository.dart' as _i5;
 import 'package:starmory_app/data/services/hive_service.dart' as _i4;
-import 'package:starmory_app/data/services/review_service.dart' as _i12;
+import 'package:starmory_app/data/services/review_service.dart' as _i13;
 import 'package:supabase/supabase.dart' as _i2;
 
 // ignore_for_file: type=lint
@@ -3707,7 +3708,59 @@ class MockHiveService extends _i1.Mock implements _i4.HiveService {
       ) as _i3.Future<void>);
 
   @override
-  _i3.Future<void> saveWordCard(_i8.WordCardModel? card) => (super.noSuchMethod(
+  _i3.Future<void> saveScrapbook(_i8.ScrapbookModel? scrapbook) =>
+      (super.noSuchMethod(
+        Invocation.method(
+          #saveScrapbook,
+          [scrapbook],
+        ),
+        returnValue: _i3.Future<void>.value(),
+        returnValueForMissingStub: _i3.Future<void>.value(),
+      ) as _i3.Future<void>);
+
+  @override
+  _i3.Future<_i8.ScrapbookModel?> getScrapbook(String? id) =>
+      (super.noSuchMethod(
+        Invocation.method(
+          #getScrapbook,
+          [id],
+        ),
+        returnValue: _i3.Future<_i8.ScrapbookModel?>.value(),
+      ) as _i3.Future<_i8.ScrapbookModel?>);
+
+  @override
+  _i3.Future<List<_i8.ScrapbookModel>> getAllScrapbooks() =>
+      (super.noSuchMethod(
+        Invocation.method(
+          #getAllScrapbooks,
+          [],
+        ),
+        returnValue:
+            _i3.Future<List<_i8.ScrapbookModel>>.value(<_i8.ScrapbookModel>[]),
+      ) as _i3.Future<List<_i8.ScrapbookModel>>);
+
+  @override
+  _i3.Future<void> deleteScrapbook(String? id) => (super.noSuchMethod(
+        Invocation.method(
+          #deleteScrapbook,
+          [id],
+        ),
+        returnValue: _i3.Future<void>.value(),
+        returnValueForMissingStub: _i3.Future<void>.value(),
+      ) as _i3.Future<void>);
+
+  @override
+  _i3.Future<void> clearAllScrapbooks() => (super.noSuchMethod(
+        Invocation.method(
+          #clearAllScrapbooks,
+          [],
+        ),
+        returnValue: _i3.Future<void>.value(),
+        returnValueForMissingStub: _i3.Future<void>.value(),
+      ) as _i3.Future<void>);
+
+  @override
+  _i3.Future<void> saveWordCard(_i9.WordCardModel? card) => (super.noSuchMethod(
         Invocation.method(
           #saveWordCard,
           [card],
@@ -3717,23 +3770,23 @@ class MockHiveService extends _i1.Mock implements _i4.HiveService {
       ) as _i3.Future<void>);
 
   @override
-  _i3.Future<_i8.WordCardModel?> getWordCard(String? id) => (super.noSuchMethod(
+  _i3.Future<_i9.WordCardModel?> getWordCard(String? id) => (super.noSuchMethod(
         Invocation.method(
           #getWordCard,
           [id],
         ),
-        returnValue: _i3.Future<_i8.WordCardModel?>.value(),
-      ) as _i3.Future<_i8.WordCardModel?>);
+        returnValue: _i3.Future<_i9.WordCardModel?>.value(),
+      ) as _i3.Future<_i9.WordCardModel?>);
 
   @override
-  _i3.Future<List<_i8.WordCardModel>> getWordCards() => (super.noSuchMethod(
+  _i3.Future<List<_i9.WordCardModel>> getWordCards() => (super.noSuchMethod(
         Invocation.method(
           #getWordCards,
           [],
         ),
         returnValue:
-            _i3.Future<List<_i8.WordCardModel>>.value(<_i8.WordCardModel>[]),
-      ) as _i3.Future<List<_i8.WordCardModel>>);
+            _i3.Future<List<_i9.WordCardModel>>.value(<_i9.WordCardModel>[]),
+      ) as _i3.Future<List<_i9.WordCardModel>>);
 
   @override
   _i3.Future<void> deleteWordCard(String? id) => (super.noSuchMethod(
@@ -3756,7 +3809,7 @@ class MockHiveService extends _i1.Mock implements _i4.HiveService {
       ) as _i3.Future<void>);
 
   @override
-  _i3.Future<void> saveUser(_i9.UserModel? user) => (super.noSuchMethod(
+  _i3.Future<void> saveUser(_i10.UserModel? user) => (super.noSuchMethod(
         Invocation.method(
           #saveUser,
           [user],
@@ -3766,13 +3819,13 @@ class MockHiveService extends _i1.Mock implements _i4.HiveService {
       ) as _i3.Future<void>);
 
   @override
-  _i3.Future<_i9.UserModel?> getCurrentUser() => (super.noSuchMethod(
+  _i3.Future<_i10.UserModel?> getCurrentUser() => (super.noSuchMethod(
         Invocation.method(
           #getCurrentUser,
           [],
         ),
-        returnValue: _i3.Future<_i9.UserModel?>.value(),
-      ) as _i3.Future<_i9.UserModel?>);
+        returnValue: _i3.Future<_i10.UserModel?>.value(),
+      ) as _i3.Future<_i10.UserModel?>);
 
   @override
   _i3.Future<void> clearCurrentUser() => (super.noSuchMethod(
@@ -3785,7 +3838,7 @@ class MockHiveService extends _i1.Mock implements _i4.HiveService {
       ) as _i3.Future<void>);
 
   @override
-  _i3.Future<void> saveUserStats(_i10.UserStatsModel? stats) =>
+  _i3.Future<void> saveUserStats(_i11.UserStatsModel? stats) =>
       (super.noSuchMethod(
         Invocation.method(
           #saveUserStats,
@@ -3796,13 +3849,13 @@ class MockHiveService extends _i1.Mock implements _i4.HiveService {
       ) as _i3.Future<void>);
 
   @override
-  _i3.Future<_i10.UserStatsModel?> getUserStats() => (super.noSuchMethod(
+  _i3.Future<_i11.UserStatsModel?> getUserStats() => (super.noSuchMethod(
         Invocation.method(
           #getUserStats,
           [],
         ),
-        returnValue: _i3.Future<_i10.UserStatsModel?>.value(),
-      ) as _i3.Future<_i10.UserStatsModel?>);
+        returnValue: _i3.Future<_i11.UserStatsModel?>.value(),
+      ) as _i3.Future<_i11.UserStatsModel?>);
 
   @override
   _i3.Future<void> clearUserStats() => (super.noSuchMethod(
@@ -3815,7 +3868,7 @@ class MockHiveService extends _i1.Mock implements _i4.HiveService {
       ) as _i3.Future<void>);
 
   @override
-  _i3.Future<void> saveGuestQuotaBackup(_i11.QuotaManager? quotaManager) =>
+  _i3.Future<void> saveGuestQuotaBackup(_i12.QuotaManager? quotaManager) =>
       (super.noSuchMethod(
         Invocation.method(
           #saveGuestQuotaBackup,
@@ -3826,13 +3879,13 @@ class MockHiveService extends _i1.Mock implements _i4.HiveService {
       ) as _i3.Future<void>);
 
   @override
-  _i3.Future<_i11.QuotaManager?> getGuestQuotaBackup() => (super.noSuchMethod(
+  _i3.Future<_i12.QuotaManager?> getGuestQuotaBackup() => (super.noSuchMethod(
         Invocation.method(
           #getGuestQuotaBackup,
           [],
         ),
-        returnValue: _i3.Future<_i11.QuotaManager?>.value(),
-      ) as _i3.Future<_i11.QuotaManager?>);
+        returnValue: _i3.Future<_i12.QuotaManager?>.value(),
+      ) as _i3.Future<_i12.QuotaManager?>);
 
   @override
   _i3.Future<void> clearGuestQuotaBackup() => (super.noSuchMethod(
@@ -3877,7 +3930,7 @@ class MockHiveService extends _i1.Mock implements _i4.HiveService {
 /// A class which mocks [ReviewService].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockReviewService extends _i1.Mock implements _i12.ReviewService {
+class MockReviewService extends _i1.Mock implements _i13.ReviewService {
   MockReviewService() {
     _i1.throwOnMissingStub(this);
   }
@@ -3898,7 +3951,7 @@ class MockReviewService extends _i1.Mock implements _i12.ReviewService {
       ) as _i4.HiveService);
 
   @override
-  _i3.Future<List<_i8.WordCardModel>> getDueCards({
+  _i3.Future<List<_i9.WordCardModel>> getDueCards({
     int? limit = 5,
     String? topicFilter,
   }) =>
@@ -3912,8 +3965,8 @@ class MockReviewService extends _i1.Mock implements _i12.ReviewService {
           },
         ),
         returnValue:
-            _i3.Future<List<_i8.WordCardModel>>.value(<_i8.WordCardModel>[]),
-      ) as _i3.Future<List<_i8.WordCardModel>>);
+            _i3.Future<List<_i9.WordCardModel>>.value(<_i9.WordCardModel>[]),
+      ) as _i3.Future<List<_i9.WordCardModel>>);
 
   @override
   _i3.Future<List<_i7.VocabularyModel>> getNewVocabularies({
@@ -3934,17 +3987,17 @@ class MockReviewService extends _i1.Mock implements _i12.ReviewService {
       ) as _i3.Future<List<_i7.VocabularyModel>>);
 
   @override
-  _i3.Future<_i8.WordCardModel?> createCard(String? vocabularyId) =>
+  _i3.Future<_i9.WordCardModel?> createCard(String? vocabularyId) =>
       (super.noSuchMethod(
         Invocation.method(
           #createCard,
           [vocabularyId],
         ),
-        returnValue: _i3.Future<_i8.WordCardModel?>.value(),
-      ) as _i3.Future<_i8.WordCardModel?>);
+        returnValue: _i3.Future<_i9.WordCardModel?>.value(),
+      ) as _i3.Future<_i9.WordCardModel?>);
 
   @override
-  _i3.Future<_i8.WordCardModel?> createCardWithVocabulary(
+  _i3.Future<_i9.WordCardModel?> createCardWithVocabulary(
     String? vocabularyId,
     _i7.VocabularyModel? vocabulary,
   ) =>
@@ -3956,21 +4009,21 @@ class MockReviewService extends _i1.Mock implements _i12.ReviewService {
             vocabulary,
           ],
         ),
-        returnValue: _i3.Future<_i8.WordCardModel?>.value(),
-      ) as _i3.Future<_i8.WordCardModel?>);
+        returnValue: _i3.Future<_i9.WordCardModel?>.value(),
+      ) as _i3.Future<_i9.WordCardModel?>);
 
   @override
-  _i3.Future<_i8.WordCardModel?> updateCard(_i8.WordCardModel? card) =>
+  _i3.Future<_i9.WordCardModel?> updateCard(_i9.WordCardModel? card) =>
       (super.noSuchMethod(
         Invocation.method(
           #updateCard,
           [card],
         ),
-        returnValue: _i3.Future<_i8.WordCardModel?>.value(),
-      ) as _i3.Future<_i8.WordCardModel?>);
+        returnValue: _i3.Future<_i9.WordCardModel?>.value(),
+      ) as _i3.Future<_i9.WordCardModel?>);
 
   @override
-  _i3.Future<List<_i8.WordCardModel>> getReviewSession({String? topicFilter}) =>
+  _i3.Future<List<_i9.WordCardModel>> getReviewSession({String? topicFilter}) =>
       (super.noSuchMethod(
         Invocation.method(
           #getReviewSession,
@@ -3978,14 +4031,16 @@ class MockReviewService extends _i1.Mock implements _i12.ReviewService {
           {#topicFilter: topicFilter},
         ),
         returnValue:
-            _i3.Future<List<_i8.WordCardModel>>.value(<_i8.WordCardModel>[]),
-      ) as _i3.Future<List<_i8.WordCardModel>>);
+            _i3.Future<List<_i9.WordCardModel>>.value(<_i9.WordCardModel>[]),
+      ) as _i3.Future<List<_i9.WordCardModel>>);
 
   @override
-  _i3.Future<int> getRemainingDueCount() => (super.noSuchMethod(
+  _i3.Future<int> getRemainingDueCount({String? topicFilter}) =>
+      (super.noSuchMethod(
         Invocation.method(
           #getRemainingDueCount,
           [],
+          {#topicFilter: topicFilter},
         ),
         returnValue: _i3.Future<int>.value(0),
       ) as _i3.Future<int>);
@@ -4019,9 +4074,10 @@ class MockReviewService extends _i1.Mock implements _i12.ReviewService {
       ) as _i3.Future<void>);
 
   @override
-  _i3.Future<List<_i8.WordCardModel>> getMoreCards({
+  _i3.Future<List<_i9.WordCardModel>> getMoreCards({
     int? batchSize = 5,
     List<String>? excludeIds,
+    String? topicFilter,
   }) =>
       (super.noSuchMethod(
         Invocation.method(
@@ -4030,11 +4086,12 @@ class MockReviewService extends _i1.Mock implements _i12.ReviewService {
           {
             #batchSize: batchSize,
             #excludeIds: excludeIds,
+            #topicFilter: topicFilter,
           },
         ),
         returnValue:
-            _i3.Future<List<_i8.WordCardModel>>.value(<_i8.WordCardModel>[]),
-      ) as _i3.Future<List<_i8.WordCardModel>>);
+            _i3.Future<List<_i9.WordCardModel>>.value(<_i9.WordCardModel>[]),
+      ) as _i3.Future<List<_i9.WordCardModel>>);
 }
 
 /// A class which mocks [ProfileRepository].
@@ -4063,8 +4120,8 @@ class MockProfileRepository extends _i1.Mock implements _i5.ProfileRepository {
 
   @override
   _i3.Future<_i5.Result<void>> uploadProfilePhoto(
-    _i13.File? imageFile,
-    _i14.ImageSource? source,
+    _i14.File? imageFile,
+    _i15.ImageSource? source,
   ) =>
       (super.noSuchMethod(
         Invocation.method(
@@ -4134,21 +4191,21 @@ class MockProfileRepository extends _i1.Mock implements _i5.ProfileRepository {
       ) as _i3.Future<_i5.Result<void>>);
 
   @override
-  _i3.Future<_i5.Result<_i9.UserModel?>> startOver(_i5.UserType? userType) =>
+  _i3.Future<_i5.Result<_i10.UserModel?>> startOver(_i5.UserType? userType) =>
       (super.noSuchMethod(
         Invocation.method(
           #startOver,
           [userType],
         ),
-        returnValue: _i3.Future<_i5.Result<_i9.UserModel?>>.value(
-            _FakeResult_29<_i9.UserModel?>(
+        returnValue: _i3.Future<_i5.Result<_i10.UserModel?>>.value(
+            _FakeResult_29<_i10.UserModel?>(
           this,
           Invocation.method(
             #startOver,
             [userType],
           ),
         )),
-      ) as _i3.Future<_i5.Result<_i9.UserModel?>>);
+      ) as _i3.Future<_i5.Result<_i10.UserModel?>>);
 
   @override
   _i3.Future<_i5.Result<int>> exportVocabulary(_i5.UserType? userType) =>
@@ -4182,13 +4239,13 @@ class MockProfileRepository extends _i1.Mock implements _i5.ProfileRepository {
       ) as _i3.Future<_i5.Result<void>>);
 
   @override
-  _i3.Future<_i9.UserModel?> getCurrentUser() => (super.noSuchMethod(
+  _i3.Future<_i10.UserModel?> getCurrentUser() => (super.noSuchMethod(
         Invocation.method(
           #getCurrentUser,
           [],
         ),
-        returnValue: _i3.Future<_i9.UserModel?>.value(),
-      ) as _i3.Future<_i9.UserModel?>);
+        returnValue: _i3.Future<_i10.UserModel?>.value(),
+      ) as _i3.Future<_i10.UserModel?>);
 
   @override
   _i3.Future<bool> isGuest() => (super.noSuchMethod(
