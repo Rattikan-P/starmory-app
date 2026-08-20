@@ -114,14 +114,16 @@ final reviewStateProvider =
     StateNotifierProvider<ReviewNotifier, ReviewState>((ref) {
   return ReviewNotifier(
     ref.watch(reviewServiceProvider),
+    ref,
   );
 });
 
 /// Review State Notifier
 class ReviewNotifier extends StateNotifier<ReviewState> {
   final ReviewService _reviewService;
+  final Ref _ref;
 
-  ReviewNotifier(this._reviewService)
+  ReviewNotifier(this._reviewService, this._ref)
       : super(const ReviewState(isLoading: true));
 
   /// Load review session (due cards + new cards to fill 5)
@@ -242,12 +244,13 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
       // Update streak for first review of the day (guest mode)
       // For registered users, this is handled by database trigger
       if (!_hasUpdatedStreakThisSession) {
-        final container = ProviderContainer();
-        final streakNotifier = container.read(streakProvider.notifier);
+        final streakNotifier = _ref.read(streakProvider.notifier);
         await streakNotifier.recordLearningActivity();
         _hasUpdatedStreakThisSession = true;
-        container.dispose();
       }
+
+      // Record review activity for Badge system
+      await _ref.read(badgeProvider.notifier).recordActivity(ActivityType.review);
 
       // Calculate new average time per card
       final totalReviews = state.totalReviewsCompleted + 1;
