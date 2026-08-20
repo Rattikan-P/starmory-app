@@ -8,6 +8,7 @@ class Sticker {
   final String description;
   final bool isLocked;
   final int requiredStars;
+  final String packName;
 
   Sticker({
     required this.id,
@@ -16,6 +17,7 @@ class Sticker {
     required this.description,
     this.isLocked = true,
     required this.requiredStars,
+    this.packName = 'Daily',
   });
 }
 
@@ -36,6 +38,13 @@ class StickerState {
     );
   }
 
+  /// Get distinct pack names
+  List<String> get availablePacks {
+    final packs = stickers.map((s) => s.packName).toSet().toList();
+    packs.sort();
+    return ['All', ...packs];
+  }
+
   StickerState copyWith({
     List<Sticker>? stickers,
     int? unlockedCount,
@@ -54,7 +63,6 @@ class StickerController extends StateNotifier<StickerState> {
   }
 
   void _initializeStickers() {
-    // Mock stickers - will be replaced with real data later
     final stickers = [
       Sticker(
         id: 'happy_face',
@@ -63,6 +71,7 @@ class StickerController extends StateNotifier<StickerState> {
         description: 'Keep smiling while learning!',
         isLocked: false,
         requiredStars: 5,
+        packName: 'Daily',
       ),
       Sticker(
         id: 'rocket',
@@ -71,6 +80,16 @@ class StickerController extends StateNotifier<StickerState> {
         description: 'Blast off to learning success!',
         isLocked: false,
         requiredStars: 10,
+        packName: 'Space',
+      ),
+      Sticker(
+        id: 'ufo',
+        name: 'UFO',
+        icon: '🛸',
+        description: 'Exploring unknown vocabulary!',
+        isLocked: true,
+        requiredStars: 15,
+        packName: 'Space',
       ),
       Sticker(
         id: 'star_struck',
@@ -79,6 +98,16 @@ class StickerController extends StateNotifier<StickerState> {
         description: 'Amazing progress!',
         isLocked: true,
         requiredStars: 25,
+        packName: 'Daily',
+      ),
+      Sticker(
+        id: 'saturn',
+        name: 'Saturn',
+        icon: '🪐',
+        description: 'Ring of knowledge!',
+        isLocked: true,
+        requiredStars: 35,
+        packName: 'Space',
       ),
       Sticker(
         id: 'rainbow',
@@ -87,6 +116,16 @@ class StickerController extends StateNotifier<StickerState> {
         description: 'Colorful vocabulary journey!',
         isLocked: true,
         requiredStars: 50,
+        packName: 'Daily',
+      ),
+      Sticker(
+        id: 'comet',
+        name: 'Comet',
+        icon: '☄️',
+        description: 'Blazing through words fast!',
+        isLocked: true,
+        requiredStars: 60,
+        packName: 'Space',
       ),
       Sticker(
         id: 'sparkles',
@@ -95,6 +134,16 @@ class StickerController extends StateNotifier<StickerState> {
         description: 'Shining bright!',
         isLocked: true,
         requiredStars: 75,
+        packName: 'Daily',
+      ),
+      Sticker(
+        id: 'astronaut',
+        name: 'Astronaut',
+        icon: '👨‍🚀',
+        description: 'Cosmic language explorer!',
+        isLocked: true,
+        requiredStars: 90,
+        packName: 'Space',
       ),
       Sticker(
         id: 'trophy',
@@ -103,6 +152,34 @@ class StickerController extends StateNotifier<StickerState> {
         description: 'Champion learner!',
         isLocked: true,
         requiredStars: 100,
+        packName: 'Legend',
+      ),
+      Sticker(
+        id: 'nebula',
+        name: 'Nebula',
+        icon: '🌌',
+        description: 'Deep cosmic vocabulary master!',
+        isLocked: true,
+        requiredStars: 150,
+        packName: 'Space',
+      ),
+      Sticker(
+        id: 'crystal',
+        name: 'Crystal',
+        icon: '💎',
+        description: 'Pure crystal-clear memory!',
+        isLocked: true,
+        requiredStars: 200,
+        packName: 'Legend',
+      ),
+      Sticker(
+        id: 'crown',
+        name: 'Crown',
+        icon: '👑',
+        description: 'Ruler of the Starmory galaxy!',
+        isLocked: true,
+        requiredStars: 250,
+        packName: 'Legend',
       ),
     ];
 
@@ -122,6 +199,7 @@ class StickerController extends StateNotifier<StickerState> {
           description: sticker.description,
           isLocked: false,
           requiredStars: sticker.requiredStars,
+          packName: sticker.packName,
         );
       }
       return sticker;

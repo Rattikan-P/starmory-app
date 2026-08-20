@@ -113,6 +113,8 @@ flutter:
   assets:
     - .env
     - assets/images/
+    - assets/images/badges/
+    - assets/images/stickers/
     - assets/textures/
 
   # An image asset can refer to one or more resolution-specific "variants", see
