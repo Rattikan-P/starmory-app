@@ -113,6 +113,8 @@ flutter:
   assets:
     - .env
     - assets/images/
+    - assets/images/badges/
+    - assets/images/stickers/
     - assets/textures/
     - assets/stickers/doodle/
     - assets/stickers/flower/

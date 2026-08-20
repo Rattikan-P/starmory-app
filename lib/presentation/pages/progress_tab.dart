@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Badge;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../data/models/vocabulary_model.dart';
@@ -7,6 +7,7 @@ import '../../data/services/dictionary_service.dart';
 import '../../data/services/tts_service.dart';
 import '../providers/providers.dart';
 import '../widgets/galaxy_screen_background.dart';
+import '../widgets/reward_icon_widget.dart';
 import 'badges_page.dart';
 import 'stickers_page.dart';
 
@@ -181,7 +182,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                       const SizedBox(height: 12),
 
                       // Stars Stats Card
-                      _buildStarsStatsCard(totalStars),
+                      _buildStarsStatsCard(totalStars, daysLearning),
 
                       const SizedBox(height: 12),
 
@@ -199,7 +200,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                       if (_selectedTab == 'Vocab')
                         _buildGalaxyCollectionSection(totalStars)
                       else
-                        _buildRewardSection(),
+                        _buildRewardSection(totalStars, daysLearning),
 
                       const SizedBox(height: 32),
                     ],
@@ -278,7 +279,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
             style: GoogleFonts.lexend(
               fontSize: 24,
               fontWeight: FontWeight.w700,
-              color: Colors.white,
+              color: const Color(0xFF1F2937),
             ),
           ),
         ],
@@ -358,10 +359,14 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
     );
   }
 
-  Widget _buildStarsStatsCard(int totalStars) {
-    // Calculate progress toward next badge (every 50 stars)
-    final progress = totalStars % 50;
-    final progressPercent = progress / 50;
+  Widget _buildStarsStatsCard(int totalStars, int streakDays) {
+    final badgeState = ref.watch(badgeStateProvider);
+    final upcoming = badgeState.getNextUpcomingBadge(totalStars, streakDays);
+
+    final progressText = upcoming != null
+        ? upcoming.progressLabel
+        : 'All Badges Unlocked!';
+    final progressPercent = upcoming?.progressPercentage ?? 1.0;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -420,20 +425,49 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    '$progress / 50',
+                    progressText,
                     style: GoogleFonts.lexend(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                       color: const Color(0xFF8B5CF6), // Purple
                     ),
                   ),
-                  Text(
-                    'STARS TO unlock 🏅 New Badge',
-                    style: GoogleFonts.lexend(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: const Color(0xFF6b7280),
-                    ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'to unlock ',
+                        style: GoogleFonts.lexend(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: const Color(0xFF6b7280),
+                        ),
+                      ),
+                      if (upcoming != null) ...[
+                        RewardIconWidget(
+                          icon: upcoming.badge.icon,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          upcoming.badge.name,
+                          style: GoogleFonts.lexend(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF1f2937),
+                          ),
+                        ),
+                      ] else ...[
+                        Text(
+                          '🎉 Galaxy Master!',
+                          style: GoogleFonts.lexend(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF1f2937),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ],
               ),
@@ -711,24 +745,24 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
     );
   }
 
-  Widget _buildRewardSection() {
+  Widget _buildRewardSection(int totalStars, int currentStreak) {
     final badgeState = ref.watch(badgeStateProvider);
     final stickerState = ref.watch(stickerStateProvider);
 
     return Column(
       children: [
         // Badges preview section
-        _buildBadgePreviewSection(badgeState.badges),
+        _buildBadgePreviewSection(badgeState.badges, totalStars, currentStreak),
 
         const SizedBox(height: 24),
 
         // Stickers preview section
-        _buildStickerPreviewSection(stickerState.stickers),
+        _buildStickerPreviewSection(stickerState.stickers, totalStars),
       ],
     );
   }
 
-  Widget _buildBadgePreviewSection(List badges) {
+  Widget _buildBadgePreviewSection(List<Badge> badges, int totalStars, int currentStreak) {
     // Show first 4 badges
     final previewBadges = badges.take(4).toList();
 
@@ -743,7 +777,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
               style: GoogleFonts.lexend(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
-                color: Colors.white,
+                color: const Color(0xFF1F2937),
               ),
             ),
             InkWell(
@@ -757,7 +791,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.15),
+                  color: const Color(0xFF8B5CF6).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
@@ -766,15 +800,15 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                       'See All',
                       style: GoogleFonts.lexend(
                         fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF8B5CF6),
                       ),
                     ),
                     const SizedBox(width: 4),
-                    Icon(
+                    const Icon(
                       Icons.arrow_forward_ios,
                       size: 12,
-                      color: Colors.white,
+                      color: Color(0xFF8B5CF6),
                     ),
                   ],
                 ),
@@ -794,7 +828,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
               return Expanded(
                 child: Padding(
                   padding: const EdgeInsets.only(right: 12),
-                  child: _buildBadgePreviewCard(badge),
+                  child: _buildBadgePreviewCard(badge, totalStars, currentStreak),
                 ),
               );
             }).toList(),
@@ -803,7 +837,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
     );
   }
 
-  Widget _buildStickerPreviewSection(List stickers) {
+  Widget _buildStickerPreviewSection(List<Sticker> stickers, int totalStars) {
     // Show first 4 stickers
     final previewStickers = stickers.take(4).toList();
 
@@ -818,7 +852,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
               style: GoogleFonts.lexend(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
-                color: Colors.white,
+                color: const Color(0xFF1F2937),
               ),
             ),
             InkWell(
@@ -832,7 +866,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.15),
+                  color: const Color(0xFF8B5CF6).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
@@ -841,15 +875,15 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                       'See All',
                       style: GoogleFonts.lexend(
                         fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF8B5CF6),
                       ),
                     ),
                     const SizedBox(width: 4),
-                    Icon(
+                    const Icon(
                       Icons.arrow_forward_ios,
                       size: 12,
-                      color: Colors.white,
+                      color: Color(0xFF8B5CF6),
                     ),
                   ],
                 ),
@@ -869,7 +903,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
               return Expanded(
                 child: Padding(
                   padding: const EdgeInsets.only(right: 12),
-                  child: _buildStickerPreviewCard(sticker),
+                  child: _buildStickerPreviewCard(sticker, totalStars),
                 ),
               );
             }).toList(),
@@ -878,135 +912,599 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
     );
   }
 
-  Widget _buildBadgePreviewCard(dynamic badge) {
-    final isLocked = badge.isLocked ?? false;
-    final icon = badge.icon ?? '🏅';
-    final name = badge.name ?? 'Badge';
+  Widget _buildBadgePreviewCard(Badge badge, int totalStars, int currentStreak) {
+    final isLocked = badge.isLocked;
+    final icon = badge.icon;
+    final name = badge.name;
 
-    return Container(
-      height: 90,
-      decoration: BoxDecoration(
-        color: Colors.white,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _showBadgeDetailModal(context, badge, totalStars, currentStreak),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: const Color(0xFFE2D1F9).withValues(alpha: 0.3),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
-            blurRadius: 12,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          // Icon
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
+        child: Container(
+          height: 90,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
               color: isLocked
-                  ? Colors.grey.withValues(alpha: 0.1)
-                  : const Color(0xFFE2D1F9).withValues(alpha: 0.3),
-              shape: BoxShape.circle,
+                  ? Colors.grey.withValues(alpha: 0.2)
+                  : const Color(0xFFE2D1F9).withValues(alpha: 0.6),
+              width: 1,
             ),
-            child: Center(
-              child: Text(
-                icon,
-                style: const TextStyle(fontSize: 24),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
+                blurRadius: 12,
+                offset: const Offset(0, 2),
               ),
-            ),
+            ],
           ),
-          const SizedBox(height: 8),
-          // Name
-          Text(
-            name,
-            style: GoogleFonts.lexend(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: isLocked ? Colors.grey : const Color(0xFF1f2937),
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Icon
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: isLocked
+                      ? Colors.grey.withValues(alpha: 0.1)
+                      : const Color(0xFFE2D1F9).withValues(alpha: 0.3),
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: RewardIconWidget(
+                    icon: icon,
+                    size: 22,
+                    isLocked: isLocked,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              // Name
+              Text(
+                name,
+                style: GoogleFonts.lexend(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: isLocked ? Colors.grey : const Color(0xFF1F2937),
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              // Locked indicator
+              if (isLocked)
+                Icon(
+                  Icons.lock,
+                  size: 10,
+                  color: Colors.grey.withValues(alpha: 0.5),
+                ),
+            ],
           ),
-          // Locked indicator
-          if (isLocked)
-            Icon(
-              Icons.lock,
-              size: 10,
-              color: Colors.grey.withValues(alpha: 0.5),
-            ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildStickerPreviewCard(dynamic sticker) {
-    final isLocked = sticker.isLocked ?? false;
-    final icon = sticker.icon ?? '😊';
-    final name = sticker.name ?? 'Sticker';
+  Widget _buildStickerPreviewCard(Sticker sticker, int totalStars) {
+    final isLocked = sticker.isLocked;
+    final icon = sticker.icon;
+    final name = sticker.name;
 
-    return Container(
-      height: 90,
-      decoration: BoxDecoration(
-        color: Colors.white,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _showStickerDetailModal(context, sticker, totalStars),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: const Color(0xFFE2D1F9).withValues(alpha: 0.3),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
-            blurRadius: 12,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          // Icon
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
+        child: Container(
+          height: 90,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
               color: isLocked
-                  ? Colors.grey.withValues(alpha: 0.1)
-                  : const Color(0xFFEDE9FE),
-              shape: BoxShape.circle,
+                  ? Colors.grey.withValues(alpha: 0.2)
+                  : const Color(0xFFE2D1F9).withValues(alpha: 0.6),
+              width: 1,
             ),
-            child: Center(
-              child: Text(
-                icon,
-                style: const TextStyle(fontSize: 24),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
+                blurRadius: 12,
+                offset: const Offset(0, 2),
               ),
-            ),
+            ],
           ),
-          const SizedBox(height: 8),
-          // Name
-          Text(
-            name,
-            style: GoogleFonts.lexend(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: isLocked ? Colors.grey : const Color(0xFF1f2937),
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Icon
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: isLocked
+                      ? Colors.grey.withValues(alpha: 0.1)
+                      : const Color(0xFFEDE9FE),
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: RewardIconWidget(
+                    icon: icon,
+                    size: 24,
+                    isLocked: isLocked,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              // Name
+              Text(
+                name,
+                style: GoogleFonts.lexend(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: isLocked ? Colors.grey : const Color(0xFF1F2937),
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              // Locked indicator
+              if (isLocked)
+                Icon(
+                  Icons.lock,
+                  size: 10,
+                  color: Colors.grey.withValues(alpha: 0.5),
+                ),
+            ],
           ),
-          // Locked indicator
-          if (isLocked)
-            Icon(
-              Icons.lock,
-              size: 10,
-              color: Colors.grey.withValues(alpha: 0.5),
-            ),
-        ],
+        ),
       ),
+    );
+  }
+
+  void _showBadgeDetailModal(
+    BuildContext context,
+    Badge badge,
+    int totalStars,
+    int currentStreak,
+  ) {
+    final isLocked = badge.isLocked;
+    final isStreak = badge.category == 'Streak';
+    final current = isStreak ? currentStreak : totalStars;
+    final target = badge.requiredStars;
+    final progress = target > 0 ? (current / target).clamp(0.0, 1.0) : 0.0;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.all(24),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Drag Handle
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Large Badge Icon
+              Container(
+                width: 84,
+                height: 84,
+                decoration: BoxDecoration(
+                  color: isLocked
+                      ? Colors.grey.shade100
+                      : const Color(0xFFE2D1F9).withValues(alpha: 0.35),
+                  shape: BoxShape.circle,
+                  boxShadow: isLocked
+                      ? []
+                      : [
+                          BoxShadow(
+                            color: const Color(0xFF8B5CF6).withValues(alpha: 0.25),
+                            blurRadius: 16,
+                            spreadRadius: 2,
+                          ),
+                        ],
+                ),
+                child: Center(
+                  child: RewardIconWidget(
+                    icon: badge.icon,
+                    size: 44,
+                    isLocked: isLocked,
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // Badge Name
+              Text(
+                badge.name,
+                style: GoogleFonts.lexend(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF1F2937),
+                ),
+              ),
+
+              const SizedBox(height: 6),
+
+              // Category & Status Tag
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF8B5CF6).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      badge.category,
+                      style: GoogleFonts.lexend(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF8B5CF6),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: isLocked
+                          ? Colors.grey.shade100
+                          : const Color(0xFF10B981).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      isLocked ? '🔒 Locked' : '✨ Unlocked',
+                      style: GoogleFonts.lexend(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: isLocked ? Colors.grey.shade600 : const Color(0xFF10B981),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 16),
+
+              // Description & Unlock Criteria Box
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF9FAFB),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'How to unlock:',
+                      style: GoogleFonts.lexend(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF374151),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      badge.description,
+                      style: GoogleFonts.lexend(
+                        fontSize: 14,
+                        color: const Color(0xFF4B5563),
+                      ),
+                    ),
+                    if (isLocked) ...[
+                      const SizedBox(height: 14),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Progress',
+                            style: GoogleFonts.lexend(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                          Text(
+                            isStreak
+                                ? '$current / $target Days'
+                                : '$current / $target Stars',
+                            style: GoogleFonts.lexend(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF8B5CF6),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: LinearProgressIndicator(
+                          value: progress,
+                          backgroundColor: Colors.grey.shade200,
+                          valueColor: const AlwaysStoppedAnimation<Color>(
+                            Color(0xFF8B5CF6),
+                          ),
+                          minHeight: 8,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // Close Button
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF8B5CF6),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: Text(
+                    'Got It!',
+                    style: GoogleFonts.lexend(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showStickerDetailModal(BuildContext context, Sticker sticker, int totalStars) {
+    final isLocked = sticker.isLocked;
+    final remainingStars = (sticker.requiredStars - totalStars).clamp(0, 999999);
+    final progress = (totalStars / sticker.requiredStars).clamp(0.0, 1.0);
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.all(24),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Handle
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Large Sticker Preview
+              Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  color: isLocked
+                      ? Colors.grey.shade100
+                      : const Color(0xFFEDE9FE),
+                  shape: BoxShape.circle,
+                  boxShadow: isLocked
+                      ? []
+                      : [
+                          BoxShadow(
+                            color: const Color(0xFF8B5CF6).withValues(alpha: 0.25),
+                            blurRadius: 20,
+                            spreadRadius: 4,
+                          ),
+                        ],
+                ),
+                child: Center(
+                  child: RewardIconWidget(
+                    icon: sticker.icon,
+                    size: 56,
+                    isLocked: isLocked,
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // Name
+              Text(
+                sticker.name,
+                style: GoogleFonts.lexend(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF1F2937),
+                ),
+              ),
+
+              const SizedBox(height: 6),
+
+              // Pack Name Tag
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF8B5CF6).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '📦 ${sticker.packName} Pack',
+                      style: GoogleFonts.lexend(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF8B5CF6),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: isLocked
+                          ? Colors.grey.shade100
+                          : const Color(0xFF10B981).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      isLocked ? '🔒 Locked' : '✨ Unlocked',
+                      style: GoogleFonts.lexend(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: isLocked ? Colors.grey.shade600 : const Color(0xFF10B981),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 16),
+
+              // Description Box
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF9FAFB),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Description',
+                      style: GoogleFonts.lexend(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF374151),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      sticker.description,
+                      style: GoogleFonts.lexend(
+                        fontSize: 14,
+                        color: const Color(0xFF4B5563),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Required Stars',
+                          style: GoogleFonts.lexend(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                        Text(
+                          '${sticker.requiredStars} ⭐',
+                          style: GoogleFonts.lexend(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF8B5CF6),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (isLocked) ...[
+                      const SizedBox(height: 8),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: LinearProgressIndicator(
+                          value: progress,
+                          backgroundColor: Colors.grey.shade200,
+                          valueColor: const AlwaysStoppedAnimation<Color>(
+                            Color(0xFF8B5CF6),
+                          ),
+                          minHeight: 8,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        '$remainingStars more stars needed to unlock',
+                        style: GoogleFonts.lexend(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: const Color(0xFFE11D48),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // Close Button
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF8B5CF6),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: Text(
+                    'Got It!',
+                    style: GoogleFonts.lexend(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -1018,7 +1516,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
         style: GoogleFonts.lexend(
           fontSize: 14,
           fontWeight: FontWeight.w400,
-          color: Colors.white.withValues(alpha: 0.5),
+          color: const Color(0xFF6B7280),
         ),
       ),
     );
