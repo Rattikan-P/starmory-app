@@ -5,6 +5,8 @@ import '../providers/providers.dart';
 import '../widgets/galaxy_screen_background.dart';
 import '../widgets/reward_icon_widget.dart';
 
+import '../widgets/badges_section.dart';
+
 class BadgesPage extends ConsumerStatefulWidget {
   const BadgesPage({super.key});
 
@@ -187,7 +189,7 @@ class _BadgesPageState extends ConsumerState<BadgesPage> {
                             crossAxisCount: 3,
                             crossAxisSpacing: 12,
                             mainAxisSpacing: 12,
-                            childAspectRatio: 0.85,
+                            childAspectRatio: 0.78,
                           ),
                           itemCount: filteredBadges.length,
                           itemBuilder: (context, index) {
@@ -195,8 +197,7 @@ class _BadgesPageState extends ConsumerState<BadgesPage> {
                             return _buildBadgeCard(
                               context,
                               badge,
-                              totalStars,
-                              currentStreak,
+                              badgeState,
                             );
                           },
                         ),
@@ -212,352 +213,138 @@ class _BadgesPageState extends ConsumerState<BadgesPage> {
   Widget _buildBadgeCard(
     BuildContext context,
     Badge badge,
-    int totalStars,
-    int currentStreak,
+    BadgeState badgeState,
   ) {
-    final isLocked = badge.isLocked;
+    final isUnlocked = !badge.isLocked;
+    final progress = badgeState.getProgress(badge);
+    final progressRatio = badgeState.getProgressRatio(badge);
+    final gradient = badge.gradientColors.isNotEmpty
+        ? badge.gradientColors
+        : const [Color(0xFF8B5CF6), Color(0xFF6366F1)];
 
-    return InkWell(
-      onTap: () => _showBadgeDetailModal(context, badge, totalStars, currentStreak),
-      borderRadius: BorderRadius.circular(16),
+    return GestureDetector(
+      onTap: () => showBadgeDetailsModal(context, badge, isUnlocked, progress),
       child: Container(
+        padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: isUnlocked
+              ? const Color(0xFFF3E8FF).withValues(alpha: 0.6)
+              : const Color(0xFFF8FAFC),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isLocked
-                ? Colors.grey.withValues(alpha: 0.2)
-                : const Color(0xFFE2D1F9).withValues(alpha: 0.6),
-            width: 1.5,
+            color: isUnlocked
+                ? gradient.first.withValues(alpha: 0.4)
+                : const Color(0xFFE2E8F0),
+            width: 1.2,
           ),
-          boxShadow: [
-            BoxShadow(
-              color: isLocked
-                  ? Colors.black.withValues(alpha: 0.03)
-                  : const Color(0xFF8B5CF6).withValues(alpha: 0.12),
-              blurRadius: 10,
-              offset: const Offset(0, 3),
-            ),
-          ],
+          boxShadow: isUnlocked
+              ? [
+                  BoxShadow(
+                    color: gradient.first.withValues(alpha: 0.15),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Icon
+            // Badge Icon Circle
             Container(
-              width: 52,
-              height: 52,
+              width: 48,
+              height: 48,
               decoration: BoxDecoration(
-                color: isLocked
-                    ? Colors.grey.withValues(alpha: 0.12)
-                    : const Color(0xFFE2D1F9).withValues(alpha: 0.35),
                 shape: BoxShape.circle,
+                gradient: isUnlocked
+                    ? LinearGradient(colors: gradient)
+                    : const LinearGradient(
+                        colors: [Color(0xFFE2E8F0), Color(0xFFCBD5E1)],
+                      ),
+                boxShadow: isUnlocked
+                    ? [
+                        BoxShadow(
+                          color: gradient.first.withValues(alpha: 0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ]
+                    : null,
               ),
               child: Center(
                 child: RewardIconWidget(
                   icon: badge.icon,
-                  size: 28,
-                  isLocked: isLocked,
+                  size: 26,
+                  isLocked: !isUnlocked,
                 ),
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
 
-            // Name
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 6),
-              child: Text(
-                badge.name,
-                style: GoogleFonts.lexend(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: isLocked ? Colors.grey : const Color(0xFF1F2937),
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
+            // Title
+            Text(
+              badge.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.lexend(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: isUnlocked
+                    ? const Color(0xFF1E293B)
+                    : const Color(0xFF94A3B8),
               ),
             ),
-
             const SizedBox(height: 4),
 
-            // Status Badge
-            if (isLocked)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.lock_rounded, size: 11, color: Colors.grey.shade500),
-                  const SizedBox(width: 2),
-                  Text(
-                    'Locked',
-                    style: GoogleFonts.lexend(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.grey.shade500,
-                    ),
+            // Progress Indicator / Tag
+            if (isUnlocked)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  'UNLOCKED',
+                  style: GoogleFonts.lexend(
+                    fontSize: 8,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF059669),
                   ),
-                ],
+                ),
               )
             else
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.check_circle_rounded, size: 11, color: Color(0xFF10B981)),
-                  const SizedBox(width: 2),
-                  Text(
-                    'Unlocked',
-                    style: GoogleFonts.lexend(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
-                      color: const Color(0xFF10B981),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Column(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(3),
+                      child: LinearProgressIndicator(
+                        value: progressRatio,
+                        minHeight: 4,
+                        backgroundColor: const Color(0xFFE2E8F0),
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          gradient.first,
+                        ),
+                      ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 2),
+                    Text(
+                      '$progress/${badge.requiredStars}',
+                      style: GoogleFonts.lexend(
+                        fontSize: 8,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF64748B),
+                      ),
+                    ),
+                  ],
+                ),
               ),
           ],
         ),
       ),
-    );
-  }
-
-  void _showBadgeDetailModal(
-    BuildContext context,
-    Badge badge,
-    int totalStars,
-    int currentStreak,
-  ) {
-    final isLocked = badge.isLocked;
-    final isStreak = badge.category == 'Streak';
-    final isStars = badge.category == 'Stars';
-    final badgeState = ref.read(badgeStateProvider);
-
-    int current;
-    int target = badge.requiredStars;
-    String unit;
-    bool showProgress = isLocked;
-
-    if (isStars) {
-      current = totalStars;
-      unit = 'Stars';
-    } else if (isStreak) {
-      current = currentStreak;
-      unit = 'Days';
-    } else if (badge.id == 'perfect_review') {
-      current = 0;
-      unit = '';
-      showProgress = false;
-    } else {
-      current = badgeState.getProgress(badge);
-      unit = 'Times';
-    }
-
-    final progress = target > 0 ? (current / target).clamp(0.0, 1.0) : 0.0;
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) {
-        return Container(
-          padding: const EdgeInsets.all(24),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Drag Handle
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // Large Badge Icon
-              Container(
-                width: 84,
-                height: 84,
-                decoration: BoxDecoration(
-                  color: isLocked
-                      ? Colors.grey.shade100
-                      : const Color(0xFFE2D1F9).withValues(alpha: 0.35),
-                  shape: BoxShape.circle,
-                  boxShadow: isLocked
-                      ? []
-                      : [
-                          BoxShadow(
-                            color: const Color(0xFF8B5CF6).withValues(alpha: 0.25),
-                            blurRadius: 16,
-                            spreadRadius: 2,
-                          ),
-                        ],
-                ),
-                child: Center(
-                  child: RewardIconWidget(
-                    icon: badge.icon,
-                    size: 44,
-                    isLocked: isLocked,
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // Badge Name
-              Text(
-                badge.name,
-                style: GoogleFonts.lexend(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF1F2937),
-                ),
-              ),
-
-              const SizedBox(height: 6),
-
-              // Category & Status Tag
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF8B5CF6).withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      badge.category,
-                      style: GoogleFonts.lexend(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF8B5CF6),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: isLocked
-                          ? Colors.grey.shade100
-                          : const Color(0xFF10B981).withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      isLocked ? '🔒 Locked' : '✨ Unlocked',
-                      style: GoogleFonts.lexend(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: isLocked ? Colors.grey.shade600 : const Color(0xFF10B981),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 16),
-
-              // Description & Unlock Criteria Box
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF9FAFB),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.grey.shade200),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'How to unlock:',
-                      style: GoogleFonts.lexend(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF374151),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      badge.description,
-                      style: GoogleFonts.lexend(
-                        fontSize: 14,
-                        color: const Color(0xFF4B5563),
-                      ),
-                    ),
-                    if (showProgress) ...[
-                      const SizedBox(height: 14),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Progress',
-                            style: GoogleFonts.lexend(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.grey.shade600,
-                            ),
-                          ),
-                          Text(
-                            '$current / $target $unit',
-                            style: GoogleFonts.lexend(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: const Color(0xFF8B5CF6),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(6),
-                        child: LinearProgressIndicator(
-                          value: progress,
-                          backgroundColor: Colors.grey.shade200,
-                          valueColor: const AlwaysStoppedAnimation<Color>(
-                            Color(0xFF8B5CF6),
-                          ),
-                          minHeight: 8,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
-              // Close Button
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF8B5CF6),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  child: Text(
-                    'Got It!',
-                    style: GoogleFonts.lexend(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
     );
   }
 

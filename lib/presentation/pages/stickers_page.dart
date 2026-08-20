@@ -263,7 +263,7 @@ class _StickersPageState extends ConsumerState<StickersPage> {
     );
 
     return InkWell(
-      onTap: () => _showPackDetailModal(
+      onTap: () => showStickerPackModal(
         context,
         pack,
         totalStars: totalStars,
@@ -494,7 +494,7 @@ class _StickersPageState extends ConsumerState<StickersPage> {
                 children: [
                   Expanded(
                     child: Text(
-                      _getUnlockRequirementTitle(pack),
+                      getStickerUnlockRequirementTitle(pack),
                       style: GoogleFonts.kanit(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
@@ -565,268 +565,6 @@ class _StickersPageState extends ConsumerState<StickersPage> {
     );
   }
 
-  String _getUnlockRequirementTitle(StickerSet pack) {
-    switch (pack.unlockType) {
-      case StickerUnlockType.free:
-        return 'ฟรีสำหรับทุกคน';
-      case StickerUnlockType.streak:
-        return '🎯 เงื่อนไข: สตรีค ${pack.requiredStreakDays} วัน';
-      case StickerUnlockType.category:
-        if (pack.requiredCategory?.toLowerCase() == 'nature') {
-          return '🌿 เงื่อนไข: สะสมศัพท์หมวดธรรมชาติ ${pack.requiredCategoryCount} คำ';
-        }
-        return 'เงื่อนไข: สะสมศัพท์หมวด ${pack.requiredCategory} ${pack.requiredCategoryCount} คำ';
-      case StickerUnlockType.stars:
-        return '⭐ เงื่อนไข: สะสมครบ ${pack.requiredStars} ดาว';
-    }
-  }
-
-  void _showPackDetailModal(
-    BuildContext context,
-    StickerSet pack, {
-    required int totalStars,
-    required int streakDays,
-    required int natureVocabCount,
-    required StickerState stickerState,
-  }) {
-    final isLocked = pack.isLocked;
-    final gradient = pack.gradientColors.isNotEmpty
-        ? pack.gradientColors
-        : const [Color(0xFF8B5CF6), Color(0xFF6366F1)];
-
-    final progressRatio = stickerState.getProgressRatio(
-      pack,
-      totalStars: totalStars,
-      streakDays: streakDays,
-      natureVocabCount: natureVocabCount,
-    );
-    final progressLabel = stickerState.getProgressLabel(
-      pack,
-      totalStars: totalStars,
-      streakDays: streakDays,
-      natureVocabCount: natureVocabCount,
-    );
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) {
-        return Container(
-          height: MediaQuery.of(context).size.height * 0.85,
-          padding: const EdgeInsets.all(20),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Drag Handle
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Header Pack Info
-              Row(
-                children: [
-                  Container(
-                    width: 56,
-                    height: 56,
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEDE9FE),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Image.asset(
-                      pack.previewAsset,
-                      fit: BoxFit.contain,
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '${pack.name} Pack',
-                          style: GoogleFonts.lexend(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                            color: const Color(0xFF1F2937),
-                          ),
-                        ),
-                        Text(
-                          '${pack.nameTh} • ${pack.count} สติกเกอร์',
-                          style: GoogleFonts.kanit(
-                            fontSize: 13,
-                            color: const Color(0xFF6B7280),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: isLocked
-                          ? Colors.grey.shade100
-                          : const Color(0xFF10B981).withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      isLocked ? '🔒 Locked' : '✨ Unlocked',
-                      style: GoogleFonts.lexend(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: isLocked ? Colors.grey.shade600 : const Color(0xFF10B981),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 12),
-
-              // Description & Progress if locked
-              if (isLocked) ...[
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF9FAFB),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: Colors.grey.shade200),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _getUnlockRequirementTitle(pack),
-                        style: GoogleFonts.kanit(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFF374151),
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(6),
-                        child: LinearProgressIndicator(
-                          value: progressRatio,
-                          backgroundColor: Colors.grey.shade200,
-                          valueColor: AlwaysStoppedAnimation<Color>(gradient.first),
-                          minHeight: 6,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'ความคืบหน้าปัจจุบัน: $progressLabel',
-                        style: GoogleFonts.kanit(
-                          fontSize: 11,
-                          color: const Color(0xFF6B7280),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 14),
-              ],
-
-              Text(
-                'สติกเกอร์ทั้งหมดในแพ็ค (${pack.count} รูป)',
-                style: GoogleFonts.kanit(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF374151),
-                ),
-              ),
-              const SizedBox(height: 10),
-
-              // Full Grid of all PNG Stickers in this pack
-              Expanded(
-                child: GridView.builder(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 4,
-                    crossAxisSpacing: 10,
-                    mainAxisSpacing: 10,
-                    childAspectRatio: 1,
-                  ),
-                  itemCount: pack.count,
-                  itemBuilder: (context, index) {
-                    return Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF9FAFB),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: const Color(0xFFE5E7EB),
-                        ),
-                      ),
-                      child: ColorFiltered(
-                        colorFilter: isLocked
-                            ? const ColorFilter.matrix(<double>[
-                                0.2126, 0.7152, 0.0722, 0, 0,
-                                0.2126, 0.7152, 0.0722, 0, 0,
-                                0.2126, 0.7152, 0.0722, 0, 0,
-                                0,      0,      0,      0.4, 0,
-                              ])
-                            : const ColorFilter.mode(
-                                Colors.transparent,
-                                BlendMode.dst,
-                              ),
-                        child: Image.asset(
-                          getStickerAsset(pack.id, index),
-                          fit: BoxFit.contain,
-                          errorBuilder: (_, __, ___) => const Icon(
-                            Icons.star,
-                            color: Colors.amber,
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-
-              const SizedBox(height: 14),
-
-              // Action Button
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF8B5CF6),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  child: Text(
-                    isLocked ? 'เข้าใจแล้ว (Got It)' : 'ปิดหน้าต่าง (Close)',
-                    style: GoogleFonts.kanit(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
   Widget _buildEmptyState() {
     return Center(
       child: Column(
@@ -850,4 +588,348 @@ class _StickersPageState extends ConsumerState<StickersPage> {
       ),
     );
   }
+}
+
+/// Helper function to get readable unlock requirement title
+String getStickerUnlockRequirementTitle(StickerSet pack) {
+  switch (pack.unlockType) {
+    case StickerUnlockType.free:
+      return 'ฟรีสำหรับทุกคน';
+    case StickerUnlockType.streak:
+      return '🎯 เงื่อนไข: สตรีค ${pack.requiredStreakDays} วัน';
+    case StickerUnlockType.category:
+      if (pack.requiredCategory?.toLowerCase() == 'nature') {
+        return '🌿 เงื่อนไข: สะสมศัพท์หมวดธรรมชาติ ${pack.requiredCategoryCount} คำ';
+      }
+      return 'เงื่อนไข: สะสมศัพท์หมวด ${pack.requiredCategory} ${pack.requiredCategoryCount} คำ';
+    case StickerUnlockType.stars:
+      return '⭐ เงื่อนไข: สะสมครบ ${pack.requiredStars} ดาว';
+  }
+}
+
+/// Helper function to show sticker pack details in dark galaxy themed modal bottom sheet
+void showStickerPackModal(
+  BuildContext context,
+  StickerSet pack, {
+  required int totalStars,
+  required int streakDays,
+  required int natureVocabCount,
+  required StickerState stickerState,
+}) {
+  final isLocked = pack.isLocked;
+  final isUnlocked = !pack.isLocked;
+  final gradient = pack.gradientColors.isNotEmpty
+      ? pack.gradientColors
+      : const [Color(0xFF8B5CF6), Color(0xFF6366F1)];
+
+  final progressRatio = stickerState.getProgressRatio(
+    pack,
+    totalStars: totalStars,
+    streakDays: streakDays,
+    natureVocabCount: natureVocabCount,
+  );
+  final progressLabel = stickerState.getProgressLabel(
+    pack,
+    totalStars: totalStars,
+    streakDays: streakDays,
+    natureVocabCount: natureVocabCount,
+  );
+
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: Colors.transparent,
+    isScrollControlled: true,
+    builder: (context) {
+      return Container(
+        height: MediaQuery.of(context).size.height * 0.85,
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          boxShadow: [
+            BoxShadow(
+              color: Color(0x1F8B5CF6),
+              blurRadius: 24,
+              offset: Offset(0, -4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Handle bar
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFCBD5E1),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Header Pack Info (Avatar with glow + titles + status tag)
+            Row(
+              children: [
+                Container(
+                  width: 58,
+                  height: 58,
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      colors: isUnlocked
+                          ? gradient
+                          : [const Color(0xFFE2E8F0), const Color(0xFFCBD5E1)],
+                    ),
+                    boxShadow: isUnlocked
+                        ? [
+                            BoxShadow(
+                              color: gradient.first.withValues(alpha: 0.35),
+                              blurRadius: 16,
+                              spreadRadius: 1,
+                            ),
+                          ]
+                        : null,
+                  ),
+                  child: ColorFiltered(
+                    colorFilter: isLocked
+                        ? const ColorFilter.matrix(<double>[
+                            0.2126, 0.7152, 0.0722, 0, 0,
+                            0.2126, 0.7152, 0.0722, 0, 0,
+                            0.2126, 0.7152, 0.0722, 0, 0,
+                            0,      0,      0,      0.5, 0,
+                          ])
+                        : const ColorFilter.mode(
+                            Colors.transparent,
+                            BlendMode.dst,
+                          ),
+                    child: Image.asset(
+                      pack.previewAsset,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) => const Icon(
+                        Icons.image_outlined,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${pack.name} Pack',
+                        style: GoogleFonts.lexend(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF1E293B),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${pack.nameTh} • ${pack.count} รูป',
+                        style: GoogleFonts.kanit(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: const Color(0xFF8B5CF6),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: isUnlocked
+                        ? const Color(0xFF10B981).withValues(alpha: 0.12)
+                        : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: isUnlocked
+                          ? const Color(0xFF10B981).withValues(alpha: 0.35)
+                          : const Color(0xFFCBD5E1),
+                    ),
+                  ),
+                  child: Text(
+                    isUnlocked ? 'UNLOCKED' : 'LOCKED',
+                    style: GoogleFonts.lexend(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.1,
+                      color: isUnlocked ? const Color(0xFF059669) : const Color(0xFF64748B),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 14),
+
+            // Description Box
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: const Color(0xFFE2E8F0),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    pack.descriptionTh.isNotEmpty ? pack.descriptionTh : pack.description,
+                    style: GoogleFonts.kanit(
+                      fontSize: 13,
+                      color: const Color(0xFF334155),
+                      height: 1.4,
+                    ),
+                  ),
+                  if (pack.descriptionTh.isNotEmpty && pack.description.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      pack.description,
+                      style: GoogleFonts.lexend(
+                        fontSize: 11,
+                        color: const Color(0xFF64748B),
+                      ),
+                    ),
+                  ],
+                  if (isLocked) ...[
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            getStickerUnlockRequirementTitle(pack),
+                            style: GoogleFonts.kanit(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF8B5CF6),
+                            ),
+                          ),
+                        ),
+                        Text(
+                          progressLabel,
+                          style: GoogleFonts.lexend(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF8B5CF6),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: LinearProgressIndicator(
+                        value: progressRatio,
+                        minHeight: 8,
+                        backgroundColor: const Color(0xFFE2E8F0),
+                        valueColor: AlwaysStoppedAnimation<Color>(gradient.first),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 14),
+
+            Text(
+              'สติกเกอร์ทั้งหมดในแพ็ค (${pack.count} รูป)',
+              style: GoogleFonts.kanit(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF1E293B),
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            // Grid of Stickers
+            Expanded(
+              child: GridView.builder(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 4,
+                  crossAxisSpacing: 10,
+                  mainAxisSpacing: 10,
+                  childAspectRatio: 1,
+                ),
+                itemCount: pack.count,
+                itemBuilder: (context, index) {
+                  return Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: isUnlocked
+                            ? const Color(0xFFE2E8F0)
+                            : const Color(0xFFF1F5F9),
+                      ),
+                    ),
+                    child: ColorFiltered(
+                      colorFilter: isLocked
+                          ? const ColorFilter.matrix(<double>[
+                              0.2126, 0.7152, 0.0722, 0, 0,
+                              0.2126, 0.7152, 0.0722, 0, 0,
+                              0.2126, 0.7152, 0.0722, 0, 0,
+                              0,      0,      0,      0.4, 0,
+                            ])
+                          : const ColorFilter.mode(
+                              Colors.transparent,
+                              BlendMode.dst,
+                            ),
+                      child: Image.asset(
+                        getStickerAsset(pack.id, index),
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, __, ___) => const Icon(
+                          Icons.image,
+                          size: 20,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // Close Button
+            SizedBox(
+              width: double.infinity,
+              height: 46,
+              child: ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF8B5CF6),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                child: Text(
+                  'ปิด (Close)',
+                  style: GoogleFonts.kanit(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    },
+  );
 }
