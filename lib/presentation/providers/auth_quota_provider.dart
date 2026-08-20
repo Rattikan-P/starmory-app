@@ -114,9 +114,14 @@ class AuthQuotaNotifier extends StateNotifier<AuthQuotaState> {
       if (state.isLoggedIn) {
         // Check registered user quota
         await quotaService.checkAndResetQuotaIfNeeded();
+        await _ref.read(userStateProvider.notifier).refreshUserFromSupabase();
+        final updatedUser = _ref.read(userStateProvider).user;
+        state = state.copyWith(localUser: updatedUser);
       } else {
         // Check guest quota
         await quotaService.checkAndResetGuestQuotaIfNeeded();
+        final guestUser = _ref.read(userStateProvider).user;
+        state = state.copyWith(localUser: guestUser);
       }
     } catch (e) {
       print('❌ [AuthQuota] Error checking quota reset: $e');

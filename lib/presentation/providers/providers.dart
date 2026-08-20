@@ -226,11 +226,22 @@ class UserNotifier extends StateNotifier<UserState> {
         final dailyCount = quotaResponse['daily_gen_count'] as int? ?? 0;
         final totalCount = quotaResponse['total_gen_count'] as int? ?? 0;
 
-        // Build usage history from total count
-        final usageHistory = List<QuotaEntry>.generate(
-          totalCount,
-          (_) => QuotaEntry(timestamp: DateTime.now()),
-        );
+        // Build usage history: dailyCount entries for today, and remaining for past dates
+        final now = DateTime.now();
+        final pastDate = now.subtract(const Duration(days: 2));
+        final validDailyCount = dailyCount.clamp(0, totalCount);
+        final pastCount = (totalCount - validDailyCount).clamp(0, totalCount);
+
+        final usageHistory = [
+          ...List<QuotaEntry>.generate(
+            validDailyCount,
+            (_) => QuotaEntry(timestamp: now),
+          ),
+          ...List<QuotaEntry>.generate(
+            pastCount,
+            (_) => QuotaEntry(timestamp: pastDate),
+          ),
+        ];
 
         quotaManager = QuotaManager(
           totalLimit: 999999,
@@ -458,6 +469,9 @@ class UserNotifier extends StateNotifier<UserState> {
           }
         } else {
           state = UserState(user: user);
+          if (!user.isGuest) {
+            refreshUserFromSupabase();
+          }
         }
       } else {
         // Check if user is logged in to Supabase
@@ -747,11 +761,22 @@ class UserNotifier extends StateNotifier<UserState> {
         final dailyCount = quotaResponse['daily_gen_count'] as int? ?? 0;
         final totalCount = quotaResponse['total_gen_count'] as int? ?? 0;
 
-        // Build usage history from total count
-        final usageHistory = List<QuotaEntry>.generate(
-          totalCount,
-          (_) => QuotaEntry(timestamp: DateTime.now()),
-        );
+        // Build usage history: dailyCount entries for today, and remaining for past dates
+        final now = DateTime.now();
+        final pastDate = now.subtract(const Duration(days: 2));
+        final validDailyCount = dailyCount.clamp(0, totalCount);
+        final pastCount = (totalCount - validDailyCount).clamp(0, totalCount);
+
+        final usageHistory = [
+          ...List<QuotaEntry>.generate(
+            validDailyCount,
+            (_) => QuotaEntry(timestamp: now),
+          ),
+          ...List<QuotaEntry>.generate(
+            pastCount,
+            (_) => QuotaEntry(timestamp: pastDate),
+          ),
+        ];
 
         updatedQuotaManager = QuotaManager(
           totalLimit: 999999,
