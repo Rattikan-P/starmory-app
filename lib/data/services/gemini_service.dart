@@ -10,40 +10,54 @@ import '../../utils/topic_categories.dart';
 /// Gemini Vision AI Service for Starmory
 /// Using custom prompts for vocabulary extraction and sentence generation
 class GeminiService {
-  final GenerativeModel _visionModel;
-  final GenerativeModel _textModel;
+  final GenerativeModel _primaryVisionModel;
+  final GenerativeModel _fallbackVisionModel;
+  final GenerativeModel _primaryTextModel;
+  final GenerativeModel _fallbackTextModel;
 
   static const int _maxRetries = 3;
-  static const Duration _initialDelay = Duration(seconds: 2);
+  static const Duration _initialDelay = Duration(seconds: 3);
   static const Duration _requestTimeout = Duration(seconds: 60);
 
   GeminiService({String? apiKey})
-    : _visionModel = GenerativeModel(
+    : _primaryVisionModel = GenerativeModel(
         model: 'gemini-3-flash-preview',
         apiKey: apiKey ?? AppConstants.geminiApiKey,
       ),
-      _textModel = GenerativeModel(
+      _fallbackVisionModel = GenerativeModel(
+        model: 'gemini-2.5-flash',
+        apiKey: apiKey ?? AppConstants.geminiApiKey,
+      ),
+      _primaryTextModel = GenerativeModel(
         model: 'gemini-3-flash-preview',
+        apiKey: apiKey ?? AppConstants.geminiApiKey,
+      ),
+      _fallbackTextModel = GenerativeModel(
+        model: 'gemini-2.5-flash',
         apiKey: apiKey ?? AppConstants.geminiApiKey,
       );
 
-  /// Execute with exponential backoff retry
+  /// Execute with exponential backoff retry and automatic model fallback
   Future<T> _retryWithBackoff<T>(
-    Future<T> Function() operation, {
+    Future<T> Function(bool useFallback) operation, {
     int maxRetries = _maxRetries,
   }) async {
     Duration delay = _initialDelay;
     int attempts = 0;
+    bool useFallback = false;
 
     while (true) {
       attempts++;
       try {
-        return await operation().timeout(
+        return await operation(useFallback).timeout(
           _requestTimeout,
           onTimeout: () =>
               throw TimeoutException('Request timed out after ${_requestTimeout.inSeconds}s'),
         );
       } catch (e) {
+        // Switch to fallback model on retry (e.g. 503 high demand, 429, timeout)
+        useFallback = true;
+
         // Check if error is retryable (503, 429, network errors)
         final isRetryable = _isRetryableError(e);
 
@@ -78,10 +92,10 @@ class GeminiService {
         }
 
         debugPrint(
-          '⚠️ Retry $attempts/$maxRetries after ${delay.inSeconds}s due to: $e',
+          '⚠️ Retry $attempts/$maxRetries after ${delay.inSeconds}s (switching to fallback model) due to: $e',
         );
         await Future.delayed(delay);
-        delay *= 2; // Exponential backoff
+        delay *= 2; // Exponential backoff (3s -> 6s -> 12s)
       }
     }
   }
@@ -444,15 +458,23 @@ Extract exactly 5 vocabulary items from the image.''');
     final mimeType = _detectMimeType(imageData);
     final imagePart = DataPart(mimeType, imageData);
 
-    return await _retryWithBackoff(() async {
+    return await _retryWithBackoff((useFallback) async {
       // Use higher temperature for regenerate to get more variety
       final temp = isRegenerate ? 0.7 : 0.6;
       final maxTokens = isRegenerate ? 10240 : 8192; // Increased to prevent truncation
 
-      final response = await _visionModel.generateContent(
+      final model = useFallback ? _fallbackVisionModel : _primaryVisionModel;
+      if (useFallback) {
+        debugPrint('🔄 Using fallback vision model (gemini-2.5-flash)');
+      }
+
+      final response = await model.generateContent(
         [
-          Content.system(systemInstruction),
-          Content.multi([userPrompt, imagePart]),
+          Content.multi([
+            TextPart(systemInstruction),
+            userPrompt,
+            imagePart,
+          ]),
         ],
         generationConfig: GenerationConfig(
           temperature: temp, // 0.6 for normal, 0.7 for regenerate
@@ -489,7 +511,7 @@ Extract exactly 5 vocabulary items from the image.''');
     required bool combined,
     String englishVariant = 'US',
   }) async {
-    return await _retryWithBackoff(() async {
+    return await _retryWithBackoff((useFallback) async {
       final result = await _generateSentencesInternal(
         imageData: imageData,
         words: words,
@@ -498,6 +520,7 @@ Extract exactly 5 vocabulary items from the image.''');
         category: category,
         combined: combined,
         englishVariant: englishVariant,
+        useFallback: useFallback,
       );
 
       // Validate that returned words match requested words
@@ -547,6 +570,7 @@ Extract exactly 5 vocabulary items from the image.''');
     required String category,
     required bool combined,
     String englishVariant = 'US',
+    bool useFallback = false,
   }) async {
     // System instruction with all the rules
     final systemInstruction = '''
@@ -714,32 +738,39 @@ DO NOT omit any word. Every single word must appear in the sentence.''' : ''}
 
 Generate sentences now.''';
 
-    return await _retryWithBackoff(() async {
-      // Use vision model if image data is provided, otherwise use text model
-      final model = imageData != null ? _visionModel : _textModel;
+    // Use vision model if image data is provided, otherwise use text model
+    final model = imageData != null
+        ? (useFallback ? _fallbackVisionModel : _primaryVisionModel)
+        : (useFallback ? _fallbackTextModel : _primaryTextModel);
 
-      // Build content parts
-      List<Part> parts = [TextPart(userPrompt)];
+    if (useFallback) {
+      debugPrint('🔄 Using fallback model (gemini-2.5-flash)');
+    }
 
-      // Add image part if image data is provided
-      if (imageData != null) {
-        final mimeType = _detectMimeType(imageData);
-        parts.insert(0, DataPart(mimeType, imageData)); // Insert image before text
-      }
+    // Build content parts
+    List<Part> parts = [
+      TextPart(systemInstruction),
+      TextPart(userPrompt),
+    ];
 
-      final response = await model.generateContent(
-        [Content.system(systemInstruction), Content.multi(parts)],
-        generationConfig: GenerationConfig(
-          temperature: 0.6, // Reduced from 1.0 for better speed
-          topP: 0.9,
-          topK: 32,
-          maxOutputTokens: 8192, // Increased to prevent truncation (down from 16384)
-        ),
-      );
+    // Add image part if image data is provided
+    if (imageData != null) {
+      final mimeType = _detectMimeType(imageData);
+      parts.insert(1, DataPart(mimeType, imageData)); // Insert image
+    }
 
-      final text = response.text ?? '';
-      return SentenceGenerationResult.fromJson(text, tones);
-    });
+    final response = await model.generateContent(
+      [Content.multi(parts)],
+      generationConfig: GenerationConfig(
+        temperature: 0.6, // Reduced from 1.0 for better speed
+        topP: 0.9,
+        topK: 32,
+        maxOutputTokens: 8192, // Increased to prevent truncation (down from 16384)
+      ),
+    );
+
+    final text = response.text ?? '';
+    return SentenceGenerationResult.fromJson(text, tones);
   }
 
   /// Detect MIME type from image bytes
