@@ -18,13 +18,14 @@ final appStateServiceProvider = Provider<AppStateService>((ref) {
 /// Streak data provider - fetches and caches streak data
 /// Works for both registered (cloud) and guest (local) users
 class StreakNotifier extends StateNotifier<StreakData?> {
-  StreakNotifier(this._service, this._appStateService, this._userNotifier) : super(null) {
+  StreakNotifier(this._service, this._appStateService, this._userNotifier, this._ref) : super(null) {
     _init();
   }
 
   final StreakService _service;
   final AppStateService _appStateService;
   final UserNotifier _userNotifier;
+  final Ref _ref;
   StreamSubscription<UserState>? _userStateSubscription;
 
   Future<void> _init() async {
@@ -182,11 +183,15 @@ class StreakNotifier extends StateNotifier<StreakData?> {
       final updatedUser = currentUser.useShield();
       await _userNotifier.updateUser(updatedUser);
       _loadFromUserModel(updatedUser);
+      await _ref.read(badgeProvider.notifier).recordShieldUsed();
       return true;
     } else {
       // Registered - update cloud
       final success = await _service.useShield();
-      if (success) await refresh();
+      if (success) {
+        await refresh();
+        await _ref.read(badgeProvider.notifier).recordShieldUsed();
+      }
       return success;
     }
   }
@@ -339,6 +344,9 @@ class StreakNotifier extends StateNotifier<StreakData?> {
   Future<bool> recordVocabularyAcquired() async {
     print('📝 [Streak] recordVocabularyAcquired() called');
 
+    // Also record activity for Badge tracking (Night Owl / Morning Nova, etc.)
+    await _ref.read(badgeProvider.notifier).recordActivity(ActivityType.generateVocab);
+
     // Check if already acquired vocabulary today
     if (await hasAcquiredVocabularyToday()) {
       print('ℹ️ [Streak] Already acquired vocabulary today → skipping');
@@ -423,7 +431,7 @@ final streakProvider = StateNotifierProvider<StreakNotifier, StreakData?>((ref) 
   final service = ref.watch(streakServiceProvider);
   final appStateService = ref.watch(appStateServiceProvider);
   final userNotifier = ref.watch(userStateProvider.notifier);
-  return StreakNotifier(service, appStateService, userNotifier);
+  return StreakNotifier(service, appStateService, userNotifier, ref);
 });
 
 /// Convenience provider for current streak value
