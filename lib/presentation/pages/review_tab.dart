@@ -22,8 +22,7 @@ class _ReviewTabState extends ConsumerState<ReviewTab>
   bool _hasInitialized = false;
   Timer? _refreshTimer;
   DateTime? _lastLoadTime;
-  String? _currentTopicFilter; // Keep track of current topic filter
-  int _currentBatchSize = 5; // Keep track of current batch size
+  bool _isReviewSessionOpen = false;
 
   @override
   void initState() {
@@ -33,7 +32,7 @@ class _ReviewTabState extends ConsumerState<ReviewTab>
 
     // Auto-refresh every 2 minutes - always load all due cards (no filter)
     _refreshTimer = Timer.periodic(const Duration(minutes: 2), (_) {
-      if (_hasInitialized) {
+      if (_hasInitialized && _isRouteVisible && !_isReviewSessionOpen) {
         ref.read(reviewStateProvider.notifier).loadSession();
       }
     });
@@ -56,9 +55,16 @@ class _ReviewTabState extends ConsumerState<ReviewTab>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     // Reload when app is resumed (e.g., returning from review session)
-    if (state == AppLifecycleState.resumed && _hasInitialized) {
+    if (state == AppLifecycleState.resumed &&
+        _hasInitialized &&
+        _isRouteVisible &&
+        !_isReviewSessionOpen) {
       _reloadSession();
     }
+  }
+
+  bool get _isRouteVisible {
+    return mounted && (ModalRoute.of(context)?.isCurrent ?? false);
   }
 
   void _reloadSession() {
@@ -110,7 +116,7 @@ class _ReviewTabState extends ConsumerState<ReviewTab>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Your Photos',
+                'Daily Review',
                 style: TextStyle(
                   fontSize: 34,
                   fontWeight: FontWeight.w800,
@@ -120,7 +126,7 @@ class _ReviewTabState extends ConsumerState<ReviewTab>
               ),
               SizedBox(height: 5),
               Text(
-                'Build your memory, one photo at a time',
+                'Strengthen your vocabulary, one memory at a time',
                 style: TextStyle(fontSize: 14, color: Color(0xFF655D80)),
               ),
             ],
@@ -229,17 +235,22 @@ class _ReviewTabState extends ConsumerState<ReviewTab>
                 color: Color(0xFFD8F5E6),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.check_rounded, size: 42, color: Color(0xFF278B5A)),
+              child: const Icon(Icons.check_rounded,
+                  size: 42, color: Color(0xFF278B5A)),
             ),
             const SizedBox(height: 18),
             const Text(
-              "You're all caught up!",
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: Color(0xFF2F2855)),
+              "All caught up! ✨",
+              style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF2F2855)),
             ),
             const SizedBox(height: 8),
             const Text(
-              'No photos are waiting for review.\nAdd a new photo anytime to keep learning.',
-              style: TextStyle(fontSize: 14, height: 1.45, color: Color(0xFF655D80)),
+              'No words are due for review right now.\nAdd a new photo anytime to keep learning.',
+              style: TextStyle(
+                  fontSize: 14, height: 1.45, color: Color(0xFF655D80)),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 22),
@@ -259,7 +270,8 @@ class _ReviewTabState extends ConsumerState<ReviewTab>
                     icon: Icons.camera_alt_rounded,
                     label: 'Camera',
                     colors: const [Color(0xFF60A5FA), Color(0xFF3B82F6)],
-                    onTap: () => PhotoPickerFlow.pickAndPreview(context, ImageSource.camera),
+                    onTap: () => PhotoPickerFlow.pickAndPreview(
+                        context, ImageSource.camera),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -268,7 +280,8 @@ class _ReviewTabState extends ConsumerState<ReviewTab>
                     icon: Icons.photo_library_rounded,
                     label: 'Gallery',
                     colors: const [Color(0xFFA78BFA), Color(0xFF8B5CF6)],
-                    onTap: () => PhotoPickerFlow.pickAndPreview(context, ImageSource.gallery),
+                    onTap: () => PhotoPickerFlow.pickAndPreview(
+                        context, ImageSource.gallery),
                   ),
                 ),
               ],
@@ -324,7 +337,10 @@ class _ReviewTabState extends ConsumerState<ReviewTab>
             gradient: LinearGradient(colors: colors),
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
-              BoxShadow(color: colors.last.withValues(alpha: 0.22), blurRadius: 8, offset: const Offset(0, 3)),
+              BoxShadow(
+                  color: colors.last.withValues(alpha: 0.22),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3)),
             ],
           ),
           child: Row(
@@ -332,42 +348,16 @@ class _ReviewTabState extends ConsumerState<ReviewTab>
             children: [
               Icon(icon, color: Colors.white, size: 19),
               const SizedBox(width: 7),
-              Text(label, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
+              Text(label,
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700)),
             ],
           ),
         ),
       ),
     );
-  }
-
-  /// Calculate adaptive time estimate based on card count and user history
-  /// - New users (< 20 reviews): Use 7 sec/card baseline (FSRS team standard)
-  ///   Reference: open-spaced-repetition/FSRS, Control-Alt-Backspace
-  /// - Experienced users: Use personalized average from their history
-  String _getTimeEstimate(
-      int cardCount, int totalReviews, double avgTimePerCard) {
-    if (cardCount == 0) return '~0 min';
-
-    int totalSeconds;
-
-    if (totalReviews < 20) {
-      // New user - use 7 sec/card baseline (FSRS team standard)
-      totalSeconds = cardCount * 7;
-    } else {
-      // Experienced user - use personalized average
-      totalSeconds = (cardCount * avgTimePerCard).round();
-    }
-
-    // Format output
-    if (totalSeconds < 60) {
-      return '~$totalSeconds sec';
-    } else if (totalSeconds < 3600) {
-      final minutes = (totalSeconds / 60).round();
-      return '~$minutes min';
-    } else {
-      final hours = (totalSeconds / 3600).round();
-      return '~$hours hour${hours > 1 ? "s" : ""}';
-    }
   }
 
   Widget _buildHeroCard(int dueCount, dynamic reviewState) {
@@ -403,7 +393,7 @@ class _ReviewTabState extends ConsumerState<ReviewTab>
                     color: Colors.white.withValues(alpha: 0.48),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Text('READY FOR YOU',
+                  child: const Text('READY TO REVIEW',
                       style: TextStyle(
                           fontSize: 10,
                           letterSpacing: 1,
@@ -411,7 +401,7 @@ class _ReviewTabState extends ConsumerState<ReviewTab>
                           color: Color(0xFF514588))),
                 ),
                 const SizedBox(height: 14),
-                const Text('Photos to\nreview',
+                const Text('Words to\nreview',
                     style: TextStyle(
                         fontSize: 25,
                         height: 1.08,
@@ -420,8 +410,8 @@ class _ReviewTabState extends ConsumerState<ReviewTab>
                 const SizedBox(height: 10),
                 Text(
                     dueCount == 1
-                        ? '1 card is waiting'
-                        : '$dueCount cards are waiting',
+                        ? '1 word is waiting'
+                        : '$dueCount words are waiting',
                     style: const TextStyle(
                         fontSize: 14, color: Color(0xFF5D567B))),
               ],
@@ -438,7 +428,7 @@ class _ReviewTabState extends ConsumerState<ReviewTab>
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.photo_library_rounded,
+                const Icon(Icons.auto_stories_rounded,
                     size: 24, color: Color(0xFF6354B5)),
                 const SizedBox(height: 7),
                 Text('$dueCount',
@@ -448,7 +438,7 @@ class _ReviewTabState extends ConsumerState<ReviewTab>
                         fontWeight: FontWeight.w800,
                         color: Color(0xFF2F2855))),
                 const SizedBox(height: 3),
-                const Text('CARDS',
+                const Text('WORDS',
                     style: TextStyle(
                         fontSize: 10,
                         letterSpacing: 1,
@@ -640,7 +630,7 @@ class _ReviewTabState extends ConsumerState<ReviewTab>
 
             for (final s in steps) {
               if (s <= totalAvailable) {
-                options.add({'label': '$s cards', 'value': s});
+                options.add({'label': '$s words', 'value': s});
               }
             }
 
@@ -657,7 +647,7 @@ class _ReviewTabState extends ConsumerState<ReviewTab>
             }
 
             final screenWidth = MediaQuery.sizeOf(context).width;
-            final horizontalPadding = screenWidth < 380 ? 18.0 : 24.0;
+            final horizontalPadding = screenWidth < 380 ? 18.0 : 22.0;
 
             return SizedBox(
               width: double.infinity,
@@ -680,7 +670,7 @@ class _ReviewTabState extends ConsumerState<ReviewTab>
                   ],
                 ),
                 padding: EdgeInsets.fromLTRB(
-                    horizontalPadding, 12, horizontalPadding, 24),
+                    horizontalPadding, 12, horizontalPadding, 20),
                 child: SingleChildScrollView(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -693,12 +683,12 @@ class _ReviewTabState extends ConsumerState<ReviewTab>
                           borderRadius: BorderRadius.circular(3),
                         ),
                       ),
-                      const SizedBox(height: 18),
+                      const SizedBox(height: 14),
                       Row(
                         children: [
                           Container(
-                            width: 44,
-                            height: 44,
+                            width: 42,
+                            height: 42,
                             decoration: BoxDecoration(
                               gradient: const LinearGradient(
                                 colors: [Color(0xFF9B8CFF), Color(0xFF6D5CE7)],
@@ -708,7 +698,7 @@ class _ReviewTabState extends ConsumerState<ReviewTab>
                               borderRadius: BorderRadius.circular(14),
                             ),
                             child: const Icon(Icons.tune_rounded,
-                                color: Colors.white),
+                                color: Colors.white, size: 22),
                           ),
                           const SizedBox(width: 12),
                           const Expanded(
@@ -717,13 +707,13 @@ class _ReviewTabState extends ConsumerState<ReviewTab>
                               children: [
                                 Text('Review settings',
                                     style: TextStyle(
-                                        fontSize: 21,
+                                        fontSize: 20,
                                         fontWeight: FontWeight.w700,
                                         color: Color(0xFF1F2937))),
                                 SizedBox(height: 2),
                                 Text('Choose a topic and session size',
                                     style: TextStyle(
-                                        fontSize: 13,
+                                        fontSize: 12,
                                         color: Color(0xFF6B7280))),
                               ],
                             ),
@@ -736,11 +726,11 @@ class _ReviewTabState extends ConsumerState<ReviewTab>
                           ),
                         ],
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 14),
                       Container(
                         width: double.infinity,
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 12),
+                            horizontal: 14, vertical: 10),
                         decoration: BoxDecoration(
                           gradient: const LinearGradient(
                             colors: [Color(0xFFF0EDFF), Color(0xFFE7E2FF)],
@@ -750,21 +740,21 @@ class _ReviewTabState extends ConsumerState<ReviewTab>
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.style_rounded,
+                            const Icon(Icons.auto_stories_rounded,
                                 size: 18, color: Color(0xFF6D5CE7)),
                             const SizedBox(width: 8),
-                            Text('$totalAvailable cards ready to review',
+                            Text('$totalAvailable words ready to review',
                                 style: const TextStyle(
                                     color: Color(0xFF5145B7),
-                                    fontSize: 14,
+                                    fontSize: 13,
                                     fontWeight: FontWeight.w600)),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 16),
                       Container(
                         width: double.infinity,
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(14),
                         decoration: _settingsSectionDecoration(),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -772,9 +762,9 @@ class _ReviewTabState extends ConsumerState<ReviewTab>
                             _buildSettingsSectionTitle(
                               icon: Icons.category_outlined,
                               title: '1. Choose a topic',
-                              subtitle: 'Topics without cards are unavailable',
+                              subtitle: 'Topics without words are unavailable',
                             ),
-                            const SizedBox(height: 12),
+                            const SizedBox(height: 10),
                             // All Topics chip
                             Wrap(
                               spacing: 8,
@@ -821,10 +811,10 @@ class _ReviewTabState extends ConsumerState<ReviewTab>
                           ],
                         ),
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 16),
                       Container(
                         width: double.infinity,
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(14),
                         decoration: _settingsSectionDecoration(),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -832,14 +822,14 @@ class _ReviewTabState extends ConsumerState<ReviewTab>
                             _buildSettingsSectionTitle(
                               icon: Icons.layers_outlined,
                               title: '2. Choose session size',
-                              subtitle: 'You can review every available card',
+                              subtitle: 'Choose how many words to practice',
                             ),
-                            const SizedBox(height: 12),
+                            const SizedBox(height: 10),
                             if (options.isEmpty)
                               const Text(
-                                'No cards available right now',
+                                'No words available right now',
                                 style:
-                                    TextStyle(fontSize: 14, color: Colors.grey),
+                                    TextStyle(fontSize: 13, color: Colors.grey),
                               )
                             else
                               Wrap(
@@ -874,37 +864,13 @@ class _ReviewTabState extends ConsumerState<ReviewTab>
                                   );
                                 }).toList(),
                               ),
-                            const SizedBox(height: 16),
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(Icons.access_time_rounded,
-                                      size: 16, color: Colors.grey),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    _getTimeEstimate(
-                                        selectedBatchSize,
-                                        ref
-                                            .read(reviewStateProvider)
-                                            .totalReviewsCompleted,
-                                        ref
-                                            .read(reviewStateProvider)
-                                            .averageTimePerCard),
-                                    style: const TextStyle(
-                                        fontSize: 14, color: Colors.grey),
-                                  ),
-                                ],
-                              ),
-                            ),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 18),
                       SizedBox(
                         width: double.infinity,
-                        height: 54,
+                        height: 52,
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF6D5CE7),
@@ -918,11 +884,8 @@ class _ReviewTabState extends ConsumerState<ReviewTab>
                           onPressed: totalAvailable == 0
                               ? null
                               : () {
-                                  // Save current filter settings
-                                  _currentTopicFilter = selectedTopic;
-                                  _currentBatchSize = selectedBatchSize;
-
                                   Navigator.pop(context);
+                                  _isReviewSessionOpen = true;
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
@@ -932,6 +895,7 @@ class _ReviewTabState extends ConsumerState<ReviewTab>
                                       ),
                                     ),
                                   ).then((_) {
+                                    _isReviewSessionOpen = false;
                                     // Reload all due cards (no filter) when returning from session
                                     // The filter is only used for the review session, not for the main tab
                                     ref

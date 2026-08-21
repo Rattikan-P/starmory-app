@@ -3,7 +3,7 @@ import 'vocabulary_model.dart';
 
 /// FSRS Card State
 enum CardState {
-  newCard,     // stored as 'new' in DB
+  newCard, // stored as 'new' in DB
   learning,
   review,
   relearning;
@@ -125,7 +125,7 @@ class WordCardModel extends Equatable {
       'thai_sentence': '',
       'cefr_level': 'A1',
       'communicative_function': '',
-      'language_variant': 'US',
+      'language_variant': json['language_variant'] as String? ?? 'US',
       'image_url': json['photo_url'] as String,
       'topic': json['topic'] as String? ?? 'other',
       'created_at': json['due_date'] as String, // fallback
@@ -147,8 +147,8 @@ class WordCardModel extends Equatable {
           : null,
       reps: json['reps'] as int? ?? 0,
       lapses: json['lapses'] as int? ?? 0,
-      createdAt: DateTime.now(), // fallback
-      updatedAt: null,
+      createdAt: DateTime.now().toUtc(), // fallback
+      updatedAt: DateTime.now().toUtc(),
       vocabulary: VocabularyModel.fromSupabaseJson(vocabJson),
     );
   }
@@ -187,6 +187,7 @@ class WordCardModel extends Equatable {
 
   /// Convert to JSON for local storage (Hive - camelCase)
   Map<String, dynamic> toJson() {
+    final now = DateTime.now().toUtc();
     final jsonMap = {
       'id': id,
       'userId': userId,
@@ -194,12 +195,12 @@ class WordCardModel extends Equatable {
       'stability': stability,
       'difficulty': difficulty,
       'state': state.toValue(),
-      'dueDate': dueDate.toIso8601String(),
-      'lastReview': lastReview?.toIso8601String(),
+      'dueDate': dueDate.toUtc().toIso8601String(),
+      'lastReview': lastReview?.toUtc().toIso8601String(),
       'reps': reps,
       'lapses': lapses,
-      'createdAt': createdAt.toIso8601String(),
-      'updatedAt': updatedAt?.toIso8601String(),
+      'createdAt': createdAt.toUtc().toIso8601String(),
+      'updatedAt': (updatedAt ?? now).toUtc().toIso8601String(),
     };
 
     // Include vocabulary data if present (for Guest mode local storage)
@@ -212,6 +213,7 @@ class WordCardModel extends Equatable {
 
   /// Convert to JSON for Supabase (snake_case)
   Map<String, dynamic> toSupabaseJson() {
+    final now = DateTime.now().toUtc();
     return {
       'id': id,
       'user_id': userId,
@@ -219,21 +221,20 @@ class WordCardModel extends Equatable {
       'stability': stability,
       'difficulty': difficulty,
       'state': state.toValue(),
-      'due_date': dueDate.toIso8601String(),
-      'last_review': lastReview?.toIso8601String(),
+      'due_date': dueDate.toUtc().toIso8601String(),
+      'last_review': lastReview?.toUtc().toIso8601String(),
       'reps': reps,
       'lapses': lapses,
-      'created_at': createdAt.toIso8601String(),
-      'updated_at': updatedAt?.toIso8601String(),
+      'created_at': createdAt.toUtc().toIso8601String(),
+      'updated_at': (updatedAt ?? now).toUtc().toIso8601String(),
     };
   }
 
   /// Check if card is due for review
-  /// Uses millisecondsSinceEpoch comparison to avoid timezone and microsecond issues
+  /// Uses millisecondsSinceEpoch comparison in UTC to avoid timezone and microsecond issues
   bool get isDue {
-    final now = DateTime.now();
-    // Use milliseconds to avoid timezone/microsecond comparison issues
-    return now.millisecondsSinceEpoch >= dueDate.millisecondsSinceEpoch;
+    final now = DateTime.now().toUtc();
+    return now.millisecondsSinceEpoch >= dueDate.toUtc().millisecondsSinceEpoch;
   }
 
   @override

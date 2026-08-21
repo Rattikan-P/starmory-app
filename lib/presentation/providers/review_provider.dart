@@ -18,13 +18,16 @@ class ReviewState {
   final int sessionCount;
   final bool showFeedback;
   final bool? lastRating; // true = remembered, false = forgot
-  final int remainingDueCount; // Number of due cards remaining (for Continue button)
-  final Set<String> reviewedCardIds; // Track cards already reviewed in this session
-  final DateTime? sessionStartTime; // Track when review session started
-  final int totalReviewsCompleted; // Total number of reviews completed by user
-  final double averageTimePerCard; // Average seconds per card (from historical data)
+  final int
+      remainingDueCount; // Number of due cards remaining (for Continue button)
+  final Set<String>
+      reviewedCardIds; // Track cards already reviewed in this session
+  final DateTime? sessionStartTime;
+  final int totalReviewsCompleted;
+  final double averageTimePerCard;
   final bool canUndo; // Whether undo is available (for last swipe)
-  final WordCardModel? previousCardState; // Card state before last swipe (for undo)
+  final WordCardModel?
+      previousCardState; // Card state before last swipe (for undo)
   final String? currentTopicFilter; // Current topic filter being applied
 
   const ReviewState({
@@ -39,7 +42,7 @@ class ReviewState {
     this.reviewedCardIds = const {},
     this.sessionStartTime,
     this.totalReviewsCompleted = 0,
-    this.averageTimePerCard = 7.0, // Default 7 seconds (FSRS team baseline)
+    this.averageTimePerCard = 7.0,
     this.canUndo = false,
     this.previousCardState,
     this.currentTopicFilter,
@@ -73,7 +76,8 @@ class ReviewState {
       remainingDueCount: remainingDueCount ?? this.remainingDueCount,
       reviewedCardIds: reviewedCardIds ?? this.reviewedCardIds,
       sessionStartTime: sessionStartTime ?? this.sessionStartTime,
-      totalReviewsCompleted: totalReviewsCompleted ?? this.totalReviewsCompleted,
+      totalReviewsCompleted:
+          totalReviewsCompleted ?? this.totalReviewsCompleted,
       averageTimePerCard: averageTimePerCard ?? this.averageTimePerCard,
       canUndo: canUndo ?? this.canUndo,
       previousCardState: previousCardState ?? this.previousCardState,
@@ -120,9 +124,13 @@ final reviewStateProvider =
 /// Review State Notifier
 class ReviewNotifier extends StateNotifier<ReviewState> {
   final ReviewService _reviewService;
+  final Future<void> Function()? _recordLearningActivity;
 
-  ReviewNotifier(this._reviewService)
-      : super(const ReviewState(isLoading: true));
+  ReviewNotifier(
+    this._reviewService, {
+    Future<void> Function()? recordLearningActivity,
+  })  : _recordLearningActivity = recordLearningActivity,
+        super(const ReviewState(isLoading: true));
 
   /// Load review session (due cards + new cards to fill batchSize)
   /// Optionally filter by topic
@@ -131,15 +139,12 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
       state = state.copyWith(isLoading: true, error: null);
 
       final sessionCards = await _reviewService.getReviewSession(
-        topicFilter: topicFilter, 
-        batchSize: batchSize
-      );
-      
-      // Check if there are more due cards remaining (with same topic filter)
-      final remainingDue = await _reviewService.getRemainingDueCount(topicFilter: topicFilter);
+          topicFilter: topicFilter, batchSize: batchSize);
 
-      // Load user stats for adaptive time estimation
-      final userStats = await _reviewService.hiveService.getUserStats();
+      // Check if there are more due cards remaining (with same topic filter)
+      final remainingDue =
+          await _reviewService.getRemainingDueCount(topicFilter: topicFilter);
+      final userStats = await _reviewService.getUserStats();
 
       // Reset streak update flag for new session
       _hasUpdatedStreakThisSession = false;
@@ -151,7 +156,7 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
         sessionCount: sessionCards.length,
         remainingDueCount: remainingDue,
         reviewedCardIds: {}, // Clear reviewed cards on new session
-        sessionStartTime: DateTime.now(), // Track session start time
+        sessionStartTime: DateTime.now(),
         totalReviewsCompleted: userStats?.totalReviewsCompleted ?? 0,
         averageTimePerCard: userStats?.averageTimePerCard ?? 7.0,
         canUndo: false,
@@ -217,18 +222,13 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
 
   /// Swipe card and process rating
   /// [remembered] = true for swipe right (recalled), false for swipe left (forgot)
-  Future<void> swipeCard(bool remembered) async {
+    Future<void> swipeCard(bool remembered) async {
     final currentCard = state.currentCard;
     if (currentCard == null) return;
 
     try {
       // Store previous card state for undo BEFORE updating
       final previousCard = currentCard;
-
-      // Track time taken for this card
-      final now = DateTime.now();
-      final sessionStart = state.sessionStartTime ?? now;
-      final elapsedSeconds = now.difference(sessionStart).inSeconds;
 
       // Update card with FSRS
       final updatedCard = await FsrSHelper.reviewCard(currentCard, remembered);
@@ -239,39 +239,39 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
       // Update streak for first review of the day (guest mode)
       // For registered users, this is handled by database trigger
       if (!_hasUpdatedStreakThisSession) {
-        final container = ProviderContainer();
-        final streakNotifier = container.read(streakProvider.notifier);
-        await streakNotifier.recordLearningActivity();
+        if (_recordLearningActivity != null) {
+          await _recordLearningActivity();
+        } else {
+          final container = ProviderContainer();
+          final streakNotifier = container.read(streakProvider.notifier);
+          await streakNotifier.recordLearningActivity();
+          container.dispose();
+        }
         _hasUpdatedStreakThisSession = true;
-        container.dispose();
       }
-
-      // Calculate new average time per card
-      final totalReviews = state.totalReviewsCompleted + 1;
-      final currentAvg = state.averageTimePerCard;
-      final newAvg = ((currentAvg * state.totalReviewsCompleted) + elapsedSeconds) / totalReviews;
 
       // Add card ID to reviewed set
       final newReviewedIds = Set<String>.from(state.reviewedCardIds);
       newReviewedIds.add(currentCard.id);
+      final totalReviews = state.totalReviewsCompleted + 1;
 
-      // Show feedback first and enable undo
+      print('🔍 [SwipeCard] Swiped: word=${currentCard.vocabulary?.word}, remembered=$remembered, oldDueDate=${currentCard.dueDate.toUtc()}, newDueDate=${updatedCard.dueDate.toUtc()}');
+
+      // Auto-advance: Advance directly to next card
       state = state.copyWith(
-        showFeedback: true,
+        currentIndex: state.currentIndex + 1,
+        showFeedback: false,
         lastRating: remembered,
         reviewedCardIds: newReviewedIds,
         totalReviewsCompleted: totalReviews,
-        averageTimePerCard: newAvg,
         canUndo: true,
         previousCardState: previousCard,
       );
-
-      // Save user stats to storage (Hive for guest, Supabase for registered)
       await _reviewService.saveUserStats(
         totalReviewsCompleted: totalReviews,
-        averageTimePerCard: newAvg,
       );
     } catch (e) {
+      print('❌ [SwipeCard] Error: $e');
       state = state.copyWith(error: e.toString());
     }
   }
@@ -283,6 +283,7 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
     try {
       // Restore previous card state
       final restoredCard = state.previousCardState!;
+      print('🔍 [UndoSwipe] Restoring: word=${restoredCard.vocabulary?.word}, restoredDueDate=${restoredCard.dueDate.toUtc()}');
 
       // Save restored card to storage
       await _reviewService.updateCard(restoredCard);
@@ -290,30 +291,34 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
       // Remove card from reviewed set
       final newReviewedIds = Set<String>.from(state.reviewedCardIds);
       newReviewedIds.remove(restoredCard.id);
+      final restoredTotal = state.totalReviewsCompleted > 0
+          ? state.totalReviewsCompleted - 1
+          : 0;
 
-      // Revert user stats (decrement totalReviews and restore average)
-      final previousTotalReviews = state.totalReviewsCompleted - 1;
-      final previousAvg = previousTotalReviews > 0
-          ? state.averageTimePerCard // Keep previous average
-          : 7.0; // Reset to default if no reviews
+      final newIndex = state.currentIndex > 0 ? state.currentIndex - 1 : 0;
+
+      // Update in-memory cards list
+      final updatedCards = List<WordCardModel>.from(state.cards);
+      if (newIndex < updatedCards.length) {
+        updatedCards[newIndex] = restoredCard;
+      }
 
       // Update state with restored values
       state = state.copyWith(
+        cards: updatedCards,
+        currentIndex: newIndex,
         canUndo: false,
         previousCardState: null,
         reviewedCardIds: newReviewedIds,
-        totalReviewsCompleted: previousTotalReviews > 0 ? previousTotalReviews : 0,
-        averageTimePerCard: previousAvg,
+        totalReviewsCompleted: restoredTotal,
         showFeedback: false,
         lastRating: null,
       );
-
-      // Save restored user stats to storage
       await _reviewService.saveUserStats(
-        totalReviewsCompleted: previousTotalReviews > 0 ? previousTotalReviews : 0,
-        averageTimePerCard: previousAvg,
+        totalReviewsCompleted: restoredTotal,
       );
     } catch (e) {
+      print('❌ [UndoSwipe] Error: $e');
       state = state.copyWith(error: e.toString());
     }
   }
@@ -343,5 +348,4 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
   Future<void> endSession() async {
     await loadSession();
   }
-
 }

@@ -5,7 +5,7 @@ import '../widgets/review_card_widget.dart';
 import '../widgets/galaxy_screen_background.dart';
 
 /// Review Session Page
-/// Main review interface with flip cards and feedback
+/// Main review interface with flip cards and auto-advance
 class ReviewSessionPage extends ConsumerStatefulWidget {
   final String? topicFilter;
   final int batchSize;
@@ -24,6 +24,7 @@ class _ReviewSessionPageState extends ConsumerState<ReviewSessionPage> {
   bool _hasTriedLoading = false;
   String? _currentTopicFilter;
   late int _batchSize;
+  bool _allowPop = false;
 
   @override
   void initState() {
@@ -33,6 +34,201 @@ class _ReviewSessionPageState extends ConsumerState<ReviewSessionPage> {
     print('🔍 ReviewSessionPage initState: topic=$_currentTopicFilter, batch=$_batchSize');
   }
 
+  bool _canPopImmediately(ReviewState state) {
+    if (_allowPop) return true;
+    if (state.isLoading || state.cards.isEmpty || state.isComplete || state.error != null) {
+      return true;
+    }
+    // If the user hasn't answered any card yet, allow immediate exit
+    if (state.currentIndex == 0) {
+      return true;
+    }
+    return false;
+  }
+
+  Future<bool?> _showExitConfirmationDialog(
+    BuildContext context,
+    ReviewState state,
+  ) {
+    final reviewedCount = state.currentIndex;
+    final totalCount = state.sessionCount;
+
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) => Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(28),
+        ),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 360),
+          padding: const EdgeInsets.fromLTRB(22, 26, 22, 20),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFFFFFEFF), Color(0xFFF2EEFF)],
+            ),
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(color: const Color(0xFFD8D0FF)),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF5C4EB6).withValues(alpha: 0.18),
+                blurRadius: 30,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Icon Header
+              Container(
+                width: 68,
+                height: 68,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEEEAFF),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 4),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF8B7CF6).withValues(alpha: 0.22),
+                      blurRadius: 16,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.pause_circle_outline_rounded,
+                  size: 36,
+                  color: Color(0xFF6D5CE7),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Title
+              const Text(
+                'Leave review session?',
+                style: TextStyle(
+                  fontSize: 21,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF2F2855),
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+
+              // Auto-saved Status Card
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.82),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE4DFFF)),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.cloud_done_rounded,
+                          color: Color(0xFF2D8B5A),
+                          size: 16,
+                        ),
+                        const SizedBox(width: 6),
+                        const Text(
+                          'Your progress is auto-saved',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF2D8B5A),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'You reviewed $reviewedCount of $totalCount ${totalCount == 1 ? 'card' : 'cards'}.',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF655D80),
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Action Buttons
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(dialogContext, false),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF8B7CF6),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: const Text(
+                    'Keep reviewing',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 6),
+              SizedBox(
+                width: double.infinity,
+                height: 42,
+                child: TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, true),
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFF7A7299),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: const Text(
+                    'Leave',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _handleBack(BuildContext context, ReviewState state) async {
+    if (_canPopImmediately(state)) {
+      Navigator.of(context).pop();
+    } else {
+      final shouldPop = await _showExitConfirmationDialog(context, state);
+      if (shouldPop == true && context.mounted) {
+        setState(() {
+          _allowPop = true;
+        });
+        Navigator.of(context).pop();
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final reviewState = ref.watch(reviewStateProvider);
@@ -40,8 +236,6 @@ class _ReviewSessionPageState extends ConsumerState<ReviewSessionPage> {
     print('🔍 ReviewSessionPage build: _currentTopicFilter=$_currentTopicFilter, _hasTriedLoading=$_hasTriedLoading, cards=${reviewState.cards.length}');
 
     // Load session with topic filter and batch size on first build only
-    // Note: We check !_hasTriedLoading to avoid multiple loads, but we don't check cards.isEmpty
-    // because ReviewTab might have loaded cards already (with different filter/batchSize)
     if (!_hasTriedLoading && !reviewState.isLoading) {
       _hasTriedLoading = true;
       print('🔍 ReviewSessionPage: First load, calling loadSession with topicFilter=$_currentTopicFilter, batchSize=$_batchSize');
@@ -53,74 +247,91 @@ class _ReviewSessionPageState extends ConsumerState<ReviewSessionPage> {
       });
     }
 
-    return GalaxyScreenBackground(
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        appBar: AppBar(
-          title: const Text(
-            'Review session',
-            style: TextStyle(
-              color: Color(0xFF2F2855),
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
+    return PopScope(
+      canPop: _canPopImmediately(reviewState),
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        final shouldPop = await _showExitConfirmationDialog(context, reviewState);
+        if (shouldPop == true && context.mounted) {
+          setState(() {
+            _allowPop = true;
+          });
+          Navigator.of(context).pop();
+        }
+      },
+      child: GalaxyScreenBackground(
+        child: Scaffold(
           backgroundColor: Colors.transparent,
-          elevation: 0,
-          iconTheme: const IconThemeData(color: Color(0xFF2F2855)),
-          actions: [
-            // Auto-saved hint
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.68),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFBCE8D1)),
+          appBar: AppBar(
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back_rounded),
+              onPressed: () => _handleBack(context, reviewState),
+            ),
+            title: const Text(
+              'Review session',
+              style: TextStyle(
+                color: Color(0xFF2F2855),
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            iconTheme: const IconThemeData(color: Color(0xFF2F2855)),
+            actions: [
+              // Auto-saved hint
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.68),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFBCE8D1)),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.cloud_done, color: Colors.green, size: 12),
+                      SizedBox(width: 4),
+                      Text(
+                        'Auto-saved',
+                        style: TextStyle(
+                          color: Color(0xFF2D8B5A),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.cloud_done, color: Colors.green, size: 12),
-                    const SizedBox(width: 4),
-                    Text(
-                      'Auto-saved',
-                      style: TextStyle(
-                        color: const Color(0xFF2D8B5A),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
+              ),
+              if (!reviewState.isLoading &&
+                  reviewState.cards.isNotEmpty &&
+                  !reviewState.isComplete)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.70),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: const Color(0xFFD9D2FF)),
+                    ),
+                    child: Text(
+                      '${(reviewState.currentIndex + 1).clamp(1, reviewState.sessionCount)} / ${reviewState.sessionCount}',
+                      style: const TextStyle(
+                        color: Color(0xFF5C4EB6),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
-                  ],
-                ),
-              ),
-            ),
-            if (!reviewState.isLoading &&
-                reviewState.cards.isNotEmpty &&
-                !reviewState.isComplete)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.70),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: const Color(0xFFD9D2FF)),
-                  ),
-                  child: Text(
-                    '${reviewState.currentIndex + 1} / ${reviewState.sessionCount}',
-                    style: const TextStyle(
-                      color: Color(0xFF5C4EB6),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                    ),
                   ),
                 ),
-              ),
-          ],
+            ],
+          ),
+          body: _buildBody(context, ref, reviewState),
         ),
-        body: _buildBody(context, ref, reviewState),
       ),
     );
   }
@@ -164,15 +375,10 @@ class _ReviewSessionPageState extends ConsumerState<ReviewSessionPage> {
       return const SizedBox.shrink();
     }
 
-    // Show feedback
-    if (state.showFeedback && state.lastRating != null) {
-      return _buildFeedback(context, ref, state);
-    }
-
-    // Show card
+    // Show card or complete state
     final currentCard = state.currentCard;
     if (currentCard == null) {
-      return _buildCompleteState(context);
+      return _buildCompleteState(context, state);
     }
 
     return _buildCardSwipe(context, ref, currentCard);
@@ -192,10 +398,11 @@ class _ReviewSessionPageState extends ConsumerState<ReviewSessionPage> {
           valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF8b7cf6)),
         ),
         const SizedBox(height: 8),
-        // Card
+        // Card with unique key for smooth auto-advance
         Expanded(
           child: Center(
             child: ReviewCardWidget(
+              key: ValueKey(currentCard.id),
               card: currentCard,
               onForgot: () => _handleSwipe(ref, false),
               onKnow: () => _handleSwipe(ref, true),
@@ -209,199 +416,9 @@ class _ReviewSessionPageState extends ConsumerState<ReviewSessionPage> {
     );
   }
 
-  Widget _buildFeedback(BuildContext context, WidgetRef ref, ReviewState state) {
-    final currentCard = state.cards[state.currentIndex];
-    final vocab = currentCard.vocabulary;
+  Widget _buildCompleteState(BuildContext context, ReviewState state) {
+    final count = state.cards.length;
 
-    if (vocab == null) {
-      return const Center(child: Text('No vocabulary data'));
-    }
-
-    final remembered = state.lastRating ?? false;
-
-    final resultColor = remembered
-        ? const Color(0xFF2D9C72)
-        : const Color(0xFFE49A2F);
-    final resultBackground = remembered
-        ? const Color(0xFFE3F6EC)
-        : const Color(0xFFFFF0D8);
-
-    return SafeArea(
-      child: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(24, 20, 24, 28),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 460),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 76,
-                  height: 76,
-                  decoration: BoxDecoration(
-                    color: resultBackground,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 5),
-                    boxShadow: [
-                      BoxShadow(
-                        color: resultColor.withValues(alpha: 0.22),
-                        blurRadius: 20,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: Icon(
-                    remembered
-                        ? Icons.check_rounded
-                        : Icons.auto_awesome_rounded,
-                    size: 36,
-                    color: resultColor,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Text(
-                  remembered ? 'Nice work!' : "That is okay!",
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF2F2855),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  remembered
-                      ? 'You remembered this word.'
-                      : 'Seeing it again helps it stick.',
-                  style: const TextStyle(fontSize: 14, color: Color(0xFF655D80)),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 22),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(22),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFFFFFEFF), Color(0xFFF0ECFF)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: const Color(0xFFD8D0FF)),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF695C9E).withValues(alpha: 0.15),
-                        blurRadius: 20,
-                        offset: const Offset(0, 10),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      Text(
-                        vocab.word,
-                        style: const TextStyle(
-                          fontSize: 32,
-                          height: 1.1,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF2F2855),
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 14),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFEAE6FF),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: const Text(
-                          'MEANING',
-                          style: TextStyle(
-                            fontSize: 10,
-                            letterSpacing: 1.1,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFF6354B5),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        vocab.thaiTranslation,
-                        style: const TextStyle(
-                          fontSize: 25,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF3A3263),
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      if (vocab.englishSentence.isNotEmpty) ...[
-                        const SizedBox(height: 18),
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.72),
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: Text(
-                            vocab.englishSentence,
-                            style: const TextStyle(
-                              fontSize: 15,
-                              height: 1.4,
-                              color: Color(0xFF655D80),
-                              fontStyle: FontStyle.italic,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  height: 54,
-                  child: ElevatedButton.icon(
-                    onPressed: () => ref.read(reviewStateProvider.notifier).nextCard(),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF8B7CF6),
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    icon: const Icon(Icons.arrow_forward_rounded),
-                    label: const Text(
-                      'Next card',
-                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
-                    ),
-                  ),
-                ),
-                if (state.canUndo) ...[
-                  const SizedBox(height: 8),
-                  TextButton.icon(
-                    onPressed: () => ref.read(reviewStateProvider.notifier).undoSwipe(),
-                    icon: const Icon(Icons.undo_rounded, size: 18),
-                    label: const Text('Change my rating'),
-                    style: TextButton.styleFrom(
-                      foregroundColor: const Color(0xFF655D80),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCompleteState(BuildContext context) {
     return SafeArea(
       child: Center(
         child: SingleChildScrollView(
@@ -438,20 +455,82 @@ class _ReviewSessionPageState extends ConsumerState<ReviewSessionPage> {
                 ),
                 const SizedBox(height: 20),
                 const Text(
-                  'Review complete!',
+                  'Session Complete! 🎉',
                   style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.w800,
                     color: Color(0xFF2F2855),
                   ),
+                  textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'A little practice today goes a long way.',
+                  'Awesome job! You have strengthened your memory today.',
                   style: TextStyle(fontSize: 15, color: Color(0xFF655D80)),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 24),
+                // Session Summary Card
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFFFFEFF), Color(0xFFF2EEFF)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: const Color(0xFFD8D0FF)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF5C4EB6).withValues(alpha: 0.12),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEAE6FF),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: const Icon(
+                          Icons.auto_stories_rounded,
+                          color: Color(0xFF6D5CE7),
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '$count ${count == 1 ? 'word' : 'words'} reviewed',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF2F2855),
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          const Text(
+                            'Saved to your spaced repetition',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF655D80),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 28),
                 SizedBox(
                   width: double.infinity,
                   height: 56,

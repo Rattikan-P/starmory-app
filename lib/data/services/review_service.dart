@@ -27,7 +27,8 @@ class ReviewService {
 
   /// Get due cards for review (max 5)
   /// Guest: from Hive | Registered: from Supabase
-  Future<List<WordCardModel>> getDueCards({int limit = 5, String? topicFilter}) async {
+  Future<List<WordCardModel>> getDueCards(
+      {int limit = 5, String? topicFilter}) async {
     final userId = currentUserId;
     if (userId == null) {
       // Guest mode: get from Hive
@@ -41,7 +42,8 @@ class ReviewService {
   }
 
   /// Get due cards from Hive (Guest mode)
-  Future<List<WordCardModel>> _getDueCardsFromHive(int limit, String? topicFilter) async {
+  Future<List<WordCardModel>> _getDueCardsFromHive(
+      int limit, String? topicFilter) async {
     try {
       final allCards = await _hiveService.getWordCards();
 
@@ -62,19 +64,19 @@ class ReviewService {
       // Limit
       return dueCards.take(limit).toList();
     } catch (e) {
-      return [];
+      Error.throwWithStackTrace(e, StackTrace.current);
     }
   }
 
   /// Get due cards from Supabase (Registered mode)
-  Future<List<WordCardModel>> _getDueCardsFromSupabase(String userId, int limit, String? topicFilter) async {
+  Future<List<WordCardModel>> _getDueCardsFromSupabase(
+      String userId, int limit, String? topicFilter) async {
     try {
-      final response = await _client
-          .rpc('get_due_cards', params: {
-            'p_user_id': userId,
-            'p_limit': limit,
-            'p_topic_filter': topicFilter
-          });
+      final response = await _client.rpc('get_due_cards', params: {
+        'p_user_id': userId,
+        'p_limit': limit,
+        'p_topic_filter': topicFilter
+      });
 
       if (response == null) {
         return [];
@@ -92,13 +94,14 @@ class ReviewService {
 
       return cards;
     } catch (e) {
-      return [];
+      Error.throwWithStackTrace(e, StackTrace.current);
     }
   }
 
   /// Get new vocabularies (without cards) to fill session
   /// Returns vocabularies that don't have a word_card yet
-  Future<List<VocabularyModel>> getNewVocabularies({int limit = 5, String? topicFilter}) async {
+  Future<List<VocabularyModel>> getNewVocabularies(
+      {int limit = 5, String? topicFilter}) async {
     final userId = currentUserId;
 
     if (userId == null) {
@@ -111,7 +114,8 @@ class ReviewService {
   }
 
   /// Get new vocabularies from Hive (Guest mode)
-  Future<List<VocabularyModel>> _getNewVocabulariesFromHive(int limit, String? topicFilter) async {
+  Future<List<VocabularyModel>> _getNewVocabulariesFromHive(
+      int limit, String? topicFilter) async {
     try {
       final allVocab = await _hiveService.getAllVocabulary();
       final allCards = await _hiveService.getWordCards();
@@ -120,7 +124,8 @@ class ReviewService {
       final cardVocabIds = allCards.map((c) => c.vocabularyId).toSet();
 
       // Filter vocabularies without cards
-      var newVocab = allVocab.where((v) => !cardVocabIds.contains(v.id)).toList();
+      var newVocab =
+          allVocab.where((v) => !cardVocabIds.contains(v.id)).toList();
 
       // Apply topic filter if specified
       if (topicFilter != null && topicFilter.isNotEmpty) {
@@ -131,7 +136,7 @@ class ReviewService {
       return newVocab.take(limit).toList();
     } catch (e) {
       print('❌ Error getting new vocabularies from Hive: $e');
-      return [];
+      Error.throwWithStackTrace(e, StackTrace.current);
     }
   }
 
@@ -147,13 +152,15 @@ class ReviewService {
           .eq('user_id', userId);
 
       final existingVocabIds = (existingCardsResponse as List<dynamic>?)
-          ?.map((row) => row['vocabulary_id'] as String)
-          .toList() ?? <String>[];
+              ?.map((row) => row['vocabulary_id'] as String)
+              .toList() ??
+          <String>[];
 
       // Then get vocabularies NOT in that list
       var query = _client
           .from('vocabularies')
-          .select('id, word, part_of_speech, thai_translation, english_sentence, thai_sentence, cefr_level, communicative_function, language_variant, image_url, created_at, updated_at, tags, is_favorite, topic')
+          .select(
+              'id, word, part_of_speech, thai_translation, english_sentence, thai_sentence, cefr_level, communicative_function, language_variant, image_url, created_at, updated_at, tags, is_favorite, topic')
           .eq('user_id', userId);
 
       if (existingVocabIds.isNotEmpty) {
@@ -171,12 +178,12 @@ class ReviewService {
 
       final List<dynamic> data = response as List<dynamic>;
       return data
-          .map((json) => VocabularyModel.fromSupabaseJson(
-              json as Map<String, dynamic>))
+          .map((json) =>
+              VocabularyModel.fromSupabaseJson(json as Map<String, dynamic>))
           .toList();
     } catch (e) {
       print('❌ Error getting new vocabularies from Supabase: $e');
-      return [];
+      Error.throwWithStackTrace(e, StackTrace.current);
     }
   }
 
@@ -195,7 +202,8 @@ class ReviewService {
 
   /// Create a new word card with vocabulary data included
   /// This ensures the card has vocabulary data immediately after creation
-  Future<WordCardModel?> createCardWithVocabulary(String vocabularyId, VocabularyModel vocabulary) async {
+  Future<WordCardModel?> createCardWithVocabulary(
+      String vocabularyId, VocabularyModel vocabulary) async {
     final userId = currentUserId;
 
     if (userId == null) {
@@ -203,17 +211,19 @@ class ReviewService {
       return _createCardInHive(vocabularyId);
     } else {
       // Registered mode: create in Supabase and include vocab
-      return _createCardInSupabaseWithVocabulary(userId, vocabularyId, vocabulary);
+      return _createCardInSupabaseWithVocabulary(
+          userId, vocabularyId, vocabulary);
     }
   }
 
   /// Create card in Supabase with vocabulary data included
-  Future<WordCardModel?> _createCardInSupabaseWithVocabulary(String userId, String vocabularyId, VocabularyModel vocabulary) async {
+  Future<WordCardModel?> _createCardInSupabaseWithVocabulary(
+      String userId, String vocabularyId, VocabularyModel vocabulary) async {
     try {
       final response = await _client.from('word_cards').insert({
         'user_id': userId,
         'vocabulary_id': vocabularyId,
-        'due_date': DateTime.now().toIso8601String(),
+        'due_date': DateTime.now().toUtc().toIso8601String(),
       }).select();
 
       if (response == null || response.isEmpty) return null;
@@ -240,8 +250,8 @@ class ReviewService {
         id: _generateId(),
         userId: 'guest',
         vocabularyId: vocabularyId,
-        dueDate: DateTime.now().toUtc(),  // Use UTC for consistency
-        createdAt: DateTime.now().toUtc(),  // Use UTC for consistency
+        dueDate: DateTime.now().toUtc(), // Use UTC for consistency
+        createdAt: DateTime.now().toUtc(), // Use UTC for consistency
         vocabulary: vocabulary,
       );
 
@@ -254,12 +264,13 @@ class ReviewService {
   }
 
   /// Create card in Supabase (Registered mode)
-  Future<WordCardModel?> _createCardInSupabase(String userId, String vocabularyId) async {
+  Future<WordCardModel?> _createCardInSupabase(
+      String userId, String vocabularyId) async {
     try {
       final response = await _client.from('word_cards').insert({
         'user_id': userId,
         'vocabulary_id': vocabularyId,
-        'due_date': DateTime.now().toIso8601String(),
+        'due_date': DateTime.now().toUtc().toIso8601String(),
       }).select();
 
       if (response == null || response.isEmpty) return null;
@@ -288,7 +299,7 @@ class ReviewService {
   /// Update card in Hive (Guest mode)
   Future<WordCardModel?> _updateCardInHive(WordCardModel card) async {
     try {
-      final updatedCard = card.copyWith(updatedAt: DateTime.now());
+      final updatedCard = card.copyWith(updatedAt: DateTime.now().toUtc());
       await _hiveService.saveWordCard(updatedCard);
       return updatedCard;
     } catch (e) {
@@ -300,9 +311,11 @@ class ReviewService {
   /// Update card in Supabase (Registered mode)
   Future<WordCardModel?> _updateCardInSupabase(WordCardModel card) async {
     try {
+      final now = DateTime.now().toUtc();
+      final updatedCard = card.copyWith(updatedAt: now);
       final response = await _client
           .from('word_cards')
-          .update(card.toSupabaseJson())
+          .update(updatedCard.toSupabaseJson())
           .eq('id', card.id)
           .select();
 
@@ -318,11 +331,13 @@ class ReviewService {
 
   /// Get a complete review session (due cards + new cards to fill batchSize)
   /// Optionally filter by topic
-  Future<List<WordCardModel>> getReviewSession({String? topicFilter, int batchSize = 5}) async {
+  Future<List<WordCardModel>> getReviewSession(
+      {String? topicFilter, int batchSize = 5}) async {
     final userId = currentUserId;
 
     // Get due cards first
-    final dueCards = await getDueCards(limit: batchSize, topicFilter: topicFilter);
+    final dueCards =
+        await getDueCards(limit: batchSize, topicFilter: topicFilter);
 
     // If already have batchSize, return
     if (dueCards.length >= batchSize) {
@@ -331,7 +346,8 @@ class ReviewService {
 
     // Fill with new vocabularies
     final needed = batchSize - dueCards.length;
-    final newVocab = await getNewVocabularies(limit: needed, topicFilter: topicFilter);
+    final newVocab =
+        await getNewVocabularies(limit: needed, topicFilter: topicFilter);
 
     // Create cards for new vocabularies with vocabulary data included
     final sessionCards = List<WordCardModel>.from(dueCards);
@@ -359,7 +375,8 @@ class ReviewService {
       final allVocab = await _hiveService.getAllVocabulary();
       final allCards = await _hiveService.getWordCards();
       final cardVocabIds = allCards.map((c) => c.vocabularyId).toSet();
-      var newVocab = allVocab.where((v) => !cardVocabIds.contains(v.id)).toList();
+      var newVocab =
+          allVocab.where((v) => !cardVocabIds.contains(v.id)).toList();
       if (topicFilter != null && topicFilter.isNotEmpty) {
         newVocab = newVocab.where((v) => v.topic == topicFilter).toList();
       }
@@ -372,14 +389,13 @@ class ReviewService {
           .eq('user_id', userId);
 
       final existingVocabIds = (existingCardsResponse as List<dynamic>?)
-          ?.map((row) => row['vocabulary_id'] as String)
-          .toList() ?? <String>[];
+              ?.map((row) => row['vocabulary_id'] as String)
+              .toList() ??
+          <String>[];
 
       // Build query to get vocabularies without cards
-      var query = _client
-          .from('vocabularies')
-          .select('id')
-          .eq('user_id', userId);
+      var query =
+          _client.from('vocabularies').select('id').eq('user_id', userId);
 
       if (existingVocabIds.isNotEmpty) {
         query = query.not('id', 'in', existingVocabIds);
@@ -411,17 +427,19 @@ class ReviewService {
     if (userId == null) {
       final allCards = await _hiveService.getWordCards();
       final allVocabulary = await _hiveService.getAllVocabulary();
-      final cardVocabularyIds = allCards.map((card) => card.vocabularyId).toSet();
+      final cardVocabularyIds =
+          allCards.map((card) => card.vocabularyId).toSet();
       final vocabularyById = {
         for (final vocabulary in allVocabulary) vocabulary.id: vocabulary,
       };
 
       for (final card in allCards.where((card) => card.isDue)) {
         // Older locally stored cards may not include the embedded vocabulary.
-        addTopic(card.vocabulary?.topic ?? vocabularyById[card.vocabularyId]?.topic);
+        addTopic(
+            card.vocabulary?.topic ?? vocabularyById[card.vocabularyId]?.topic);
       }
-      for (final vocabulary
-          in allVocabulary.where((vocabulary) => !cardVocabularyIds.contains(vocabulary.id))) {
+      for (final vocabulary in allVocabulary
+          .where((vocabulary) => !cardVocabularyIds.contains(vocabulary.id))) {
         addTopic(vocabulary.topic);
       }
       return counts;
@@ -454,6 +472,44 @@ class ReviewService {
     return counts;
   }
 
+    Future<UserStatsModel?> getUserStats() async {
+    if (!isLoggedIn) return _hiveService.getUserStats();
+    try {
+      final response = await _client
+          .from('users')
+          .select('total_reviews')
+          .eq('id', currentUserId!)
+          .maybeSingle();
+      if (response == null) return null;
+      return UserStatsModel(
+        totalReviewsCompleted: response['total_reviews'] as int? ?? 0,
+        averageTimePerCard: 7.0, // Fixed, no longer tracked
+        lastReviewDate: DateTime.now(),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> saveUserStats({
+    required int totalReviewsCompleted,
+  }) async {
+    if (!isLoggedIn) {
+      final current = await _hiveService.getUserStats();
+      await _hiveService.saveUserStats(UserStatsModel(
+        totalReviewsCompleted: totalReviewsCompleted,
+        averageTimePerCard: 7.0,
+        lastReviewDate: DateTime.now(),
+        createdAt: current?.createdAt ?? DateTime.now(),
+        updatedAt: DateTime.now(),
+      ));
+      return;
+    }
+    await _client.from('users').update({
+      'total_reviews': totalReviewsCompleted,
+    }).eq('id', currentUserId!);
+  }
+
   /// Get remaining due count (due cards only, no limit)
   Future<int> getRemainingDueCount({String? topicFilter}) async {
     final userId = currentUserId;
@@ -478,26 +534,28 @@ class ReviewService {
 
       // Apply topic filter if specified
       if (topicFilter != null && topicFilter.isNotEmpty) {
-        dueCards = dueCards.where((card) => card.vocabulary?.topic == topicFilter).toList();
+        dueCards = dueCards
+            .where((card) => card.vocabulary?.topic == topicFilter)
+            .toList();
       }
 
       return dueCards.length;
     } catch (e) {
       print('❌ Error counting due cards from Hive: $e');
-      return 0;
+      Error.throwWithStackTrace(e, StackTrace.current);
     }
   }
 
   /// Get remaining due cards from Supabase (Registered mode)
-  Future<int> _getRemainingDueFromSupabase(String userId, String? topicFilter) async {
+  Future<int> _getRemainingDueFromSupabase(
+      String userId, String? topicFilter) async {
     try {
       // Count all due cards (no limit)
-      final response = await _client
-          .rpc('get_due_cards', params: {
-            'p_user_id': userId,
-            'p_limit': 999,
-            'p_topic_filter': topicFilter
-          });
+      final response = await _client.rpc('get_due_cards', params: {
+        'p_user_id': userId,
+        'p_limit': 999,
+        'p_topic_filter': topicFilter
+      });
 
       if (response == null) return 0;
 
@@ -505,132 +563,15 @@ class ReviewService {
       return data.length;
     } catch (e) {
       print('❌ Error counting due cards from Supabase: $e');
-      return 0;
-    }
-  }
-
-  /// Get user statistics from storage (for adaptive time estimation)
-  Future<Map<String, dynamic>> getUserStats() async {
-    final userId = currentUserId;
-
-    if (userId == null) {
-      // Guest mode: get from Hive
-      return _getUserStatsFromHive();
-    } else {
-      // Registered mode: get from Supabase
-      return _getUserStatsFromSupabase(userId);
-    }
-  }
-
-  /// Get user stats from Hive (Guest mode)
-  Future<Map<String, dynamic>> _getUserStatsFromHive() async {
-    try {
-      final stats = await _hiveService.getUserStats();
-      if (stats == null) return {};
-      return stats.toJson();
-    } catch (e) {
-      print('❌ Error getting user stats from Hive: $e');
-      return {};
-    }
-  }
-
-  /// Get user stats from Supabase (Registered mode)
-  Future<Map<String, dynamic>> _getUserStatsFromSupabase(String userId) async {
-    try {
-      final response = await _client
-          .from('user_profiles')
-          .select('total_reviews, average_time_per_card')
-          .eq('user_id', userId)
-          .maybeSingle();
-
-      if (response == null) return {};
-
-      return {
-        'totalReviewsCompleted': response['total_reviews'] as int? ?? 0,
-        'averageTimePerCard': (response['average_time_per_card'] as num?)?.toDouble() ?? 7.0,
-      };
-    } catch (e) {
-      print('❌ Error getting user stats from Supabase: $e');
-      return {};
-    }
-  }
-
-  /// Save user statistics to storage
-  Future<void> saveUserStats({
-    required int totalReviewsCompleted,
-    required double averageTimePerCard,
-  }) async {
-    final userId = currentUserId;
-
-    if (userId == null) {
-      // Guest mode: save to Hive
-      await _saveUserStatsToHive(totalReviewsCompleted, averageTimePerCard);
-    } else {
-      // Registered mode: save to Supabase
-      await _saveUserStatsToSupabase(userId, totalReviewsCompleted, averageTimePerCard);
-    }
-  }
-
-  /// Save user stats to Hive (Guest mode)
-  Future<void> _saveUserStatsToHive(
-    int totalReviewsCompleted,
-    double averageTimePerCard,
-  ) async {
-    try {
-      final stats = await _hiveService.getUserStats();
-      final updatedStats = (stats ?? UserStatsModel(
-        lastReviewDate: DateTime.now(),
-        createdAt: DateTime.now(),
-      )).copyWith(
-        totalReviewsCompleted: totalReviewsCompleted,
-        averageTimePerCard: averageTimePerCard,
-        lastReviewDate: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
-      await _hiveService.saveUserStats(updatedStats);
-    } catch (e) {
-      print('❌ Error saving user stats to Hive: $e');
-    }
-  }
-
-  /// Save user stats to Supabase (Registered mode)
-  Future<void> _saveUserStatsToSupabase(
-    String userId,
-    int totalReviewsCompleted,
-    double averageTimePerCard,
-  ) async {
-    try {
-      // Check if user profile exists
-      final existing = await _client
-          .from('user_profiles')
-          .select('id')
-          .eq('user_id', userId)
-          .maybeSingle();
-
-      if (existing == null) {
-        // Create new profile
-        await _client.from('user_profiles').insert({
-          'user_id': userId,
-          'total_reviews': totalReviewsCompleted,
-          'average_time_per_card': averageTimePerCard,
-        });
-      } else {
-        // Update existing profile
-        await _client
-            .from('user_profiles')
-            .update({
-              'total_reviews': totalReviewsCompleted,
-              'average_time_per_card': averageTimePerCard,
-            })
-            .eq('user_id', userId);
-      }
-    } catch (e) {
-      print('❌ Error saving user stats to Supabase: $e');
+      Error.throwWithStackTrace(e, StackTrace.current);
     }
   }
 
   /// Load more cards for review (when user clicks Continue)
-  Future<List<WordCardModel>> getMoreCards({int batchSize = 5, List<String>? excludeIds, String? topicFilter}) async {
+  Future<List<WordCardModel>> getMoreCards(
+      {int batchSize = 5,
+      List<String>? excludeIds,
+      String? topicFilter}) async {
     final userId = currentUserId;
 
     if (userId == null) {
@@ -638,12 +579,14 @@ class ReviewService {
       return _getMoreCardsFromHive(batchSize, excludeIds, topicFilter);
     } else {
       // Registered mode: get from Supabase
-      return _getMoreCardsFromSupabase(userId, batchSize, excludeIds, topicFilter);
+      return _getMoreCardsFromSupabase(
+          userId, batchSize, excludeIds, topicFilter);
     }
   }
 
   /// Get more cards from Hive (Guest mode)
-  Future<List<WordCardModel>> _getMoreCardsFromHive(int batchSize, List<String>? excludeIds, String? topicFilter) async {
+  Future<List<WordCardModel>> _getMoreCardsFromHive(
+      int batchSize, List<String>? excludeIds, String? topicFilter) async {
     try {
       final allCards = await _hiveService.getWordCards();
       final now = DateTime.now();
@@ -653,12 +596,15 @@ class ReviewService {
 
       // Apply topic filter if specified
       if (topicFilter != null && topicFilter.isNotEmpty) {
-        dueCards = dueCards.where((card) => card.vocabulary?.topic == topicFilter).toList();
+        dueCards = dueCards
+            .where((card) => card.vocabulary?.topic == topicFilter)
+            .toList();
       }
 
       // Exclude already reviewed cards
       if (excludeIds != null && excludeIds.isNotEmpty) {
-        dueCards = dueCards.where((card) => !excludeIds.contains(card.id)).toList();
+        dueCards =
+            dueCards.where((card) => !excludeIds.contains(card.id)).toList();
       }
 
       // Sort by due date
@@ -673,15 +619,15 @@ class ReviewService {
   }
 
   /// Get more cards from Supabase (Registered mode)
-  Future<List<WordCardModel>> _getMoreCardsFromSupabase(String userId, int batchSize, List<String>? excludeIds, String? topicFilter) async {
+  Future<List<WordCardModel>> _getMoreCardsFromSupabase(String userId,
+      int batchSize, List<String>? excludeIds, String? topicFilter) async {
     try {
       // Get due cards with higher limit to get more
-      final response = await _client
-          .rpc('get_due_cards', params: {
-            'p_user_id': userId,
-            'p_limit': 100,
-            'p_topic_filter': topicFilter
-          });
+      final response = await _client.rpc('get_due_cards', params: {
+        'p_user_id': userId,
+        'p_limit': 100,
+        'p_topic_filter': topicFilter
+      });
 
       if (response == null) return [];
 

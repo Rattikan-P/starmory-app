@@ -76,6 +76,18 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
   }
 
   @override
+  void didUpdateWidget(covariant ReviewCardWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.card.id != widget.card.id) {
+      _ttsService.stop();
+      _isPlaying = false;
+      _isRevealed = false;
+      _dragOffsetX = 0;
+      _flipController.reset();
+    }
+  }
+
+  @override
   void dispose() {
     _ttsCompletionSubscription?.cancel();
     _ttsErrorSubscription?.cancel();
@@ -98,7 +110,8 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
 
       try {
         // Set language based on vocab's stored variant (word origin)
-        final language = TTSService.getLanguageCode(widget.card.vocabulary?.languageVariant);
+        final language =
+            TTSService.getLanguageCode(widget.card.vocabulary?.languageVariant);
 
         // Speak the word (returns estimated duration for fallback)
         final estimatedDuration = _ttsService.speak(
@@ -128,16 +141,16 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
   Widget _buildImage(String imageUrl, {BoxFit? fit}) {
     if (_isLocalPath(imageUrl)) {
       // Remove 'file://' prefix if present
-      final localPath = imageUrl.startsWith('file://')
-          ? imageUrl.substring(7)
-          : imageUrl;
+      final localPath =
+          imageUrl.startsWith('file://') ? imageUrl.substring(7) : imageUrl;
       return Image.file(
         File(localPath),
         fit: fit ?? BoxFit.cover,
         errorBuilder: (context, error, stackTrace) {
           return Container(
             color: const Color(0xFF3D3A5C),
-            child: const Icon(Icons.broken_image, size: 64, color: Colors.white38),
+            child:
+                const Icon(Icons.broken_image, size: 64, color: Colors.white38),
           );
         },
       );
@@ -148,7 +161,8 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
         errorBuilder: (context, error, stackTrace) {
           return Container(
             color: const Color(0xFF3D3A5C),
-            child: const Icon(Icons.broken_image, size: 64, color: Colors.white38),
+            child:
+                const Icon(Icons.broken_image, size: 64, color: Colors.white38),
           );
         },
       );
@@ -221,54 +235,65 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
           ),
         ),
 
-        // Rating buttons (only when revealed)
+        // Rating buttons and Undo
         if (_isRevealed) ...[
-          // Undo button (if available)
-          if (widget.canUndo)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: GestureDetector(
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  widget.onUndo();
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.3),
-                      width: 1,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.undo,
-                        color: Colors.white.withValues(alpha: 0.8),
-                        size: 18,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Undo',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.9),
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
+          if (widget.canUndo) _buildUndoButton(),
           _buildRatingButtons(context),
+        ] else if (widget.canUndo) ...[
+          _buildUndoButton(),
         ],
 
         const SizedBox(height: 24),
       ],
+    );
+  }
+
+  Widget _buildUndoButton() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: GestureDetector(
+        onTap: () {
+          HapticFeedback.lightImpact();
+          widget.onUndo();
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.82),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: const Color(0xFFD8D0FF),
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF5C4EB6).withValues(alpha: 0.12),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.undo_rounded,
+                color: Color(0xFF6D5CE7),
+                size: 16,
+              ),
+              SizedBox(width: 6),
+              Text(
+                'Undo last card',
+                style: TextStyle(
+                  color: Color(0xFF5C4EB6),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -298,15 +323,16 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
           ? (details) {
               if (details.primaryVelocity == null) return;
               final velocity = details.primaryVelocity!;
+              final dragOffset = _dragOffsetX;
 
               // Check threshold or velocity
-              if (_dragOffsetX.abs() > 100 || velocity.abs() > 500) {
+              if (dragOffset.abs() > 100 || velocity.abs() > 500) {
                 // Swipe complete
                 setState(() {
                   _dragOffsetX = 0;
                 });
                 // Swipe right = Know, Swipe left = Forgot
-                if (_dragOffsetX > 0 || velocity > 0) {
+                if (dragOffset > 0 || (dragOffset == 0 && velocity > 0)) {
                   _handleSwipe(true);
                 } else {
                   _handleSwipe(false);
@@ -335,7 +361,8 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
             transform: Matrix4.identity()
               ..setEntry(3, 2, 0.001) // Perspective
               ..rotateY(_flipAnimation.value * 3.14159) // Flip animation
-              ..translate(-_dragOffsetX, 0.0, 0.0) // Drag movement (inverted for flipX)
+              ..translate(
+                  -_dragOffsetX, 0.0, 0.0) // Drag movement (inverted for flipX)
               ..rotateZ(-dragRotation) // Drag rotation (inverted for flipX)
               ..scale(clampedScale, clampedScale, 1.0), // Drag scale
             child: showBack
@@ -530,7 +557,8 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
                 right: 0,
                 bottom: 0,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
@@ -629,9 +657,12 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.arrow_back, color: Colors.white, size: 28),
+                              Icon(Icons.arrow_back,
+                                  color: Colors.white, size: 28),
                               SizedBox(height: 4),
-                              Text('Not yet', style: TextStyle(color: Colors.white, fontSize: 11)),
+                              Text('Not yet',
+                                  style: TextStyle(
+                                      color: Colors.white, fontSize: 11)),
                             ],
                           ),
                         ),
@@ -648,9 +679,12 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.arrow_forward, color: Colors.white, size: 28),
+                              Icon(Icons.arrow_forward,
+                                  color: Colors.white, size: 28),
                               SizedBox(height: 4),
-                              Text('Got it!', style: TextStyle(color: Colors.white, fontSize: 11)),
+                              Text('Got it!',
+                                  style: TextStyle(
+                                      color: Colors.white, fontSize: 11)),
                             ],
                           ),
                         ),

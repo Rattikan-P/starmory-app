@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../models/vocabulary_model.dart';
 import '../models/user_model.dart';
-import '../models/user_stats_model.dart';
 import '../models/word_card_model.dart';
+import '../models/user_stats_model.dart';
 import '../../core/config/app_constants.dart';
 import '../../core/error/failures.dart';
 import '../../core/utils/quota_manager.dart';
@@ -84,7 +84,8 @@ class HiveService {
       final box = Hive.box<String>(AppConstants.boxVocabulary);
       final jsonString = box.get(id);
       if (jsonString == null) return null;
-      return VocabularyModel.fromJson(jsonDecode(jsonString) as Map<String, dynamic>);
+      return VocabularyModel.fromJson(
+          jsonDecode(jsonString) as Map<String, dynamic>);
     } catch (e) {
       throw CacheFailure('Failed to get vocabulary: ${e.toString()}');
     }
@@ -98,7 +99,8 @@ class HiveService {
 
       for (final jsonString in box.values) {
         try {
-          vocabularies.add(VocabularyModel.fromJson(jsonDecode(jsonString) as Map<String, dynamic>));
+          vocabularies.add(VocabularyModel.fromJson(
+              jsonDecode(jsonString) as Map<String, dynamic>));
         } catch (e) {
           // Skip corrupted entries
           continue;
@@ -149,7 +151,8 @@ class HiveService {
       final box = Hive.box<String>(AppConstants.boxWordCards);
       final jsonString = box.get(id);
       if (jsonString == null) return null;
-      return WordCardModel.fromJson(jsonDecode(jsonString) as Map<String, dynamic>);
+      return WordCardModel.fromJson(
+          jsonDecode(jsonString) as Map<String, dynamic>);
     } catch (e) {
       throw CacheFailure('Failed to get word card: ${e.toString()}');
     }
@@ -163,7 +166,8 @@ class HiveService {
 
       for (final jsonString in box.values) {
         try {
-          cards.add(WordCardModel.fromJson(jsonDecode(jsonString) as Map<String, dynamic>));
+          cards.add(WordCardModel.fromJson(
+              jsonDecode(jsonString) as Map<String, dynamic>));
         } catch (e) {
           // Skip corrupted entries
           continue;
@@ -232,36 +236,31 @@ class HiveService {
 
   // ============= User Stats Operations =============
 
-  /// Save user statistics (for adaptive time estimation)
   Future<void> saveUserStats(UserStatsModel stats) async {
     try {
       final box = Hive.box<String>(AppConstants.boxUserStats);
       await box.put(AppConstants.keyUserStats, jsonEncode(stats.toJson()));
-      print('💾 User stats saved: reviews=${stats.totalReviewsCompleted}, avg=${stats.averageTimePerCard.toStringAsFixed(1)}s');
     } catch (e) {
       throw CacheFailure('Failed to save user stats: ${e.toString()}');
     }
   }
 
-  /// Get user statistics
   Future<UserStatsModel?> getUserStats() async {
     try {
       final box = Hive.box<String>(AppConstants.boxUserStats);
       final jsonString = box.get(AppConstants.keyUserStats);
       if (jsonString == null) return null;
-      return UserStatsModel.fromJson(jsonDecode(jsonString) as Map<String, dynamic>);
+      return UserStatsModel.fromJson(
+          jsonDecode(jsonString) as Map<String, dynamic>);
     } catch (e) {
-      print('⚠️ Failed to load user stats: $e');
       return null;
     }
   }
 
-  /// Clear user statistics (for logout/reset)
   Future<void> clearUserStats() async {
     try {
       final box = Hive.box<String>(AppConstants.boxUserStats);
       await box.delete(AppConstants.keyUserStats);
-      print('🗑️ User stats cleared');
     } catch (e) {
       throw CacheFailure('Failed to clear user stats: ${e.toString()}');
     }
@@ -278,7 +277,8 @@ class HiveService {
         AppConstants.keyGuestQuotaBackup,
         jsonEncode(quotaManager.toJson()),
       );
-      print('💾 Guest quota backup saved: ${quotaManager.usageHistory.length}/10 used');
+      print(
+          '💾 Guest quota backup saved: ${quotaManager.usageHistory.length}/10 used');
     } catch (e) {
       throw CacheFailure('Failed to save guest quota backup: ${e.toString()}');
     }
@@ -295,7 +295,8 @@ class HiveService {
       // ⭐ CRITICAL: Filter usageHistory to only include today's entries
       // This ensures daily limit resets properly
       final today = DateTime.now();
-      final todayStr = '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+      final todayStr =
+          '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
 
       final allHistory = (quotaData['usageHistory'] as List<dynamic>?)
               ?.map((e) {
@@ -311,16 +312,19 @@ class HiveService {
 
       // Filter to only today's entries for daily limit calculation
       final todayHistory = allHistory.where((entry) {
-        final entryStr = '${entry.timestamp.year}-${entry.timestamp.month.toString().padLeft(2, '0')}-${entry.timestamp.day.toString().padLeft(2, '0')}';
+        final entryStr =
+            '${entry.timestamp.year}-${entry.timestamp.month.toString().padLeft(2, '0')}-${entry.timestamp.day.toString().padLeft(2, '0')}';
         return entryStr == todayStr;
       }).toList();
 
       // For total limit, we keep all history
       // But we also store today's entries separately for daily limit
       final filteredQuotaData = Map<String, dynamic>.from(quotaData);
-      filteredQuotaData['usageHistory'] = allHistory.map((e) => e.toJson()).toList();
+      filteredQuotaData['usageHistory'] =
+          allHistory.map((e) => e.toJson()).toList();
 
-      print('📦 Guest quota backup loaded: total=${allHistory.length}/10, today=${todayHistory.length}/3');
+      print(
+          '📦 Guest quota backup loaded: total=${allHistory.length}/10, today=${todayHistory.length}/3');
       return QuotaManager.fromJson(filteredQuotaData);
     } catch (e) {
       print('⚠️ Failed to load guest quota backup: $e');

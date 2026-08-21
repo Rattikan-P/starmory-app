@@ -18,14 +18,14 @@ class AppConstants {
   static String get supabaseAnonKey =>
       dotenv.env['SUPABASE_ANON_KEY'] ?? 'YOUR_SUPABASE_ANON_KEY_HERE';
 
-
   // Environment
   static String get env => dotenv.env['ENV'] ?? 'dev';
 
   // Quota Limits
   static const int guestTotalLimit = 10; // Total generations for guest mode
   static const int guestDailyLimit = 3; // Daily generations for guest mode
-  static const int registeredDailyLimit = 15; // Daily generations for registered users
+  static const int registeredDailyLimit =
+      15; // Daily generations for registered users
 
   // CEFR Levels
   static const List<String> cefrLevels = ['A1', 'A2', 'B1', 'B2'];
@@ -47,8 +47,10 @@ class AppConstants {
   static const String keyUserSession = 'user_session';
   static const String keyVocabularyCache = 'vocabulary_cache';
   static const String keyCalendarData = 'calendar_data';
+  static const String keyUserStats = 'user_stats';
   static const String keyQuotaCount = 'quota_count';
-  static const String keyGuestQuotaBackup = 'guest_quota_backup'; // Guest quota that persists across login/logout
+  static const String keyGuestQuotaBackup =
+      'guest_quota_backup'; // Guest quota that persists across login/logout
 
   // Hive Box Names
   static const String boxVocabulary = 'vocabulary_box';
@@ -57,10 +59,7 @@ class AppConstants {
   static const String boxWordCards = 'word_cards_box';
   static const String boxUserStats = 'user_stats_box';
 
-  // Storage Keys
-  static const String keyUserStats = 'user_stats';
-
-  /// Initialize environment variables 
+  /// Initialize environment variables
   static Future<void> initialize() async {
     if (!kIsWeb) {
       try {
