@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'review_session_page.dart';
 import '../providers/review_provider.dart';
+import '../providers/navigation_provider.dart';
 import '../widgets/galaxy_screen_background.dart';
 
 /// Review Tab - Main review screen
@@ -15,9 +16,20 @@ class ReviewTab extends ConsumerStatefulWidget {
 }
 
 class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserver {
+  final ScrollController _scrollController = ScrollController();
   bool _hasInitialized = false;
   Timer? _refreshTimer;
   DateTime? _lastLoadTime;
+
+  void _scrollToTop() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
 
   @override
   void initState() {
@@ -44,6 +56,7 @@ class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserv
 
   @override
   void dispose() {
+    _scrollController.dispose();
     WidgetsBinding.instance.removeObserver(this);
     _refreshTimer?.cancel();
     super.dispose();
@@ -73,6 +86,16 @@ class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserv
 
   @override
   Widget build(BuildContext context) {
+    // Listen for scroll to top signal from tab navigation
+    ref.listen<int>(
+      navigationProvider.select((s) => s.reviewScrollToTopTrigger),
+      (previous, next) {
+        if (previous != next) {
+          _scrollToTop();
+        }
+      },
+    );
+
     final reviewState = ref.watch(reviewStateProvider);
 
     return GalaxyScreenBackground(
@@ -237,6 +260,7 @@ class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserv
     final dueCount = reviewState.cards.length;
 
     return SingleChildScrollView(
+      controller: _scrollController,
       physics: const BouncingScrollPhysics(),
       child: Column(
         children: [

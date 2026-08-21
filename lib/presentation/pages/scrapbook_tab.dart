@@ -6,6 +6,7 @@ import 'package:table_calendar/table_calendar.dart';
 import '../../constants/design_tokens.dart';
 import '../../data/models/scrapbook_model.dart';
 import '../providers/scrapbook_provider.dart';
+import '../providers/navigation_provider.dart';
 import '../widgets/galaxy_screen_background.dart';
 import '../widgets/scrapbook_detail_sheet.dart';
 import '../widgets/scrapbook_polaroid.dart';
@@ -20,6 +21,7 @@ class ScrapbookTab extends ConsumerStatefulWidget {
 }
 
 class _ScrapbookTabState extends ConsumerState<ScrapbookTab> {
+  final ScrollController _scrollController = ScrollController();
   static const _ink = Color(0xFF28252D);
   static const _softInk = Color(0xFF68636D);
   static const _divider = Color(0xFFE8E4EC);
@@ -32,7 +34,33 @@ class _ScrapbookTabState extends ConsumerState<ScrapbookTab> {
   DateTime? _visuallySelectedDay;
 
   @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollToTop() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    // Listen for scroll to top signal from tab navigation
+    ref.listen<int>(
+      navigationProvider.select((s) => s.scrapbookScrollToTopTrigger),
+      (previous, next) {
+        if (previous != next) {
+          _scrollToTop();
+        }
+      },
+    );
+
     final scrapbookState = ref.watch(scrapbookStateProvider);
 
     return GalaxyScreenBackground(
@@ -44,6 +72,7 @@ class _ScrapbookTabState extends ConsumerState<ScrapbookTab> {
             onRefresh: () =>
                 ref.read(scrapbookStateProvider.notifier).refresh(),
             child: CustomScrollView(
+              controller: _scrollController,
               physics: const AlwaysScrollableScrollPhysics(
                 parent: BouncingScrollPhysics(),
               ),

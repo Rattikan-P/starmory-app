@@ -20,6 +20,8 @@ import 'review_provider.dart';
 
 // Export scrapbook providers
 export 'scrapbook_provider.dart';
+// Export navigation providers
+export 'navigation_provider.dart';
 // Export review providers
 export 'review_provider.dart';
 // Export streak providers

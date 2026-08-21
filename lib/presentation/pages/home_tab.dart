@@ -32,6 +32,7 @@ class HomeTab extends ConsumerStatefulWidget {
 class _HomeTabState extends ConsumerState<HomeTab>
     with TickerProviderStateMixin {
   final ImagePicker _imagePicker = ImagePicker();
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -40,6 +41,16 @@ class _HomeTabState extends ConsumerState<HomeTab>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _refreshUserData();
     });
+  }
+
+  void _scrollToTop() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
   }
 
   Future<void> _refreshUserData() async {
@@ -87,6 +98,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
 
   @override
   void dispose() {
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -99,6 +111,16 @@ class _HomeTabState extends ConsumerState<HomeTab>
 
   @override
   Widget build(BuildContext context) {
+    // Listen for scroll to top signal from tab navigation
+    ref.listen<int>(
+      navigationProvider.select((s) => s.homeScrollToTopTrigger),
+      (previous, next) {
+        if (previous != next) {
+          _scrollToTop();
+        }
+      },
+    );
+
     final userState = ref.watch(userStateProvider);
     final quote = _quotes[DateTime.now().day % _quotes.length];
 
@@ -113,7 +135,8 @@ class _HomeTabState extends ConsumerState<HomeTab>
             // Main content
             Expanded(
               child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(20),
+                controller: _scrollController,
+                padding: const EdgeInsets.all(20),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [

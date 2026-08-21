@@ -7,6 +7,7 @@ import '../../data/models/vocabulary_model.dart';
 import '../../data/services/dictionary_service.dart';
 import '../../data/services/tts_service.dart';
 import '../providers/providers.dart';
+import '../providers/navigation_provider.dart';
 import '../widgets/galaxy_screen_background.dart';
 import '../widgets/reward_icon_widget.dart';
 import '../widgets/badges_section.dart';
@@ -50,6 +51,16 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
     if (_scrollController.position.pixels >=
         _scrollController.position.maxScrollExtent * 0.8) {
       _loadMoreItems();
+    }
+  }
+
+  void _scrollToTop() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
     }
   }
 
@@ -133,6 +144,16 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
   @override
   Widget build(BuildContext context) {
     print('🔄 Build called - _isInitialized: $_isInitialized, _displayedVocabs: ${_displayedVocabs.length}');
+
+    // Listen for scroll to top signal from tab navigation
+    ref.listen<int>(
+      navigationProvider.select((s) => s.progressScrollToTopTrigger),
+      (previous, next) {
+        if (previous != next) {
+          _scrollToTop();
+        }
+      },
+    );
 
     final vocabState = ref.watch(vocabularyStateProvider);
     final streakData = ref.watch(streakProvider);
@@ -661,6 +682,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                 setState(() {
                   _selectedTab = 'Vocab';
                 });
+                _scrollToTop();
               },
               borderRadius: BorderRadius.circular(24),
               child: Container(
@@ -707,6 +729,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                 setState(() {
                   _selectedTab = 'Reward';
                 });
+                _scrollToTop();
               },
               borderRadius: BorderRadius.circular(24),
               child: Container(
