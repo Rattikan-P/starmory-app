@@ -114,7 +114,7 @@ class StickerState {
     int streakDays = 0,
     int natureVocabCount = 0,
   }) {
-    if (!pack.isLocked) return 'ปลดล็อกแล้ว (Unlocked)';
+    if (!pack.isLocked) return 'Unlocked';
 
     final current = getProgress(
       pack,
@@ -126,16 +126,16 @@ class StickerState {
 
     switch (pack.unlockType) {
       case StickerUnlockType.free:
-        return 'ฟรี (Free)';
+        return 'Free';
       case StickerUnlockType.streak:
-        return '$current / $target วัน (Days)';
+        return '$current / $target Days';
       case StickerUnlockType.category:
         if (pack.requiredCategory?.toLowerCase() == 'nature') {
-          return '$current / $target คำธรรมชาติ (Nature)';
+          return '$current / $target Nature words';
         }
-        return '$current / $target คำ';
+        return '$current / $target words';
       case StickerUnlockType.stars:
-        return '$current / $target ดาว (Stars)';
+        return '$current / $target Stars';
     }
   }
 

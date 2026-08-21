@@ -1,4 +1,4 @@
-﻿import 'dart:math' as math;
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../data/sticker_sets.dart';
@@ -279,17 +279,6 @@ class _StickerPackUnlockDialogState extends State<StickerPackUnlockDialog>
                       ),
                     ),
 
-                    // Thai Title
-                    if (pack.nameTh.isNotEmpty)
-                      Text(
-                        pack.nameTh,
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.kanit(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFFE2E8F0),
-                        ),
-                      ),
                     const SizedBox(height: 14),
 
                     // Sticker Sample Preview Grid (first 4 items)
@@ -333,11 +322,9 @@ class _StickerPackUnlockDialogState extends State<StickerPackUnlockDialog>
                           ),
                           const SizedBox(height: 10),
                           Text(
-                            pack.descriptionTh.isNotEmpty
-                                ? pack.descriptionTh
-                                : pack.description,
+                            pack.description,
                             textAlign: TextAlign.center,
-                            style: GoogleFonts.kanit(
+                            style: GoogleFonts.lexend(
                               fontSize: 12,
                               fontWeight: FontWeight.w400,
                               color: const Color(0xFFCBD5E1),
@@ -387,8 +374,8 @@ class _StickerPackUnlockDialogState extends State<StickerPackUnlockDialog>
                                 const Text('✨', style: TextStyle(fontSize: 16)),
                                 const SizedBox(width: 8),
                                 Text(
-                                  'ยอดเยี่ยม! (Awesome)',
-                                  style: GoogleFonts.kanit(
+                                  'Awesome!',
+                                  style: GoogleFonts.lexend(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w700,
                                     color: Colors.white,

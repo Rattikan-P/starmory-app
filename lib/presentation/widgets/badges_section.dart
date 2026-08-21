@@ -112,16 +112,6 @@ void showBadgeDetailsModal(
             ),
             const SizedBox(height: 2),
 
-            if (badge.titleTh.isNotEmpty)
-              Text(
-                badge.titleTh,
-                textAlign: TextAlign.center,
-                style: GoogleFonts.kanit(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xFF8B5CF6),
-                ),
-              ),
             const SizedBox(height: 14),
 
             // Description Box
@@ -135,31 +125,14 @@ void showBadgeDetailsModal(
                   color: const Color(0xFFE2E8F0),
                 ),
               ),
-              child: Column(
-                children: [
-                  Text(
-                    badge.descriptionTh.isNotEmpty
-                        ? badge.descriptionTh
-                        : badge.description,
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.kanit(
-                      fontSize: 13,
-                      color: const Color(0xFF334155),
-                      height: 1.4,
-                    ),
-                  ),
-                  if (badge.descriptionTh.isNotEmpty) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      badge.description,
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.lexend(
-                        fontSize: 11,
-                        color: const Color(0xFF64748B),
-                      ),
-                    ),
-                  ],
-                ],
+              child: Text(
+                badge.description,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.lexend(
+                  fontSize: 13,
+                  color: const Color(0xFF334155),
+                  height: 1.4,
+                ),
               ),
             ),
             const SizedBox(height: 16),
@@ -169,8 +142,8 @@ void showBadgeDetailsModal(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  isUnlocked ? 'สถานะ: ปลดล็อกแล้ว ✨' : 'ความคืบหน้า (Progress)',
-                  style: GoogleFonts.kanit(
+                  isUnlocked ? 'Status: Unlocked ✨' : 'Progress',
+                  style: GoogleFonts.lexend(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                     color: isUnlocked ? const Color(0xFF059669) : const Color(0xFF64748B),
@@ -215,8 +188,8 @@ void showBadgeDetailsModal(
                   ),
                 ),
                 child: Text(
-                  'ปิด (Close)',
-                  style: GoogleFonts.kanit(
+                  'Close',
+                  style: GoogleFonts.lexend(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
                   ),

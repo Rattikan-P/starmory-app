@@ -368,7 +368,7 @@ class _StickersPageState extends ConsumerState<StickersPage> {
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
-                              '${pack.count} รูป',
+                              '${pack.count} stickers',
                               style: GoogleFonts.lexend(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w600,
@@ -380,8 +380,10 @@ class _StickersPageState extends ConsumerState<StickersPage> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        pack.nameTh,
-                        style: GoogleFonts.kanit(
+                        pack.description,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.lexend(
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                           color: const Color(0xFF6B7280),
@@ -535,8 +537,8 @@ class _StickersPageState extends ConsumerState<StickersPage> {
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
-                            'พร้อมใช้งานในหน้าตกแต่ง Scrapbook',
-                            style: GoogleFonts.kanit(
+                            'Ready to use in Scrapbook',
+                            style: GoogleFonts.lexend(
                               fontSize: 11,
                               fontWeight: FontWeight.w500,
                               color: const Color(0xFF6B7280),
@@ -549,8 +551,8 @@ class _StickersPageState extends ConsumerState<StickersPage> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    'ดูทั้งหมด ${pack.count} รูป ›',
-                    style: GoogleFonts.kanit(
+                    'View all ${pack.count} stickers ›',
+                    style: GoogleFonts.lexend(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                       color: const Color(0xFF8B5CF6),
@@ -577,8 +579,8 @@ class _StickersPageState extends ConsumerState<StickersPage> {
           ),
           const SizedBox(height: 16),
           Text(
-            'ไม่พบแพ็คสติกเกอร์ในหมวดหมู่นี้',
-            style: GoogleFonts.kanit(
+            'No sticker packs found in this category',
+            style: GoogleFonts.lexend(
               fontSize: 16,
               fontWeight: FontWeight.w500,
               color: const Color(0xFF4B5563),
@@ -594,16 +596,16 @@ class _StickersPageState extends ConsumerState<StickersPage> {
 String getStickerUnlockRequirementTitle(StickerSet pack) {
   switch (pack.unlockType) {
     case StickerUnlockType.free:
-      return 'ฟรีสำหรับทุกคน';
+      return 'Free for everyone';
     case StickerUnlockType.streak:
-      return '🎯 เงื่อนไข: สตรีค ${pack.requiredStreakDays} วัน';
+      return '🎯 Requirement: ${pack.requiredStreakDays}-day streak';
     case StickerUnlockType.category:
       if (pack.requiredCategory?.toLowerCase() == 'nature') {
-        return '🌿 เงื่อนไข: สะสมศัพท์หมวดธรรมชาติ ${pack.requiredCategoryCount} คำ';
+        return '🌿 Requirement: Collect ${pack.requiredCategoryCount} Nature words';
       }
-      return 'เงื่อนไข: สะสมศัพท์หมวด ${pack.requiredCategory} ${pack.requiredCategoryCount} คำ';
+      return 'Requirement: Collect ${pack.requiredCategoryCount} ${pack.requiredCategory} words';
     case StickerUnlockType.stars:
-      return '⭐ เงื่อนไข: สะสมครบ ${pack.requiredStars} ดาว';
+      return '⭐ Requirement: Collect ${pack.requiredStars} stars';
   }
 }
 
@@ -731,8 +733,8 @@ void showStickerPackModal(
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '${pack.nameTh} • ${pack.count} รูป',
-                        style: GoogleFonts.kanit(
+                        '${pack.count} stickers',
+                        style: GoogleFonts.lexend(
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
                           color: const Color(0xFF8B5CF6),
@@ -741,29 +743,26 @@ void showStickerPackModal(
                     ],
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: isUnlocked
-                        ? const Color(0xFF10B981).withValues(alpha: 0.12)
-                        : const Color(0xFFF1F5F9),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: isUnlocked
-                          ? const Color(0xFF10B981).withValues(alpha: 0.35)
-                          : const Color(0xFFCBD5E1),
+                if (isLocked)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: const Color(0xFFCBD5E1),
+                      ),
+                    ),
+                    child: Text(
+                      'LOCKED',
+                      style: GoogleFonts.lexend(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.1,
+                        color: const Color(0xFF64748B),
+                      ),
                     ),
                   ),
-                  child: Text(
-                    isUnlocked ? 'UNLOCKED' : 'LOCKED',
-                    style: GoogleFonts.lexend(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.1,
-                      color: isUnlocked ? const Color(0xFF059669) : const Color(0xFF64748B),
-                    ),
-                  ),
-                ),
               ],
             ),
 
@@ -784,23 +783,13 @@ void showStickerPackModal(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    pack.descriptionTh.isNotEmpty ? pack.descriptionTh : pack.description,
-                    style: GoogleFonts.kanit(
+                    pack.description,
+                    style: GoogleFonts.lexend(
                       fontSize: 13,
                       color: const Color(0xFF334155),
                       height: 1.4,
                     ),
                   ),
-                  if (pack.descriptionTh.isNotEmpty && pack.description.isNotEmpty) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      pack.description,
-                      style: GoogleFonts.lexend(
-                        fontSize: 11,
-                        color: const Color(0xFF64748B),
-                      ),
-                    ),
-                  ],
                   if (isLocked) ...[
                     const SizedBox(height: 12),
                     Row(
@@ -809,7 +798,7 @@ void showStickerPackModal(
                         Expanded(
                           child: Text(
                             getStickerUnlockRequirementTitle(pack),
-                            style: GoogleFonts.kanit(
+                            style: GoogleFonts.lexend(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
                               color: const Color(0xFF8B5CF6),
@@ -844,8 +833,8 @@ void showStickerPackModal(
             const SizedBox(height: 14),
 
             Text(
-              'สติกเกอร์ทั้งหมดในแพ็ค (${pack.count} รูป)',
-              style: GoogleFonts.kanit(
+              'All stickers in pack (${pack.count})',
+              style: GoogleFonts.lexend(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
                 color: const Color(0xFF1E293B),
@@ -919,8 +908,8 @@ void showStickerPackModal(
                   ),
                 ),
                 child: Text(
-                  'ปิด (Close)',
-                  style: GoogleFonts.kanit(
+                  'Close',
+                  style: GoogleFonts.lexend(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
                   ),

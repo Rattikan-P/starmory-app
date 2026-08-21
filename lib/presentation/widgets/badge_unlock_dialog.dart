@@ -266,17 +266,6 @@ class _BadgeUnlockDialogState extends State<BadgeUnlockDialog>
                     ),
                     const SizedBox(height: 4),
 
-                    // Thai Title Subtitle
-                    if (badge.titleTh.isNotEmpty)
-                      Text(
-                        badge.titleTh,
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.kanit(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFFC084FC),
-                        ),
-                      ),
                     const SizedBox(height: 12),
 
                     // Description Box
@@ -290,11 +279,9 @@ class _BadgeUnlockDialogState extends State<BadgeUnlockDialog>
                         ),
                       ),
                       child: Text(
-                        badge.descriptionTh.isNotEmpty
-                            ? badge.descriptionTh
-                            : badge.description,
+                        badge.description,
                         textAlign: TextAlign.center,
-                        style: GoogleFonts.kanit(
+                        style: GoogleFonts.lexend(
                           fontSize: 13,
                           fontWeight: FontWeight.w400,
                           color: const Color(0xFFE2E8F0),
@@ -342,8 +329,8 @@ class _BadgeUnlockDialogState extends State<BadgeUnlockDialog>
                                 const Text('✨', style: TextStyle(fontSize: 16)),
                                 const SizedBox(width: 8),
                                 Text(
-                                  'ยอดเยี่ยม! (Awesome)',
-                                  style: GoogleFonts.kanit(
+                                  'Awesome!',
+                                  style: GoogleFonts.lexend(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w700,
                                     color: Colors.white,
