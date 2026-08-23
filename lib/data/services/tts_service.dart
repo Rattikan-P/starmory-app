@@ -114,8 +114,8 @@ class TTSService {
     _flutterTts!.speak(text);
 
     // Calculate estimated duration for fallback timeout
-    // ~150ms per character, clamped between 500ms and 3000ms
-    final estimatedMs = (text.length * 150).clamp(500, 3000);
+    // ~120ms per character, clamped between 600ms and 15000ms (to support longer sentences)
+    final estimatedMs = (text.length * 120).clamp(600, 15000);
     return Duration(milliseconds: estimatedMs);
   }
 

@@ -47,7 +47,7 @@ class _InteractiveVocabularyScreenState
 
   // TTS service
   final TTSService _ttsService = TTSService();
-  String? _playingWordId; // Track which word is currently playing
+  String? _playingAudioId; // Track which audio (word or sentence) is currently playing
   StreamSubscription? _ttsCompletionSubscription;
   StreamSubscription? _ttsErrorSubscription;
 
@@ -85,14 +85,14 @@ class _InteractiveVocabularyScreenState
     // Listen to TTS completion
     _ttsCompletionSubscription = _ttsService.onComplete.listen((_) {
       if (mounted) {
-        setState(() => _playingWordId = null);
+        setState(() => _playingAudioId = null);
       }
     });
 
     // Listen to TTS errors
     _ttsErrorSubscription = _ttsService.onError.listen((message) {
       if (mounted) {
-        setState(() => _playingWordId = null);
+        setState(() => _playingAudioId = null);
         debugPrint('TTS Error: $message');
       }
     });
@@ -1073,7 +1073,7 @@ class _InteractiveVocabularyScreenState
                             child: Padding(
                               padding: const EdgeInsets.all(4),
                               child: Icon(
-                                _playingWordId == dot.id
+                                _playingAudioId == dot.id
                                     ? Icons.stop_rounded
                                     : Icons.volume_up_rounded,
                                 size: 20,
@@ -1525,21 +1525,49 @@ class _InteractiveVocabularyScreenState
                       ),
                     ],
                   )
-                : Column(
+                : Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        firstSelectedDot.englishSentence,
-                        style: const TextStyle(
-                          fontSize: 15,
-                          color: Colors.black87,
-                          fontWeight: FontWeight.w500,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              firstSelectedDot.englishSentence,
+                              style: const TextStyle(
+                                fontSize: 15,
+                                color: Colors.black87,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              firstSelectedDot.thaiSentence,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey[700],
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 6),
-                      Text(
-                        firstSelectedDot.thaiSentence,
-                        style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: Icon(
+                          _playingAudioId == 'combined_sentence'
+                              ? Icons.stop_rounded
+                              : Icons.volume_up_rounded,
+                          size: 22,
+                        ),
+                        color: const Color(0xFF7B6EF6),
+                        onPressed: () => _playSentenceAudio(
+                          'combined_sentence',
+                          firstSelectedDot.englishSentence,
+                        ),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        visualDensity: VisualDensity.compact,
+                        tooltip: 'Read sentence',
                       ),
                     ],
                   ),
@@ -1627,8 +1655,12 @@ class _InteractiveVocabularyScreenState
                 onContextTap: () =>
                     _isRegenerating ? null : _showContextSelector(dot),
                 onAudioTap: () => _playAudio(dot),
+                onSentenceAudioTap: () => _playSentenceAudio(
+                  'sentence_${dot.id}',
+                  dot.englishSentence,
+                ),
                 isRegenerating: _isRegenerating,
-                playingWordId: _playingWordId,
+                playingAudioId: _playingAudioId,
               ),
             ],
           ),
@@ -1992,35 +2024,43 @@ class _InteractiveVocabularyScreenState
     }
   }
 
-  void _playAudio(_VocabularyDot dot) async {
-    // If clicking the same word that's playing, stop it
-    if (_playingWordId == dot.id) {
+  void _playAudio(_VocabularyDot dot) {
+    _playAudioText(dot.id, dot.word);
+  }
+
+  void _playSentenceAudio(String audioId, String sentence) {
+    _playAudioText(audioId, sentence);
+  }
+
+  void _playAudioText(String audioId, String text) async {
+    // If clicking the same audio that's playing, stop it
+    if (_playingAudioId == audioId) {
       await _ttsService.stop();
-      setState(() => _playingWordId = null);
+      setState(() => _playingAudioId = null);
       return;
     }
 
     // Stop any currently playing audio first
-    if (_playingWordId != null) {
+    if (_playingAudioId != null) {
       await _ttsService.stop();
     }
 
-    // Play pronunciation of the word
-    setState(() => _playingWordId = dot.id);
+    // Play pronunciation / audio
+    setState(() => _playingAudioId = audioId);
 
     // Set language based on englishVariant
     final language = TTSService.getLanguageCode(widget.englishVariant);
 
-    // Speak the word (returns estimated duration for fallback)
+    // Speak text (returns estimated duration for fallback)
     final estimatedDuration = _ttsService.speak(
-      dot.word,
+      text,
       language: language,
     );
 
-    // Fallback: Auto-reset after estimated duration (in case completion handler doesn't fire)
+    // Fallback: Auto-reset after estimated duration
     Future.delayed(estimatedDuration, () {
-      if (mounted && _playingWordId == dot.id) {
-        setState(() => _playingWordId = null);
+      if (mounted && _playingAudioId == audioId) {
+        setState(() => _playingAudioId = null);
       }
     });
   }
@@ -2363,16 +2403,18 @@ class _WordDetailCard extends StatelessWidget {
   final int index;
   final VoidCallback onContextTap;
   final VoidCallback onAudioTap;
+  final VoidCallback onSentenceAudioTap;
   final bool isRegenerating;
-  final String? playingWordId;
+  final String? playingAudioId;
 
   const _WordDetailCard({
     required this.dot,
     required this.index,
     required this.onContextTap,
     required this.onAudioTap,
+    required this.onSentenceAudioTap,
     this.isRegenerating = false,
-    this.playingWordId,
+    this.playingAudioId,
   });
 
   @override
@@ -2419,9 +2461,13 @@ class _WordDetailCard extends StatelessWidget {
                   ],
                 ),
               ),
-              // Audio Button
+              // Audio Button (Word pronunciation)
               IconButton(
-                icon: Icon(playingWordId == dot.id ? Icons.stop : Icons.volume_up),
+                icon: Icon(
+                  playingAudioId == dot.id
+                      ? Icons.stop_rounded
+                      : Icons.volume_up_rounded,
+                ),
                 color: isRegenerating ? Colors.grey : const Color(0xFF6C63FF),
                 onPressed: isRegenerating ? null : onAudioTap,
               ),
@@ -2461,20 +2507,48 @@ class _WordDetailCard extends StatelessWidget {
                       ),
                     ],
                   )
-                : Column(
+                : Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        dot.englishSentence,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Colors.black87,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              dot.englishSentence,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: Colors.black87,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              dot.thaiSentence,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        dot.thaiSentence,
-                        style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: Icon(
+                          playingAudioId == 'sentence_${dot.id}'
+                              ? Icons.stop_rounded
+                              : Icons.volume_up_rounded,
+                          size: 20,
+                        ),
+                        color: isRegenerating
+                            ? Colors.grey
+                            : const Color(0xFF6C63FF),
+                        onPressed: isRegenerating ? null : onSentenceAudioTap,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        visualDensity: VisualDensity.compact,
+                        tooltip: 'Read sentence',
                       ),
                     ],
                   ),
