@@ -42,6 +42,7 @@ class _InteractiveVocabularyScreenState
   late List<_VocabularyDot> _vocabularyDots;
   bool _useCombinedSentence = false;
   final Set<String> _selectedWordIds = {};
+  final Set<String> _regeneratingWordIds = {};
   bool _isRegenerating = false;
   _VocabularyDot? _selectedDotForOverlay;
 
@@ -1573,6 +1574,26 @@ class _InteractiveVocabularyScreenState
                       ),
                       const SizedBox(width: 8),
                       IconButton(
+                        icon: const Icon(
+                          Icons.refresh_rounded,
+                          size: 22,
+                        ),
+                        color: _isRegenerating
+                            ? Colors.grey
+                            : const Color(0xFF7B6EF6),
+                        onPressed: _isRegenerating
+                            ? null
+                            : () => _refreshCombinedSentence(
+                                uniqueTones,
+                                uniqueCategories,
+                              ),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        visualDensity: VisualDensity.compact,
+                        tooltip: 'Regenerate sentence',
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
                         icon: Icon(
                           _playingAudioId == 'combined_sentence'
                               ? Icons.stop_rounded
@@ -1679,7 +1700,9 @@ class _InteractiveVocabularyScreenState
                   'sentence_${dot.id}',
                   dot.englishSentence,
                 ),
+                onRegenerateSentenceTap: () => _refreshSingleSentence(dot),
                 isRegenerating: _isRegenerating,
+                isSentenceRegenerating: _regeneratingWordIds.contains(dot.id),
                 playingAudioId: _playingAudioId,
               ),
             ],
@@ -1860,6 +1883,86 @@ class _InteractiveVocabularyScreenState
     }
   }
 
+  /// Refresh/regenerate a new sentence for a single word
+  Future<void> _refreshSingleSentence(_VocabularyDot dot) async {
+    if (_isRegenerating || _regeneratingWordIds.contains(dot.id)) return;
+
+    setState(() {
+      _regeneratingWordIds.add(dot.id);
+    });
+
+    final success = await _regenerateSentence(dot.id, dot.tone, dot.category);
+
+    if (!mounted) return;
+
+    setState(() {
+      _regeneratingWordIds.remove(dot.id);
+    });
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('✓ New sentence generated for ${dot.word}'),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('✗ Failed to generate new sentence for ${dot.word}. Please try again.'),
+          backgroundColor: Colors.orange,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  /// Refresh/regenerate combined sentences for all selected words
+  Future<void> _refreshCombinedSentence(
+    List<String> uniqueTones,
+    List<String> uniqueCategories,
+  ) async {
+    if (_isRegenerating || _selectedWordIds.isEmpty) return;
+
+    setState(() {
+      _isRegenerating = true;
+    });
+
+    final tone = uniqueTones.isNotEmpty ? uniqueTones.first : 'Describe';
+    final category = uniqueCategories.isNotEmpty ? uniqueCategories.first : 'Moment';
+
+    final success = await _regenerateCombinedSentences(
+      _selectedWordIds.toList(),
+      tone,
+      category,
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      _isRegenerating = false;
+    });
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✓ New combined sentence generated'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✗ Failed to generate new combined sentence. Please try again.'),
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
   /// Regenerate sentence for a specific word with new context
   Future<bool> _regenerateSentence(
     String wordId,
@@ -1899,6 +2002,10 @@ class _InteractiveVocabularyScreenState
             thaiSentence: sentenceData.thai,
           );
         });
+        _savedIndividualSentences[dot.id] = (
+          english: sentenceData.text,
+          thai: sentenceData.thai,
+        );
         return true;
       } else {
         // Use fallback sentence
@@ -1914,6 +2021,10 @@ class _InteractiveVocabularyScreenState
             thaiSentence: thSentence,
           );
         });
+        _savedIndividualSentences[dot.id] = (
+          english: enSentence,
+          thai: thSentence,
+        );
         return false; // Return false since API didn't work
       }
     } catch (e) {
@@ -1930,6 +2041,10 @@ class _InteractiveVocabularyScreenState
           thaiSentence: thSentence,
         );
       });
+      _savedIndividualSentences[dot.id] = (
+        english: enSentence,
+        thai: thSentence,
+      );
       return false;
     }
   }
@@ -2424,7 +2539,9 @@ class _WordDetailCard extends StatelessWidget {
   final VoidCallback onContextTap;
   final VoidCallback onAudioTap;
   final VoidCallback onSentenceAudioTap;
+  final VoidCallback onRegenerateSentenceTap;
   final bool isRegenerating;
+  final bool isSentenceRegenerating;
   final String? playingAudioId;
 
   const _WordDetailCard({
@@ -2433,7 +2550,9 @@ class _WordDetailCard extends StatelessWidget {
     required this.onContextTap,
     required this.onAudioTap,
     required this.onSentenceAudioTap,
+    required this.onRegenerateSentenceTap,
     this.isRegenerating = false,
+    this.isSentenceRegenerating = false,
     this.playingAudioId,
   });
 
@@ -2488,8 +2607,10 @@ class _WordDetailCard extends StatelessWidget {
                       ? Icons.stop_rounded
                       : Icons.volume_up_rounded,
                 ),
-                color: isRegenerating ? Colors.grey : const Color(0xFF6C63FF),
-                onPressed: isRegenerating ? null : onAudioTap,
+                color: isRegenerating || isSentenceRegenerating
+                    ? Colors.grey
+                    : const Color(0xFF6C63FF),
+                onPressed: isRegenerating || isSentenceRegenerating ? null : onAudioTap,
               ),
             ],
           ),
@@ -2502,11 +2623,11 @@ class _WordDetailCard extends StatelessWidget {
               color: const Color(0xFFF6F4FF),
               borderRadius: BorderRadius.circular(18),
             ),
-            child: dot.englishSentence.isEmpty || isRegenerating
+            child: dot.englishSentence.isEmpty || isRegenerating || isSentenceRegenerating
                 ? Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      SizedBox(
+                      const SizedBox(
                         width: 20,
                         height: 20,
                         child: CircularProgressIndicator(
@@ -2555,16 +2676,35 @@ class _WordDetailCard extends StatelessWidget {
                       ),
                       const SizedBox(width: 8),
                       IconButton(
+                        icon: const Icon(
+                          Icons.refresh_rounded,
+                          size: 20,
+                        ),
+                        color: isRegenerating || isSentenceRegenerating
+                            ? Colors.grey
+                            : const Color(0xFF6C63FF),
+                        onPressed: isRegenerating || isSentenceRegenerating
+                            ? null
+                            : onRegenerateSentenceTap,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        visualDensity: VisualDensity.compact,
+                        tooltip: 'Regenerate sentence',
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
                         icon: Icon(
                           playingAudioId == 'sentence_${dot.id}'
                               ? Icons.stop_rounded
                               : Icons.volume_up_rounded,
                           size: 20,
                         ),
-                        color: isRegenerating
+                        color: isRegenerating || isSentenceRegenerating
                             ? Colors.grey
                             : const Color(0xFF6C63FF),
-                        onPressed: isRegenerating ? null : onSentenceAudioTap,
+                        onPressed: isRegenerating || isSentenceRegenerating
+                            ? null
+                            : onSentenceAudioTap,
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
                         visualDensity: VisualDensity.compact,
