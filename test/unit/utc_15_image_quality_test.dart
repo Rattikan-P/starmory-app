@@ -103,7 +103,7 @@ void main() {
         // Expected output matching test plan:
         final expected = {
           'qualityValid': false,
-          'message': 'Image resolution is too low (89×86 = 0.01MP). Minimum 0.25MP required.',
+          'message': 'Image resolution is too low (89×86 = 0.01MP). Minimum 0.04MP required.',
           'options': ['Cancel', 'Try Again'],
           'quotaDeducted': false,
         };
@@ -182,16 +182,16 @@ void main() {
 
     group('Resolution Thresholds', () {
       test('Minimum total pixels threshold is correct', () {
-        expect(ImageClarityChecker.minTotalPixels, equals(230400)); // 0.25MP
+        expect(ImageClarityChecker.minTotalPixels, equals(40000)); // 0.04MP
       });
 
       test('Minimum dimension threshold is correct', () {
-        expect(ImageClarityChecker.minAnyDimension, equals(200)); // 200px
+        expect(ImageClarityChecker.minAnyDimension, equals(150)); // 150px
       });
 
       test('Image exactly at minimum threshold passes', () async {
-        // Arrange - Image with exactly 230400 pixels (480x480)
-        final testImage = _createTestImage(width: 480, height: 480, clear: true);
+        // Arrange - Image with exactly 40000 pixels (200x200)
+        final testImage = _createTestImage(width: 200, height: 200, clear: true);
         final bytes = Uint8List.fromList(img.encodePng(testImage));
 
         // Act
@@ -202,8 +202,8 @@ void main() {
       });
 
       test('Image below minimum dimension fails', () async {
-        // Arrange - Image with width < 200px
-        final testImage = _createTestImage(width: 150, height: 500, clear: true);
+        // Arrange - Image with width < 150px
+        final testImage = _createTestImage(width: 120, height: 500, clear: true);
         final bytes = Uint8List.fromList(img.encodePng(testImage));
 
         // Act
@@ -217,7 +217,7 @@ void main() {
 
     group('Blur Detection Thresholds', () {
       test('Blur threshold constant is defined', () {
-        expect(ImageClarityChecker.blurThreshold, equals(100.0));
+        expect(ImageClarityChecker.blurThreshold, equals(60.0));
       });
 
       test('getQualityDescription returns correct descriptions', () {

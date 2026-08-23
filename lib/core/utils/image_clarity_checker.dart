@@ -38,23 +38,23 @@ class ImageClarityResult {
     return ImageClarityResult(
       isClear: false,
       clarityScore: 0.0,
-      message: 'Image resolution is too low ($width×$height = ${(totalPixels / 1000000).toStringAsFixed(2)}MP). Minimum 0.25MP required.',
+      message: 'Image resolution is too low ($width×$height = ${(totalPixels / 1000000).toStringAsFixed(2)}MP). Minimum 0.04MP required.',
     );
   }
 }
 
 /// Checks image clarity and blur detection
 class ImageClarityChecker {
-  /// Minimum total pixels (0.25 megapixels = 230,400 pixels)
+  /// Minimum total pixels (0.04 megapixels = 40,000 pixels)
   /// This allows for landscape/portrait images while ensuring enough detail
-  static const int minTotalPixels = 230400;
+  static const int minTotalPixels = 40000;
 
   /// Minimum dimension for any side (prevents tiny thumbnails)
-  static const int minAnyDimension = 200;
+  static const int minAnyDimension = 150;
 
   /// Laplacian variance threshold for blur detection
   /// Lower values indicate more blur
-  static const double blurThreshold = 100.0;
+  static const double blurThreshold = 60.0;
 
   /// Check image clarity from file path
   static Future<ImageClarityResult> checkFromFile(String imagePath) async {
