@@ -21,19 +21,19 @@ class GeminiService {
 
   GeminiService({String? apiKey})
     : _primaryVisionModel = GenerativeModel(
-        model: 'gemini-3.6-flash-preview',
+        model: 'gemini-3.5-flash-lite',
         apiKey: apiKey ?? AppConstants.geminiApiKey,
       ),
       _fallbackVisionModel = GenerativeModel(
-        model: 'gemini-3-flash',
+        model: 'gemini-3.5-flash',
         apiKey: apiKey ?? AppConstants.geminiApiKey,
       ),
       _primaryTextModel = GenerativeModel(
-        model: 'gemini-3.6-flash-preview',
+        model: 'gemini-3.5-flash-lite',
         apiKey: apiKey ?? AppConstants.geminiApiKey,
       ),
       _fallbackTextModel = GenerativeModel(
-        model: 'gemini-3-flash',
+        model: 'gemini-3.5-flash',
         apiKey: apiKey ?? AppConstants.geminiApiKey,
       );
 
