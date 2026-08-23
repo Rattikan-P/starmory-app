@@ -975,8 +975,11 @@ class _InteractiveVocabularyScreenState
 
     // Calculate overlay position (show below the dot)
     const dotSize = 34.0;
-    const overlayWidth = 140.0;
-    const overlayHeight = 120.0;
+    const overlayWidth = 156.0;
+    const overlayHeight = 110.0;
+    const borderRadius = 16.0;
+    const arrowWidth = 16.0;
+    const arrowHeight = 8.0;
 
     double overlayX = displayedX - overlayWidth / 2;
     double overlayY = displayedY + dotSize / 2 + 8;
@@ -993,9 +996,7 @@ class _InteractiveVocabularyScreenState
     // Check if overlay would go below the bottom sheet
     if (overlayY > maxBottomY) {
       // Show overlay ABOVE the dot instead
-      // Position so triangle tip is closer to the dot (reduce gap)
-      // Adding 16px to bring it closer than before
-      overlayY = displayedY - dotSize / 2 - overlayHeight + 24;
+      overlayY = displayedY - dotSize / 2 - overlayHeight + 20;
       showAboveDot = true;
     } else {
       // Keep overlay within vertical bounds (normal case - below dot)
@@ -1005,12 +1006,12 @@ class _InteractiveVocabularyScreenState
     // Calculate horizontal bounds - keep overlay within screen
     overlayX = overlayX.clamp(8.0, containerWidth - overlayWidth - 8);
 
-    // Calculate triangle offset - it should align with the dot position
-    // The dot is at displayedX, overlay starts at overlayX
-    // Triangle center should be at (displayedX - overlayX) relative to overlay
+    // Calculate triangle offset - strictly clamped to the flat edge of the card
+    // so the arrow base never floats over the rounded corners
     double triangleRelativeX = displayedX - overlayX;
-    // Clamp to keep triangle within reasonable bounds (not at extreme edges)
-    triangleRelativeX = triangleRelativeX.clamp(12.0, overlayWidth - 12.0);
+    final minTriangleX = borderRadius + (arrowWidth / 2);
+    final maxTriangleX = overlayWidth - borderRadius - (arrowWidth / 2);
+    triangleRelativeX = triangleRelativeX.clamp(minTriangleX, maxTriangleX);
 
     return Positioned(
       left: overlayX,
@@ -1024,13 +1025,14 @@ class _InteractiveVocabularyScreenState
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               // Triangle arrow - position based on whether overlay is above or below dot
+              // Shift by 1px into card edge to eliminate any subpixel/hairline separation
               if (!showAboveDot)
                 Transform.translate(
-                  offset: Offset(triangleRelativeX - overlayWidth / 2, 0),
+                  offset: Offset(triangleRelativeX - overlayWidth / 2, 1.0),
                   child: CustomPaint(
-                    size: const Size(16, 8),
+                    size: const Size(arrowWidth, arrowHeight),
                     painter: _TrianglePainter(
-                      color: Colors.white.withValues(alpha: 0.9),
+                      color: Colors.white.withValues(alpha: 0.95),
                       pointDown: false, // Pointing up (triangle at top)
                     ),
                   ),
@@ -1038,13 +1040,13 @@ class _InteractiveVocabularyScreenState
               Material(
                 elevation: 8,
                 color: Colors.transparent,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(borderRadius),
                 child: Container(
                   width: overlayWidth,
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.9),
-                    borderRadius: BorderRadius.circular(16),
+                    color: Colors.white.withValues(alpha: 0.95),
+                    borderRadius: BorderRadius.circular(borderRadius),
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -1054,15 +1056,18 @@ class _InteractiveVocabularyScreenState
                       Row(
                         children: [
                           Expanded(
-                            child: Text(
-                              dot.word,
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF7B6EF6),
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                dot.word,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF7B6EF6),
+                                ),
+                                maxLines: 1,
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           const SizedBox(width: 4),
@@ -1085,16 +1090,19 @@ class _InteractiveVocabularyScreenState
                       ),
                       const SizedBox(height: 2),
 
-                      // Thai Translation
-                      Text(
-                        dot.thaiTranslation,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.grey[700],
+                      // Thai Translation with auto-scaling
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          dot.thaiTranslation,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.grey[700],
+                          ),
+                          maxLines: 1,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
@@ -1102,11 +1110,11 @@ class _InteractiveVocabularyScreenState
               ),
               if (showAboveDot)
                 Transform.translate(
-                  offset: Offset(triangleRelativeX - overlayWidth / 2, 0),
+                  offset: Offset(triangleRelativeX - overlayWidth / 2, -1.0),
                   child: CustomPaint(
-                    size: const Size(16, 8),
+                    size: const Size(arrowWidth, arrowHeight),
                     painter: _TrianglePainter(
-                      color: Colors.white.withValues(alpha: 0.9),
+                      color: Colors.white.withValues(alpha: 0.95),
                       pointDown: true, // Pointing down (triangle at bottom)
                     ),
                   ),
@@ -1370,25 +1378,37 @@ class _InteractiveVocabularyScreenState
         separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
           final dot = selectedDots[index];
-          return Chip(
-            backgroundColor: const Color(0xFFF1EEFF),
+          final isOverlayActive = _selectedDotForOverlay?.id == dot.id;
 
+          return InputChip(
+            backgroundColor: isOverlayActive
+                ? const Color(0xFFE9E5FF)
+                : const Color(0xFFF1EEFF),
+            selected: isOverlayActive,
+            selectedColor: const Color(0xFFE9E5FF),
+            showCheckmark: false,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(18),
+              side: isOverlayActive
+                  ? const BorderSide(color: Color(0xFF7B6EF6), width: 1.5)
+                  : BorderSide.none,
             ),
-
-            side: BorderSide.none,
-
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-
-            labelStyle: const TextStyle(
-              color: Color(0xFF2D2A4A),
+            labelStyle: TextStyle(
+              color: isOverlayActive
+                  ? const Color(0xFF7B6EF6)
+                  : const Color(0xFF2D2A4A),
               fontWeight: FontWeight.w600,
             ),
-
             label: Text(dot.word),
-
             deleteIcon: const Icon(Icons.close, size: 18),
+            deleteIconColor: isOverlayActive
+                ? const Color(0xFF7B6EF6)
+                : const Color(0xFF8B87A6),
+            onPressed: () {
+              // Open overlay for this word, just like tapping the dot on the image
+              _showWordOverlay(dot);
+            },
             onDeleted: () => _toggleWordSelection(dot.id),
           );
         },
