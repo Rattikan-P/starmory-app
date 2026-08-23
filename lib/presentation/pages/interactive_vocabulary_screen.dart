@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'dart:io';
 import 'dart:typed_data';
@@ -124,7 +125,6 @@ class _InteractiveVocabularyScreenState
         final item = entry.value;
         final index = entry.key;
         final bbox = item.boundingBox;
-        final (x, y) = bbox.center;
 
         // Generate unique ID (timestamp + index to guarantee no duplicates)
         final uniqueId = '${DateTime.now().millisecondsSinceEpoch}_$index';
@@ -134,14 +134,20 @@ class _InteractiveVocabularyScreenState
           word: item.word,
           thaiTranslation: item.thai,
           partOfSpeech: item.type,
-          x: x,
-          y: y,
+          // Use AI's direct center_point (primary) instead of bbox center
+          x: item.centerX,
+          y: item.centerY,
           // Use pre-generated sentences if available, otherwise empty
           englishSentence: item.englishSentence ?? '',
           thaiSentence: item.thaiSentence ?? '',
           tone: defaultTone,
           category: defaultCategory,
           topic: item.topic,
+          // Debug: store original bounding box from AI
+          bboxXMin: bbox.xMin,
+          bboxYMin: bbox.yMin,
+          bboxXMax: bbox.xMax,
+          bboxYMax: bbox.yMax,
         );
       }).toList();
 
@@ -169,27 +175,47 @@ class _InteractiveVocabularyScreenState
     }
   }
 
-  /// Fix overlapping coordinates by slightly offsetting dots at the same position
+  /// Fix overlapping coordinates so dots never visually touch/stick together
   void _fixOverlappingCoordinates() {
-    const tolerance = 0.01; // Tolerance for considering coordinates as "same"
-    const offset = 0.03; // Small offset to apply (3% of image size)
+    const minDistance = 0.045; // Minimum distance between dot centers (~36px) to prevent touching
+    const iterations = 2; // Relaxation passes
 
-    for (var i = 0; i < _vocabularyDots.length; i++) {
-      for (var j = i + 1; j < _vocabularyDots.length; j++) {
-        final dot1 = _vocabularyDots[i];
-        final dot2 = _vocabularyDots[j];
+    for (var pass = 0; pass < iterations; pass++) {
+      for (var i = 0; i < _vocabularyDots.length; i++) {
+        for (var j = i + 1; j < _vocabularyDots.length; j++) {
+          final dot1 = _vocabularyDots[i];
+          final dot2 = _vocabularyDots[j];
 
-        // Check if coordinates are the same (within tolerance)
-        if ((dot1.x - dot2.x).abs() < tolerance &&
-            (dot1.y - dot2.y).abs() < tolerance) {
-          // Offset dot2 slightly in different directions based on index
-          final offsetX = (j % 3 + 1) * offset * 0.5;
-          final offsetY = (j % 3 + 1) * offset * 0.5;
+          double dx = dot2.x - dot1.x;
+          double dy = dot2.y - dot1.y;
+          double dist = math.sqrt(dx * dx + dy * dy);
 
-          _vocabularyDots[j] = dot2.copyWith(
-            x: (dot2.x + offsetX).clamp(0.0, 1.0),
-            y: (dot2.y + offsetY).clamp(0.0, 1.0),
-          );
+          // If dots are closer than minDistance (or at the exact same spot)
+          if (dist < minDistance) {
+            // Handle overlapping dots at identical coordinates
+            if (dist < 0.001) {
+              final angle = (j * 1.047); // Spread evenly around circle
+              dx = math.cos(angle) * 0.02;
+              dy = math.sin(angle) * 0.02;
+              dist = 0.02;
+            }
+
+            // Calculate required push distance to achieve minDistance gap
+            final overlap = (minDistance - dist) / 2.0;
+            final nx = dx / dist; // Unit vector X
+            final ny = dy / dist; // Unit vector Y
+
+            // Push dot1 backward and dot2 forward along line connecting their centers
+            _vocabularyDots[i] = dot1.copyWith(
+              x: (dot1.x - nx * overlap).clamp(0.05, 0.95),
+              y: (dot1.y - ny * overlap).clamp(0.05, 0.95),
+            );
+
+            _vocabularyDots[j] = dot2.copyWith(
+              x: (dot2.x + nx * overlap).clamp(0.05, 0.95),
+              y: (dot2.y + ny * overlap).clamp(0.05, 0.95),
+            );
+          }
         }
       }
     }
@@ -1092,34 +1118,44 @@ class _InteractiveVocabularyScreenState
     );
   }
 
-  /// Get original image dimensions with timeout and error handling
+  /// Get original image dimensions with timeout and EXIF orientation handling
   Future<Size?> _getImageDimensions() async {
     try {
-      // Check if file exists first
       final file = File(widget.imagePath);
       if (!await file.exists()) {
         debugPrint('❌ File not found: ${widget.imagePath}');
         throw FileSystemException('File not found', widget.imagePath);
       }
 
-      // Add timeout to prevent infinite loading
-      final bytes = await file.readAsBytes().timeout(
-        const Duration(seconds: 10),
-        onTimeout: () {
-          debugPrint('⏱️ Image reading timeout');
-          throw TimeoutException('Image reading timeout');
+      final completer = Completer<ImageInfo>();
+      final imageStream = FileImage(file).resolve(const ImageConfiguration());
+      final listener = ImageStreamListener(
+        (ImageInfo info, bool _) {
+          if (!completer.isCompleted) {
+            completer.complete(info);
+          }
+        },
+        onError: (dynamic error, StackTrace? stackTrace) {
+          if (!completer.isCompleted) {
+            completer.completeError(error);
+          }
         },
       );
+      imageStream.addListener(listener);
 
-      final decodedImage = await decodeImageFromList(bytes).timeout(
+      final info = await completer.future.timeout(
         const Duration(seconds: 5),
         onTimeout: () {
-          debugPrint('⏱️ Image decoding timeout');
+          imageStream.removeListener(listener);
           throw TimeoutException('Image decoding timeout');
         },
       );
+      imageStream.removeListener(listener);
 
-      return Size(decodedImage.width.toDouble(), decodedImage.height.toDouble());
+      return Size(
+        info.image.width.toDouble(),
+        info.image.height.toDouble(),
+      );
     } catch (e) {
       debugPrint('❌ Error getting image dimensions: $e');
       return null;
@@ -2516,6 +2552,11 @@ class _VocabularyDot {
   final String tone;
   final String category;
   final String topic;
+  // Debug: original bounding box from AI
+  final double? bboxXMin;
+  final double? bboxYMin;
+  final double? bboxXMax;
+  final double? bboxYMax;
 
   _VocabularyDot({
     required this.id,
@@ -2529,6 +2570,10 @@ class _VocabularyDot {
     required this.tone,
     required this.category,
     required this.topic,
+    this.bboxXMin,
+    this.bboxYMin,
+    this.bboxXMax,
+    this.bboxYMax,
   });
 
   _VocabularyDot copyWith({
@@ -2543,6 +2588,10 @@ class _VocabularyDot {
     String? tone,
     String? category,
     String? topic,
+    double? bboxXMin,
+    double? bboxYMin,
+    double? bboxXMax,
+    double? bboxYMax,
   }) {
     return _VocabularyDot(
       id: id ?? this.id,
@@ -2556,6 +2605,10 @@ class _VocabularyDot {
       tone: tone ?? this.tone,
       category: category ?? this.category,
       topic: topic ?? this.topic,
+      bboxXMin: bboxXMin ?? this.bboxXMin,
+      bboxYMin: bboxYMin ?? this.bboxYMin,
+      bboxXMax: bboxXMax ?? this.bboxXMax,
+      bboxYMax: bboxYMax ?? this.bboxYMax,
     );
   }
 }

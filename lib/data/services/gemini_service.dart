@@ -91,11 +91,24 @@ class GeminiService {
           rethrow;
         }
 
-        debugPrint(
-          '⚠️ Retry $attempts/$maxRetries after ${delay.inSeconds}s (switching to fallback model) due to: $e',
-        );
-        await Future.delayed(delay);
-        delay *= 2; // Exponential backoff (3s -> 6s -> 12s)
+        final errorStrLower = e.toString().toLowerCase();
+        final isSyntaxOrNotFound = e is FormatException ||
+            e is TypeError ||
+            errorStrLower.contains('not found') ||
+            errorStrLower.contains('not supported') ||
+            errorStrLower.contains('404');
+
+        if (isSyntaxOrNotFound) {
+          debugPrint(
+            '⚠️ Retry $attempts/$maxRetries (instant fallback model switch) due to: $e',
+          );
+        } else {
+          debugPrint(
+            '⚠️ Retry $attempts/$maxRetries after ${delay.inSeconds}s (switching to fallback model) due to: $e',
+          );
+          await Future.delayed(delay);
+          delay *= 2; // Exponential backoff (3s -> 6s -> 12s)
+        }
       }
     }
   }
@@ -103,15 +116,19 @@ class GeminiService {
   /// Check if error is retryable
   bool _isRetryableError(dynamic error) {
     if (error is TimeoutException) return true;
-    // FormatException from incomplete JSON is retryable (AI sometimes truncates output)
+    // FormatException and TypeError from incomplete JSON or bad types are retryable
     if (error is FormatException) return true;
+    if (error is TypeError) return true;
     final errorStr = error.toString().toLowerCase();
     return errorStr.contains('503') ||
         errorStr.contains('429') ||
         errorStr.contains('unavailable') ||
         errorStr.contains('timeout') ||
         errorStr.contains('network') ||
-        errorStr.contains('socket');
+        errorStr.contains('socket') ||
+        errorStr.contains('not found') ||
+        errorStr.contains('not supported') ||
+        errorStr.contains('404');
   }
 
   /// Check if returned words match requested words (case-insensitive)
@@ -340,14 +357,17 @@ Analyze the image and extract exactly 5 vocabulary items with bounding boxes.
 $topicPrompt
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 WORD EXTRACTION RULES
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Identify exactly 5 vocabulary items: a mix of nouns (objects) and verbs (visible actions).
+Identify EXACTLY 5 vocabulary items: a mix of nouns (objects) and verbs (visible actions).
 
 Noun items
-• Clearly visible, tangible physical objects
-• Each from a different noun category
-• One bounding box per object; pick the most prominent instance
+• MUST be clearly visible, prominent FOREGROUND physical objects.
+• STRICTLY NO BORDER-EDGE OR CUT-OFF OBJECTS: DO NOT pick objects (e.g. plants, cups, food) that are cut off, cropped, or located near the borders/edges of the photo frame (e.g. x < 0.10 or x > 0.90 or y < 0.10 or y > 0.90). All selected objects MUST be comfortably contained within the main central area of the frame.
+• STRICTLY UN-OCCLUDED: DO NOT pick objects (e.g. bowls, plates, cutlery) that are occluded, covered, or hidden behind other objects or clutter.
+• Each from a different noun category when possible.
+• One bounding box per object; pick the most prominent, unobstructed instance.
 
 Verb items
 • Must be a visible action actively occurring in the image
@@ -355,8 +375,9 @@ Verb items
 • Minimum 1 verb, maximum 3 verbs across the 5 items
 • If no action is visible → all 5 items are nouns
 
-Combined rule: Nouns + verbs = exactly 5 items total, no duplicates.
-Exclude: shadows, lighting effects, abstract concepts, background blur, implied or off-screen actions.
+Combined rule: Nouns + verbs = EXACTLY 5 items total.
+CRITICAL QUANTITY GUARANTEE: You MUST ALWAYS return EXACTLY 5 items. Never return fewer than 5 items (e.g. 3 or 4). If there are not enough items matching the target category, fill the remaining slots with any prominent, clearly visible foreground objects in the image.
+Exclude: cut-off or border-edge objects, occluded or hidden objects, shadows, lighting effects, abstract concepts, background blur, implied or off-screen actions.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 WORD RULES
@@ -398,14 +419,62 @@ Context interpretation:
   → fall back to visible items + level only
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-BOUNDING BOX RULES
+OBJECT LOCATION RULES
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+You MUST provide a "center_point" for each vocabulary item.
+This point will be used as the interactive tap dot on the image.
+
+center_point format:
+• "cx": horizontal position, normalized 0.0 (left edge) to 1.0 (right edge)
+• "cy": vertical position, normalized 0.0 (top edge) to 1.0 (bottom edge)
+
+CRITICAL PLACEMENT RULES:
+
+Rule 1 — VISIBLE SURFACE ONLY:
+The center_point MUST land on a part of the object that is CLEARLY VISIBLE and NOT covered by anything.
+• ✅ Tap the EXPOSED area that a user can actually see and recognize
+• ❌ NEVER place on the geometric center if something else covers that area
+
+Rule 2 — BASE & SURFACE OBJECTS (table, desk, counter, floor, wall, plate, tray):
+• DO NOT draw a bounding box around the whole image for a table/surface!
+• Instead, choose a SPECIFIC EXPOSED/BARE PATCH of the surface (e.g., bare wood grain at the bottom-left or bottom-right corner).
+• The center_point and bounding_box MUST be placed on that bare patch — NEVER on cups, plates, food, or items sitting on top!
+
+Rule 3 — OCCLUDED & STACKED OBJECTS (saucer under cup, chair near table, food in bowl):
+When the object's center is covered by another object, SHIFT the point to the nearest EXPOSED surface:
+• chair / armchair / stool near a table → The table cuts across the inner edge of the chair! Place center_point on the EXPOSED SEAT CUSHION, ARMREST, or BACKREST (on the outer side, away from the table edge), NEVER on the table surface!
+• bowl / plate / dish filled with food → The food occupies the whole center! Place center_point ON THE EXPOSED CERAMIC RIM / EDGE (near the bottom or side of the dish), NOT on the food/salad inside!
+• cup / mug / glass / bowl with liquid/drink inside → The liquid is in the top opening! Place center_point on the CERAMIC / GLASS BODY (the outer wall in the lower half of the cup), NOT on the liquid/coffee surface!
+• saucer / coaster with cup on top → The cup sits in the center! Place center_point AT THE BOTTOM CURVED RIM of the saucer (near the bottom edge of the saucer box) — NEVER inside the cup body!
+• cutting board with food → tap the EXPOSED WOODEN HANDLE or bare edge
+
+Rule 4 — VERBS & ACTIONS (feed, reach, hold, stretch, look, stand, eat, drink, talk):
+• For verbs, the action is performed by a person/subject in the photo!
+• Place the center_point and bounding_box DIRECTLY ON THE PERSON / BODY PART / SUBJECT performing the action:
+  - "feed" / "reach" / "stretch" → place on the outstretched ARM or HAND
+  - "look" / "smile" → place on the FACE or HEAD
+  - "stand" / "walk" → place on the BODY of the standing/walking subject
+• ❌ NEVER return (0.0, 0.0) or an empty/degenerate box for a verb!
+
+Rule 5 — CLUSTERS, PLANTS & GROUPS (balloons, plants, flowers, trees, lights):
+• For plants, trees, or foliage (e.g. potted plant on the side, rosemary in a pot):
+  - Place the center_point and bounding_box directly on the CLEARLY VISIBLE GREEN LEAVES or flower bloom (on the left or right side)!
+  - ❌ NEVER return (0,0) or stick to the top-left edge!
+• For groups or arches of items (e.g. balloon arch, bouquet):
+  - Pick ONE PROMINENT, CLEARLY VISIBLE ITEM in the cluster (e.g. one bright balloon) and place the center_point directly on it!
+
+Rule 6 — STANDALONE OBJECTS (nothing blocking):
+For fully visible objects (e.g. a cup, a book), place the point at the object's visual center.
+
+Rule 7 — SAFE BOUNDS & SPREAD:
+• Each point MUST be within 0.05–0.95 range (not at extreme edges)
+• No two center_points should be closer than 0.04 from each other
+
+You also MUST provide a "bounding_box" for each item:
 • Normalized coordinates 0.0–1.0
-• (x_min, y_min) = top-left corner
-• (x_max, y_max) = bottom-right corner
+• (x_min, y_min) = top-left corner, (x_max, y_max) = bottom-right corner
 • x_min < x_max and y_min < y_max
-• Nouns → box wraps the object itself
-• Verbs → box wraps the subject performing the action
+• For surfaces (table/floor), wrap only the exposed patch, NOT the whole scene!
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 OUTPUT FORMAT
@@ -421,17 +490,21 @@ Return strictly valid JSON only — no markdown, no explanation, no extra text.
       "type": "noun" | "verb",
       "thai": "string",
       "topic": "string",
+      "center_point": {
+        "cx": 0.35,
+        "cy": 0.72
+      },
       "bounding_box": {
-        "x_min": 0.0,
-        "y_min": 0.0,
-        "x_max": 1.0,
-        "y_max": 1.0
+        "x_min": 0.25,
+        "y_min": 0.60,
+        "x_max": 0.45,
+        "y_max": 0.84
       }
     }
   ]
 }
 
-Return exactly 5 items. Each item MUST have its own topic field.''';
+Return EXACTLY 5 items. Each item MUST have its own topic field.''';
 
     // User prompt with just the parameters
     final excludeWordsText = excludeWords.isNotEmpty
@@ -487,6 +560,11 @@ Extract exactly 5 vocabulary items from the image.''');
       final text = response.text ?? '';
       var result = VocabularyExtractionResult.fromJson(text);
 
+      if (result.vocabList.length < 5) {
+        debugPrint('⚠️ AI returned only ${result.vocabList.length} items instead of requested 5. Retrying...');
+        throw FormatException('AI returned only ${result.vocabList.length} items instead of requested 5');
+      }
+
       // Apply post-processing to fix topic categorization
       result = result.copyWith(
         vocabList: result.vocabList.map((item) {
@@ -496,6 +574,161 @@ Extract exactly 5 vocabulary items from the image.''');
           return item.copyWith(topic: fixedTopic);
         }).toList(),
       );
+
+      // Seating vs Table adjustment (chair, armchair, stool, bench, sofa near a table):
+      // When a chair is tucked beside a table, the inner side of the chair's bbox is covered by the table.
+      // Shift the chair's dot towards the outer exposed seat cushion/backrest (away from table).
+      const seatingWords = {'chair', 'armchair', 'stool', 'bench', 'sofa', 'couch'};
+      const tableWords = {'table', 'desk', 'counter', 'countertop'};
+      final tableItems = result.vocabList.where((v) => tableWords.contains(v.word.toLowerCase())).toList();
+
+      if (tableItems.isNotEmpty) {
+        final tableItem = tableItems.first;
+        result = result.copyWith(
+          vocabList: result.vocabList.map((item) {
+            if (seatingWords.contains(item.word.toLowerCase()) && item.centerX >= 0) {
+              final chairWidth = item.boundingBox.xMax - item.boundingBox.xMin;
+              if (chairWidth > 0.10) {
+                if (tableItem.centerX > item.centerX) {
+                  // Table is to the right -> place chair dot on the left side of chair (outer cushion)
+                  final outerX = item.boundingBox.xMin + chairWidth * 0.32;
+                  if (item.centerX > outerX) {
+                    debugPrint('⚠️ Chair "${item.word}" dot (${item.centerX.toStringAsFixed(2)}) was near table (${tableItem.centerX.toStringAsFixed(2)}) — shifting left to outer cushion (${outerX.toStringAsFixed(2)})');
+                    return item.copyWith(centerX: outerX);
+                  }
+                } else {
+                  // Table is to the left -> place chair dot on the right side of chair
+                  final outerX = item.boundingBox.xMax - chairWidth * 0.32;
+                  if (item.centerX < outerX) {
+                    debugPrint('⚠️ Chair "${item.word}" dot (${item.centerX.toStringAsFixed(2)}) was near table (${tableItem.centerX.toStringAsFixed(2)}) — shifting right to outer cushion (${outerX.toStringAsFixed(2)})');
+                    return item.copyWith(centerX: outerX);
+                  }
+                }
+              }
+            }
+            return item;
+          }).toList(),
+        );
+      }
+
+      // Print extracted vocabulary to console
+      debugPrint('────────── EXTRACTED VOCABULARY (${result.vocabList.length} ITEMS) ──────────');
+      for (int i = 0; i < result.vocabList.length; i++) {
+        final item = result.vocabList[i];
+        final (bboxCx, bboxCy) = item.boundingBox.center;
+        final cpX = (item.centerX * 100).toStringAsFixed(1);
+        final cpY = (item.centerY * 100).toStringAsFixed(1);
+        final bpX = (bboxCx * 100).toStringAsFixed(1);
+        final bpY = (bboxCy * 100).toStringAsFixed(1);
+        debugPrint('  ${i + 1}. ${item.word} (${item.type}) → ${item.thai} [Topic: ${item.topic}] Center: ($cpX%, $cpY%) BBox: ($bpX%, $bpY%)');
+      }
+      debugPrint('────────────────────────────────────────────────────────────');
+
+      // Coordinate sanity check: detect when AI returns all dots stacked at the same x or y
+      final validItems = result.vocabList.where((v) => v.centerX >= 0).toList();
+
+      if (validItems.isNotEmpty) {
+        final cxValues = validItems.map((v) => v.centerX).toList()..sort();
+        final cyValues = validItems.map((v) => v.centerY).toList()..sort();
+        final cxRange = cxValues.last - cxValues.first;
+        final cyRange = cyValues.last - cyValues.first;
+
+        // If ALL valid dots are truly stacked in a razor-thin degenerate line (<3%) or tiny clump (<4%), retry
+        final isTrulyStacked = (cxRange < 0.04 && cyRange < 0.04) || (cxRange < 0.03) || (cyRange < 0.03);
+        if (validItems.length >= 4 && isTrulyStacked) {
+          debugPrint('⚠️ Coordinates look broken: all dots stacked! cx range=${(cxRange * 100).toStringAsFixed(1)}%, cy range=${(cyRange * 100).toStringAsFixed(1)}%. Retrying...');
+          throw FormatException(
+            'AI returned stacked coordinates (cx range: ${(cxRange * 100).toStringAsFixed(1)}%, cy range: ${(cyRange * 100).toStringAsFixed(1)}%). Retrying for better spatial accuracy.',
+          );
+        }
+      }
+
+      // Fix broken items: handle per-axis coordinate repair
+      final hasAnyBroken = result.vocabList.any((v) => v.centerX < 0 || v.centerY < 0);
+      if (hasAnyBroken) {
+        final brokenCount = result.vocabList.where((v) => v.centerX < 0 || v.centerY < 0).length;
+        debugPrint('🔧 Fixing $brokenCount item(s) with broken coordinates...');
+
+        // Collect all existing valid 2D positions
+        final validDots = result.vocabList
+            .where((v) => v.centerX >= 0 && v.centerY >= 0)
+            .map((v) => (v.centerX, v.centerY))
+            .toList();
+
+        const upperWords = {'balloon', 'balloons', 'banner', 'cloud', 'sky', 'ceiling', 'lamp', 'light', 'chandelier', 'sun', 'moon', 'star', 'garland'};
+        const plantWords = {'plant', 'plants', 'tree', 'trees', 'flower', 'flowers', 'leaf', 'leaves', 'bush', 'shrub', 'rosemary', 'succulent', 'houseplant', 'foliage', 'branch', 'stem', 'herb', 'herbs'};
+        const boardWords = {'board', 'cutting board', 'wooden board', 'charcuterie board', 'tray', 'platter'};
+        const surfaceWords = {'table', 'desk', 'counter', 'countertop', 'floor', 'ground', 'tablecloth', 'rug', 'carpet', 'grass', 'bowl', 'plate', 'dish', 'saucer'};
+
+        final fixedList = result.vocabList.map((item) {
+          if (item.centerX >= 0 && item.centerY >= 0) return item; // Fully valid
+
+          var fixedCx = item.centerX;
+          var fixedCy = item.centerY;
+          final wordLower = item.word.toLowerCase();
+          final isUpper = upperWords.contains(wordLower);
+          final isPlant = plantWords.contains(wordLower);
+          final isBoard = boardWords.contains(wordLower);
+          final isSurface = surfaceWords.contains(wordLower);
+
+          // Fix broken Y: upper words to top (0.22), plant to mid-upper (0.30), board to handle level (0.35), surface to bottom (0.85), others to mid (0.45)
+          if (fixedCy < 0) {
+            if (isUpper) {
+              fixedCy = 0.22;
+            } else if (isPlant) {
+              fixedCy = 0.30;
+            } else if (isBoard) {
+              fixedCy = 0.35;
+            } else if (isSurface) {
+              fixedCy = 0.85;
+            } else {
+              fixedCy = 0.45;
+            }
+          }
+
+          // Fix broken X: test candidate X positions at fixedCy to find an open area
+          if (fixedCx < 0) {
+            final testXCandidates = isUpper
+                ? [0.70, 0.30, 0.85, 0.15, 0.50]
+                : (isPlant
+                    ? [0.18, 0.82, 0.12, 0.88, 0.25, 0.75] // Potted plants/leaves on the sides
+                    : (isBoard
+                        ? [0.08, 0.88, 0.12, 0.82] // Wooden handle or outer wood rim
+                        : (isSurface
+                            ? [0.15, 0.85, 0.25, 0.75, 0.35, 0.65, 0.50]
+                            : [0.50, 0.30, 0.70, 0.20, 0.80, 0.15, 0.85])));
+
+            for (final testX in testXCandidates) {
+              final tooClose = validDots.any((v) {
+                final dx = v.$1 - testX;
+                final dy = v.$2 - fixedCy;
+                return (dx * dx + dy * dy) < (0.12 * 0.12);
+              });
+              if (!tooClose) {
+                fixedCx = testX;
+                break;
+              }
+            }
+            if (fixedCx < 0) fixedCx = testXCandidates.first;
+            validDots.add((fixedCx, fixedCy));
+          }
+
+          debugPrint('  → Fixed "${item.word}": cx=${item.centerX < 0 ? "❌→$fixedCx" : "✓"} cy=${item.centerY < 0 ? "❌→$fixedCy" : "✓(${item.centerY.toStringAsFixed(2)})"}');
+          return VocabularyItem(
+            word: item.word,
+            type: item.type,
+            thai: item.thai,
+            topic: item.topic,
+            boundingBox: item.boundingBox,
+            centerX: fixedCx,
+            centerY: fixedCy,
+            englishSentence: item.englishSentence,
+            thaiSentence: item.thaiSentence,
+          );
+        }).toList();
+
+        result = result.copyWith(vocabList: fixedList);
+      }
 
       return result;
     });
@@ -830,30 +1063,82 @@ class VocabularyExtractionResult {
     required this.vocabList,
   });
 
-  factory VocabularyExtractionResult.fromJson(String jsonString) {
-    // Extract JSON from response (handle markdown code blocks and extra text)
+  /// Safely clean and parse JSON response from Gemini API
+  /// Handles markdown code blocks, isolates JSON objects, and strips trailing commas
+  static Map<String, dynamic> _cleanAndParseJson(String jsonString) {
     String cleanJson = jsonString.trim();
 
     // Remove markdown code blocks
-    if (cleanJson.startsWith('```')) {
+    if (cleanJson.contains('```')) {
       final start = cleanJson.indexOf('{');
       final end = cleanJson.lastIndexOf('}');
-      if (start != -1 && end != -1) {
+      if (start != -1 && end != -1 && start < end) {
         cleanJson = cleanJson.substring(start, end + 1);
       } else {
-        cleanJson = cleanJson.replaceAll('```', '').trim();
+        cleanJson = cleanJson.replaceAll('```json', '').replaceAll('```', '').trim();
       }
     }
 
-    // Find the first { and last } to extract just the JSON object
-    // This handles cases where the AI adds extra text before/after the JSON
+    // Extract just the JSON object
     final start = cleanJson.indexOf('{');
     final end = cleanJson.lastIndexOf('}');
     if (start != -1 && end != -1 && start < end) {
       cleanJson = cleanJson.substring(start, end + 1);
     }
 
-    final json = jsonDecode(cleanJson) as Map<String, dynamic>;
+    // Fix stray quotes after numbers (e.g., "y_max": 776")
+    cleanJson = cleanJson.replaceAllMapped(
+      RegExp(r':\s*(\d+(?:\.\d+)?)"(?=\s*[,}\]])'),
+      (match) => ': ${match.group(1)}',
+    );
+
+    // Strip all trailing commas before ] or } repeatedly (handles nested trailing commas)
+    final trailingRegex = RegExp(r',(\s*[\}\]])');
+    while (cleanJson.contains(trailingRegex)) {
+      cleanJson = cleanJson.replaceAllMapped(
+        trailingRegex,
+        (match) => match.group(1)!,
+      );
+    }
+
+    // Strip trailing comma at end of string if truncated
+    cleanJson = cleanJson.replaceAll(RegExp(r',\s*$'), '');
+
+    // Auto-close unclosed brackets if JSON response was truncated
+    int openBraces = 0;
+    int openBrackets = 0;
+    bool inString = false;
+    for (int i = 0; i < cleanJson.length; i++) {
+      final char = cleanJson[i];
+      if (char == '"' && (i == 0 || cleanJson[i - 1] != '\\')) {
+        inString = !inString;
+      } else if (!inString) {
+        if (char == '{') {
+          openBraces++;
+        } else if (char == '}') {
+          openBraces = (openBraces - 1).clamp(0, 999);
+        } else if (char == '[') {
+          openBrackets++;
+        } else if (char == ']') {
+          openBrackets = (openBrackets - 1).clamp(0, 999);
+        }
+      }
+    }
+
+    while (openBrackets > 0) {
+      cleanJson += ']';
+      openBrackets--;
+    }
+    while (openBraces > 0) {
+      cleanJson += '}';
+      openBraces--;
+    }
+
+    return jsonDecode(cleanJson) as Map<String, dynamic>;
+  }
+
+  factory VocabularyExtractionResult.fromJson(String jsonString) {
+    final json = _cleanAndParseJson(jsonString);
 
     return VocabularyExtractionResult(
       level: json['level'] as String? ?? 'A1',
@@ -885,6 +1170,8 @@ class VocabularyItem {
   final String thai;
   final String topic; // Topic category for this specific word
   final BoundingBox boundingBox;
+  final double centerX; // Direct center point from AI (primary positioning)
+  final double centerY;
   final String? englishSentence; // Pre-generated sentence (optional)
   final String? thaiSentence; // Pre-generated Thai translation (optional)
 
@@ -894,32 +1181,179 @@ class VocabularyItem {
     required this.thai,
     required this.topic,
     required this.boundingBox,
+    required this.centerX,
+    required this.centerY,
     this.englishSentence,
     this.thaiSentence,
   });
 
   factory VocabularyItem.fromJson(Map<String, dynamic> json) {
+    final wordVal = json['word']?.toString() ?? 'object';
+    final typeVal = json['type']?.toString() ?? 'noun';
+    final thaiVal = json['thai']?.toString() ?? wordVal;
+    final topicVal = json['topic']?.toString() ?? 'other';
+
+    final bboxRaw = json['bounding_box'] ?? json['box'] ?? json['box_2d'];
+    final bbox = BoundingBox.fromJson(bboxRaw);
+
+    // Parse center_point from AI (primary) — fallback to bbox center
+    double cx;
+    double cy;
+    final (bboxCx, bboxCy) = bbox.center;
+    final centerPointRaw = json['center_point'] ?? json['center'];
+    // Calculate bbox dimensions and health
+    final bboxWidth = bbox.xMax - bbox.xMin;
+    final bboxHeight = bbox.yMax - bbox.yMin;
+    final isBboxHealthy = bboxWidth >= 0.06 && bboxHeight >= 0.06 && !(bbox.xMin <= 0.02 && bbox.yMin <= 0.02);
+
+    if (centerPointRaw is Map) {
+      cx = _parseDouble(centerPointRaw['cx'] ?? centerPointRaw['x']) ?? bboxCx;
+      cy = _parseDouble(centerPointRaw['cy'] ?? centerPointRaw['y']) ?? bboxCy;
+
+      // Normalize if AI returned 0-1000 scale
+      if (cx > 1.0 || cy > 1.0) {
+        cx /= 1000.0;
+        cy /= 1000.0;
+      }
+
+      // Clamp to safe range
+      cx = cx.clamp(0.05, 0.95);
+      cy = cy.clamp(0.05, 0.95);
+
+      final isXEdgeStuck = (cx <= 0.06);
+      final isYEdgeStuck = (cy <= 0.06);
+      final isCenterPointCornerStuck = (cx <= 0.08 && cy <= 0.10);
+      final hasValidBboxX = bbox.xMin > 0.05 && bboxWidth >= 0.02;
+      final hasValidBboxY = bbox.yMin > 0.05 && bboxHeight >= 0.02;
+
+      if (isBboxHealthy) {
+        // Healthy BBox: validate center_point is within its bounds
+        final isOutsideBbox = cx < (bbox.xMin - 0.04) ||
+            cx > (bbox.xMax + 0.04) ||
+            cy < (bbox.yMin - 0.04) ||
+            cy > (bbox.yMax + 0.04);
+        if (isOutsideBbox || isCenterPointCornerStuck || isXEdgeStuck) {
+          debugPrint('⚠️ center_point ($cx, $cy) was ${isXEdgeStuck ? "x-edge-stuck" : "outside bbox"} for "$wordVal" — using healthy bbox center ($bboxCx, $bboxCy)');
+          cx = bboxCx;
+          cy = bboxCy;
+        }
+      } else {
+        // BBox has irregular dimensions (slender object or partial failure)
+        if (isXEdgeStuck && isYEdgeStuck) {
+          // Both are broken/corner-stuck
+          if (hasValidBboxX && hasValidBboxY) {
+            cx = bboxCx;
+            cy = bboxCy;
+          } else {
+            debugPrint('⚠️ Both bbox and center_point are corrupt/corner-stuck for "$wordVal" — marking for auto-fix');
+            cx = -1.0;
+            cy = -1.0;
+          }
+        } else if (isXEdgeStuck) {
+          // X is stuck at left edge (0.05)
+          if (hasValidBboxX) {
+            debugPrint('⚠️ center_point X was stuck at left edge ($cx) for "$wordVal" — rescuing with bbox X ($bboxCx)');
+            cx = bboxCx;
+          } else {
+            debugPrint('⚠️ center_point X was stuck at left edge ($cx) and bbox X is at edge for "$wordVal" — marking X for auto-fix');
+            cx = -1.0;
+          }
+        } else if (isYEdgeStuck) {
+          // Y is stuck at top edge (0.05)
+          if (hasValidBboxY) {
+            debugPrint('⚠️ center_point Y was stuck at top edge ($cy) for "$wordVal" — rescuing with bbox Y ($bboxCy)');
+            cy = bboxCy;
+          } else {
+            debugPrint('⚠️ center_point Y was stuck at top edge ($cy) and bbox Y is at edge for "$wordVal" — marking Y for auto-fix');
+            cy = -1.0;
+          }
+        } else {
+          debugPrint('✅ Corrupt bbox for "$wordVal", but center_point ($cx, $cy) is valid — trusting center_point');
+        }
+      }
+    } else {
+      // No center_point provided — fallback to bbox center if healthy
+      if (isBboxHealthy) {
+        cx = bboxCx;
+        cy = bboxCy;
+      } else {
+        final hasValidBboxY = bbox.yMin >= 0.12 || (bbox.yMax >= 0.20 && bboxHeight >= 0.03);
+        final hasValidBboxX = bbox.xMin > 0.05 && bboxWidth >= 0.02;
+        cx = hasValidBboxX ? bboxCx : -1.0;
+        cy = hasValidBboxY ? bboxCy : -1.0;
+      }
+    }
+
+    // Only apply geometric adjustments if coordinates are valid and not marked as broken (-1.0)
+    if (cx >= 0 && cy >= 0) {
+      // Base surface adjustment: words like table/desk/floor/counter should not sit in the dead center
+      // where other objects (cups, plates) rest, especially if the bbox is huge (>70% of screen).
+      const surfaceWords = {'table', 'desk', 'counter', 'countertop', 'floor', 'ground', 'tablecloth'};
+      final isSurfaceWord = surfaceWords.contains(wordVal.trim().toLowerCase());
+      if (isSurfaceWord && bboxWidth > 0.70 && bboxHeight > 0.70 && cy < 0.75) {
+        debugPrint('⚠️ Surface word "$wordVal" has full-screen bbox and center ($cx, $cy) on top of objects — shifting down to bare surface');
+        cy = 0.85; // Shift down towards bottom where table surface is exposed
+      }
+
+      // Underlay object adjustment (saucer, coaster, placemat, tray):
+      // When a cup/food sits on a saucer, the geometric center is ALWAYS the cup!
+      // The only exposed part is the bottom curved rim (at ~88% of the bounding box height).
+      const underlayWords = {'saucer', 'coaster', 'placemat', 'tray'};
+      final isUnderlayWord = underlayWords.contains(wordVal.trim().toLowerCase());
+      if (isUnderlayWord && bboxHeight > 0.06) {
+        final middleThreshold = bbox.yMin + bboxHeight * 0.78;
+        if (cy < middleThreshold) {
+          final rimY = (bbox.yMin + bboxHeight * 0.88).clamp(0.05, 0.95);
+          debugPrint('⚠️ Underlay word "$wordVal" center ($cx, $cy) was inside cup/object — shifting down to exposed bottom rim ($cx, $rimY)');
+          cy = rimY;
+        }
+      }
+
+      // Container object adjustment (cup, mug, glass, bowl, pot, vase, jug, pitcher):
+      // When a cup contains liquid/coffee, the liquid is in the top opening (upper 55%).
+      // The physical cup ceramic/glass body is in the lower half (at ~76% of height).
+      const containerWords = {'cup', 'mug', 'glass', 'bowl', 'pot', 'vase', 'jug', 'pitcher'};
+      final isContainerWord = containerWords.contains(wordVal.trim().toLowerCase());
+      if (isContainerWord && bboxHeight > 0.06) {
+        final upperThreshold = bbox.yMin + bboxHeight * 0.60;
+        if (cy < upperThreshold) {
+          final bodyY = (bbox.yMin + bboxHeight * 0.76).clamp(0.05, 0.95);
+          debugPrint('⚠️ Container word "$wordVal" center ($cx, $cy) was in liquid/opening — shifting down to ceramic/glass body ($cx, $bodyY)');
+          cy = bodyY;
+        }
+      }
+    }
+
     return VocabularyItem(
-      word: json['word'] as String,
-      type: json['type'] as String? ?? 'noun',
-      thai: json['thai'] as String,
-      topic: json['topic'] as String? ?? 'other',
-      boundingBox: BoundingBox.fromJson(
-        json['bounding_box'] as Map<String, dynamic>? ?? {},
-      ),
-      englishSentence: json['english_sentence'] as String?,
-      thaiSentence: json['thai_sentence'] as String?,
+      word: wordVal,
+      type: typeVal,
+      thai: thaiVal,
+      topic: topicVal,
+      boundingBox: bbox,
+      centerX: cx,
+      centerY: cy,
+      englishSentence: json['english_sentence']?.toString(),
+      thaiSentence: json['thai_sentence']?.toString(),
     );
   }
 
+  /// Parse a value to double safely
+  static double? _parseDouble(dynamic val) {
+    if (val is num) return val.toDouble();
+    if (val is String) return double.tryParse(val);
+    return null;
+  }
+
   /// Create a copy with modified fields
-  VocabularyItem copyWith({String? topic}) {
+  VocabularyItem copyWith({String? topic, double? centerX, double? centerY}) {
     return VocabularyItem(
       word: word,
       type: type,
       thai: thai,
       topic: topic ?? this.topic,
       boundingBox: boundingBox,
+      centerX: centerX ?? this.centerX,
+      centerY: centerY ?? this.centerY,
       englishSentence: englishSentence,
       thaiSentence: thaiSentence,
     );
@@ -933,6 +1367,8 @@ class VocabularyItem {
       thai: this.thai,
       topic: this.topic,
       boundingBox: boundingBox,
+      centerX: centerX,
+      centerY: centerY,
       englishSentence: english,
       thaiSentence: thai,
     );
@@ -953,18 +1389,72 @@ class BoundingBox {
     required this.yMax,
   });
 
-  factory BoundingBox.fromJson(Map<String, dynamic> json) {
+  factory BoundingBox.fromJson(dynamic rawJson) {
+    double xMin = 0.4;
+    double yMin = 0.4;
+    double xMax = 0.6;
+    double yMax = 0.6;
+
+    if (rawJson is List && rawJson.length >= 4) {
+      final nums = rawJson
+          .map((e) => (e is num) ? e.toDouble() : double.tryParse(e.toString()) ?? 0.0)
+          .toList();
+      // Gemini box_2d is [ymin, xmin, ymax, xmax]
+      yMin = nums[0];
+      xMin = nums[1];
+      yMax = nums[2];
+      xMax = nums[3];
+    } else if (rawJson is Map) {
+      final json = rawJson;
+
+      double? parseNum(List<String> keys) {
+        for (final key in keys) {
+          final val = json[key];
+          if (val is num) return val.toDouble();
+          if (val is String) {
+            final parsed = double.tryParse(val);
+            if (parsed != null) return parsed;
+          }
+        }
+        return null;
+      }
+
+      xMin = parseNum(['x_min', 'xmin', 'x1', 'left']) ?? 0.4;
+      yMin = parseNum(['y_min', 'ymin', 'y1', 'top']) ?? 0.4;
+      xMax = parseNum(['x_max', 'xmax', 'x2', 'right']) ?? 0.6;
+      yMax = parseNum(['y_max', 'ymax', 'y2', 'bottom']) ?? 0.6;
+    }
+
+    // If Gemini returned coordinates in 0..1000 integer scale, normalize to 0.0..1.0 ratio
+    if (xMin > 1.0 || xMax > 1.0 || yMin > 1.0 || yMax > 1.0) {
+      xMin /= 1000.0;
+      yMin /= 1000.0;
+      xMax /= 1000.0;
+      yMax /= 1000.0;
+    }
+
+    // Keep coordinates within [0.0, 1.0] bounds
+    xMin = xMin.clamp(0.0, 1.0);
+    yMin = yMin.clamp(0.0, 1.0);
+    xMax = xMax.clamp(0.0, 1.0);
+    yMax = yMax.clamp(0.0, 1.0);
+
+    if (xMin >= xMax) xMax = (xMin + 0.04).clamp(0.0, 1.0);
+    if (yMin >= yMax) yMax = (yMin + 0.04).clamp(0.0, 1.0);
+
     return BoundingBox(
-      xMin: (json['x_min'] as num).toDouble(),
-      yMin: (json['y_min'] as num).toDouble(),
-      xMax: (json['x_max'] as num).toDouble(),
-      yMax: (json['y_max'] as num).toDouble(),
+      xMin: xMin,
+      yMin: yMin,
+      xMax: xMax,
+      yMax: yMax,
     );
   }
 
-  /// Convert to center point for dot positioning
+  /// Convert to center point for dot positioning (guarantee safe margin away from borders)
   (double x, double y) get center {
-    return ((xMin + xMax) / 2, (yMin + yMax) / 2);
+    final rawX = (xMin + xMax) / 2;
+    final rawY = (yMin + yMax) / 2;
+    return (rawX.clamp(0.06, 0.94), rawY.clamp(0.06, 0.94));
   }
 }
 
@@ -992,28 +1482,7 @@ class SentenceGenerationResult {
     String jsonString,
     List<String> selectedTones,
   ) {
-    // Extract JSON from response (handle markdown and extra text)
-    String cleanJson = jsonString.trim();
-
-    // Remove markdown code blocks
-    if (cleanJson.startsWith('```')) {
-      final start = cleanJson.indexOf('{');
-      final end = cleanJson.lastIndexOf('}');
-      if (start != -1 && end != -1) {
-        cleanJson = cleanJson.substring(start, end + 1);
-      } else {
-        cleanJson = cleanJson.replaceAll('```', '').trim();
-      }
-    }
-
-    // Find the first { and last } to extract just the JSON object
-    final start = cleanJson.indexOf('{');
-    final end = cleanJson.lastIndexOf('}');
-    if (start != -1 && end != -1 && start < end) {
-      cleanJson = cleanJson.substring(start, end + 1);
-    }
-
-    final json = jsonDecode(cleanJson) as Map<String, dynamic>;
+    final json = VocabularyExtractionResult._cleanAndParseJson(jsonString);
     final mode = json['mode'] as String? ?? 'normal';
 
     if (mode == 'combined') {
