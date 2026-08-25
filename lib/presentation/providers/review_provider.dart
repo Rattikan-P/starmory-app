@@ -29,6 +29,8 @@ class ReviewState {
   final WordCardModel?
       previousCardState; // Card state before last swipe (for undo)
   final String? currentTopicFilter; // Current topic filter being applied
+  final int gotItCount; // Track number of recalled cards in session
+  final int notYetCount; // Track number of forgotten cards in session
 
   const ReviewState({
     this.cards = const [],
@@ -46,6 +48,8 @@ class ReviewState {
     this.canUndo = false,
     this.previousCardState,
     this.currentTopicFilter,
+    this.gotItCount = 0,
+    this.notYetCount = 0,
   });
 
   ReviewState copyWith({
@@ -64,6 +68,8 @@ class ReviewState {
     bool? canUndo,
     WordCardModel? previousCardState,
     String? currentTopicFilter,
+    int? gotItCount,
+    int? notYetCount,
   }) {
     return ReviewState(
       cards: cards ?? this.cards,
@@ -82,6 +88,8 @@ class ReviewState {
       canUndo: canUndo ?? this.canUndo,
       previousCardState: previousCardState ?? this.previousCardState,
       currentTopicFilter: currentTopicFilter ?? this.currentTopicFilter,
+      gotItCount: gotItCount ?? this.gotItCount,
+      notYetCount: notYetCount ?? this.notYetCount,
     );
   }
 
@@ -256,7 +264,7 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
       final totalReviews = state.totalReviewsCompleted + 1;
 
       print('🔍 [SwipeCard] Swiped: word=${currentCard.vocabulary?.word}, remembered=$remembered, oldDueDate=${currentCard.dueDate.toUtc()}, newDueDate=${updatedCard.dueDate.toUtc()}');
-
+      
       // Auto-advance: Advance directly to next card
       state = state.copyWith(
         currentIndex: state.currentIndex + 1,
@@ -264,6 +272,8 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
         lastRating: remembered,
         reviewedCardIds: newReviewedIds,
         totalReviewsCompleted: totalReviews,
+        gotItCount: remembered ? state.gotItCount + 1 : state.gotItCount,
+        notYetCount: !remembered ? state.notYetCount + 1 : state.notYetCount,
         canUndo: true,
         previousCardState: previousCard,
       );
@@ -311,6 +321,12 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
         previousCardState: null,
         reviewedCardIds: newReviewedIds,
         totalReviewsCompleted: restoredTotal,
+        gotItCount: state.lastRating == true && state.gotItCount > 0
+            ? state.gotItCount - 1
+            : state.gotItCount,
+        notYetCount: state.lastRating == false && state.notYetCount > 0
+            ? state.notYetCount - 1
+            : state.notYetCount,
         showFeedback: false,
         lastRating: null,
       );

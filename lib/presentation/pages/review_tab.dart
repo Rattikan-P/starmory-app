@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../utils/topic_categories.dart';
 import 'review_session_page.dart';
+import 'profile_tab.dart';
 import '../providers/providers.dart';
 import '../utils/photo_picker_flow.dart';
 
@@ -77,10 +79,17 @@ class _ReviewTabState extends ConsumerState<ReviewTab>
     }
   }
 
+  Future<void> _openProfile() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ProfileTab()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final reviewState = ref.watch(reviewStateProvider);
-    final currentUser = ref.watch(currentUserProvider);
+    final userState = ref.watch(userStateProvider);
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -89,8 +98,8 @@ class _ReviewTabState extends ConsumerState<ReviewTab>
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
           child: Column(
             children: [
-              // Header with user avatar
-              _buildHeader(currentUser),
+              // Header with interactive user avatar
+              _buildHeader(userState),
 
               const SizedBox(height: 18),
 
@@ -105,11 +114,13 @@ class _ReviewTabState extends ConsumerState<ReviewTab>
     );
   }
 
-  Widget _buildHeader(dynamic user) {
+  Widget _buildHeader(UserState userState) {
+    final user = userState.user;
     final displayName =
-        (user?.displayName as String?) ?? (user?.email as String?) ?? 'G';
+        user?.displayName ?? user?.email ?? 'Guest';
     final avatarLetter =
         displayName.isNotEmpty ? displayName[0].toUpperCase() : 'G';
+    final photoUrl = user?.photoUrl;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -140,29 +151,65 @@ class _ReviewTabState extends ConsumerState<ReviewTab>
           ),
         ),
         const SizedBox(width: 12),
-        // User Avatar circle matching screenshot
-        Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: Colors.white,
-            border: Border.all(color: const Color(0xFFE2DBFD), width: 1.5),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF7C5CFC).withValues(alpha: 0.08),
-                blurRadius: 10,
-                offset: const Offset(0, 3),
+        // Interactive Circular User Avatar matching Profile & Home
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: _openProfile,
+            customBorder: const CircleBorder(),
+            child: Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFFF4EEFF),
+                border: Border.all(color: const Color(0xFFE2DBFD), width: 1.5),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF7C5CFC).withValues(alpha: 0.12),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
               ),
-            ],
-          ),
-          child: Center(
-            child: Text(
-              avatarLetter,
-              style: GoogleFonts.lexend(
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFF221F33),
+              child: ClipOval(
+                child: photoUrl != null && photoUrl.isNotEmpty
+                    ? CachedNetworkImage(
+                        imageUrl: photoUrl,
+                        fit: BoxFit.cover,
+                        width: 48,
+                        height: 48,
+                        placeholder: (context, url) => Center(
+                          child: Text(
+                            avatarLetter,
+                            style: GoogleFonts.lexend(
+                              fontSize: 19,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF7C5CFC),
+                            ),
+                          ),
+                        ),
+                        errorWidget: (context, url, error) => Center(
+                          child: Text(
+                            avatarLetter,
+                            style: GoogleFonts.lexend(
+                              fontSize: 19,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF7C5CFC),
+                            ),
+                          ),
+                        ),
+                      )
+                    : Center(
+                        child: Text(
+                          avatarLetter,
+                          style: GoogleFonts.lexend(
+                            fontSize: 19,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF7C5CFC),
+                          ),
+                        ),
+                      ),
               ),
             ),
           ),
@@ -245,69 +292,162 @@ class _ReviewTabState extends ConsumerState<ReviewTab>
       physics: const BouncingScrollPhysics(),
       child: Column(
         children: [
-          _buildHeroCard(0),
-          const SizedBox(height: 16),
-          _buildHowItWorksCard(),
-          const SizedBox(height: 20),
+          const SizedBox(height: 8),
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 36),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(28),
               border: Border.all(color: const Color(0xFFEBE6FC), width: 1.5),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF5F45B2).withValues(alpha: 0.08),
+                  color: const Color(0xFF7C5CFC).withValues(alpha: 0.08),
                   blurRadius: 20,
-                  offset: const Offset(0, 6),
+                  offset: const Offset(0, 8),
                 ),
               ],
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.check_circle_rounded,
-                    size: 38, color: Color(0xFF278B5A)),
-                const SizedBox(height: 12),
+                // Soft lavender circle with purple checkmark
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFF1EDFF),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Center(
+                    child: Icon(
+                      Icons.check_rounded,
+                      color: Color(0xFF7C5CFC),
+                      size: 38,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+
+                // Title
                 Text(
-                  "All caught up! ✨",
+                  'All caught up',
                   style: GoogleFonts.lexend(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
                     color: const Color(0xFF221F33),
                   ),
                 ),
                 const SizedBox(height: 6),
+
+                // Subtitle
                 Text(
-                  'No words are due for review right now.\nAdd a new photo anytime to keep learning.',
+                  'No words are due for review right now',
                   style: GoogleFonts.lexend(
-                    fontSize: 13,
-                    height: 1.4,
-                    color: const Color(0xFF7A7394),
+                    fontSize: 14,
+                    color: const Color(0xFF4B5563),
                   ),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 20),
+
+                // Exploration Prompt
+                Text(
+                  'Time to explore with a new photo',
+                  style: GoogleFonts.lexend(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w500,
+                    color: const Color(0xFF7C5CFC),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
+
+                // Action Buttons: Solid Camera + Outlined Gallery
                 Row(
                   children: [
+                    // Camera Button (Solid Purple Pill)
                     Expanded(
-                      child: _buildAddPhotoButton(
-                        icon: Icons.camera_alt_rounded,
-                        label: 'Camera',
-                        colors: const [Color(0xFF60A5FA), Color(0xFF3B82F6)],
-                        onTap: () => PhotoPickerFlow.pickAndPreview(
-                            context, ImageSource.camera),
+                      child: Container(
+                        height: 50,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF7C5CFC),
+                          borderRadius: BorderRadius.circular(25),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF7C5CFC)
+                                  .withValues(alpha: 0.30),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(25),
+                            onTap: () => PhotoPickerFlow.pickAndPreview(
+                                context, ImageSource.camera),
+                            child: Center(
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(Icons.camera_alt_rounded,
+                                      color: Colors.white, size: 20),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Camera',
+                                    style: GoogleFonts.lexend(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 12),
+
+                    // Gallery Button (Outlined White Pill)
                     Expanded(
-                      child: _buildAddPhotoButton(
-                        icon: Icons.photo_library_rounded,
-                        label: 'Gallery',
-                        colors: const [Color(0xFFA78BFA), Color(0xFF8B5CF6)],
-                        onTap: () => PhotoPickerFlow.pickAndPreview(
-                            context, ImageSource.gallery),
+                      child: Container(
+                        height: 50,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(25),
+                          border: Border.all(
+                              color: const Color(0xFF7C5CFC), width: 1.5),
+                        ),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(25),
+                            onTap: () => PhotoPickerFlow.pickAndPreview(
+                                context, ImageSource.gallery),
+                            child: Center(
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(Icons.photo_library_rounded,
+                                      color: Color(0xFF7C5CFC), size: 20),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Gallery',
+                                    style: GoogleFonts.lexend(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w700,
+                                      color: const Color(0xFF7C5CFC),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -315,6 +455,11 @@ class _ReviewTabState extends ConsumerState<ReviewTab>
               ],
             ),
           ),
+          const SizedBox(height: 16),
+
+          // How it works Collapsible Card (with 3 step cards & FSRS popup)
+          _buildHowItWorksCard(),
+
           const SizedBox(height: 16),
         ],
       ),
@@ -670,7 +815,7 @@ class _ReviewTabState extends ConsumerState<ReviewTab>
                         child: _buildHorizontalStepCard(
                           icon: Icons.lightbulb_outline_rounded,
                           title: '2. Flip Card',
-                          subtitle: 'Tap card to check\nthe meaning',
+                          subtitle: 'Check the meaning',
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -678,7 +823,7 @@ class _ReviewTabState extends ConsumerState<ReviewTab>
                         child: _buildHorizontalStepCard(
                           icon: Icons.front_hand_outlined,
                           title: '3. Rate',
-                          subtitle: 'Choose Not yet or\nGot it',
+                          subtitle: 'Choose Not yet or Got it',
                         ),
                       ),
                     ],
@@ -698,48 +843,55 @@ class _ReviewTabState extends ConsumerState<ReviewTab>
     required String subtitle,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
       decoration: BoxDecoration(
         color: const Color(0xFFFFF1EE),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Top icon circle
-          Container(
-            width: 28,
-            height: 28,
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              icon,
-              size: 16,
-              color: const Color(0xFFFA6E7F),
+          // Centered Top icon circle
+          Center(
+            child: Container(
+              width: 36,
+              height: 36,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
+              child: Center(
+                child: Icon(
+                  icon,
+                  size: 20,
+                  color: const Color(0xFFFA6E7F),
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 10),
           Text(
             title,
             style: GoogleFonts.lexend(
-              fontSize: 11,
+              fontSize: 12.5,
               fontWeight: FontWeight.w700,
               color: const Color(0xFF221F33),
             ),
+            textAlign: TextAlign.left,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 3),
+          const SizedBox(height: 4),
           Text(
             subtitle,
             style: GoogleFonts.lexend(
-              fontSize: 9.5,
-              height: 1.25,
+              fontSize: 10.5,
+              height: 1.30,
               fontWeight: FontWeight.w400,
               color: const Color(0xFF7A7394),
             ),
+            textAlign: TextAlign.left,
           ),
         ],
       ),
@@ -750,62 +902,77 @@ class _ReviewTabState extends ConsumerState<ReviewTab>
     showDialog(
       context: context,
       builder: (dialogContext) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
         backgroundColor: Colors.white,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
         child: Padding(
-          padding: const EdgeInsets.all(22),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 26),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // Top Lavender Circle with Question Mark Icon
               Container(
-                width: 52,
-                height: 52,
+                width: 60,
+                height: 60,
                 decoration: const BoxDecoration(
                   color: Color(0xFFF1EDFF),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
-                  Icons.auto_awesome_rounded,
-                  color: Color(0xFF7C5CFC),
-                  size: 28,
+                child: const Center(
+                  child: Icon(
+                    Icons.question_mark_rounded,
+                    size: 32,
+                    color: Color(0xFF7C5CFC),
+                  ),
                 ),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 18),
+
+              // Title
               Text(
-                'About FSRS',
+                'What is FSRS?',
                 style: GoogleFonts.lexend(
-                  fontSize: 19,
-                  fontWeight: FontWeight.w800,
+                  fontSize: 18.5,
+                  fontWeight: FontWeight.w700,
                   color: const Color(0xFF221F33),
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                'FSRS (Free Spaced Repetition Scheduler) is a modern memory algorithm that schedules reviews right before you forget, helping you retain vocabulary effortlessly.',
-                style: GoogleFonts.lexend(
-                  fontSize: 13,
-                  height: 1.45,
-                  color: const Color(0xFF655D80),
                 ),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
+
+              // Body Text matching mockup
+              Text(
+                'FSRS is a smart algorithm that predicts when you might forget a word. It schedules review times so you can remember more with less effort!',
+                style: GoogleFonts.lexend(
+                  fontSize: 14,
+                  height: 1.45,
+                  fontWeight: FontWeight.w400,
+                  color: const Color(0xFF221F33),
+                ),
+                textAlign: TextAlign.left,
+              ),
+              const SizedBox(height: 24),
+
+              // Primary Button: Got it (Solid purple pill)
               SizedBox(
                 width: double.infinity,
-                height: 44,
+                height: 50,
                 child: ElevatedButton(
                   onPressed: () => Navigator.pop(dialogContext),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF7C5CFC),
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
                     elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(25),
+                    ),
                   ),
                   child: Text(
                     'Got it',
-                    style: GoogleFonts.lexend(fontWeight: FontWeight.w700),
+                    style: GoogleFonts.lexend(
+                      fontSize: 15.5,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ),
@@ -1561,48 +1728,6 @@ class _ReviewTabState extends ConsumerState<ReviewTab>
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAddPhotoButton({
-    required IconData icon,
-    required String label,
-    required List<Color> colors,
-    required VoidCallback onTap,
-  }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Ink(
-          height: 52,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(colors: colors),
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                  color: colors.last.withValues(alpha: 0.22),
-                  blurRadius: 8,
-                  offset: const Offset(0, 3)),
-            ],
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, color: Colors.white, size: 19),
-              const SizedBox(width: 7),
-              Text(
-                label,
-                style: GoogleFonts.lexend(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700),
-              ),
-            ],
-          ),
         ),
       ),
     );
