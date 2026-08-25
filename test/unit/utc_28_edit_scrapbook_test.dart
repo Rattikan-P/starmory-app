@@ -200,17 +200,17 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      expect(find.text('Starry night in space'), findsOneWidget);
+      expect(find.text('Starry night in space.'), findsOneWidget);
       expect(find.text('คืนที่มีดาวเต็มท้องฟ้าในอวกาศ'), findsNothing);
 
-      final sentenceFinder = find.text('Starry night in space');
+      final sentenceFinder = find.text('Starry night in space.');
       await tester.ensureVisible(sentenceFinder);
       await tester.tap(sentenceFinder, warnIfMissed: false);
       await tester.pump(const Duration(milliseconds: 300));
       await tester.pumpAndSettle();
 
       expect(find.text('คืนที่มีดาวเต็มท้องฟ้าในอวกาศ'), findsOneWidget);
-      expect(find.text('Starry night in space'), findsNothing);
+      expect(find.text('Starry night in space.'), findsNothing);
 
       printTestOutputSimple(
         testId: 'UT-28-TC07',
