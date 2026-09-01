@@ -6,6 +6,7 @@ import 'package:starmory_app/presentation/pages/scrapbook_tab.dart';
 import 'package:starmory_app/presentation/providers/scrapbook_provider.dart';
 import 'package:starmory_app/presentation/widgets/scrapbook_detail_sheet.dart';
 import 'package:starmory_app/presentation/widgets/scrapbook_polaroid.dart';
+import 'package:starmory_app/presentation/widgets/vocabulary_detail_bottom_sheet.dart';
 
 import '../scrapbook_widget_test_support.dart';
 import '../test_helpers.dart';
@@ -79,7 +80,12 @@ void main() {
 
     testWidgets('UT-27-TC03: Selecting a day with memories opens Detail Sheet',
         (tester) async {
-      final selectedDate = DateTime(2026, 8, 10);
+      final now = DateTime.now();
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      final targetDay = now.day == 10 ? 12 : 10;
+      final selectedDate = DateTime(now.year, now.month, targetDay);
+      final expectedHeader = '$targetDay ${months[now.month - 1]} ${now.year}';
+
       await tester.pumpWidget(scrapbookTestApp(
         child: const ScrapbookTab(),
         scrapbooks: [
@@ -88,30 +94,35 @@ void main() {
       ));
       await tester.pump();
 
-      await tester.tap(find.text('10').last);
+      await tester.tap(find.text('$targetDay').last);
       await tester.pumpAndSettle();
 
-      expect(find.text('10 Aug 2026'), findsOneWidget);
+      expect(find.text(expectedHeader), findsOneWidget);
       expect(find.text('🌟'), findsWidgets);
 
       printTestOutputSimple(
         testId: 'UT-27-TC03',
         description: 'Selecting a day with memories opens Detail Sheet',
-        input: 'Selected Date = 10 Aug 2026',
-        expectedOutput: {'detailSheetVisible': true, 'dateHeader': '10 Aug 2026', 'emoji': '🌟'},
-        actualOutput: {'detailSheetVisible': true, 'dateHeader': '10 Aug 2026', 'emoji': '🌟'},
+        input: 'Selected Date = $expectedHeader',
+        expectedOutput: {'detailSheetVisible': true, 'dateHeader': expectedHeader, 'emoji': '🌟'},
+        actualOutput: {'detailSheetVisible': true, 'dateHeader': expectedHeader, 'emoji': '🌟'},
       );
     });
 
     testWidgets('UT-27-TC04: Selecting an empty day shows SnackBar feedback',
         (tester) async {
+      final now = DateTime.now();
+      final emptyDay = now.day == 11 ? 13 : 11;
+      final otherDay = emptyDay == 11 ? 10 : 12;
+      final selectedDate = DateTime(now.year, now.month, otherDay);
+
       await tester.pumpWidget(scrapbookTestApp(
         child: const ScrapbookTab(),
-        scrapbooks: [scrapbook(id: 'memory-1', date: DateTime(2026, 8, 10))],
+        scrapbooks: [scrapbook(id: 'memory-1', date: selectedDate)],
       ));
       await tester.pump();
 
-      await tester.tap(find.text('11').last);
+      await tester.tap(find.text('$emptyDay').last);
       await tester.pump();
 
       expect(find.text('No memories saved on this day'), findsOneWidget);
@@ -120,7 +131,7 @@ void main() {
       printTestOutputSimple(
         testId: 'UT-27-TC04',
         description: 'Selecting an empty day shows SnackBar feedback',
-        input: 'Selected Empty Date = 11 Aug 2026',
+        input: 'Selected Empty Date = $emptyDay',
         expectedOutput: {'snackBar': 'No memories saved on this day'},
         actualOutput: {'snackBar': 'No memories saved on this day'},
       );
@@ -197,7 +208,7 @@ void main() {
       expect(find.text('2 memories saved on this day'), findsOneWidget);
       expect(find.text('😊'), findsOneWidget);
       expect(find.text('🌟'), findsOneWidget);
-      expect(find.text('Vocab · tap to review'), findsOneWidget);
+      expect(find.text('Vocab'), findsOneWidget);
 
       printTestOutputSimple(
         testId: 'UT-27-TC07',
@@ -301,7 +312,7 @@ void main() {
       );
     });
 
-    testWidgets('UT-27-TC11: Detail Sheet vocabulary word chip tap navigates to Review tab (SRS-101)',
+    testWidgets('UT-27-TC11: Detail Sheet vocabulary word chip tap opens VocabularyDetailBottomSheet (SRS-101)',
         (tester) async {
       final memory = scrapbook(
         id: 'vocab-test',
@@ -330,14 +341,14 @@ void main() {
       await tester.tap(find.text('Galaxy'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Vocab · tap to review'), findsNothing);
+      expect(find.byType(VocabularyDetailBottomSheet), findsOneWidget);
 
       printTestOutputSimple(
         testId: 'UT-27-TC11',
-        description: 'Detail Sheet vocabulary word chip tap navigates to Review tab',
+        description: 'Detail Sheet vocabulary word chip tap opens VocabularyDetailBottomSheet',
         input: 'Tap vocabulary chip Galaxy',
-        expectedOutput: {'detailSheetClosed': true, 'navigatedToReview': true},
-        actualOutput: {'detailSheetClosed': true, 'navigatedToReview': true},
+        expectedOutput: {'detailBottomSheetOpened': true},
+        actualOutput: {'detailBottomSheetOpened': true},
       );
     });
 

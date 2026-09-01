@@ -4,9 +4,12 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../constants/design_tokens.dart';
 import '../../data/models/scrapbook_model.dart';
+import '../../data/models/vocabulary_model.dart';
+import '../../data/services/dictionary_service.dart';
 import '../pages/edit_scrapbook_screen.dart';
-import '../providers/navigation_provider.dart';
+import '../providers/providers.dart';
 import 'scrapbook_polaroid.dart';
+import 'vocabulary_detail_bottom_sheet.dart';
 
 Future<void> showScrapbookDetailSheet(
   BuildContext context, {
@@ -99,11 +102,50 @@ class _ScrapbookDetailSheet extends StatelessWidget {
     );
   }
 
-  void _goToReview(BuildContext sheetContext) {
-    Navigator.of(sheetContext).pop();
-    ProviderScope.containerOf(parentContext)
-        .read(navigationProvider.notifier)
-        .goReview();
+  void _showWordDetail(BuildContext context, ScrapbookVocabularyWord word) {
+    List<VocabularyModel> allVocabularies = const [];
+    try {
+      allVocabularies = ProviderScope.containerOf(parentContext)
+          .read(vocabularyStateProvider)
+          .vocabularies;
+    } catch (_) {
+      try {
+        allVocabularies = ProviderScope.containerOf(context)
+            .read(vocabularyStateProvider)
+            .vocabularies;
+      } catch (_) {}
+    }
+
+    final matchingVocab = allVocabularies.where(
+      (v) => v.word.trim().toLowerCase() == word.word.trim().toLowerCase(),
+    ).firstOrNull;
+
+    final targetVocab = matchingVocab ??
+        VocabularyModel(
+          id: 'scrapbook_${word.word}',
+          word: word.word,
+          partOfSpeech: word.partOfSpeech,
+          thaiTranslation: word.thaiTranslation,
+          englishSentence: scrapbook.englishSentence,
+          thaiSentence: scrapbook.thaiSentence,
+          cefrLevel: 'A1',
+          communicativeFunction: 'Indicative',
+          languageVariant: 'US',
+          imageUrl: scrapbook.imagePath,
+          topic: 'other',
+          createdAt: scrapbook.date,
+        );
+
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => VocabularyDetailBottomSheet(
+        vocabulary: targetVocab,
+        dictionaryService: DictionaryService(),
+        allVocabularies: allVocabularies,
+      ),
+    );
   }
 
   @override
@@ -133,7 +175,7 @@ class _ScrapbookDetailSheet extends StatelessWidget {
                   onTap: (entry) => _openEditor(context, entry),
                 ),
                 const SizedBox(height: 30),
-                const _SectionTitle(title: 'Vocab · tap to review'),
+                const _SectionTitle(title: 'Vocab'),
                 const SizedBox(height: 14),
                 _buildVocabulary(context),
               ],
@@ -244,7 +286,7 @@ class _ScrapbookDetailSheet extends StatelessWidget {
             color: const Color(0xFFF4F3F5),
             borderRadius: BorderRadius.circular(DesignTokens.radiusSmall),
             child: InkWell(
-              onTap: () => _goToReview(context),
+              onTap: () => _showWordDetail(context, word),
               borderRadius: BorderRadius.circular(DesignTokens.radiusSmall),
               child: ConstrainedBox(
                 constraints: const BoxConstraints(minWidth: 96),

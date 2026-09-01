@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:starmory_app/data/models/scrapbook_model.dart';
 import 'package:starmory_app/data/services/hive_service.dart';
 import 'package:starmory_app/data/services/image_storage_service.dart';
+import 'package:starmory_app/data/services/review_service.dart';
+import 'package:starmory_app/data/services/vocabulary_sync_service.dart';
+import 'package:starmory_app/presentation/providers/providers.dart';
 import 'package:starmory_app/presentation/providers/scrapbook_provider.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -56,9 +59,35 @@ Widget scrapbookTestApp({
       scrapbookStateProvider.overrideWith(
         (ref) => FakeScrapbookNotifier(state),
       ),
+      vocabularyStateProvider.overrideWith(
+        (ref) => FakeVocabularyNotifier(),
+      ),
+      userStateProvider.overrideWith(
+        (ref) => FakeUserNotifier(),
+      ),
     ],
     child: MaterialApp(home: child),
   );
+}
+
+class FakeUserNotifier extends UserNotifier {
+  FakeUserNotifier([UserState state = const UserState(isLoading: false)])
+      : super(
+          HiveService(),
+          initialState: state,
+          autoLoad: false,
+        );
+}
+
+class FakeVocabularyNotifier extends VocabularyNotifier {
+  FakeVocabularyNotifier([VocabularyState state = const VocabularyState(isLoading: false)])
+      : super(
+          HiveService(),
+          VocabularySyncService(),
+          ReviewService(hiveService: HiveService()),
+          initialState: state,
+          autoLoad: false,
+        );
 }
 
 /// A provider replacement that never starts Hive/cloud work. It gives widget

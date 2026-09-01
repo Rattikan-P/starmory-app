@@ -142,9 +142,14 @@ class UserNotifier extends StateNotifier<UserState> {
   final HiveService _hiveService;
   StreamSubscription<AuthState>? _authSubscription;
 
-  UserNotifier(this._hiveService)
-      : super(const UserState(isLoading: true)) {
-    _waitForInitializationAndLoad();
+  UserNotifier(
+    this._hiveService, {
+    UserState? initialState,
+    bool autoLoad = true,
+  }) : super(initialState ?? const UserState(isLoading: true)) {
+    if (autoLoad) {
+      _waitForInitializationAndLoad();
+    }
   }
 
   Future<void> _waitForInitializationAndLoad() async {
@@ -889,9 +894,16 @@ class VocabularyNotifier extends StateNotifier<VocabularyState> {
   final VocabularySyncService _syncService;
   final ReviewService _reviewService;
 
-  VocabularyNotifier(this._hiveService, this._syncService, this._reviewService)
-      : super(const VocabularyState(isLoading: true)) {
-    _waitForInitializationAndLoad();
+  VocabularyNotifier(
+    this._hiveService,
+    this._syncService,
+    this._reviewService, {
+    VocabularyState? initialState,
+    bool autoLoad = true,
+  }) : super(initialState ?? const VocabularyState(isLoading: true)) {
+    if (autoLoad) {
+      _waitForInitializationAndLoad();
+    }
   }
 
   Future<void> _waitForInitializationAndLoad() async {
