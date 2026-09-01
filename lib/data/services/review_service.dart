@@ -493,12 +493,14 @@ class ReviewService {
 
   Future<void> saveUserStats({
     required int totalReviewsCompleted,
+    double? averageTimePerCard,
   }) async {
     if (!isLoggedIn) {
       final current = await _hiveService.getUserStats();
       await _hiveService.saveUserStats(UserStatsModel(
         totalReviewsCompleted: totalReviewsCompleted,
-        averageTimePerCard: 7.0,
+        averageTimePerCard:
+            averageTimePerCard ?? current?.averageTimePerCard ?? 7.0,
         lastReviewDate: DateTime.now(),
         createdAt: current?.createdAt ?? DateTime.now(),
         updatedAt: DateTime.now(),

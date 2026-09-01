@@ -3970,40 +3970,57 @@ class MockReviewService extends _i1.Mock implements _i12.ReviewService {
       ) as _i3.Future<_i8.WordCardModel?>);
 
   @override
-  _i3.Future<List<_i8.WordCardModel>> getReviewSession({String? topicFilter}) =>
+  _i3.Future<List<_i8.WordCardModel>> getReviewSession({
+    String? topicFilter,
+    int? batchSize = 5,
+  }) =>
       (super.noSuchMethod(
         Invocation.method(
           #getReviewSession,
           [],
-          {#topicFilter: topicFilter},
+          {
+            #topicFilter: topicFilter,
+            #batchSize: batchSize,
+          },
         ),
         returnValue:
             _i3.Future<List<_i8.WordCardModel>>.value(<_i8.WordCardModel>[]),
       ) as _i3.Future<List<_i8.WordCardModel>>);
 
   @override
-  _i3.Future<int> getRemainingDueCount() => (super.noSuchMethod(
+  _i3.Future<int> getTotalAvailableCardsCount({String? topicFilter}) =>
+      (super.noSuchMethod(
         Invocation.method(
-          #getRemainingDueCount,
+          #getTotalAvailableCardsCount,
           [],
+          {#topicFilter: topicFilter},
         ),
         returnValue: _i3.Future<int>.value(0),
       ) as _i3.Future<int>);
 
   @override
-  _i3.Future<Map<String, dynamic>> getUserStats() => (super.noSuchMethod(
+  _i3.Future<Map<String, int>> getAvailableCardCountsByTopic() =>
+      (super.noSuchMethod(
+        Invocation.method(
+          #getAvailableCardCountsByTopic,
+          [],
+        ),
+        returnValue: _i3.Future<Map<String, int>>.value(<String, int>{}),
+      ) as _i3.Future<Map<String, int>>);
+
+  @override
+  _i3.Future<_i10.UserStatsModel?> getUserStats() => (super.noSuchMethod(
         Invocation.method(
           #getUserStats,
           [],
         ),
-        returnValue:
-            _i3.Future<Map<String, dynamic>>.value(<String, dynamic>{}),
-      ) as _i3.Future<Map<String, dynamic>>);
+        returnValue: _i3.Future<_i10.UserStatsModel?>.value(),
+      ) as _i3.Future<_i10.UserStatsModel?>);
 
   @override
   _i3.Future<void> saveUserStats({
     required int? totalReviewsCompleted,
-    required double? averageTimePerCard,
+    double? averageTimePerCard,
   }) =>
       (super.noSuchMethod(
         Invocation.method(
@@ -4011,7 +4028,8 @@ class MockReviewService extends _i1.Mock implements _i12.ReviewService {
           [],
           {
             #totalReviewsCompleted: totalReviewsCompleted,
-            #averageTimePerCard: averageTimePerCard,
+            if (averageTimePerCard != null)
+              #averageTimePerCard: averageTimePerCard,
           },
         ),
         returnValue: _i3.Future<void>.value(),
@@ -4019,9 +4037,21 @@ class MockReviewService extends _i1.Mock implements _i12.ReviewService {
       ) as _i3.Future<void>);
 
   @override
+  _i3.Future<int> getRemainingDueCount({String? topicFilter}) =>
+      (super.noSuchMethod(
+        Invocation.method(
+          #getRemainingDueCount,
+          [],
+          {#topicFilter: topicFilter},
+        ),
+        returnValue: _i3.Future<int>.value(0),
+      ) as _i3.Future<int>);
+
+  @override
   _i3.Future<List<_i8.WordCardModel>> getMoreCards({
     int? batchSize = 5,
     List<String>? excludeIds,
+    String? topicFilter,
   }) =>
       (super.noSuchMethod(
         Invocation.method(
@@ -4030,6 +4060,7 @@ class MockReviewService extends _i1.Mock implements _i12.ReviewService {
           {
             #batchSize: batchSize,
             #excludeIds: excludeIds,
+            #topicFilter: topicFilter,
           },
         ),
         returnValue:
