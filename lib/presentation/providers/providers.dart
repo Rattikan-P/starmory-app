@@ -11,14 +11,25 @@ import '../../data/services/streak_service.dart';
 import '../../data/services/review_service.dart';
 import '../../data/models/user_model.dart';
 import '../../data/models/vocabulary_model.dart';
+import '../../data/models/scrapbook_model.dart';
 import '../../core/utils/quota_manager.dart';
 import '../../constants/app_defaults.dart';
+import 'scrapbook_provider.dart';
+import 'navigation_provider.dart';
 import 'review_provider.dart';
 
+// Export scrapbook providers
+export 'scrapbook_provider.dart';
+// Export navigation providers
+export 'navigation_provider.dart';
 // Export review providers
 export 'review_provider.dart';
 // Export streak providers
 export 'streak_provider.dart';
+// Export badge providers
+export 'badge_provider.dart';
+// Export sticker providers
+export 'sticker_provider.dart';
 
 // ============= Service Providers =============
 
@@ -222,11 +233,22 @@ class UserNotifier extends StateNotifier<UserState> {
         final dailyCount = quotaResponse['daily_gen_count'] as int? ?? 0;
         final totalCount = quotaResponse['total_gen_count'] as int? ?? 0;
 
-        // Build usage history from total count
-        final usageHistory = List<QuotaEntry>.generate(
-          totalCount,
-          (_) => QuotaEntry(timestamp: DateTime.now()),
-        );
+        // Build usage history: dailyCount entries for today, and remaining for past dates
+        final now = DateTime.now();
+        final pastDate = now.subtract(const Duration(days: 2));
+        final validDailyCount = dailyCount.clamp(0, totalCount);
+        final pastCount = (totalCount - validDailyCount).clamp(0, totalCount);
+
+        final usageHistory = [
+          ...List<QuotaEntry>.generate(
+            validDailyCount,
+            (_) => QuotaEntry(timestamp: now),
+          ),
+          ...List<QuotaEntry>.generate(
+            pastCount,
+            (_) => QuotaEntry(timestamp: pastDate),
+          ),
+        ];
 
         quotaManager = QuotaManager(
           totalLimit: 999999,
@@ -454,6 +476,9 @@ class UserNotifier extends StateNotifier<UserState> {
           }
         } else {
           state = UserState(user: user);
+          if (!user.isGuest) {
+            refreshUserFromSupabase();
+          }
         }
       } else {
         // Check if user is logged in to Supabase
@@ -743,11 +768,22 @@ class UserNotifier extends StateNotifier<UserState> {
         final dailyCount = quotaResponse['daily_gen_count'] as int? ?? 0;
         final totalCount = quotaResponse['total_gen_count'] as int? ?? 0;
 
-        // Build usage history from total count
-        final usageHistory = List<QuotaEntry>.generate(
-          totalCount,
-          (_) => QuotaEntry(timestamp: DateTime.now()),
-        );
+        // Build usage history: dailyCount entries for today, and remaining for past dates
+        final now = DateTime.now();
+        final pastDate = now.subtract(const Duration(days: 2));
+        final validDailyCount = dailyCount.clamp(0, totalCount);
+        final pastCount = (totalCount - validDailyCount).clamp(0, totalCount);
+
+        final usageHistory = [
+          ...List<QuotaEntry>.generate(
+            validDailyCount,
+            (_) => QuotaEntry(timestamp: now),
+          ),
+          ...List<QuotaEntry>.generate(
+            pastCount,
+            (_) => QuotaEntry(timestamp: pastDate),
+          ),
+        ];
 
         updatedQuotaManager = QuotaManager(
           totalLimit: 999999,
@@ -877,7 +913,55 @@ class VocabularyNotifier extends StateNotifier<VocabularyState> {
 
   Future<void> _loadVocabularies() async {
     try {
-      final vocabularies = await _hiveService.getAllVocabulary();
+      var vocabularies = await _hiveService.getAllVocabulary();
+
+      // Auto-backfill: check if any scrapbooks contain vocabulary words not yet in local storage
+      try {
+        final scrapbooks = await _hiveService.getAllScrapbooks();
+        final existingWords = vocabularies.map((v) => v.word.toLowerCase().trim()).toSet();
+        final missingVocabs = <VocabularyModel>[];
+
+        for (final sb in scrapbooks) {
+          for (final sbWord in sb.vocabularyWords) {
+            final wordKey = sbWord.word.toLowerCase().trim();
+            if (wordKey.isNotEmpty && !existingWords.contains(wordKey)) {
+              existingWords.add(wordKey);
+              final newVocab = VocabularyModel(
+                id: 'sb_${sb.id}_${sbWord.word.replaceAll(' ', '_')}',
+                word: sbWord.word,
+                partOfSpeech: sbWord.partOfSpeech.isNotEmpty ? sbWord.partOfSpeech : 'noun',
+                thaiTranslation: sbWord.thaiTranslation,
+                englishSentence: sb.englishSentence,
+                thaiSentence: sb.thaiSentence,
+                cefrLevel: 'A1',
+                communicativeFunction: 'Daily Life',
+                languageVariant: 'US',
+                imageUrl: sb.imagePath,
+                topic: 'other',
+                tags: const [],
+                createdAt: sb.createdAt,
+              );
+              missingVocabs.add(newVocab);
+            }
+          }
+        }
+
+        if (missingVocabs.isNotEmpty) {
+          print('🔄 [VocabularyNotifier] Backfilling ${missingVocabs.length} words from scrapbooks...');
+          for (final vocab in missingVocabs) {
+            await _hiveService.saveVocabulary(vocab);
+            if (_syncService.isLoggedIn) {
+              await _syncService.saveToCloud(vocab);
+            } else {
+              await _reviewService.createCard(vocab.id);
+            }
+          }
+          vocabularies = await _hiveService.getAllVocabulary();
+        }
+      } catch (e) {
+        print('⚠️ [VocabularyNotifier] Backfill check error: $e');
+      }
+
       state = VocabularyState(vocabularies: vocabularies);
     } catch (e) {
       state = VocabularyState(error: e.toString());
@@ -900,8 +984,36 @@ class VocabularyNotifier extends StateNotifier<VocabularyState> {
         print('✅ Word card created: ${vocabulary.word}');
       }
 
+      final currentWithoutNew = state.vocabularies.where((v) => v.id != vocabulary.id).toList();
       state = VocabularyState(
-        vocabularies: [...state.vocabularies, vocabulary],
+        vocabularies: [...currentWithoutNew, vocabulary],
+      );
+    } catch (e) {
+      state = VocabularyState(
+        vocabularies: state.vocabularies,
+        error: e.toString(),
+      );
+    }
+  }
+
+  Future<void> addVocabularies(List<VocabularyModel> vocabularies) async {
+    if (vocabularies.isEmpty) return;
+    try {
+      for (final vocabulary in vocabularies) {
+        await _hiveService.saveVocabulary(vocabulary);
+        if (_syncService.isLoggedIn) {
+          await _syncService.saveToCloud(vocabulary);
+          print('✅ Vocabulary synced to cloud: ${vocabulary.word}');
+        } else {
+          await _reviewService.createCard(vocabulary.id);
+          print('✅ Word card created: ${vocabulary.word}');
+        }
+      }
+
+      final existingIds = vocabularies.map((v) => v.id).toSet();
+      final currentFiltered = state.vocabularies.where((v) => !existingIds.contains(v.id)).toList();
+      state = VocabularyState(
+        vocabularies: [...currentFiltered, ...vocabularies],
       );
     } catch (e) {
       state = VocabularyState(

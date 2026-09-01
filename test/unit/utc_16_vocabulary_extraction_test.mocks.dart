@@ -59,6 +59,8 @@ class MockGeminiService extends _i1.Mock implements _i2.GeminiService {
     required String? level,
     required String? category,
     String? englishVariant = 'US',
+    List<String>? excludeWords = const [],
+    bool? isRegenerate = false,
   }) =>
       (super.noSuchMethod(
         Invocation.method(
@@ -69,6 +71,8 @@ class MockGeminiService extends _i1.Mock implements _i2.GeminiService {
             #level: level,
             #category: category,
             #englishVariant: englishVariant,
+            #excludeWords: excludeWords,
+            #isRegenerate: isRegenerate,
           },
         ),
         returnValue: _i3.Future<_i2.VocabularyExtractionResult>.value(
@@ -82,6 +86,8 @@ class MockGeminiService extends _i1.Mock implements _i2.GeminiService {
               #level: level,
               #category: category,
               #englishVariant: englishVariant,
+              #excludeWords: excludeWords,
+              #isRegenerate: isRegenerate,
             },
           ),
         )),

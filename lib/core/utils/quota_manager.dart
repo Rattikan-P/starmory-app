@@ -32,7 +32,7 @@ class QuotaManager {
   int getTodayUsage() {
     final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
     return usageHistory
-        .where((entry) => DateFormat('yyyy-MM-dd').format(entry.timestamp) == today)
+        .where((entry) => DateFormat('yyyy-MM-dd').format(entry.timestamp.toLocal()) == today)
         .length;
   }
 

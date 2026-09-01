@@ -9,6 +9,9 @@ import 'review_session_page.dart';
 import 'profile_tab.dart';
 import '../providers/providers.dart';
 import '../utils/photo_picker_flow.dart';
+import '../providers/review_provider.dart';
+import '../providers/navigation_provider.dart';
+import '../widgets/galaxy_screen_background.dart';
 
 /// Review Tab - Pixel-perfect implementation matching the latest design
 class ReviewTab extends ConsumerStatefulWidget {
@@ -18,14 +21,24 @@ class ReviewTab extends ConsumerStatefulWidget {
   ConsumerState<ReviewTab> createState() => _ReviewTabState();
 }
 
-class _ReviewTabState extends ConsumerState<ReviewTab>
-    with WidgetsBindingObserver {
+class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserver {
+  final ScrollController _scrollController = ScrollController();
   bool _hasInitialized = false;
   Timer? _refreshTimer;
   DateTime? _lastLoadTime;
   bool _isReviewSessionOpen = false;
 
   bool _isHowItWorksExpanded = false;
+
+  void _scrollToTop() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
 
   @override
   void initState() {
@@ -49,6 +62,7 @@ class _ReviewTabState extends ConsumerState<ReviewTab>
 
   @override
   void dispose() {
+    _scrollController.dispose();
     WidgetsBinding.instance.removeObserver(this);
     _refreshTimer?.cancel();
     super.dispose();
@@ -88,6 +102,16 @@ class _ReviewTabState extends ConsumerState<ReviewTab>
 
   @override
   Widget build(BuildContext context) {
+    // Listen for scroll to top signal from tab navigation
+    ref.listen<int>(
+      navigationProvider.select((s) => s.reviewScrollToTopTrigger),
+      (previous, next) {
+        if (previous != next) {
+          _scrollToTop();
+        }
+      },
+    );
+
     final reviewState = ref.watch(reviewStateProvider);
     final userState = ref.watch(userStateProvider);
 
@@ -471,6 +495,7 @@ class _ReviewTabState extends ConsumerState<ReviewTab>
     final totalDueCount = reviewState.remainingDueCount;
 
     return SingleChildScrollView(
+      controller: _scrollController,
       physics: const BouncingScrollPhysics(),
       child: Column(
         children: [

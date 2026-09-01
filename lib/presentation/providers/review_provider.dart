@@ -126,18 +126,22 @@ final reviewStateProvider =
     StateNotifierProvider<ReviewNotifier, ReviewState>((ref) {
   return ReviewNotifier(
     ref.watch(reviewServiceProvider),
+    ref: ref,
   );
 });
 
 /// Review State Notifier
 class ReviewNotifier extends StateNotifier<ReviewState> {
   final ReviewService _reviewService;
+  final Ref? _ref;
   final Future<void> Function()? _recordLearningActivity;
 
   ReviewNotifier(
     this._reviewService, {
+    Ref? ref,
     Future<void> Function()? recordLearningActivity,
-  })  : _recordLearningActivity = recordLearningActivity,
+  })  : _ref = ref,
+        _recordLearningActivity = recordLearningActivity,
         super(const ReviewState(isLoading: true));
 
   /// Load review session (due cards + new cards to fill batchSize)
@@ -248,20 +252,28 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
       // For registered users, this is handled by database trigger
       if (!_hasUpdatedStreakThisSession) {
         if (_recordLearningActivity != null) {
-          await _recordLearningActivity();
-        } else {
-          final container = ProviderContainer();
-          final streakNotifier = container.read(streakProvider.notifier);
+          await _recordLearningActivity!();
+        } else if (_ref != null) {
+          final streakNotifier = _ref!.read(streakProvider.notifier);
           await streakNotifier.recordLearningActivity();
-          container.dispose();
         }
         _hasUpdatedStreakThisSession = true;
       }
 
+      // Record review activity for Badge system
+      if (_ref != null) {
+        await _ref!.read(badgeProvider.notifier).recordActivity(ActivityType.review);
+      }
+      
+      // Calculate new average time per card
+      final elapsedSeconds = DateTime.now().difference(state.sessionStartTime ?? DateTime.now()).inSeconds / (state.currentIndex + 1);
+      final totalReviews = state.totalReviewsCompleted + 1;
+      final currentAvg = state.averageTimePerCard;
+      final newAvg = ((currentAvg * state.totalReviewsCompleted) + elapsedSeconds) / totalReviews;
+
       // Add card ID to reviewed set
       final newReviewedIds = Set<String>.from(state.reviewedCardIds);
       newReviewedIds.add(currentCard.id);
-      final totalReviews = state.totalReviewsCompleted + 1;
 
       print('🔍 [SwipeCard] Swiped: word=${currentCard.vocabulary?.word}, remembered=$remembered, oldDueDate=${currentCard.dueDate.toUtc()}, newDueDate=${updatedCard.dueDate.toUtc()}');
       

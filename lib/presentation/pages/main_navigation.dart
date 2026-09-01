@@ -6,6 +6,7 @@ import 'review_tab.dart';
 import 'scrapbook_tab.dart';
 import 'progress_tab.dart';
 import '../providers/providers.dart';
+import '../providers/navigation_provider.dart';
 
 // Sync only once per app session (from launch, not resume)
 bool _hasSyncedThisSession = false;
@@ -59,19 +60,15 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
 
       print('📦 [App Open] Found ${localVocabs.length} local vocabularies');
 
-      if (localVocabs.isNotEmpty) {
-        // Use mergeWithCloud to avoid duplicates
-        print('☁️ [App Open] Merging with cloud...');
-        final syncedVocabs = await vocabSyncService.mergeWithCloud(localVocabs);
-        // Update local storage with merged vocabularies
-        await hiveService.clearAllVocabulary();
-        for (final vocab in syncedVocabs) {
-          await hiveService.saveVocabulary(vocab);
-        }
-        print('✅ [App Open] Sync complete! Total vocabularies: ${syncedVocabs.length}');
-      } else {
-        print('ℹ️ [App Open] No local vocabularies to sync');
+      print('☁️ [App Open] Merging with cloud...');
+      final syncedVocabs = await vocabSyncService.mergeWithCloud(localVocabs);
+      // Update local storage with merged vocabularies
+      await hiveService.clearAllVocabulary();
+      for (final vocab in syncedVocabs) {
+        await hiveService.saveVocabulary(vocab);
       }
+      print('✅ [App Open] Sync complete! Total vocabularies: ${syncedVocabs.length}');
+      await ref.read(vocabularyStateProvider.notifier).refresh();
 
       // Mark as synced for this session
       _hasSyncedThisSession = true;
@@ -83,7 +80,7 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final currentIndex = ref.watch(mainNavigationIndexProvider);
+    final currentIndex = ref.watch(navigationProvider).currentIndex;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -105,7 +102,7 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
         child: BottomNavigationBar(
           currentIndex: currentIndex,
           onTap: (index) {
-            ref.read(mainNavigationIndexProvider.notifier).state = index;
+            ref.read(navigationProvider.notifier).setIndex(index);
           },
           type: BottomNavigationBarType.fixed,
           backgroundColor: Colors.transparent,

@@ -6,18 +6,19 @@
 import 'dart:async' as _i3;
 
 import 'package:mockito/mockito.dart' as _i1;
-import 'package:mockito/src/dummies.dart' as _i14;
-import 'package:starmory_app/core/utils/quota_manager.dart' as _i10;
-import 'package:starmory_app/data/models/user_model.dart' as _i8;
-import 'package:starmory_app/data/models/user_stats_model.dart' as _i9;
+import 'package:mockito/src/dummies.dart' as _i15;
+import 'package:starmory_app/core/utils/quota_manager.dart' as _i11;
+import 'package:starmory_app/data/models/scrapbook_model.dart' as _i7;
+import 'package:starmory_app/data/models/user_model.dart' as _i9;
+import 'package:starmory_app/data/models/user_stats_model.dart' as _i10;
 import 'package:starmory_app/data/models/vocabulary_model.dart' as _i6;
-import 'package:starmory_app/data/models/word_card_model.dart' as _i7;
-import 'package:starmory_app/data/services/app_state_service.dart' as _i13;
+import 'package:starmory_app/data/models/word_card_model.dart' as _i8;
+import 'package:starmory_app/data/services/app_state_service.dart' as _i14;
 import 'package:starmory_app/data/services/auth_service.dart' as _i4;
 import 'package:starmory_app/data/services/hive_service.dart' as _i5;
-import 'package:starmory_app/data/services/streak_service.dart' as _i12;
+import 'package:starmory_app/data/services/streak_service.dart' as _i13;
 import 'package:starmory_app/data/services/vocabulary_sync_service.dart'
-    as _i11;
+    as _i12;
 import 'package:supabase_flutter/supabase_flutter.dart' as _i2;
 
 // ignore_for_file: type=lint
@@ -573,7 +574,62 @@ class MockHiveService extends _i1.Mock implements _i5.HiveService {
       ) as _i3.Future<void>);
 
   @override
-  _i3.Future<void> saveWordCard(_i7.WordCardModel? card) => (super.noSuchMethod(
+  _i3.Future<void> saveScrapbook(_i7.ScrapbookModel? scrapbook) =>
+      (super.noSuchMethod(
+        Invocation.method(
+          #saveScrapbook,
+          [scrapbook],
+        ),
+        returnValue: _i3.Future<void>.value(),
+        returnValueForMissingStub: _i3.Future<void>.value(),
+      ) as _i3.Future<void>);
+
+  @override
+  _i3.Future<_i7.ScrapbookModel?> getScrapbook(String? id) =>
+      (super.noSuchMethod(
+        Invocation.method(
+          #getScrapbook,
+          [id],
+        ),
+        returnValue: _i3.Future<_i7.ScrapbookModel?>.value(),
+        returnValueForMissingStub: _i3.Future<_i7.ScrapbookModel?>.value(),
+      ) as _i3.Future<_i7.ScrapbookModel?>);
+
+  @override
+  _i3.Future<List<_i7.ScrapbookModel>> getAllScrapbooks() =>
+      (super.noSuchMethod(
+        Invocation.method(
+          #getAllScrapbooks,
+          [],
+        ),
+        returnValue:
+            _i3.Future<List<_i7.ScrapbookModel>>.value(<_i7.ScrapbookModel>[]),
+        returnValueForMissingStub:
+            _i3.Future<List<_i7.ScrapbookModel>>.value(<_i7.ScrapbookModel>[]),
+      ) as _i3.Future<List<_i7.ScrapbookModel>>);
+
+  @override
+  _i3.Future<void> deleteScrapbook(String? id) => (super.noSuchMethod(
+        Invocation.method(
+          #deleteScrapbook,
+          [id],
+        ),
+        returnValue: _i3.Future<void>.value(),
+        returnValueForMissingStub: _i3.Future<void>.value(),
+      ) as _i3.Future<void>);
+
+  @override
+  _i3.Future<void> clearAllScrapbooks() => (super.noSuchMethod(
+        Invocation.method(
+          #clearAllScrapbooks,
+          [],
+        ),
+        returnValue: _i3.Future<void>.value(),
+        returnValueForMissingStub: _i3.Future<void>.value(),
+      ) as _i3.Future<void>);
+
+  @override
+  _i3.Future<void> saveWordCard(_i8.WordCardModel? card) => (super.noSuchMethod(
         Invocation.method(
           #saveWordCard,
           [card],
@@ -583,26 +639,26 @@ class MockHiveService extends _i1.Mock implements _i5.HiveService {
       ) as _i3.Future<void>);
 
   @override
-  _i3.Future<_i7.WordCardModel?> getWordCard(String? id) => (super.noSuchMethod(
+  _i3.Future<_i8.WordCardModel?> getWordCard(String? id) => (super.noSuchMethod(
         Invocation.method(
           #getWordCard,
           [id],
         ),
-        returnValue: _i3.Future<_i7.WordCardModel?>.value(),
-        returnValueForMissingStub: _i3.Future<_i7.WordCardModel?>.value(),
-      ) as _i3.Future<_i7.WordCardModel?>);
+        returnValue: _i3.Future<_i8.WordCardModel?>.value(),
+        returnValueForMissingStub: _i3.Future<_i8.WordCardModel?>.value(),
+      ) as _i3.Future<_i8.WordCardModel?>);
 
   @override
-  _i3.Future<List<_i7.WordCardModel>> getWordCards() => (super.noSuchMethod(
+  _i3.Future<List<_i8.WordCardModel>> getWordCards() => (super.noSuchMethod(
         Invocation.method(
           #getWordCards,
           [],
         ),
         returnValue:
-            _i3.Future<List<_i7.WordCardModel>>.value(<_i7.WordCardModel>[]),
+            _i3.Future<List<_i8.WordCardModel>>.value(<_i8.WordCardModel>[]),
         returnValueForMissingStub:
-            _i3.Future<List<_i7.WordCardModel>>.value(<_i7.WordCardModel>[]),
-      ) as _i3.Future<List<_i7.WordCardModel>>);
+            _i3.Future<List<_i8.WordCardModel>>.value(<_i8.WordCardModel>[]),
+      ) as _i3.Future<List<_i8.WordCardModel>>);
 
   @override
   _i3.Future<void> deleteWordCard(String? id) => (super.noSuchMethod(
@@ -625,7 +681,7 @@ class MockHiveService extends _i1.Mock implements _i5.HiveService {
       ) as _i3.Future<void>);
 
   @override
-  _i3.Future<void> saveUser(_i8.UserModel? user) => (super.noSuchMethod(
+  _i3.Future<void> saveUser(_i9.UserModel? user) => (super.noSuchMethod(
         Invocation.method(
           #saveUser,
           [user],
@@ -635,14 +691,14 @@ class MockHiveService extends _i1.Mock implements _i5.HiveService {
       ) as _i3.Future<void>);
 
   @override
-  _i3.Future<_i8.UserModel?> getCurrentUser() => (super.noSuchMethod(
+  _i3.Future<_i9.UserModel?> getCurrentUser() => (super.noSuchMethod(
         Invocation.method(
           #getCurrentUser,
           [],
         ),
-        returnValue: _i3.Future<_i8.UserModel?>.value(),
-        returnValueForMissingStub: _i3.Future<_i8.UserModel?>.value(),
-      ) as _i3.Future<_i8.UserModel?>);
+        returnValue: _i3.Future<_i9.UserModel?>.value(),
+        returnValueForMissingStub: _i3.Future<_i9.UserModel?>.value(),
+      ) as _i3.Future<_i9.UserModel?>);
 
   @override
   _i3.Future<void> clearCurrentUser() => (super.noSuchMethod(
@@ -655,7 +711,7 @@ class MockHiveService extends _i1.Mock implements _i5.HiveService {
       ) as _i3.Future<void>);
 
   @override
-  _i3.Future<void> saveUserStats(_i9.UserStatsModel? stats) =>
+  _i3.Future<void> saveUserStats(_i10.UserStatsModel? stats) =>
       (super.noSuchMethod(
         Invocation.method(
           #saveUserStats,
@@ -666,14 +722,14 @@ class MockHiveService extends _i1.Mock implements _i5.HiveService {
       ) as _i3.Future<void>);
 
   @override
-  _i3.Future<_i9.UserStatsModel?> getUserStats() => (super.noSuchMethod(
+  _i3.Future<_i10.UserStatsModel?> getUserStats() => (super.noSuchMethod(
         Invocation.method(
           #getUserStats,
           [],
         ),
-        returnValue: _i3.Future<_i9.UserStatsModel?>.value(),
-        returnValueForMissingStub: _i3.Future<_i9.UserStatsModel?>.value(),
-      ) as _i3.Future<_i9.UserStatsModel?>);
+        returnValue: _i3.Future<_i10.UserStatsModel?>.value(),
+        returnValueForMissingStub: _i3.Future<_i10.UserStatsModel?>.value(),
+      ) as _i3.Future<_i10.UserStatsModel?>);
 
   @override
   _i3.Future<void> clearUserStats() => (super.noSuchMethod(
@@ -686,7 +742,7 @@ class MockHiveService extends _i1.Mock implements _i5.HiveService {
       ) as _i3.Future<void>);
 
   @override
-  _i3.Future<void> saveGuestQuotaBackup(_i10.QuotaManager? quotaManager) =>
+  _i3.Future<void> saveGuestQuotaBackup(_i11.QuotaManager? quotaManager) =>
       (super.noSuchMethod(
         Invocation.method(
           #saveGuestQuotaBackup,
@@ -697,14 +753,14 @@ class MockHiveService extends _i1.Mock implements _i5.HiveService {
       ) as _i3.Future<void>);
 
   @override
-  _i3.Future<_i10.QuotaManager?> getGuestQuotaBackup() => (super.noSuchMethod(
+  _i3.Future<_i11.QuotaManager?> getGuestQuotaBackup() => (super.noSuchMethod(
         Invocation.method(
           #getGuestQuotaBackup,
           [],
         ),
-        returnValue: _i3.Future<_i10.QuotaManager?>.value(),
-        returnValueForMissingStub: _i3.Future<_i10.QuotaManager?>.value(),
-      ) as _i3.Future<_i10.QuotaManager?>);
+        returnValue: _i3.Future<_i11.QuotaManager?>.value(),
+        returnValueForMissingStub: _i3.Future<_i11.QuotaManager?>.value(),
+      ) as _i3.Future<_i11.QuotaManager?>);
 
   @override
   _i3.Future<void> clearGuestQuotaBackup() => (super.noSuchMethod(
@@ -751,7 +807,7 @@ class MockHiveService extends _i1.Mock implements _i5.HiveService {
 ///
 /// See the documentation for Mockito's code generation for more information.
 class MockVocabularySyncService extends _i1.Mock
-    implements _i11.VocabularySyncService {
+    implements _i12.VocabularySyncService {
   @override
   bool get isLoggedIn => (super.noSuchMethod(
         Invocation.getter(#isLoggedIn),
@@ -853,27 +909,27 @@ class MockVocabularySyncService extends _i1.Mock
 /// A class which mocks [StreakService].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockStreakService extends _i1.Mock implements _i12.StreakService {
+class MockStreakService extends _i1.Mock implements _i13.StreakService {
   @override
-  _i3.Future<_i12.StreakData?> getStreakData() => (super.noSuchMethod(
+  _i3.Future<_i13.StreakData?> getStreakData() => (super.noSuchMethod(
         Invocation.method(
           #getStreakData,
           [],
         ),
-        returnValue: _i3.Future<_i12.StreakData?>.value(),
-        returnValueForMissingStub: _i3.Future<_i12.StreakData?>.value(),
-      ) as _i3.Future<_i12.StreakData?>);
+        returnValue: _i3.Future<_i13.StreakData?>.value(),
+        returnValueForMissingStub: _i3.Future<_i13.StreakData?>.value(),
+      ) as _i3.Future<_i13.StreakData?>);
 
   @override
-  _i3.Future<_i12.StreakData?> getStreakDataForUser(String? userId) =>
+  _i3.Future<_i13.StreakData?> getStreakDataForUser(String? userId) =>
       (super.noSuchMethod(
         Invocation.method(
           #getStreakDataForUser,
           [userId],
         ),
-        returnValue: _i3.Future<_i12.StreakData?>.value(),
-        returnValueForMissingStub: _i3.Future<_i12.StreakData?>.value(),
-      ) as _i3.Future<_i12.StreakData?>);
+        returnValue: _i3.Future<_i13.StreakData?>.value(),
+        returnValueForMissingStub: _i3.Future<_i13.StreakData?>.value(),
+      ) as _i3.Future<_i13.StreakData?>);
 
   @override
   _i3.Future<bool> updateStreakData({
@@ -976,7 +1032,7 @@ class MockStreakService extends _i1.Mock implements _i12.StreakService {
 /// A class which mocks [AppStateService].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockAppStateService extends _i1.Mock implements _i13.AppStateService {
+class MockAppStateService extends _i1.Mock implements _i14.AppStateService {
   @override
   _i3.Future<void> init() => (super.noSuchMethod(
         Invocation.method(
@@ -1342,7 +1398,7 @@ class MockSupabaseClient extends _i1.Mock implements _i2.SupabaseClient {
           #removeChannel,
           [channel],
         ),
-        returnValue: _i3.Future<String>.value(_i14.dummyValue<String>(
+        returnValue: _i3.Future<String>.value(_i15.dummyValue<String>(
           this,
           Invocation.method(
             #removeChannel,
@@ -1350,7 +1406,7 @@ class MockSupabaseClient extends _i1.Mock implements _i2.SupabaseClient {
           ),
         )),
         returnValueForMissingStub:
-            _i3.Future<String>.value(_i14.dummyValue<String>(
+            _i3.Future<String>.value(_i15.dummyValue<String>(
           this,
           Invocation.method(
             #removeChannel,
@@ -1845,7 +1901,7 @@ class MockGoTrueClient extends _i1.Mock implements _i2.GoTrueClient {
             #captchaToken: captchaToken,
           },
         ),
-        returnValue: _i3.Future<String>.value(_i14.dummyValue<String>(
+        returnValue: _i3.Future<String>.value(_i15.dummyValue<String>(
           this,
           Invocation.method(
             #getSSOSignInUrl,
@@ -1859,7 +1915,7 @@ class MockGoTrueClient extends _i1.Mock implements _i2.GoTrueClient {
           ),
         )),
         returnValueForMissingStub:
-            _i3.Future<String>.value(_i14.dummyValue<String>(
+            _i3.Future<String>.value(_i15.dummyValue<String>(
           this,
           Invocation.method(
             #getSSOSignInUrl,
@@ -2383,11 +2439,11 @@ class MockUser extends _i1.Mock implements _i2.User {
   @override
   String get id => (super.noSuchMethod(
         Invocation.getter(#id),
-        returnValue: _i14.dummyValue<String>(
+        returnValue: _i15.dummyValue<String>(
           this,
           Invocation.getter(#id),
         ),
-        returnValueForMissingStub: _i14.dummyValue<String>(
+        returnValueForMissingStub: _i15.dummyValue<String>(
           this,
           Invocation.getter(#id),
         ),
@@ -2403,11 +2459,11 @@ class MockUser extends _i1.Mock implements _i2.User {
   @override
   String get aud => (super.noSuchMethod(
         Invocation.getter(#aud),
-        returnValue: _i14.dummyValue<String>(
+        returnValue: _i15.dummyValue<String>(
           this,
           Invocation.getter(#aud),
         ),
-        returnValueForMissingStub: _i14.dummyValue<String>(
+        returnValueForMissingStub: _i15.dummyValue<String>(
           this,
           Invocation.getter(#aud),
         ),
@@ -2416,11 +2472,11 @@ class MockUser extends _i1.Mock implements _i2.User {
   @override
   String get createdAt => (super.noSuchMethod(
         Invocation.getter(#createdAt),
-        returnValue: _i14.dummyValue<String>(
+        returnValue: _i15.dummyValue<String>(
           this,
           Invocation.getter(#createdAt),
         ),
-        returnValueForMissingStub: _i14.dummyValue<String>(
+        returnValueForMissingStub: _i15.dummyValue<String>(
           this,
           Invocation.getter(#createdAt),
         ),
@@ -2456,11 +2512,11 @@ class MockPostgrestClient extends _i1.Mock implements _i2.PostgrestClient {
   @override
   String get url => (super.noSuchMethod(
         Invocation.getter(#url),
-        returnValue: _i14.dummyValue<String>(
+        returnValue: _i15.dummyValue<String>(
           this,
           Invocation.getter(#url),
         ),
-        returnValueForMissingStub: _i14.dummyValue<String>(
+        returnValueForMissingStub: _i15.dummyValue<String>(
           this,
           Invocation.getter(#url),
         ),
@@ -4237,8 +4293,8 @@ class MockPostgrestFilterBuilder<T> extends _i1.Mock
           [onError],
           {#test: test},
         ),
-        returnValue: _i14.ifNotNull(
-              _i14.dummyValueOrNull<T>(
+        returnValue: _i15.ifNotNull(
+              _i15.dummyValueOrNull<T>(
                 this,
                 Invocation.method(
                   #catchError,
@@ -4256,8 +4312,8 @@ class MockPostgrestFilterBuilder<T> extends _i1.Mock
                 {#test: test},
               ),
             ),
-        returnValueForMissingStub: _i14.ifNotNull(
-              _i14.dummyValueOrNull<T>(
+        returnValueForMissingStub: _i15.ifNotNull(
+              _i15.dummyValueOrNull<T>(
                 this,
                 Invocation.method(
                   #catchError,
@@ -4288,8 +4344,8 @@ class MockPostgrestFilterBuilder<T> extends _i1.Mock
           [onValue],
           {#onError: onError},
         ),
-        returnValue: _i14.ifNotNull(
-              _i14.dummyValueOrNull<U>(
+        returnValue: _i15.ifNotNull(
+              _i15.dummyValueOrNull<U>(
                 this,
                 Invocation.method(
                   #then,
@@ -4307,8 +4363,8 @@ class MockPostgrestFilterBuilder<T> extends _i1.Mock
                 {#onError: onError},
               ),
             ),
-        returnValueForMissingStub: _i14.ifNotNull(
-              _i14.dummyValueOrNull<U>(
+        returnValueForMissingStub: _i15.ifNotNull(
+              _i15.dummyValueOrNull<U>(
                 this,
                 Invocation.method(
                   #then,
@@ -4339,8 +4395,8 @@ class MockPostgrestFilterBuilder<T> extends _i1.Mock
           [timeLimit],
           {#onTimeout: onTimeout},
         ),
-        returnValue: _i14.ifNotNull(
-              _i14.dummyValueOrNull<T>(
+        returnValue: _i15.ifNotNull(
+              _i15.dummyValueOrNull<T>(
                 this,
                 Invocation.method(
                   #timeout,
@@ -4358,8 +4414,8 @@ class MockPostgrestFilterBuilder<T> extends _i1.Mock
                 {#onTimeout: onTimeout},
               ),
             ),
-        returnValueForMissingStub: _i14.ifNotNull(
-              _i14.dummyValueOrNull<T>(
+        returnValueForMissingStub: _i15.ifNotNull(
+              _i15.dummyValueOrNull<T>(
                 this,
                 Invocation.method(
                   #timeout,
@@ -4386,8 +4442,8 @@ class MockPostgrestFilterBuilder<T> extends _i1.Mock
           #whenComplete,
           [action],
         ),
-        returnValue: _i14.ifNotNull(
-              _i14.dummyValueOrNull<T>(
+        returnValue: _i15.ifNotNull(
+              _i15.dummyValueOrNull<T>(
                 this,
                 Invocation.method(
                   #whenComplete,
@@ -4403,8 +4459,8 @@ class MockPostgrestFilterBuilder<T> extends _i1.Mock
                 [action],
               ),
             ),
-        returnValueForMissingStub: _i14.ifNotNull(
-              _i14.dummyValueOrNull<T>(
+        returnValueForMissingStub: _i15.ifNotNull(
+              _i15.dummyValueOrNull<T>(
                 this,
                 Invocation.method(
                   #whenComplete,
@@ -4827,8 +4883,8 @@ class MockSupabaseQueryBuilder extends _i1.Mock
           [onValue],
           {#onError: onError},
         ),
-        returnValue: _i14.ifNotNull(
-              _i14.dummyValueOrNull<U>(
+        returnValue: _i15.ifNotNull(
+              _i15.dummyValueOrNull<U>(
                 this,
                 Invocation.method(
                   #then,
@@ -4846,8 +4902,8 @@ class MockSupabaseQueryBuilder extends _i1.Mock
                 {#onError: onError},
               ),
             ),
-        returnValueForMissingStub: _i14.ifNotNull(
-              _i14.dummyValueOrNull<U>(
+        returnValueForMissingStub: _i15.ifNotNull(
+              _i15.dummyValueOrNull<U>(
                 this,
                 Invocation.method(
                   #then,

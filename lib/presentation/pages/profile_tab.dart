@@ -9,7 +9,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../constants/app_defaults.dart';
 import '../../utils/snackbar_helper.dart';
 import '../providers/auth_provider.dart' as auth;
-import '../providers/streak_provider.dart';
 import '../providers/providers.dart';
 import '../../data/services/auth_service.dart';
 import '../../data/models/user_model.dart';
@@ -22,6 +21,7 @@ import 'privacy_policy_page.dart';
 import 'terms_of_service_page.dart';
 import '../widgets/galaxy_screen_background.dart';
 import '../widgets/common/profile_widgets.dart';
+import '../widgets/badges_section.dart';
 
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
 
@@ -1936,6 +1936,10 @@ class _NotLoggedInViewState extends ConsumerState<_NotLoggedInView> {
                         const _StreakSection(),
                         const SizedBox(height: 8),
 
+                        // Badges Section
+                        const BadgesSection(),
+                        const SizedBox(height: 8),
+
                         // Preferences Section
                         _PreferencesSection(
                           languageLevel:
@@ -2226,6 +2230,10 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
                       children: [
                         // Streak Section
                         const _StreakSection(),
+                        const SizedBox(height: 8),
+
+                        // Badges Section
+                        const BadgesSection(),
                         const SizedBox(height: 8),
 
                         // Preferences Section

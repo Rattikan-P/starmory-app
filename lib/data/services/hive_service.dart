@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../models/vocabulary_model.dart';
 import '../models/user_model.dart';
+import '../models/scrapbook_model.dart';
 import '../models/word_card_model.dart';
 import '../models/user_stats_model.dart';
 import '../../core/config/app_constants.dart';
@@ -54,6 +55,7 @@ class HiveService {
     try {
       await Hive.openBox<String>(AppConstants.boxVocabulary);
       await Hive.openBox<String>(AppConstants.boxUser);
+      await Hive.openBox<String>(AppConstants.boxScrapbook);
       await Hive.openBox<String>(AppConstants.boxWordCards);
       await Hive.openBox<String>(AppConstants.boxUserStats);
     } catch (e, stackTrace) {
@@ -130,6 +132,71 @@ class HiveService {
       await box.clear();
     } catch (e) {
       throw CacheFailure('Failed to clear vocabulary: ${e.toString()}');
+    }
+  }
+
+  // ============= Scrapbook Operations =============
+
+  /// Save scrapbook to local storage
+  Future<void> saveScrapbook(ScrapbookModel scrapbook) async {
+    try {
+      final box = Hive.box<String>(AppConstants.boxScrapbook);
+      await box.put(scrapbook.id, jsonEncode(scrapbook.toJson()));
+    } catch (e) {
+      throw CacheFailure('Failed to save scrapbook: ${e.toString()}');
+    }
+  }
+
+  /// Get scrapbook by ID
+  Future<ScrapbookModel?> getScrapbook(String id) async {
+    try {
+      final box = Hive.box<String>(AppConstants.boxScrapbook);
+      final jsonString = box.get(id);
+      if (jsonString == null) return null;
+      return ScrapbookModel.fromJson(jsonDecode(jsonString) as Map<String, dynamic>);
+    } catch (e) {
+      throw CacheFailure('Failed to get scrapbook: ${e.toString()}');
+    }
+  }
+
+  /// Get all scrapbooks
+  Future<List<ScrapbookModel>> getAllScrapbooks() async {
+    try {
+      final box = Hive.box<String>(AppConstants.boxScrapbook);
+      final scrapbooks = <ScrapbookModel>[];
+
+      for (final jsonString in box.values) {
+        try {
+          scrapbooks.add(ScrapbookModel.fromJson(jsonDecode(jsonString) as Map<String, dynamic>));
+        } catch (e) {
+          // Skip corrupted entries
+          continue;
+        }
+      }
+
+      return scrapbooks;
+    } catch (e) {
+      throw CacheFailure('Failed to get all scrapbooks: ${e.toString()}');
+    }
+  }
+
+  /// Delete scrapbook
+  Future<void> deleteScrapbook(String id) async {
+    try {
+      final box = Hive.box<String>(AppConstants.boxScrapbook);
+      await box.delete(id);
+    } catch (e) {
+      throw CacheFailure('Failed to delete scrapbook: ${e.toString()}');
+    }
+  }
+
+  /// Clear all scrapbooks
+  Future<void> clearAllScrapbooks() async {
+    try {
+      final box = Hive.box<String>(AppConstants.boxScrapbook);
+      await box.clear();
+    } catch (e) {
+      throw CacheFailure('Failed to clear scrapbooks: ${e.toString()}');
     }
   }
 
@@ -350,6 +417,7 @@ class HiveService {
     try {
       await Hive.box<String>(AppConstants.boxVocabulary).clear();
       await Hive.box<String>(AppConstants.boxUser).clear();
+      await Hive.box<String>(AppConstants.boxScrapbook).clear();
       await Hive.box<String>(AppConstants.boxWordCards).clear();
       await Hive.box<String>(AppConstants.boxUserStats).clear();
     } catch (e) {
@@ -374,6 +442,9 @@ class HiveService {
 
       totalSize += Hive.box<String>(AppConstants.boxVocabulary).length;
       totalSize += Hive.box<String>(AppConstants.boxUser).length;
+      totalSize += Hive.box<String>(AppConstants.boxScrapbook).length;
+      totalSize += Hive.box<String>(AppConstants.boxWordCards).length;
+      totalSize += Hive.box<String>(AppConstants.boxUserStats).length;
 
       return totalSize;
     } catch (e) {

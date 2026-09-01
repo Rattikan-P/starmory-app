@@ -7,11 +7,18 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
+import '../../constants/design_tokens.dart';
 import '../providers/providers.dart';
+import '../providers/scrapbook_provider.dart';
+import '../providers/navigation_provider.dart';
+import '../../data/models/scrapbook_model.dart';
 import 'image_preview_screen.dart';
+import 'edit_scrapbook_screen.dart';
 import 'auth/account_method_page.dart';
 import 'profile_tab.dart';
 import '../widgets/galaxy_screen_background.dart';
+import '../widgets/scrapbook_detail_sheet.dart';
+import '../widgets/scrapbook_polaroid.dart';
 
 /// Home Tab - Main screen with AI generation
 /// Redesigned to feel warm, welcoming, and pressure-free
@@ -25,6 +32,7 @@ class HomeTab extends ConsumerStatefulWidget {
 class _HomeTabState extends ConsumerState<HomeTab>
     with TickerProviderStateMixin {
   final ImagePicker _imagePicker = ImagePicker();
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -33,6 +41,16 @@ class _HomeTabState extends ConsumerState<HomeTab>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _refreshUserData();
     });
+  }
+
+  void _scrollToTop() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
   }
 
   Future<void> _refreshUserData() async {
@@ -80,6 +98,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
 
   @override
   void dispose() {
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -92,6 +111,16 @@ class _HomeTabState extends ConsumerState<HomeTab>
 
   @override
   Widget build(BuildContext context) {
+    // Listen for scroll to top signal from tab navigation
+    ref.listen<int>(
+      navigationProvider.select((s) => s.homeScrollToTopTrigger),
+      (previous, next) {
+        if (previous != next) {
+          _scrollToTop();
+        }
+      },
+    );
+
     final userState = ref.watch(userStateProvider);
     final quote = _quotes[DateTime.now().day % _quotes.length];
 
@@ -106,7 +135,8 @@ class _HomeTabState extends ConsumerState<HomeTab>
             // Main content
             Expanded(
               child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(20),
+                controller: _scrollController,
+                padding: const EdgeInsets.all(20),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -803,6 +833,9 @@ class _HomeTabState extends ConsumerState<HomeTab>
   }
 
   Widget _buildRecentScrapbook(BuildContext context) {
+    final scrapbookState = ref.watch(scrapbookStateProvider);
+    final recentScrapbooks = scrapbookState.recentScrapbooks;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -817,76 +850,582 @@ class _HomeTabState extends ConsumerState<HomeTab>
                 color: const Color(0xFF1f2937),
               ),
             ),
-            GestureDetector(
-              onTap: () {
-                // Navigate to Scrapbook tab
-              },
-              child: Text(
-                'See all',
-                style: GoogleFonts.lexend(
-                  fontSize: 14,
-                  color: const Color(0xFF8b5cf6),
-                  fontWeight: FontWeight.w500,
+            TextButton.icon(
+              onPressed: () =>
+                  ref.read(navigationProvider.notifier).goScrapbook(),
+              icon: const Icon(Icons.arrow_forward_rounded, size: 17),
+              label: const Text('View all'),
+              iconAlignment: IconAlignment.end,
+              style: TextButton.styleFrom(
+                foregroundColor: DesignTokens.brandColor,
+                minimumSize: const Size(0, DesignTokens.touchTarget),
+                textStyle: GoogleFonts.lexend(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
           ],
         ),
         const SizedBox(height: 16),
-        Container(
-          height: 120,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
-                blurRadius: 20,
-                offset: const Offset(0, 4),
+        recentScrapbooks.isEmpty
+            ? _buildEmptyScrapbookState(context)
+            : _buildScrapbookList(context, recentScrapbooks),
+      ],
+    );
+  }
+
+  /// Empty state for when no scrapbooks exist
+  Widget _buildEmptyScrapbookState(BuildContext context) {
+    return Container(
+      height: 140,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFFE8E5EC),
+        ),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    const Color(0xFFF3F4F6),
+                    const Color(0xFFE5E7EB).withValues(alpha: 0.5),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(12),
               ),
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
-                blurRadius: 10,
-                offset: const Offset(0, 2),
+              child: const Icon(
+                Icons.photo_library_outlined,
+                size: 28,
+                color: Color(0xFF9ca3af),
               ),
-            ],
-            border: Border.all(
-              color: const Color(0xFFE2D1F9).withValues(alpha: 0.3),
-              width: 1,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'No memories yet',
+              style: GoogleFonts.lexend(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF6b7280),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Start capturing moments today',
+              style: GoogleFonts.lexend(
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+                color: const Color(0xFF9ca3af),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Horizontal list of scrapbook cards
+  Widget _buildScrapbookList(BuildContext context, List<ScrapbookModel> scrapbooks) {
+    return SizedBox(
+      height: ScrapbookPolaroid.listExtent,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        clipBehavior: Clip.none,
+        itemCount: scrapbooks.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 14),
+        itemBuilder: (context, index) {
+          final scrapbook = scrapbooks[index];
+          return _buildScrapbookCard(context, scrapbook, index);
+        },
+      ),
+    );
+  }
+
+  Widget _buildScrapbookCard(BuildContext context, ScrapbookModel scrapbook, int index) {
+    if (MediaQuery.disableAnimationsOf(context)) {
+      return _buildScrapbookCardInteractive(context, scrapbook);
+    }
+
+    return TweenAnimationBuilder<double>(
+      duration: Duration(milliseconds: 220 + (index * 35)),
+      tween: Tween(begin: 0.0, end: 1.0),
+      curve: Curves.easeOutQuart,
+      builder: (context, value, child) {
+        return Transform.translate(
+          offset: Offset(18 * (1 - value), 0),
+          child: Opacity(
+            opacity: value,
+            child: _buildScrapbookCardInteractive(context, scrapbook),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildScrapbookCardInteractive(
+      BuildContext context, ScrapbookModel scrapbook) {
+    return ScrapbookPolaroid(
+      imagePath: scrapbook.imagePath,
+      backgroundColor: Color(scrapbook.backgroundColor),
+      vocabularyCount: scrapbook.vocabularyWords.length,
+      semanticLabel: 'Open scrapbook from ${_formatDate(scrapbook.date)}',
+      onTap: () => _showScrapbookBottomSheet(context, scrapbook),
+    );
+  }
+
+  Widget _buildLegacyScrapbookCardInteractive(BuildContext context, ScrapbookModel scrapbook) {
+    final vocabCount = scrapbook.vocabularyWords.length;
+
+    return GestureDetector(
+      onTap: () => _showScrapbookBottomSheet(context, scrapbook),
+      child: Container(
+        width: 140,
+        height: 160,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.08),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            // Polaroid frame
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.06),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  // Photo area
+                  Flexible(
+                    flex: 5,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: scrapbook.imagePath.startsWith('http')
+                          ? CachedNetworkImage(
+                              imageUrl: scrapbook.imagePath,
+                              fit: BoxFit.cover,
+                              width: double.infinity,
+                              height: double.infinity,
+                              placeholder: (context, url) => Container(
+                                color: const Color(0xFFF3F4F6),
+                                child: const Center(
+                                  child: SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        Color(0xFF8b5cf6),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              errorWidget: (context, url, error) {
+                                return Container(
+                                  color: const Color(0xFFE5E7EB),
+                                  child: const Icon(
+                                    Icons.broken_image,
+                                    size: 24,
+                                    color: Color(0xFF9ca3af),
+                                  ),
+                                );
+                              },
+                            )
+                          : Image.file(
+                              File(scrapbook.imagePath),
+                              fit: BoxFit.cover,
+                              width: double.infinity,
+                              height: double.infinity,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Container(
+                                  color: const Color(0xFFE5E7EB),
+                                  child: const Icon(
+                                    Icons.broken_image,
+                                    size: 24,
+                                    color: Color(0xFF9ca3af),
+                                  ),
+                                );
+                              },
+                            ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  // White bottom area (polaroid style)
+                  Flexible(
+                    flex: 1,
+                    child: Container(
+                      width: double.infinity,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Star badge on top-right
+            Positioned(
+              top: -4,
+              right: -4,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFBBF24),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFFBBF24).withValues(alpha: 0.4),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      '⭐',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                    const SizedBox(width: 2),
+                    Text(
+                      '$vocabCount',
+                      style: GoogleFonts.lexend(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF1F2937),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showScrapbookBottomSheet(BuildContext context, ScrapbookModel scrapbook) {
+    showScrapbookDetailSheet(context, scrapbooks: [scrapbook]);
+  }
+
+  String _formatDate(DateTime date) {
+    final month = _getMonthAbbreviation(date.month);
+    final day = date.day;
+    return '$day $month ${date.year}';
+  }
+
+  String _getMonthAbbreviation(int month) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    return months[month - 1];
+  }
+}
+
+/// Bottom Sheet Widget for displaying a single scrapbook detail
+class _ScrapbookDetailBottomSheet extends StatelessWidget {
+  final ScrapbookModel scrapbook;
+  final ScrollController scrollController;
+
+  const _ScrapbookDetailBottomSheet({
+    required this.scrapbook,
+    required this.scrollController,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Handle bar
+          Container(
+            margin: const EdgeInsets.only(top: 12),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: const Color(0xFFE5E7EB),
+              borderRadius: BorderRadius.circular(2),
             ),
           ),
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+
+          // Header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+            child: Row(
               children: [
                 Container(
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF3F4F6),
+                    color: const Color(0xFF8b5cf6).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(16),
                   ),
-                  child: const Icon(
-                    Icons.photo_library_outlined,
-                    size: 24,
-                    color: Color(0xFF9ca3af),
+                  child: Center(
+                    child: Text(
+                      '${scrapbook.date.day}',
+                      style: GoogleFonts.lexend(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF8b5cf6),
+                      ),
+                    ),
                   ),
                 ),
-                const SizedBox(height: 12),
-                Text(
-                  'No memories yet',
-                  style: GoogleFonts.lexend(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: const Color(0xFF6b7280),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${_getMonthName(scrapbook.date.month)} ${scrapbook.date.year}',
+                        style: GoogleFonts.lexend(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF1f2937),
+                        ),
+                      ),
+                      Text(
+                        '1 memory',
+                        style: GoogleFonts.lexend(
+                          fontSize: 14,
+                          color: const Color(0xFF6b7280),
+                        ),
+                      ),
+                    ],
                   ),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close, color: Color(0xFF6b7280)),
                 ),
               ],
             ),
           ),
-        ),
-      ],
+
+          const Divider(height: 1, color: Color(0xFFE5E7EB)),
+
+          // Scrapbook card (same format as calendar)
+          Expanded(
+            child: ListView(
+              controller: scrollController,
+              padding: const EdgeInsets.all(16),
+              children: [
+                _buildScrapbookCard(context),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 16),
+        ],
+      ),
     );
+  }
+
+  Widget _buildScrapbookCard(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.pop(context);
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => EditScrapbookScreen(
+              scrapbookId: scrapbook.id,
+              imagePath: scrapbook.imagePath,
+              vocabularyWords: scrapbook.vocabularyWords,
+              englishSentence: scrapbook.englishSentence,
+              thaiSentence: scrapbook.thaiSentence,
+              selectedEmoji: scrapbook.selectedEmoji,
+              date: scrapbook.date,
+            ),
+          ),
+        );
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.06),
+              blurRadius: 16,
+              offset: const Offset(0, 4),
+            ),
+          ],
+          border: Border.all(
+            color: const Color(0xFFE2D1F9).withValues(alpha: 0.4),
+            width: 1,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Image
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              child: AspectRatio(
+                aspectRatio: 16 / 10,
+                child: scrapbook.imagePath.startsWith('http')
+                    ? Image.network(
+                        scrapbook.imagePath,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            color: Colors.grey.shade100,
+                            child: const Icon(Icons.broken_image, size: 48, color: Colors.grey),
+                          );
+                        },
+                      )
+                    : Image.file(
+                        File(scrapbook.imagePath),
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            color: Colors.grey.shade100,
+                            child: const Icon(Icons.broken_image, size: 48, color: Colors.grey),
+                          );
+                        },
+                      ),
+              ),
+            ),
+
+            // Content
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Emoji and English sentence
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        scrapbook.selectedEmoji,
+                        style: const TextStyle(fontSize: 24),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          scrapbook.englishSentence.isNotEmpty
+                              ? scrapbook.englishSentence
+                              : 'No sentence',
+                          style: GoogleFonts.lexend(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xFF1f2937),
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  if (scrapbook.thaiSentence.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 36),
+                      child: Text(
+                        scrapbook.thaiSentence,
+                        style: GoogleFonts.lexend(
+                          fontSize: 14,
+                          color: const Color(0xFF6b7280),
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
+
+                  // Vocabulary words
+                  if (scrapbook.vocabularyWords.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: scrapbook.vocabularyWords.map((word) {
+                        return Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF8b5cf6).withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: RichText(
+                            text: TextSpan(
+                              children: [
+                                TextSpan(
+                                  text: word.word,
+                                  style: GoogleFonts.lexend(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: const Color(0xFF8b5cf6),
+                                  ),
+                                ),
+                                const TextSpan(
+                                  text: ' - ',
+                                  style: TextStyle(fontSize: 13, color: Color(0xFF6b7280)),
+                                ),
+                                TextSpan(
+                                  text: word.thaiTranslation,
+                                  style: GoogleFonts.lexend(
+                                    fontSize: 13,
+                                    color: const Color(0xFF6b7280),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _getMonthName(int month) {
+    const months = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    return months[month - 1];
   }
 }
 

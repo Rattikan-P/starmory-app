@@ -18,13 +18,14 @@ final appStateServiceProvider = Provider<AppStateService>((ref) {
 /// Streak data provider - fetches and caches streak data
 /// Works for both registered (cloud) and guest (local) users
 class StreakNotifier extends StateNotifier<StreakData?> {
-  StreakNotifier(this._service, this._appStateService, this._userNotifier) : super(null) {
+  StreakNotifier(this._service, this._appStateService, this._userNotifier, this._ref) : super(null) {
     _init();
   }
 
   final StreakService _service;
   final AppStateService _appStateService;
   final UserNotifier _userNotifier;
+  final Ref _ref;
   StreamSubscription<UserState>? _userStateSubscription;
 
   Future<void> _init() async {
@@ -108,12 +109,27 @@ class StreakNotifier extends StateNotifier<StreakData?> {
       print('✅ [Guest Streak] Updated UserModel: streak=${updatedUser.currentStreak}, shields=${updatedUser.shields}');
       return true;
     } else {
-      // Registered - SQL trigger handles this automatically when vocabulary is inserted
-      // Just refresh from cloud to get updated values
-      print('🔵 [Cloud Streak] Refreshing from cloud (trigger should have fired)...');
+      // Registered user:
+      // 1. Calculate streak update using UserModel logic
+      print('🔵 [Cloud Streak] Updating registered user streak...');
+      final updatedUser = currentUser.incrementStreak();
+      await _userNotifier.updateUser(updatedUser);
+      _loadFromUserModel(updatedUser);
+
+      // 2. Update cloud (Supabase) users table
+      try {
+        final success = await _service.updateStreakData(
+          currentStreak: updatedUser.currentStreak,
+          longestStreak: updatedUser.longestStreak,
+          shieldsAvailable: updatedUser.shields,
+          lastActivityDate: updatedUser.lastStreakActivityDate,
+        );
+        print('🔵 [Cloud Streak] Updated Supabase users table: success=$success, streak=${updatedUser.currentStreak}, shields=${updatedUser.shields}');
+      } catch (e) {
+        print('⚠️ [Cloud Streak] Failed to update cloud streak: $e');
+      }
+
       await refresh();
-      final updated = state;
-      print('✅ [Cloud Streak] Refreshed: streak=${updated?.currentStreak ?? 0}, shields=${updated?.shieldsAvailable ?? 0}');
       return true;
     }
   }
@@ -182,11 +198,15 @@ class StreakNotifier extends StateNotifier<StreakData?> {
       final updatedUser = currentUser.useShield();
       await _userNotifier.updateUser(updatedUser);
       _loadFromUserModel(updatedUser);
+      await _ref.read(badgeProvider.notifier).recordShieldUsed();
       return true;
     } else {
       // Registered - update cloud
       final success = await _service.useShield();
-      if (success) await refresh();
+      if (success) {
+        await refresh();
+        await _ref.read(badgeProvider.notifier).recordShieldUsed();
+      }
       return success;
     }
   }
@@ -325,19 +345,25 @@ class StreakNotifier extends StateNotifier<StreakData?> {
   /// Check if user has already acquired vocabulary today
   /// Returns true if last activity date is today
   Future<bool> hasAcquiredVocabularyToday() async {
-    final today = DateTime.now().toIso8601String().split('T')[0];
-    final streakData = state;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final currentUser = _userNotifier.state.user;
+    final lastActivity = state?.lastActivityDate ?? currentUser?.lastStreakActivityDate;
 
-    if (streakData?.lastActivityDate == null) return false;
+    if (lastActivity == null) return false;
 
-    final lastActivityStr = streakData!.lastActivityDate!.toIso8601String().split('T')[0];
-    return lastActivityStr == today;
+    final lastLocal = lastActivity.toLocal();
+    final lastDay = DateTime(lastLocal.year, lastLocal.month, lastLocal.day);
+    return today.difference(lastDay).inDays == 0;
   }
 
   /// Record vocabulary acquisition and update streak if not already done today
   /// Returns true if streak was updated (first vocabulary of the day)
   Future<bool> recordVocabularyAcquired() async {
     print('📝 [Streak] recordVocabularyAcquired() called');
+
+    // Also record activity for Badge tracking (Night Owl / Morning Nova, etc.)
+    await _ref.read(badgeProvider.notifier).recordActivity(ActivityType.generateVocab);
 
     // Check if already acquired vocabulary today
     if (await hasAcquiredVocabularyToday()) {
@@ -368,7 +394,6 @@ class StreakNotifier extends StateNotifier<StreakData?> {
   }
 
   /// Check if streak should be reset due to inactivity (called on app open)
-  /// Grace period: 48 hours (2 days) - if gap > 48 hours, streak is expired
   Future<void> checkAndResetStreakIfExpired() async {
     print('🔍 [Streak] checkAndResetStreakIfExpired() called');
 
@@ -379,42 +404,66 @@ class StreakNotifier extends StateNotifier<StreakData?> {
       return;
     }
 
-    if (currentUser.isGuest) {
-      // Guest - check local streak
-      print('🟢 [Guest Streak] Checking expiration...');
-      if (currentUser.lastStreakActivityDate == null) {
-        print('ℹ️ [Guest Streak] No previous activity - nothing to check');
-        return;
-      }
+    final lastActivity = currentUser.isGuest
+        ? currentUser.lastStreakActivityDate
+        : (state?.lastActivityDate ?? currentUser.lastStreakActivityDate);
 
-      final now = DateTime.now();
-      final lastActivity = currentUser.lastStreakActivityDate!;
-      final hoursSince = now.difference(lastActivity).inHours;
-
-      print('   [Guest Streak] Hours since last activity: $hoursSince');
-
-      // Grace period: 48 hours (2 days)
-      if (hoursSince > 48) {
-        print('🔥 [Guest Streak] Expired! Last activity was $hoursSince hours ago. Resetting...');
-        final updatedUser = currentUser.copyWith(
-          currentStreak: 0,
-          longestStreak: 0,  // Also reset longest
-          shields: 0,         // Also reset shields
-          lastStreakActivityDate: null,
-        );
-        await _userNotifier.updateUser(updatedUser);
-        _loadFromUserModel(updatedUser);
-        print('✅ [Guest Streak] Reset complete');
-      } else {
-        print('✅ [Guest Streak] Still active (within grace period)');
-      }
-    } else {
-      // Registered - check cloud streak
-      print('🔵 [Cloud Streak] Checking expiration in cloud...');
-      await _service.checkAndResetStreakIfExpired();
-      await refresh();
-      print('✅ [Cloud Streak] Expiration check complete');
+    if (lastActivity == null) {
+      print('ℹ️ [Streak] No previous activity - nothing to check');
+      return;
     }
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final lastLocal = lastActivity.toLocal();
+    final lastDay = DateTime(lastLocal.year, lastLocal.month, lastLocal.day);
+    final daysDifference = today.difference(lastDay).inDays;
+
+    print('   [Streak] Days since last activity: $daysDifference');
+
+    // daysDifference <= 1: active today or yesterday -> streak safe
+    if (daysDifference <= 1) {
+      print('✅ [Streak] Streak still active');
+      return;
+    }
+
+    // daysDifference >= 2: user missed at least 1 day
+    final missedDays = daysDifference - 1;
+    final currentShields = currentUser.isGuest
+        ? currentUser.shields
+        : (state?.shieldsAvailable ?? currentUser.shields);
+
+    if (currentShields >= missedDays) {
+      print('🛡️ [Streak] Inactivity protected by shields ($currentShields available, $missedDays needed)');
+      return;
+    }
+
+    // Not enough shields -> streak expired (currentStreak becomes 0)
+    // Note: NEVER reset longestStreak!
+    print('🔥 [Streak] Streak expired! Resetting current streak to 0...');
+    if (currentUser.isGuest) {
+      final updatedUser = currentUser.copyWith(
+        currentStreak: 0,
+        shields: 0,
+        lastStreakActivityDate: null,
+      );
+      await _userNotifier.updateUser(updatedUser);
+      _loadFromUserModel(updatedUser);
+    } else {
+      await _service.updateStreakData(
+        currentStreak: 0,
+        shieldsAvailable: 0,
+        lastActivityDate: null,
+      );
+      final updatedUser = currentUser.copyWith(
+        currentStreak: 0,
+        shields: 0,
+        lastStreakActivityDate: null,
+      );
+      await _userNotifier.updateUser(updatedUser);
+      await refresh();
+    }
+    print('✅ [Streak] Expiration reset complete');
   }
 }
 
@@ -423,7 +472,7 @@ final streakProvider = StateNotifierProvider<StreakNotifier, StreakData?>((ref) 
   final service = ref.watch(streakServiceProvider);
   final appStateService = ref.watch(appStateServiceProvider);
   final userNotifier = ref.watch(userStateProvider.notifier);
-  return StreakNotifier(service, appStateService, userNotifier);
+  return StreakNotifier(service, appStateService, userNotifier, ref);
 });
 
 /// Convenience provider for current streak value
