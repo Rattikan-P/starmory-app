@@ -510,55 +510,42 @@ class _VocabularyDetailBottomSheetState
   }
 
   Widget _buildContent() {
-    if (_isLoading) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const CircularProgressIndicator(color: Color(0xFF8B5CF6)),
-            const SizedBox(height: 16),
-            Text(
-              'Loading dictionary...',
-              style: GoogleFonts.lexend(
-                fontSize: 14,
-                color: const Color(0xFF6b7280),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Original vocab info - ALWAYS displayed immediately
+        _buildOriginalVocabInfo(),
 
-    if (_hasError) {
-      return Center(
-        child: Column(
+        const SizedBox(height: 20),
+
+        // Dictionary definitions section
+        _buildDictionarySection(),
+      ],
+    );
+  }
+
+  Widget _buildDictionarySection() {
+    if (_isLoading) {
+      return Container(
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        alignment: Alignment.center,
+        child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.info_outline, size: 48, color: Color(0xFF9ca3af)),
-            const SizedBox(height: 16),
-            Text(
-              'No definition found',
-              style: GoogleFonts.lexend(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFF1f2937),
+            const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Color(0xFF8B5CF6),
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(width: 12),
             Text(
-              'This word may not be in the dictionary',
-              style: GoogleFonts.lexend(
-                fontSize: 14,
-                color: const Color(0xFF6b7280),
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Try checking the spelling',
+              'Loading dictionary definitions...',
               style: GoogleFonts.lexend(
                 fontSize: 13,
-                fontStyle: FontStyle.italic,
-                color: const Color(0xFF9ca3af),
+                color: const Color(0xFF6B7280),
               ),
             ),
           ],
@@ -566,14 +553,54 @@ class _VocabularyDetailBottomSheetState
       );
     }
 
-    if (_dictionaryEntry == null || _dictionaryEntry!.meanings.isEmpty) {
-      return Center(
-        child: Text(
-          'No definitions available',
-          style: GoogleFonts.lexend(
-            fontSize: 14,
-            color: const Color(0xFF6b7280),
-          ),
+    if (_hasError ||
+        _dictionaryEntry == null ||
+        _dictionaryEntry!.meanings.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF9FAFB),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFE5E7EB)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            const Icon(Icons.info_outline, size: 20, color: Color(0xFF9CA3AF)),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'No online dictionary definitions found',
+                style: GoogleFonts.lexend(
+                  fontSize: 13,
+                  color: const Color(0xFF6B7280),
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  _isLoading = true;
+                  _hasError = false;
+                });
+                _fetchDictionaryData();
+              },
+              style: TextButton.styleFrom(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: Text(
+                'Retry',
+                style: GoogleFonts.lexend(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF8B5CF6),
+                ),
+              ),
+            ),
+          ],
         ),
       );
     }
@@ -581,12 +608,6 @@ class _VocabularyDetailBottomSheetState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Original vocab info
-        _buildOriginalVocabInfo(),
-
-        const SizedBox(height: 20),
-
-        // Dictionary meanings
         ..._dictionaryEntry!.meanings.asMap().entries.map((entry) {
           final index = entry.key;
           final meaning = entry.value;
