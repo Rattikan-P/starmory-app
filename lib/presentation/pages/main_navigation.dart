@@ -8,8 +8,8 @@ import 'progress_tab.dart';
 import '../providers/providers.dart';
 import '../providers/navigation_provider.dart';
 
-// Sync only once per app session (from launch, not resume)
-bool _hasSyncedThisSession = false;
+// Track last synced user ID to ensure syncing when switching accounts
+String? _lastSyncedUserId;
 
 /// Main Navigation Screen with Bottom Navigation Bar
 /// 4 Tabs: Home, Review, Scrapbook, Progress
@@ -39,20 +39,24 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
   }
 
   Future<void> _syncOnAppOpen() async {
-    // Only sync once per app session (not on resume from background)
-    if (_hasSyncedThisSession) {
-      print('ℹ️ [App Open] Skipping sync (already synced this session)');
+    final currentSession = Supabase.instance.client.auth.currentSession;
+    final currentUserId = currentSession?.user.id;
+
+    // Only sync for registered users (not guests)
+    if (currentSession == null || currentUserId == null) {
+      print('ℹ️ [App Open] Skipping sync (not logged in)');
+      _lastSyncedUserId = null;
+      return;
+    }
+
+    // Only sync if this user hasn't synced in this session
+    if (_lastSyncedUserId == currentUserId) {
+      print('ℹ️ [App Open] Skipping sync (already synced for user $currentUserId)');
       return;
     }
 
     try {
-      // Only sync for registered users (not guests)
-      if (Supabase.instance.client.auth.currentSession == null) {
-        print('ℹ️ [App Open] Skipping sync (not logged in)');
-        return;
-      }
-
-      print('🔄 [App Open] Starting auto sync...');
+      print('🔄 [App Open] Starting auto sync for user $currentUserId...');
       final hiveService = ref.read(hiveServiceProvider);
       final vocabSyncService = ref.read(vocabularySyncServiceProvider);
 
@@ -70,8 +74,8 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
       print('✅ [App Open] Sync complete! Total vocabularies: ${syncedVocabs.length}');
       await ref.read(vocabularyStateProvider.notifier).refresh();
 
-      // Mark as synced for this session
-      _hasSyncedThisSession = true;
+      // Mark as synced for this user
+      _lastSyncedUserId = currentUserId;
     } catch (e) {
       print('❌ [App Open] Sync failed: $e');
       // Sync failed - continue with app (local vocabularies still available)

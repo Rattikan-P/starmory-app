@@ -90,6 +90,15 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
   }
 
   void _applyFiltersAndLoadInitial(List<VocabularyModel> allVocabularies) {
+    if (allVocabularies.isEmpty) {
+      setState(() {
+        _allFilteredVocabs = [];
+        _displayedVocabs = [];
+        _isLoadingMore = false;
+      });
+      return;
+    }
+
     // Apply filters
     final filtered = _applyFilters(allVocabularies);
 
@@ -156,6 +165,20 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
       },
     );
 
+    // Reset local cache when user changes (e.g. login/logout)
+    ref.listen(userStateProvider, (previous, next) {
+      final prevUser = previous?.user;
+      final nextUser = next.user;
+      if (prevUser?.id != nextUser?.id || prevUser?.isGuest != nextUser?.isGuest) {
+        setState(() {
+          _isInitialized = false;
+          _lastVocabLength = -1;
+          _displayedVocabs = [];
+          _allFilteredVocabs = [];
+        });
+      }
+    });
+
     final vocabState = ref.watch(vocabularyStateProvider);
     final streakData = ref.watch(streakProvider);
 
@@ -196,14 +219,16 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
         .where((v) => v.topic.toLowerCase() == 'nature')
         .length;
 
-    // Check and unlock badges / stickers if eligible
+    // Check and unlock badges / stickers if eligible (silently in background)
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(badgeStateProvider.notifier).checkAndUnlockBadges(totalStars, streakDays);
+      ref.read(badgeStateProvider.notifier).checkAndUnlockBadges(
+            totalStars,
+            streakDays,
+          );
       ref.read(stickerStateProvider.notifier).checkAndUnlockPacks(
             totalStars: totalStars,
             streakDays: streakDays,
             natureVocabCount: natureVocabCount,
-            context: context,
           );
     });
 

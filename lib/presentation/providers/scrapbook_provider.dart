@@ -154,6 +154,12 @@ class ScrapbookNotifier extends StateNotifier<ScrapbookState> {
     });
   }
 
+  Future<void> clear() async {
+    _currentUserId = null;
+    await _hiveService.clearAllScrapbooks();
+    state = const ScrapbookState(scrapbooks: []);
+  }
+
   Future<void> _loadScrapbooks() async {
     try {
       final scrapbooks = await _hiveService.getAllScrapbooks();

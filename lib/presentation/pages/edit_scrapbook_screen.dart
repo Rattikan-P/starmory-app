@@ -17,6 +17,7 @@ import '../../data/models/vocabulary_model.dart';
 import '../../constants/design_tokens.dart';
 import '../widgets/galaxy_screen_background.dart';
 import '../../data/sticker_sets.dart';
+import '../utils/reward_unlock_helper.dart';
 
 /// Helper class for background color options
 class _BackgroundColorOption {
@@ -4302,6 +4303,11 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
         final streakNotifier = ref.read(streakProvider.notifier);
         await streakNotifier.recordVocabularyAcquired();
       }
+
+      if (!mounted) return;
+
+      // Check and show reward unlocks triggered by saved words or streak
+      await RewardUnlockHelper.checkAndShowUnlocks(context, ref);
 
       if (!mounted) return;
 

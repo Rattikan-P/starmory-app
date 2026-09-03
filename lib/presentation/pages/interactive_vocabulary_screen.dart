@@ -13,6 +13,7 @@ import '../../data/services/tts_service.dart';
 import 'generation_loading_screen.dart';
 import 'edit_scrapbook_screen.dart';
 import 'auth/account_method_page.dart';
+import '../utils/reward_unlock_helper.dart';
 import 'dart:ui';
 
 /// Interactive Vocabulary Result Screen
@@ -106,6 +107,25 @@ class _InteractiveVocabularyScreenState
 
     // Load actual AI generation result
     _initializeVocabularyData();
+
+    // Check if any badge / sticker rewards unlocked upon generation
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final generatedVocabs = widget.extractionResult?.vocabList ?? [];
+        final additionalWords = generatedVocabs.length;
+        final additionalNatureWords = generatedVocabs
+            .where((v) => (widget.extractionResult?.category.toLowerCase() ?? '') == 'nature' ||
+                          v.word.toLowerCase() == 'nature')
+            .length;
+
+        RewardUnlockHelper.checkAndShowUnlocks(
+          context,
+          ref,
+          additionalWords: additionalWords,
+          additionalNatureWords: additionalNatureWords,
+        );
+      }
+    });
   }
 
   @override
@@ -2365,6 +2385,9 @@ class _InteractiveVocabularyScreenState
     // Update streak when saving vocabulary (only once per day)
     final streakNotifier = ref.read(streakProvider.notifier);
     await streakNotifier.recordVocabularyAcquired();
+
+    // Check and show any reward unlocks triggered by adding words
+    await RewardUnlockHelper.checkAndShowUnlocks(context, ref);
 
     if (!mounted) return;
 

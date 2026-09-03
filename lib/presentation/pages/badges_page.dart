@@ -36,9 +36,12 @@ class _BadgesPageState extends ConsumerState<BadgesPage> {
         ? badgeState.badges
         : badgeState.badges.where((b) => b.category == _selectedCategory).toList();
 
-    // Check and unlock badges if eligible
+    // Check and unlock badges if eligible (silently in background)
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(badgeStateProvider.notifier).checkAndUnlockBadges(totalStars, currentStreak);
+      ref.read(badgeStateProvider.notifier).checkAndUnlockBadges(
+            totalStars,
+            currentStreak,
+          );
     });
 
     return GalaxyScreenBackground(
@@ -198,6 +201,8 @@ class _BadgesPageState extends ConsumerState<BadgesPage> {
                               context,
                               badge,
                               badgeState,
+                              totalStars: totalStars,
+                              currentStreak: currentStreak,
                             );
                           },
                         ),
@@ -213,11 +218,21 @@ class _BadgesPageState extends ConsumerState<BadgesPage> {
   Widget _buildBadgeCard(
     BuildContext context,
     Badge badge,
-    BadgeState badgeState,
-  ) {
+    BadgeState badgeState, {
+    int totalStars = 0,
+    int currentStreak = 0,
+  }) {
     final isUnlocked = !badge.isLocked;
-    final progress = badgeState.getProgress(badge);
-    final progressRatio = badgeState.getProgressRatio(badge);
+    final progress = badgeState.getProgress(
+      badge,
+      totalStars: totalStars,
+      streakDays: currentStreak,
+    );
+    final progressRatio = badgeState.getProgressRatio(
+      badge,
+      totalStars: totalStars,
+      streakDays: currentStreak,
+    );
     final gradient = badge.gradientColors.isNotEmpty
         ? badge.gradientColors
         : const [Color(0xFF8B5CF6), Color(0xFF6366F1)];

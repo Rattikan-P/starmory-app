@@ -33,13 +33,12 @@ class _StickersPageState extends ConsumerState<StickersPage> {
     final progressPercent = totalPacks > 0 ? (unlockedCount / totalPacks) : 0.0;
     final progressPercentInt = (progressPercent * 100).toInt();
 
-    // Check and unlock packs if eligible
+    // Check and unlock packs if eligible (silently in background)
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(stickerStateProvider.notifier).checkAndUnlockPacks(
             totalStars: totalStars,
             streakDays: streakDays,
             natureVocabCount: natureVocabCount,
-            context: context,
           );
     });
 

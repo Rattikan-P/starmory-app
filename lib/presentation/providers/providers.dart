@@ -378,6 +378,18 @@ class UserNotifier extends StateNotifier<UserState> {
         // No guest data - use server data or defaults
         final serverStreak = serverUserData?['current_streak'] as int? ?? 0;
         final serverLongestStreak = serverUserData?['longest_streak'] as int? ?? 0;
+        final serverBadges = (serverUserData?['badges'] as List<dynamic>?)?.cast<String>() ?? [];
+        final serverStickers = (serverUserData?['stickers'] as List<dynamic>?)?.cast<String>() ?? [];
+        final serverWordsLearned = serverUserData?['total_words_learned'] as int? ?? 0;
+        final serverShields = serverUserData?['shields'] as int? ?? 0;
+        final serverPreferences = (serverUserData?['preferences'] as Map<String, dynamic>?) ?? {
+          'defaultCefrLevel': languageLevel ?? AppDefaults.defaultLanguageLevel,
+          'languageVariant': englishVariant ?? AppDefaults.defaultEnglishVariant,
+        };
+        DateTime? serverLastActivity;
+        if (serverUserData?['last_streak_activity_date'] != null) {
+          serverLastActivity = DateTime.tryParse(serverUserData!['last_streak_activity_date'] as String);
+        }
 
         registeredUser = UserModel.createRegisteredUser(
           id: supabaseUser.id,
@@ -388,15 +400,17 @@ class UserNotifier extends StateNotifier<UserState> {
                     (supabaseUser.userMetadata?['picture'] as String?),
         ).copyWith(
           quotaManager: quotaManager,
-          preferences: {
-            'defaultCefrLevel': languageLevel ?? AppDefaults.defaultLanguageLevel,
-            'languageVariant': englishVariant ?? AppDefaults.defaultEnglishVariant,
-          },
+          preferences: serverPreferences,
           // Use server data if available
           currentStreak: serverStreak,
           longestStreak: serverLongestStreak,
+          badges: serverBadges,
+          stickers: serverStickers,
+          totalWordsLearned: serverWordsLearned,
+          shields: serverShields,
+          lastStreakActivityDate: serverLastActivity,
         );
-        print('✅ Loaded existing user data from server: streak=$serverStreak');
+        print('✅ Loaded existing user data from server: streak=$serverStreak, badges=${serverBadges.length}, stickers=${serverStickers.length}');
       }
 
       await _hiveService.saveUser(registeredUser);
@@ -512,6 +526,26 @@ class UserNotifier extends StateNotifier<UserState> {
     try {
       state = state.copyWith(isLoading: true);
       await _hiveService.saveUser(user);
+
+      // Sync badges/stickers/stats to Supabase if registered user
+      if (!user.isGuest) {
+        final client = Supabase.instance.client;
+        final userId = client.auth.currentUser?.id;
+        if (userId != null) {
+          try {
+            await client.from('users').update({
+              'badges': user.badges,
+              'stickers': user.stickers,
+              'preferences': user.preferences,
+              'total_words_learned': user.totalWordsLearned,
+            }).eq('id', userId);
+            print('✅ User badges/stickers synced to Supabase: badges=${user.badges.length}, stickers=${user.stickers.length}');
+          } catch (e) {
+            print('⚠️ Failed to sync user badges/stickers to Supabase: $e');
+          }
+        }
+      }
+
       state = UserState(user: user);
     } catch (e) {
       state = UserState(user: state.user, error: e.toString());
@@ -893,6 +927,8 @@ class VocabularyNotifier extends StateNotifier<VocabularyState> {
   final HiveService _hiveService;
   final VocabularySyncService _syncService;
   final ReviewService _reviewService;
+  StreamSubscription<AuthState>? _authSubscription;
+  String? _currentUserId;
 
   VocabularyNotifier(
     this._hiveService,
@@ -906,6 +942,12 @@ class VocabularyNotifier extends StateNotifier<VocabularyState> {
     }
   }
 
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
+  }
+
   Future<void> _waitForInitializationAndLoad() async {
     try {
       print('⏳ VocabularyNotifier: Waiting for Hive initialization...');
@@ -916,11 +958,66 @@ class VocabularyNotifier extends StateNotifier<VocabularyState> {
       }
 
       print('✅ VocabularyNotifier: Hive initialized, loading vocabularies...');
+      _setupAuthListener();
       await _loadVocabularies();
+
+      // Sync from cloud if user is logged in
+      final isLoggedIn = Supabase.instance.client.auth.currentSession != null;
+      if (isLoggedIn) {
+        _currentUserId = Supabase.instance.client.auth.currentUser?.id;
+        await syncFromCloud();
+      }
     } catch (e) {
       print('❌ VocabularyNotifier: Initialization failed: $e');
       state = VocabularyState(error: 'Initialization failed: ${e.toString()}');
     }
+  }
+
+  void _setupAuthListener() {
+    _authSubscription?.cancel();
+    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
+      final event = data.event;
+      final newUserId = data.session?.user.id;
+
+      if (event == AuthChangeEvent.signedIn) {
+        print('🔄 VocabularyNotifier: User signed in: $newUserId');
+        if (_currentUserId != null && _currentUserId != newUserId) {
+          print('🔄 VocabularyNotifier: Different user detected, clearing local vocabularies...');
+          await _hiveService.clearAllVocabulary();
+        }
+        _currentUserId = newUserId;
+        await syncFromCloud();
+      } else if (event == AuthChangeEvent.signedOut) {
+        print('👋 VocabularyNotifier: User signed out, clearing local vocabularies...');
+        _currentUserId = null;
+        await _hiveService.clearAllVocabulary();
+        state = const VocabularyState(vocabularies: []);
+      }
+    });
+  }
+
+  Future<void> syncFromCloud() async {
+    try {
+      state = const VocabularyState(isLoading: true);
+      final localVocabs = await _hiveService.getAllVocabulary();
+      final syncedVocabs = await _syncService.mergeWithCloud(localVocabs);
+      await _hiveService.clearAllVocabulary();
+      for (final vocab in syncedVocabs) {
+        await _hiveService.saveVocabulary(vocab);
+      }
+      state = VocabularyState(vocabularies: syncedVocabs);
+      print('✅ VocabularyNotifier: Synced ${syncedVocabs.length} vocabularies from cloud');
+    } catch (e) {
+      print('❌ VocabularyNotifier sync failed: $e');
+      final localVocabs = await _hiveService.getAllVocabulary();
+      state = VocabularyState(vocabularies: localVocabs);
+    }
+  }
+
+  Future<void> clear() async {
+    _currentUserId = null;
+    await _hiveService.clearAllVocabulary();
+    state = const VocabularyState(vocabularies: []);
   }
 
   Future<void> _loadVocabularies() async {

@@ -171,7 +171,17 @@ class BadgeState {
 
   int get totalBadgesCount => badges.length;
 
-  int getProgress(Badge badge) {
+  int getProgress(
+    Badge badge, {
+    int totalStars = 0,
+    int streakDays = 0,
+  }) {
+    if (badge.category == 'Stars') {
+      return totalStars;
+    }
+    if (badge.category == 'Streak') {
+      return streakDays;
+    }
     switch (badge.id) {
       case 'night_owl':
       case 'lord_of_dark_nebula':
@@ -186,9 +196,17 @@ class BadgeState {
     }
   }
 
-  double getProgressRatio(Badge badge) {
+  double getProgressRatio(
+    Badge badge, {
+    int totalStars = 0,
+    int streakDays = 0,
+  }) {
     if (!badge.isLocked) return 1.0;
-    final current = getProgress(badge);
+    final current = getProgress(
+      badge,
+      totalStars: totalStars,
+      streakDays: streakDays,
+    );
     if (badge.requiredStars <= 0) return 0.0;
     return (current / badge.requiredStars).clamp(0.0, 1.0);
   }
@@ -297,23 +315,20 @@ class BadgeController extends StateNotifier<BadgeState> {
     final userBadges = Set<String>.from(user.badges);
 
     final updatedBadges = state.badges.map((badge) {
-      final shouldBeUnlocked = userBadges.contains(badge.id) || !badge.isLocked;
-      if (badge.isLocked && shouldBeUnlocked) {
-        return Badge(
-          id: badge.id,
-          name: badge.name,
-          titleTh: badge.titleTh,
-          icon: badge.icon,
-          description: badge.description,
-          descriptionTh: badge.descriptionTh,
-          isLocked: false,
-          requiredStars: badge.requiredStars,
-          category: badge.category,
-          tier: badge.tier,
-          gradientColors: badge.gradientColors,
-        );
-      }
-      return badge;
+      final shouldBeUnlocked = userBadges.contains(badge.id) || (badge.id == 'first_word' && user.isGuest);
+      return Badge(
+        id: badge.id,
+        name: badge.name,
+        titleTh: badge.titleTh,
+        icon: badge.icon,
+        description: badge.description,
+        descriptionTh: badge.descriptionTh,
+        isLocked: !shouldBeUnlocked,
+        requiredStars: badge.requiredStars,
+        category: badge.category,
+        tier: badge.tier,
+        gradientColors: badge.gradientColors,
+      );
     }).toList();
 
     state = state.copyWith(
@@ -358,7 +373,7 @@ class BadgeController extends StateNotifier<BadgeState> {
         icon: 'assets/images/badges/streak_7.png',
         description: '7 day learning streak',
         descriptionTh: 'รักษาสถิติการเรียนต่อเนื่อง 7 วัน',
-        isLocked: false,
+        isLocked: true,
         requiredStars: 7,
         category: 'Streak',
         tier: 'Silver',
@@ -759,9 +774,20 @@ class BadgeController extends StateNotifier<BadgeState> {
     );
   }
 
-  void checkAndUnlockBadges(int totalStars, int streakDays, {BuildContext? context}) {
+  Future<List<Badge>> checkAndUnlockBadges(
+    int totalStars,
+    int streakDays, {
+    BuildContext? context,
+  }) async {
+    final user = _ref.read(userStateProvider).user;
+    final currentBadges = user != null
+        ? Set<String>.from(user.badges)
+        : state.badges.where((b) => !b.isLocked).map((b) => b.id).toSet();
+
+    final newlyUnlocked = <Badge>[];
+
     for (var badge in state.badges) {
-      if (!badge.isLocked) continue;
+      if (!badge.isLocked || currentBadges.contains(badge.id)) continue;
 
       bool shouldUnlock = false;
 
@@ -776,9 +802,68 @@ class BadgeController extends StateNotifier<BadgeState> {
       }
 
       if (shouldUnlock) {
-        unlockBadge(badge.id, context: context);
+        final unlocked = Badge(
+          id: badge.id,
+          name: badge.name,
+          titleTh: badge.titleTh,
+          icon: badge.icon,
+          description: badge.description,
+          descriptionTh: badge.descriptionTh,
+          isLocked: false,
+          requiredStars: badge.requiredStars,
+          category: badge.category,
+          tier: badge.tier,
+          gradientColors: badge.gradientColors,
+        );
+        newlyUnlocked.add(unlocked);
+        currentBadges.add(badge.id);
       }
     }
+
+    if (newlyUnlocked.isEmpty) return [];
+
+    // Save to UserModel (SSOT)
+    if (user != null) {
+      final updatedUser = user.copyWith(
+        badges: currentBadges.toList(),
+      );
+      await _ref.read(userStateProvider.notifier).updateUser(updatedUser);
+    }
+
+    final updatedBadges = state.badges.map((badge) {
+      if (currentBadges.contains(badge.id)) {
+        return badge.isLocked
+            ? Badge(
+                id: badge.id,
+                name: badge.name,
+                titleTh: badge.titleTh,
+                icon: badge.icon,
+                description: badge.description,
+                descriptionTh: badge.descriptionTh,
+                isLocked: false,
+                requiredStars: badge.requiredStars,
+                category: badge.category,
+                tier: badge.tier,
+                gradientColors: badge.gradientColors,
+              )
+            : badge;
+      }
+      return badge;
+    }).toList();
+
+    state = state.copyWith(
+      badges: updatedBadges,
+      unlockedCount: updatedBadges.where((b) => !b.isLocked).length,
+      latestUnlockedBadge: newlyUnlocked.last,
+    );
+
+    if (context != null && context.mounted) {
+      for (final badge in newlyUnlocked) {
+        await BadgeUnlockDialog.show(context, badge: badge);
+      }
+    }
+
+    return newlyUnlocked;
   }
 }
 
