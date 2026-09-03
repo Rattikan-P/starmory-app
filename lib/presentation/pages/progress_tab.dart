@@ -125,11 +125,11 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
     }
   }
 
-  // Check if two lists are equal (same items in same order)
+  // Check if two lists are equal (same items in same order and same favorite state)
   bool _listsAreEqual(List<VocabularyModel> list1, List<VocabularyModel> list2) {
     if (list1.length != list2.length) return false;
     for (int i = 0; i < list1.length; i++) {
-      if (list1[i].id != list2[i].id) return false;
+      if (list1[i].id != list2[i].id || list1[i].isFavorite != list2[i].isFavorite) return false;
     }
     return true;
   }
@@ -204,6 +204,13 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
             natureVocabCount: natureVocabCount,
             context: context,
           );
+    });
+
+    // Listen for vocabulary state changes to immediately refresh the list
+    ref.listen<VocabularyState>(vocabularyStateProvider, (previous, next) {
+      if (previous?.vocabularies != next.vocabularies) {
+        _applyFiltersAndLoadInitial(next.vocabularies);
+      }
     });
 
     // Initialize or update displayed vocabs when vocab list changes
@@ -1176,6 +1183,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
     // Get popular categories (top 4 by count)
     final popularCategories = _getPopularCategories(totalCount);
     final hasMore = popularCategories.length < _getAllCategories().length;
+    final favCount = _getCategoryCount('Favorites', totalCount);
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -1184,9 +1192,14 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
           // All chip
           _buildCategoryChip('All', _getCategoryCount('All', totalCount)),
           const SizedBox(width: 6),
+          // Favorites chip
+          if (favCount > 0 || _selectedCategory == 'Favorites') ...[
+            _buildCategoryChip('Favorites', favCount),
+            const SizedBox(width: 6),
+          ],
           // Popular category chips with spacing
           for (int i = 0; i < popularCategories.length; i++) ...[
-            if (i > 0) SizedBox(width: 6),
+            if (i > 0) const SizedBox(width: 6),
             _buildCategoryChip(popularCategories[i], _getCategoryCount(popularCategories[i], totalCount)),
           ],
           const SizedBox(width: 6),
@@ -1226,6 +1239,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
   /// Format category name for display (e.g., "daily_life" → "Daily Life")
   String _formatCategoryName(String category) {
     if (category == 'All') return 'All';
+    if (category == 'Favorites') return '❤️ Favorites';
     return category
         .split('_')
         .map((word) => word[0].toUpperCase() + word.substring(1))
@@ -1412,6 +1426,9 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
     if (category == 'All') {
       return totalCount;
     }
+    if (category == 'Favorites') {
+      return allVocabs.where((v) => v.isFavorite).length;
+    }
 
     return allVocabs.where((v) => v.topic == category).length;
   }
@@ -1429,7 +1446,9 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
     }
 
     // Apply category filter
-    if (_selectedCategory != 'All') {
+    if (_selectedCategory == 'Favorites') {
+      filtered = filtered.where((v) => v.isFavorite).toList();
+    } else if (_selectedCategory != 'All') {
       filtered = filtered.where((v) => v.topic == _selectedCategory).toList();
     }
 
@@ -1458,7 +1477,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
   }
 
   Widget _buildVocabularyItem(VocabularyModel vocab, List<VocabularyModel> allVocabularies) {
-    final isReviewed = vocab.isFavorite;
+    final isFavorite = vocab.isFavorite;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -1493,29 +1512,9 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
         },
         borderRadius: BorderRadius.circular(16),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
           child: Row(
             children: [
-              // Star icon (reviewed/unreviewed)
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: isReviewed
-                      ? const Color(0xFFfbbf24).withValues(alpha: 0.15)
-                      : const Color(0xFFE5E7EB),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  isReviewed ? Icons.star : Icons.star_border,
-                  color: isReviewed
-                      ? const Color(0xFFfbbf24) // Gold
-                      : const Color(0xFF9ca3af), // Gray
-                  size: 22,
-                ),
-              ),
-
-              const SizedBox(width: 14),
-
               // Vocabulary info (vertical layout)
               Expanded(
                 child: Column(
@@ -1552,10 +1551,35 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
 
               const SizedBox(width: 8),
 
+              // Favorite Heart Button
+              IconButton(
+                icon: Icon(
+                  isFavorite ? Icons.favorite : Icons.favorite_border,
+                  color: isFavorite
+                      ? const Color(0xFFEC4899) // Pink/Red Heart
+                      : const Color(0xFF9CA3AF),
+                  size: 22,
+                ),
+                onPressed: () {
+                  setState(() {
+                    _displayedVocabs = _displayedVocabs.map((v) {
+                      return v.id == vocab.id ? v.copyWith(isFavorite: !v.isFavorite) : v;
+                    }).toList();
+                  });
+                  ref.read(vocabularyStateProvider.notifier).toggleFavorite(vocab.id);
+                },
+                splashRadius: 20,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                tooltip: isFavorite ? 'Remove from favorites' : 'Add to favorites',
+              ),
+
+              const SizedBox(width: 4),
+
               // Arrow
-              Icon(
+              const Icon(
                 Icons.chevron_right,
-                color: const Color(0xFFd1d5db),
+                color: Color(0xFFd1d5db),
                 size: 20,
               ),
             ],
@@ -1844,7 +1868,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
 }
 
 // Vocabulary Detail Bottom Sheet - Shows word details from dictionary API
-class VocabularyDetailBottomSheet extends StatefulWidget {
+class VocabularyDetailBottomSheet extends ConsumerStatefulWidget {
   final VocabularyModel vocabulary;
   final DictionaryService dictionaryService;
   final List<VocabularyModel> allVocabularies;
@@ -1857,10 +1881,10 @@ class VocabularyDetailBottomSheet extends StatefulWidget {
   });
 
   @override
-  State<VocabularyDetailBottomSheet> createState() => _VocabularyDetailBottomSheetState();
+  ConsumerState<VocabularyDetailBottomSheet> createState() => _VocabularyDetailBottomSheetState();
 }
 
-class _VocabularyDetailBottomSheetState extends State<VocabularyDetailBottomSheet> {
+class _VocabularyDetailBottomSheetState extends ConsumerState<VocabularyDetailBottomSheet> {
   DictionaryEntry? _dictionaryEntry;
   DictionaryEntry? _twinDictionaryEntry;  // Dictionary entry for twin word
   bool _isLoading = true;
@@ -2214,8 +2238,28 @@ class _VocabularyDetailBottomSheetState extends State<VocabularyDetailBottomShee
                     ],
                   ),
                 ),
+                Consumer(
+                  builder: (context, ref, _) {
+                    final vocabState = ref.watch(vocabularyStateProvider);
+                    final currentVocab = vocabState.vocabularies.firstWhere(
+                      (v) => v.id == widget.vocabulary.id,
+                      orElse: () => widget.vocabulary,
+                    );
+                    final isFav = currentVocab.isFavorite;
+                    return IconButton(
+                      icon: Icon(
+                        isFav ? Icons.favorite : Icons.favorite_border,
+                        color: isFav ? const Color(0xFFEC4899) : const Color(0xFF9CA3AF),
+                      ),
+                      onPressed: () {
+                        ref.read(vocabularyStateProvider.notifier).toggleFavorite(widget.vocabulary.id);
+                      },
+                      tooltip: isFav ? 'Remove from favorites' : 'Add to favorites',
+                    );
+                  },
+                ),
                 IconButton(
-                  icon: Icon(Icons.close, color: Color(0xFF9ca3af)),
+                  icon: const Icon(Icons.close, color: Color(0xFF9ca3af)),
                   onPressed: () => Navigator.pop(context),
                 ),
               ],
@@ -2348,69 +2392,49 @@ class _VocabularyDetailBottomSheetState extends State<VocabularyDetailBottomShee
       );
     }
 
-    if (_hasError) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.info_outline, size: 48, color: Color(0xFF9ca3af)),
-            SizedBox(height: 16),
-            Text(
-              'No definition found',
-              style: GoogleFonts.lexend(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF1f2937),
-              ),
-            ),
-            SizedBox(height: 8),
-            Text(
-              'This word may not be in the dictionary',
-              style: GoogleFonts.lexend(
-                fontSize: 14,
-                color: Color(0xFF6b7280),
-              ),
-            ),
-            SizedBox(height: 4),
-            Text(
-              'Try checking the spelling',
-              style: GoogleFonts.lexend(
-                fontSize: 13,
-                fontStyle: FontStyle.italic,
-                color: Color(0xFF9ca3af),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    if (_dictionaryEntry == null || _dictionaryEntry!.meanings.isEmpty) {
-      return Center(
-        child: Text(
-          'No definitions available',
-          style: GoogleFonts.lexend(
-            fontSize: 14,
-            color: Color(0xFF6b7280),
-          ),
-        ),
-      );
-    }
+    final hasMeanings = _dictionaryEntry != null && _dictionaryEntry!.meanings.isNotEmpty;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Original vocab info
+        // Original vocab info (Always displayed!)
         _buildOriginalVocabInfo(),
 
         SizedBox(height: 20),
 
-        // Dictionary meanings
-        ..._dictionaryEntry!.meanings.asMap().entries.map((entry) {
-          final index = entry.key;
-          final meaning = entry.value;
-          return _buildMeaningSection(meaning, index);
-        }),
+        if (hasMeanings) ...[
+          // Dictionary meanings
+          ..._dictionaryEntry!.meanings.asMap().entries.map((entry) {
+            final index = entry.key;
+            final meaning = entry.value;
+            return _buildMeaningSection(meaning, index);
+          }),
+        ] else ...[
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF9FAFB),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFE5E7EB)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.info_outline, size: 20, color: Color(0xFF9CA3AF)),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'No additional dictionary definitions found for this word.',
+                    style: GoogleFonts.lexend(
+                      fontSize: 13,
+                      color: const Color(0xFF6B7280),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+        const SizedBox(height: 20),
       ],
     );
   }

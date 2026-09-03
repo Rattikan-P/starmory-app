@@ -268,6 +268,10 @@ class ScrapbookNotifier extends StateNotifier<ScrapbookState> {
     }
   }
 
+  void clear() {
+    state = const ScrapbookState(scrapbooks: []);
+  }
+
   Future<void> refresh() async {
     state = state.copyWith(isLoading: true);
 

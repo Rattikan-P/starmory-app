@@ -359,8 +359,11 @@ class ProfileRepository {
 
   Future<Result<UserModel?>> _startOverGuest(UserModel user) async {
     try {
-      // Clear vocabulary
+      // Clear vocabulary, scrapbooks, word cards, and user stats
       await _hiveService.clearAllVocabulary();
+      await _hiveService.clearAllScrapbooks();
+      await _hiveService.clearAllWordCards();
+      await _hiveService.clearUserStats();
 
       // Reset streak
       try {
@@ -386,8 +389,11 @@ class ProfileRepository {
   }
 
   Future<Result<UserModel?>> _startOverRegistered(UserModel user) async {
-    // Clear local vocabulary
+    // Clear local vocabulary, scrapbooks, word cards, and user stats
     await _hiveService.clearAllVocabulary();
+    await _hiveService.clearAllScrapbooks();
+    await _hiveService.clearAllWordCards();
+    await _hiveService.clearUserStats();
 
     // Clear cloud vocabulary
     final cloudCleared = await _vocabSyncService.clearCloud();

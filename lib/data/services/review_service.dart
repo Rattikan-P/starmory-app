@@ -52,10 +52,14 @@ class ReviewService {
 
       // Apply topic filter if specified
       if (topicFilter != null && topicFilter.isNotEmpty) {
-        dueCards = dueCards.where((card) {
-          final cardTopic = card.vocabulary?.topic;
-          return cardTopic == topicFilter;
-        }).toList();
+        if (topicFilter.toLowerCase() == 'favorites') {
+          dueCards = dueCards.where((card) => card.vocabulary?.isFavorite == true).toList();
+        } else {
+          dueCards = dueCards.where((card) {
+            final cardTopic = card.vocabulary?.topic;
+            return cardTopic == topicFilter;
+          }).toList();
+        }
       }
 
       // Sort by due date (FSRS determines when cards are due)
@@ -129,7 +133,11 @@ class ReviewService {
 
       // Apply topic filter if specified
       if (topicFilter != null && topicFilter.isNotEmpty) {
-        newVocab = newVocab.where((v) => v.topic == topicFilter).toList();
+        if (topicFilter.toLowerCase() == 'favorites') {
+          newVocab = newVocab.where((v) => v.isFavorite).toList();
+        } else {
+          newVocab = newVocab.where((v) => v.topic == topicFilter).toList();
+        }
       }
 
       // Limit
@@ -433,14 +441,19 @@ class ReviewService {
         for (final vocabulary in allVocabulary) vocabulary.id: vocabulary,
       };
 
+      int favCount = 0;
       for (final card in allCards.where((card) => card.isDue)) {
-        // Older locally stored cards may not include the embedded vocabulary.
-        addTopic(
-            card.vocabulary?.topic ?? vocabularyById[card.vocabularyId]?.topic);
+        final vocab = card.vocabulary ?? vocabularyById[card.vocabularyId];
+        addTopic(vocab?.topic);
+        if (vocab?.isFavorite == true) favCount++;
       }
       for (final vocabulary in allVocabulary
           .where((vocabulary) => !cardVocabularyIds.contains(vocabulary.id))) {
         addTopic(vocabulary.topic);
+        if (vocabulary.isFavorite) favCount++;
+      }
+      if (favCount > 0) {
+        counts['favorites'] = favCount;
       }
       return counts;
     }
@@ -536,9 +549,15 @@ class ReviewService {
 
       // Apply topic filter if specified
       if (topicFilter != null && topicFilter.isNotEmpty) {
-        dueCards = dueCards
-            .where((card) => card.vocabulary?.topic == topicFilter)
-            .toList();
+        if (topicFilter.toLowerCase() == 'favorites') {
+          dueCards = dueCards
+              .where((card) => card.vocabulary?.isFavorite == true)
+              .toList();
+        } else {
+          dueCards = dueCards
+              .where((card) => card.vocabulary?.topic == topicFilter)
+              .toList();
+        }
       }
 
       return dueCards.length;
@@ -598,9 +617,15 @@ class ReviewService {
 
       // Apply topic filter if specified
       if (topicFilter != null && topicFilter.isNotEmpty) {
-        dueCards = dueCards
-            .where((card) => card.vocabulary?.topic == topicFilter)
-            .toList();
+        if (topicFilter.toLowerCase() == 'favorites') {
+          dueCards = dueCards
+              .where((card) => card.vocabulary?.isFavorite == true)
+              .toList();
+        } else {
+          dueCards = dueCards
+              .where((card) => card.vocabulary?.topic == topicFilter)
+              .toList();
+        }
       }
 
       // Exclude already reviewed cards

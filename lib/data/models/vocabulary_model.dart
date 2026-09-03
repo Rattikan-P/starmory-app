@@ -181,5 +181,9 @@ class VocabularyModel extends Equatable {
         id,
         word,
         cefrLevel,
+        isFavorite,
+        updatedAt,
+        topic,
+        imageUrl,
       ];
 }

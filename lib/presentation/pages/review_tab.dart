@@ -1099,7 +1099,7 @@ class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserv
                             ),
                           ),
                           Text(
-                            'All topic • 5 words',
+                            'All topics • max 5 words',
                             style: GoogleFonts.lexend(
                               fontSize: 11,
                               fontWeight: FontWeight.w400,
@@ -1383,6 +1383,20 @@ class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserv
                                     setModalState(() => selectedTopic = null);
                                   },
                                 ),
+
+                                // 'Favorites' Pill
+                                if ((topicCounts['favorites'] ?? 0) > 0)
+                                  _buildCustomTopicChip(
+                                    label: 'Favorites',
+                                    count: topicCounts['favorites'] ?? 0,
+                                    isSelected: selectedTopic == 'favorites',
+                                    isAvailable: (topicCounts['favorites'] ?? 0) > 0,
+                                    icon: Icons.favorite_rounded,
+                                    onTap: () {
+                                      setModalState(() => selectedTopic =
+                                          selectedTopic == 'favorites' ? null : 'favorites');
+                                    },
+                                  ),
 
                                 // Dynamic Topic Pills
                                 ...visibleTopics.map((topic) {

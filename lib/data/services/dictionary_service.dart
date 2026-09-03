@@ -128,8 +128,8 @@ class DictionaryService {
   /// Returns the first entry if multiple are found
   Future<DictionaryEntry?> getWordDefinition(String word) async {
     try {
-      // Clean the word - trim whitespace and convert to lowercase for API
-      final cleanWord = word.trim().toLowerCase();
+      // Clean the word - trim whitespace, remove punctuation and convert to lowercase for API
+      final cleanWord = word.trim().toLowerCase().replaceAll(RegExp(r'[^\w\s-]'), '');
       print('🔍 Fetching definition for: $cleanWord (original: $word)');
 
       // Use Uri.encodeComponent to properly encode the word for URL
@@ -139,7 +139,7 @@ class DictionaryService {
       final response = await _client.get(
         Uri.parse(url),
       ).timeout(
-        const Duration(seconds: 10),
+        const Duration(seconds: 5),
       );
 
       print('📡 Status code: ${response.statusCode}');

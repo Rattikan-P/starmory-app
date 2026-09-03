@@ -2590,15 +2590,19 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
         // This is the device-based trial quota that survives login/logout cycles
         final guestQuotaBackup = await hiveService.getGuestQuotaBackup();
 
-        // ⭐ Clear ALL local data (vocabulary, preferences, photos, streak)
+        // ⭐ Clear ALL local data (vocabulary, scrapbooks, word cards, user stats, preferences, photos, streak)
         await Future.wait([
           hiveService.clearAllVocabulary(),
+          hiveService.clearAllScrapbooks(),
+          hiveService.clearAllWordCards(),
+          hiveService.clearUserStats(),
           preferenceService.clearLocalPreferences(),
           preferenceService.setOnboardingCompleted(false),
-          // Note: setGuestMode removed - UserModel.isGuest is single source of truth
         ]);
 
-        // Clear local streak state (NOT cloud)
+        // Reset in-memory provider states
+        ref.read(vocabularyStateProvider.notifier).clear();
+        ref.read(scrapbookStateProvider.notifier).clear();
         ref.read(streakProvider.notifier).clearLocalState();
 
         // Clear cache (photos, temporary files)
@@ -2822,15 +2826,19 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
         // This is the device-based trial quota that survives account deletion
         final guestQuotaBackup = await hiveService.getGuestQuotaBackup();
 
-        // ⭐ Clear ALL local data (vocabulary, preferences, photos, streak)
+        // ⭐ Clear ALL local data (vocabulary, scrapbooks, word cards, user stats, preferences, photos, streak)
         await Future.wait([
           hiveService.clearAllVocabulary(),
+          hiveService.clearAllScrapbooks(),
+          hiveService.clearAllWordCards(),
+          hiveService.clearUserStats(),
           preferenceService.clearLocalPreferences(),
           preferenceService.setOnboardingCompleted(false),
-          // Note: setGuestMode removed - UserModel.isGuest is single source of truth
         ]);
 
-        // Clear local streak state (NOT cloud)
+        // Reset in-memory provider states
+        ref.read(vocabularyStateProvider.notifier).clear();
+        ref.read(scrapbookStateProvider.notifier).clear();
         streakNotifier.clearLocalState();
 
         // Clear cache (photos, temporary files)

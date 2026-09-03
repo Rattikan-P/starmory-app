@@ -888,6 +888,8 @@ class VocabularyNotifier extends StateNotifier<VocabularyState> {
   final HiveService _hiveService;
   final VocabularySyncService _syncService;
   final ReviewService _reviewService;
+  StreamSubscription<AuthState>? _authSubscription;
+  String? _currentUserId;
 
   VocabularyNotifier(this._hiveService, this._syncService, this._reviewService)
       : super(const VocabularyState(isLoading: true)) {
@@ -904,11 +906,44 @@ class VocabularyNotifier extends StateNotifier<VocabularyState> {
       }
 
       print('✅ VocabularyNotifier: Hive initialized, loading vocabularies...');
+
+      // Setup auth state listener for multi-user / logout handling
+      _setupAuthListener();
+
       await _loadVocabularies();
     } catch (e) {
       print('❌ VocabularyNotifier: Initialization failed: $e');
       state = VocabularyState(error: 'Initialization failed: ${e.toString()}');
     }
+  }
+
+  void _setupAuthListener() {
+    final authState = Supabase.instance.client.auth.onAuthStateChange;
+    _authSubscription = authState.listen((data) async {
+      final AuthChangeEvent event = data.event;
+      print('🔐 [VocabularyNotifier] Auth state changed: $event');
+
+      if (event == AuthChangeEvent.signedIn) {
+        final newUserId = Supabase.instance.client.auth.currentUser?.id;
+        print('🔄 [VocabularyNotifier] User signed in: $newUserId (previous: $_currentUserId)');
+
+        // Check if this is a different user signing in
+        if (_currentUserId != null && _currentUserId != newUserId) {
+          print('🔄 [VocabularyNotifier] Different user detected, clearing local vocabulary & cards...');
+          await _hiveService.clearAllVocabulary();
+          await _hiveService.clearAllWordCards();
+        }
+
+        _currentUserId = newUserId;
+        await _loadVocabularies();
+      } else if (event == AuthChangeEvent.signedOut) {
+        print('👋 [VocabularyNotifier] User signed out, clearing local vocabulary & cards...');
+        _currentUserId = null;
+        await _hiveService.clearAllVocabulary();
+        await _hiveService.clearAllWordCards();
+        state = const VocabularyState(vocabularies: []);
+      }
+    });
   }
 
   Future<void> _loadVocabularies() async {
@@ -1047,6 +1082,19 @@ class VocabularyNotifier extends StateNotifier<VocabularyState> {
     }
   }
 
+  Future<void> toggleFavorite(String id) async {
+    try {
+      final vocab = state.vocabularies.firstWhere((v) => v.id == id);
+      final updated = vocab.copyWith(
+        isFavorite: !vocab.isFavorite,
+        updatedAt: DateTime.now(),
+      );
+      await updateVocabulary(updated);
+    } catch (e) {
+      print('❌ Error toggling favorite: $e');
+    }
+  }
+
   Future<void> deleteVocabulary(String id) async {
     try {
       // Always delete from local storage
@@ -1068,9 +1116,19 @@ class VocabularyNotifier extends StateNotifier<VocabularyState> {
     }
   }
 
+  void clear() {
+    state = const VocabularyState(vocabularies: []);
+  }
+
   Future<void> refresh() async {
     state = state.copyWith(isLoading: true);
     await _loadVocabularies();
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
   }
 }
 
