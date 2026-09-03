@@ -296,7 +296,7 @@ class _GenerationLoadingScreenState
           // Phase 4: Finalizing
           setState(() => _currentPhase = 4);
           setState(() => _isProcessing = false);
-          _showResult(updatedResult);
+          await _showResult(updatedResult);
         }
       } else if (mounted) {
         // No vocabulary found - show error
@@ -392,14 +392,16 @@ class _GenerationLoadingScreenState
     }
   }
 
-  void _showResult(dynamic result) {
+  Future<void> _showResult(dynamic result) async {
     // Record quota usage after successful generation
     final authQuotaNotifier = ref.read(authQuotaProvider.notifier);
-    authQuotaNotifier.recordQuotaUsage(imageId: widget.imagePath);
+    await authQuotaNotifier.recordQuotaUsage(imageId: widget.imagePath);
 
     // Record streak & learning activity when vocabulary is generated
     final streakNotifier = ref.read(streakProvider.notifier);
-    streakNotifier.recordVocabularyAcquired();
+    await streakNotifier.recordVocabularyAcquired();
+
+    if (!mounted) return;
 
     Navigator.pushReplacement(
       context,

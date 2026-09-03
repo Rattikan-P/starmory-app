@@ -1,7 +1,8 @@
+import 'package:equatable/equatable.dart';
 import 'package:intl/intl.dart';
 
 /// Manages user quota for AI generations
-class QuotaManager {
+class QuotaManager extends Equatable {
   final int totalLimit;
   final int dailyLimit;
   final List<QuotaEntry> usageHistory;
@@ -121,15 +122,18 @@ class QuotaManager {
       usageHistory: usageHistory,
     );
   }
+
+  @override
+  List<Object?> get props => [totalLimit, dailyLimit, usageHistory];
 }
 
 /// Represents a single quota usage entry
-class QuotaEntry {
+class QuotaEntry extends Equatable {
   final DateTime timestamp;
   final String? imageId;
   final String? vocabularyId;
 
-  QuotaEntry({
+  const QuotaEntry({
     required this.timestamp,
     this.imageId,
     this.vocabularyId,
@@ -150,4 +154,7 @@ class QuotaEntry {
       vocabularyId: json['vocabularyId'] as String?,
     );
   }
+
+  @override
+  List<Object?> get props => [timestamp, imageId, vocabularyId];
 }

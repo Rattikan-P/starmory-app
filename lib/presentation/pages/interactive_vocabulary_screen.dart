@@ -12,6 +12,7 @@ import '../../data/services/gemini_service.dart';
 import '../../data/services/tts_service.dart';
 import 'generation_loading_screen.dart';
 import 'edit_scrapbook_screen.dart';
+import 'auth/account_method_page.dart';
 import 'dart:ui';
 
 /// Interactive Vocabulary Result Screen
@@ -2379,6 +2380,12 @@ class _InteractiveVocabularyScreenState
   }
 
   void _showRescanConfirmation() {
+    final user = ref.read(userStateProvider).user;
+    if (user != null && !user.canGenerate) {
+      _showQuotaLimitDialog(user.isGuest);
+      return;
+    }
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -2419,6 +2426,124 @@ class _InteractiveVocabularyScreenState
               foregroundColor: Colors.white,
             ),
             child: const Text('Rescan'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showQuotaLimitDialog(bool isGuest) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: Colors.orange.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.warning_amber_rounded,
+                color: Colors.orange,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                isGuest ? 'Free Trial Limit' : 'Daily Limit Reached',
+                style: GoogleFonts.lexend(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF1f2937),
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              isGuest
+                  ? "You've used all your guest generations. Sign up to get 15 daily generations!"
+                  : "You've reached your 15 daily generations. Come back tomorrow for more!",
+              style: GoogleFonts.lexend(
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+                color: const Color(0xFF6b7280),
+                height: 1.5,
+              ),
+            ),
+            if (isGuest) ...[
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF8b5cf6).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.star_rounded, color: Color(0xFF8b5cf6), size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '15 generations everyday with free account!',
+                        style: GoogleFonts.lexend(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF7c3aed),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          if (isGuest)
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                AccountMethodPage.show(context);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF8b5cf6),
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              ),
+              child: Text(
+                'Sign Up Free',
+                style: GoogleFonts.lexend(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFF6b7280),
+            ),
+            child: Text(
+              isGuest ? 'Later' : 'OK',
+              style: GoogleFonts.lexend(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ),
         ],
       ),

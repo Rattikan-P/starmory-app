@@ -366,9 +366,19 @@ class UserModel extends Equatable {
   List<Object?> get props => [
         id,
         email,
+        displayName,
+        photoUrl,
         isGuest,
+        createdAt,
+        lastActiveAt,
         totalWordsLearned,
         currentStreak,
         longestStreak,
+        shields,
+        lastStreakActivityDate,
+        badges,
+        stickers,
+        quotaManager,
+        preferences,
       ];
 }
