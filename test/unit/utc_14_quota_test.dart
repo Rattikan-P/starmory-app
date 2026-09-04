@@ -108,6 +108,29 @@ void main() {
           equals('Free trials used up. Sign up for 15 daily generations!'),
         );
       });
+
+      test('Guest user quota decreases when recordUsage is called', () {
+        var guestUser = QuotaManager.guestMode();
+        expect(guestUser.canGenerate(), isTrue);
+        expect(guestUser.getRemainingTotal(), equals(10));
+        expect(guestUser.getRemainingDaily(), equals(3));
+
+        // Use 1 generation
+        guestUser = guestUser.recordUsage(imageId: 'test_image_1');
+        expect(guestUser.usageHistory.length, equals(1));
+        expect(guestUser.getRemainingTotal(), equals(9));
+        expect(guestUser.getRemainingDaily(), equals(2));
+        expect(guestUser.canGenerate(), isTrue);
+
+        // Use 2 more generations (exhausting daily limit of 3)
+        guestUser = guestUser.recordUsage(imageId: 'test_image_2');
+        guestUser = guestUser.recordUsage(imageId: 'test_image_3');
+        expect(guestUser.usageHistory.length, equals(3));
+        expect(guestUser.getRemainingTotal(), equals(7));
+        expect(guestUser.getRemainingDaily(), equals(0));
+        expect(guestUser.isDailyLimitReached(), isTrue);
+        expect(guestUser.canGenerate(), isFalse);
+      });
     });
 
     group('Registered User Quota', () {

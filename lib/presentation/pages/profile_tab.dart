@@ -2587,9 +2587,6 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
         final navigator = Navigator.of(context);
 
         // ⭐ CRITICAL: Get GUEST QUOTA BACKUP (persists across login/logout)
-        // This is the device-based trial quota that survives login/logout cycles
-        final guestQuotaBackup = await hiveService.getGuestQuotaBackup();
-
         // ⭐ Clear ALL local data (vocabulary, scrapbooks, word cards, user stats, preferences, photos, streak)
         await Future.wait([
           hiveService.clearAllVocabulary(),
@@ -2604,6 +2601,7 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
         ref.read(vocabularyStateProvider.notifier).clear();
         ref.read(scrapbookStateProvider.notifier).clear();
         ref.read(streakProvider.notifier).clearLocalState();
+        ref.invalidate(reviewStateProvider);
 
         // Clear cache (photos, temporary files)
         await preferenceService.clearCache();
@@ -2611,21 +2609,15 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
         // ⭐ CREATE GUEST WITH PRESERVED QUOTA FROM BACKUP
         // Device-based trial: quota persists in backup regardless of login state
         final guestUser = UserModel.createGuest();
+        final guestUserToSet = guestQuotaBackup != null
+            ? guestUser.copyWith(quotaManager: guestQuotaBackup)
+            : guestUser;
 
-        if (guestQuotaBackup != null) {
-          // Use preserved quota from backup
-          final preservedGuest = guestUser.copyWith(quotaManager: guestQuotaBackup);
-          await hiveService.saveUser(preservedGuest);
-          final totalUsed = guestQuotaBackup.usageHistory.length;
-          final todayUsed = guestQuotaBackup.getTodayUsage();
-          print('✅ Guest quota restored from backup: $todayUsed/3 today, $totalUsed/10 total');
-        } else {
-          // Fresh trial (0/10) - first time using app on this device
-          await hiveService.saveUser(guestUser);
-          // Also save as initial backup
+        await hiveService.saveUser(guestUserToSet);
+        if (guestQuotaBackup == null) {
           await hiveService.saveGuestQuotaBackup(guestUser.quotaManager);
-          print('✅ Fresh guest created (0/10 quota, 3 daily)');
         }
+        ref.read(userStateProvider.notifier).updateUser(guestUserToSet);
 
         // Sign out from Supabase LAST
         await client.auth.signOut();
@@ -2840,6 +2832,7 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
         ref.read(vocabularyStateProvider.notifier).clear();
         ref.read(scrapbookStateProvider.notifier).clear();
         streakNotifier.clearLocalState();
+        ref.invalidate(reviewStateProvider);
 
         // Clear cache (photos, temporary files)
         await preferenceService.clearCache();
@@ -2847,21 +2840,15 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
         // ⭐ CREATE GUEST WITH PRESERVED QUOTA FROM BACKUP
         // Device-based trial: quota persists in backup regardless of account status
         final guestUser = UserModel.createGuest();
+        final guestUserToSet = guestQuotaBackup != null
+            ? guestUser.copyWith(quotaManager: guestQuotaBackup)
+            : guestUser;
 
-        if (guestQuotaBackup != null) {
-          // Use preserved quota from backup
-          final preservedGuest = guestUser.copyWith(quotaManager: guestQuotaBackup);
-          await hiveService.saveUser(preservedGuest);
-          final totalUsed = guestQuotaBackup.usageHistory.length;
-          final todayUsed = guestQuotaBackup.getTodayUsage();
-          print('✅ Guest quota restored from backup: $todayUsed/3 today, $totalUsed/10 total');
-        } else {
-          // Fresh trial (0/10) - first time using app on this device
-          await hiveService.saveUser(guestUser);
-          // Also save as initial backup
+        await hiveService.saveUser(guestUserToSet);
+        if (guestQuotaBackup == null) {
           await hiveService.saveGuestQuotaBackup(guestUser.quotaManager);
-          print('✅ Fresh guest created (0/10 quota, 3 daily)');
         }
+        ref.read(userStateProvider.notifier).updateUser(guestUserToSet);
 
         print('✅ All user data cleared, quota preserved');
 

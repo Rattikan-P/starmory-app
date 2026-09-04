@@ -50,12 +50,14 @@ void main() {
         final expectedResult = VocabularyExtractionResult(
           level: 'B1',
           category: 'Nature',
-          topic: 'nature',
           vocabList: [
             VocabularyItem(
               word: 'hamper',
               type: 'noun',
               thai: 'ตะกร้า',
+              topic: 'nature',
+              centerX: 0.615,
+              centerY: 0.6125,
               boundingBox: BoundingBox(
                 xMin: 0.417,
                 yMin: 0.247,
@@ -252,6 +254,9 @@ void main() {
           word: 'hamper',
           type: 'noun',
           thai: 'ตะกร้า',
+          topic: 'nature',
+          centerX: 0.615,
+          centerY: 0.6125,
           boundingBox: BoundingBox(
             xMin: 0.417,
             yMin: 0.247,
@@ -264,6 +269,9 @@ void main() {
         expect(item.word, equals('hamper'));
         expect(item.type, equals('noun'));
         expect(item.thai, equals('ตะกร้า'));
+        expect(item.topic, equals('nature'));
+        expect(item.centerX, equals(0.615));
+        expect(item.centerY, equals(0.6125));
         expect(item.boundingBox.xMin, equals(0.417));
         expect(item.boundingBox.yMin, equals(0.247));
         expect(item.boundingBox.xMax, equals(0.813));
@@ -276,6 +284,9 @@ void main() {
           word: 'produce',
           type: 'noun',
           thai: 'ผลผลิต',
+          topic: 'nature',
+          centerX: 0.603,
+          centerY: 0.5535,
           boundingBox: BoundingBox(
             xMin: 0.457,
             yMin: 0.403,
@@ -297,6 +308,9 @@ void main() {
           word: 'fabric',
           type: 'noun',
           thai: 'เนื้อผ้า',
+          topic: 'nature',
+          centerX: 0.7865,
+          centerY: 0.903,
           boundingBox: BoundingBox(
             xMin: 0.575,
             yMin: 0.808,
@@ -397,12 +411,14 @@ void main() {
         final result = VocabularyExtractionResult(
           level: 'B1',
           category: 'Nature',
-          topic: 'nature',
           vocabList: [
             VocabularyItem(
               word: 'handle',
               type: 'noun',
               thai: 'หูหิ้ว',
+              topic: 'nature',
+              centerX: 0.583,
+              centerY: 0.42,
               boundingBox: BoundingBox(
                 xMin: 0.432,
                 yMin: 0.242,

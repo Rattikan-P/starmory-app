@@ -40,10 +40,13 @@ class QuotaService {
     final totalUsed = quota.usageHistory.length;
     final guestTotalLimit = 10; // From AppConstants.guestTotalLimit
     final todayUsage = quota.getTodayUsage();
+    final remainingTotal = (guestTotalLimit - totalUsed).clamp(0, guestTotalLimit);
+    final remainingDaily = (AppConstants.guestDailyLimit - todayUsage).clamp(0, AppConstants.guestDailyLimit);
+    final remainingEffective = remainingTotal < remainingDaily ? remainingTotal : remainingDaily;
 
     return QuotaStatus(
-      generationsRemaining: guestTotalLimit - totalUsed,
-      photoUploadsRemaining: AppConstants.guestDailyLimit - todayUsage,
+      generationsRemaining: remainingEffective,
+      photoUploadsRemaining: remainingEffective,
       isGuest: true,
       lifetimeLimit: guestTotalLimit,
       dailyPhotoLimit: AppConstants.guestDailyLimit,
@@ -233,49 +236,10 @@ class QuotaService {
   }
 
   /// Check and reset guest quota if new day
-  /// Updates UserModel if reset is needed
+  /// Note: Guest daily usage is dynamically computed via getTodayUsage(),
+  /// so usageHistory is preserved across days to track total lifetime quota.
   Future<bool> checkAndResetGuestQuotaIfNeeded() async {
-    try {
-      // Get guest user from Hive
-      final user = await _hiveService.getCurrentUser();
-
-      if (user == null || !user.isGuest) return false;
-
-      final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
-      final quota = user.quotaManager;
-
-      // Check if any usage is from yesterday or older
-      bool hasOldEntries = quota.usageHistory.any((entry) {
-        final entryDate = DateFormat('yyyy-MM-dd').format(entry.timestamp);
-        return entryDate != today;
-      });
-
-      if (hasOldEntries) {
-        // Filter out old entries, keep only today's
-        final todayEntries = quota.usageHistory.where((entry) {
-          final entryDate = DateFormat('yyyy-MM-dd').format(entry.timestamp);
-          return entryDate == today;
-        }).toList();
-
-        // Update UserModel with filtered history
-        final updatedQuota = QuotaManager(
-          totalLimit: quota.totalLimit,
-          dailyLimit: quota.dailyLimit,
-          usageHistory: todayEntries,
-        );
-
-        final updatedUser = user.copyWith(quotaManager: updatedQuota);
-        await _hiveService.saveUser(updatedUser);
-
-        print('✅ [QuotaService] Guest quota reset - cleared old entries');
-        return true;
-      }
-
-      return false;
-    } catch (e) {
-      print('❌ [QuotaService] Error checking guest quota reset: $e');
-      return false;
-    }
+    return false;
   }
 }
 

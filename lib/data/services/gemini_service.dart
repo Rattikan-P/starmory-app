@@ -40,14 +40,22 @@ class GeminiService {
   /// Execute with exponential backoff retry and automatic model fallback
   Future<T> _retryWithBackoff<T>(
     Future<T> Function(bool useFallback) operation, {
-    int maxRetries = _maxRetries,
+    int maxRetriesPerModel = _maxRetries,
   }) async {
     Duration delay = _initialDelay;
-    int attempts = 0;
+    int primaryAttempts = 0;
+    int fallbackAttempts = 0;
     bool useFallback = false;
+    final maxTotalAttempts = maxRetriesPerModel * 2;
 
     while (true) {
-      attempts++;
+      if (useFallback) {
+        fallbackAttempts++;
+      } else {
+        primaryAttempts++;
+      }
+      final totalAttempts = primaryAttempts + fallbackAttempts;
+
       try {
         return await operation(useFallback).timeout(
           _requestTimeout,
@@ -55,15 +63,27 @@ class GeminiService {
               throw TimeoutException('Request timed out after ${_requestTimeout.inSeconds}s'),
         );
       } catch (e) {
-        // Switch to fallback model on retry (e.g. 503 high demand, 429, timeout)
-        useFallback = true;
-
-        // Check if error is retryable (503, 429, network errors)
         final isRetryable = _isRetryableError(e);
 
-        if (!isRetryable || attempts >= maxRetries) {
+        // Check if we should switch to fallback model
+        // Switch if:
+        // 1. Primary model has exhausted its retries (primaryAttempts >= maxRetriesPerModel)
+        // 2. Or instant-fallback error (FormatException, TypeError, 404/not supported)
+        final errorStrLower = e.toString().toLowerCase();
+        final isSyntaxOrNotFound = e is FormatException ||
+            e is TypeError ||
+            errorStrLower.contains('not found') ||
+            errorStrLower.contains('not supported') ||
+            errorStrLower.contains('404');
+
+        final shouldSwitchToFallback = !useFallback &&
+            (primaryAttempts >= maxRetriesPerModel || isSyntaxOrNotFound);
+
+        if (!isRetryable ||
+            totalAttempts >= maxTotalAttempts ||
+            (useFallback && fallbackAttempts >= maxRetriesPerModel)) {
           debugPrint(
-            '❌ Max retries ($attempts) reached or non-retryable error: $e',
+            '❌ Max retries reached (primary: $primaryAttempts, fallback: $fallbackAttempts) or non-retryable error: $e',
           );
 
           final errorStr = e.toString().toLowerCase();
@@ -73,7 +93,6 @@ class GeminiService {
               errorStr.contains('quota') ||
               errorStr.contains('rate limit') ||
               errorStr.contains('rate_limit')) {
-            // debugPrint('✅ Detected quota error, throwing QuotaExceededFailure');
             throw QuotaExceededFailure(
               'Starmory needs a rest today 😴\nNew lessons will be ready again tomorrow!',
             );
@@ -91,20 +110,28 @@ class GeminiService {
           rethrow;
         }
 
-        final errorStrLower = e.toString().toLowerCase();
-        final isSyntaxOrNotFound = e is FormatException ||
-            e is TypeError ||
-            errorStrLower.contains('not found') ||
-            errorStrLower.contains('not supported') ||
-            errorStrLower.contains('404');
-
         if (isSyntaxOrNotFound) {
+          useFallback = true;
+          delay = _initialDelay;
           debugPrint(
-            '⚠️ Retry $attempts/$maxRetries (instant fallback model switch) due to: $e',
+            '⚠️ Instant fallback model switch due to: $e',
           );
+        } else if (shouldSwitchToFallback) {
+          useFallback = true;
+          debugPrint(
+            '⚠️ Primary model failed $primaryAttempts/$maxRetriesPerModel times. Switching to fallback model after ${delay.inSeconds}s due to: $e',
+          );
+          await Future.delayed(delay);
+          delay = _initialDelay; // Reset delay for fallback model
+        } else if (!useFallback) {
+          debugPrint(
+            '⚠️ Retry $primaryAttempts/$maxRetriesPerModel on primary model after ${delay.inSeconds}s due to: $e',
+          );
+          await Future.delayed(delay);
+          delay *= 2; // Exponential backoff (3s -> 6s -> 12s)
         } else {
           debugPrint(
-            '⚠️ Retry $attempts/$maxRetries after ${delay.inSeconds}s (switching to fallback model) due to: $e',
+            '⚠️ Retry $fallbackAttempts/$maxRetriesPerModel on fallback model after ${delay.inSeconds}s due to: $e',
           );
           await Future.delayed(delay);
           delay *= 2; // Exponential backoff (3s -> 6s -> 12s)

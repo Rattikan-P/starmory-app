@@ -17,6 +17,7 @@ import '../../data/models/vocabulary_model.dart';
 import '../../constants/design_tokens.dart';
 import '../widgets/galaxy_screen_background.dart';
 import '../../data/sticker_sets.dart';
+import '../utils/reward_unlock_helper.dart';
 
 /// Helper class for background color options
 class _BackgroundColorOption {
@@ -96,7 +97,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
   String? _selectedStickerSetId; // For sticker picker
 
   // Language flip state for sentences only
-  bool _showThaiSentences = false; // false = show English, true = show Thai for sentences
+  bool _showThaiSentences =
+      false; // false = show English, true = show Thai for sentences
 
   // Flip animation
   bool _isFlipping = false;
@@ -445,7 +447,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     if (_additionalPhotos.length != _originalAdditionalPhotos.length)
       return true;
     // Check if layer order has changed
-    if (_elementLayerOrder.length != _originalElementLayerOrder.length) return true;
+    if (_elementLayerOrder.length != _originalElementLayerOrder.length)
+      return true;
     for (int i = 0; i < _elementLayerOrder.length; i++) {
       if (_elementLayerOrder[i] != _originalElementLayerOrder[i]) return true;
     }
@@ -618,13 +621,13 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                               // Main Canvas
                               _buildScrapbookCanvas(),
 
+                              // Vocabulary Words
+                              _buildVocabularyWords(),
+
                               // Sentences
                               if (widget.englishSentence.isNotEmpty ||
                                   widget.thaiSentence.isNotEmpty)
                                 _buildSentences(),
-
-                              // Vocabulary Words
-                              _buildVocabularyWords(),
 
                               // Bottom padding for toolbar
                               const SizedBox(height: 120),
@@ -707,18 +710,22 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
       ),
       child: Center(
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
           decoration: BoxDecoration(
-            color: const Color(0xFFEDE9FE),
+            color: const Color(0xFFF3EEFF),
             borderRadius: BorderRadius.circular(DesignTokens.radiusSmall),
+            border: Border.all(
+              color: const Color(0xFFE4DCF9),
+              width: 0.8,
+            ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               const Icon(
                 Icons.calendar_today_rounded,
-                size: 14,
-                color: Color(0xFF6D4BD1),
+                size: 13,
+                color: Color(0xFF9D7CE8),
               ),
               const SizedBox(width: 7),
               Text(
@@ -726,7 +733,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                 style: GoogleFonts.lexend(
                   fontSize: DesignTokens.fontSizeSmall,
                   fontWeight: DesignTokens.weightSemiBold,
-                  color: const Color(0xFF5036A6),
+                  color: const Color(0xFF755BB4),
                 ),
               ),
             ],
@@ -1678,7 +1685,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
       final file = File(photo.imagePath);
       final exists = await file.exists();
 
-      print('🔍 File check result for ${photo.imagePath}: ${exists ? "EXISTS" : "NOT FOUND"}');
+      print(
+          '🔍 File check result for ${photo.imagePath}: ${exists ? "EXISTS" : "NOT FOUND"}');
 
       if (mounted) {
         setState(() {
@@ -1943,20 +1951,20 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     }
 
     // Sort by length (longest first) to handle word boundaries correctly
-    final sortedWords = highlightWords.toList()
+    final availableWords = highlightWords.toList()
       ..sort((a, b) => b.length.compareTo(a.length));
 
     // Build text spans with highlights
     final spans = <TextSpan>[];
     int currentIndex = 0;
 
-    while (currentIndex < text.length) {
+    while (currentIndex < text.length && availableWords.isNotEmpty) {
       bool foundMatch = false;
       String matchedWord = '';
       int earliestMatchIndex = text.length;
 
-      // Find the earliest match among all highlight words
-      for (final word in sortedWords) {
+      // Find the earliest match among remaining available highlight words
+      for (final word in availableWords) {
         final matchIndex =
             text.toLowerCase().indexOf(word.toLowerCase(), currentIndex);
         if (matchIndex != -1 && matchIndex < earliestMatchIndex) {
@@ -1985,15 +1993,22 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
           style: highlightStyle,
         ));
 
+        // Highlight only once per word in the sentence (remove duplicates)
+        availableWords
+            .removeWhere((w) => w.toLowerCase() == matchedWord.toLowerCase());
+
         currentIndex = earliestMatchIndex + matchedWord.length;
       } else {
-        // No more matches, add remaining text
-        spans.add(TextSpan(
-          text: text.substring(currentIndex),
-          style: baseStyle,
-        ));
+        // No more matches among remaining words, add remaining text
         break;
       }
+    }
+
+    if (currentIndex < text.length) {
+      spans.add(TextSpan(
+        text: text.substring(currentIndex),
+        style: baseStyle,
+      ));
     }
 
     return Text.rich(
@@ -2001,17 +2016,98 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     );
   }
 
+  String _formatSentence(String text, {required bool isEnglish}) {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return trimmed;
+    if (isEnglish) {
+      if (!trimmed.endsWith('.') &&
+          !trimmed.endsWith('!') &&
+          !trimmed.endsWith('?') &&
+          !trimmed.endsWith(';') &&
+          !trimmed.endsWith(':')) {
+        return '$trimmed.';
+      }
+    }
+    return trimmed;
+  }
+
+  void _toggleSentenceLanguage() {
+    if (!_isFlipping) {
+      setState(() {
+        _isFlipping = true;
+      });
+      // Pop animation: scale down -> change -> scale up with bounce
+      Future.delayed(const Duration(milliseconds: 100), () {
+        if (mounted) {
+          setState(() {
+            _showThaiSentences = !_showThaiSentences;
+          });
+          Future.delayed(const Duration(milliseconds: 50), () {
+            if (mounted) {
+              setState(() {
+                _isFlipping = false;
+              });
+            }
+          });
+        }
+      });
+    }
+    HapticFeedback.lightImpact();
+  }
+
+  Widget _buildLanguagePill({
+    required String label,
+    required bool isActive,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+        decoration: BoxDecoration(
+          gradient: isActive
+              ? const LinearGradient(
+                  colors: [Color(0xFFA78BFA), Color(0xFFC084FC)],
+                )
+              : null,
+          color: isActive ? null : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: isActive
+              ? [
+                  BoxShadow(
+                    color: const Color(0xFFA78BFA).withValues(alpha: 0.35),
+                    blurRadius: 6,
+                    offset: const Offset(0, 1),
+                  ),
+                ]
+              : null,
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.lexend(
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            color: isActive ? Colors.white : const Color(0xFF8E82A8),
+            letterSpacing: 0.5,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildSentences() {
     // Split sentences by newlines or periods followed by space
     final englishSentences = widget.englishSentence
         .split(RegExp(r'\n|\.\s+(?=[A-Z])'))
-        .map((s) => s.trim())
+        .map((s) => _formatSentence(s, isEnglish: true))
         .where((s) => s.isNotEmpty)
         .toList();
 
     final thaiSentences = widget.thaiSentence
         .split(RegExp(r'\n|\.\s+'))
-        .map((s) => s.trim())
+        .map((s) => _formatSentence(s, isEnglish: false))
         .where((s) => s.isNotEmpty)
         .toList();
 
@@ -2026,6 +2122,35 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
         .where((w) => w.isNotEmpty)
         .toList();
 
+    // Helper to get target vocabulary word to highlight for each sentence (only 1 word per sentence)
+    List<String> getHighlightWordsForSentence(int index, String sentence) {
+      if (!isEnglish) return const [];
+      // 1. If sentence corresponds to a vocabulary word at the same index
+      if (index < widget.vocabularyWords.length) {
+        final targetWord = widget.vocabularyWords[index].word.trim();
+        if (targetWord.isNotEmpty &&
+            sentence.toLowerCase().contains(targetWord.toLowerCase())) {
+          return [targetWord];
+        }
+      }
+
+      // 2. Otherwise find the first matching vocabulary word in this sentence
+      for (final vocab in widget.vocabularyWords) {
+        final word = vocab.word.trim();
+        if (word.isNotEmpty &&
+            sentence.toLowerCase().contains(word.toLowerCase())) {
+          return [word];
+        }
+      }
+
+      // 3. If single combined sentence, fallback to all words
+      if (selectedSentences.length == 1) {
+        return englishWords;
+      }
+
+      return const [];
+    }
+
     if (selectedSentences.isEmpty) return const SizedBox.shrink();
 
     return Padding(
@@ -2036,97 +2161,193 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
       ),
       child: GestureDetector(
         onTap: () {
-          if (!_isFlipping) {
-            setState(() {
-              _isFlipping = true;
-            });
-            // Pop animation: scale down -> change -> scale up with bounce
-            Future.delayed(const Duration(milliseconds: 100), () {
-              if (mounted) {
-                setState(() {
-                  _showThaiSentences = !_showThaiSentences;
-                });
-                Future.delayed(const Duration(milliseconds: 50), () {
-                  if (mounted) {
-                    setState(() {
-                      _isFlipping = false;
-                    });
-                  }
-                });
-              }
-            });
-          }
-          HapticFeedback.lightImpact();
+          _toggleSentenceLanguage();
         },
         child: AnimatedScale(
-          scale: _isFlipping ? 0.92 : 1.0,
+          scale: _isFlipping ? 0.97 : 1.0,
           duration: const Duration(milliseconds: 150),
           curve: Curves.easeInOut,
           child: Container(
-            padding: const EdgeInsets.all(DesignTokens.spacingLarge),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.82),
-              borderRadius: BorderRadius.circular(DesignTokens.radiusLarge),
-              boxShadow: _isFlipping
-                  ? [
-                      BoxShadow(
-                        color: DesignTokens.brandColor.withValues(alpha: 0.2),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ]
-                  : null,
+              color: Colors.white.withValues(alpha: 0.88),
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFA78BFA).withValues(alpha: 0.08),
+                  blurRadius: 20,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+              border: Border.all(
+                color: const Color(0xFFE4DCF9),
+                width: 1,
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Compact header - just icon and language indicator
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    Icon(
-                      Icons.language_rounded,
-                      size: 14,
-                      color: DesignTokens.brandColor.withValues(alpha: 0.6),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      isEnglish ? 'EN' : 'TH',
-                      style: GoogleFonts.lexend(
-                        fontSize: 11,
-                        fontWeight: DesignTokens.weightSemiBold,
-                        color: DesignTokens.brandColor.withValues(alpha: 0.7),
-                        letterSpacing: 0.5,
+                // Header Section
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 4,
+                        height: 18,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [Color(0xFFA78BFA), Color(0xFFC4B5FD)],
+                          ),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: DesignTokens.spacingSmall),
-                // Sentences - English and Thai same size
-                for (int i = 0; i < selectedSentences.length; i++) ...[
-                  _buildHighlightedText(
-                    text: selectedSentences[i],
-                    highlightWords: isEnglish ? englishWords : [],
-                    baseStyle: GoogleFonts.lexend(
-                      fontSize: DesignTokens.fontSizeBodyLarge,
-                      fontWeight: DesignTokens.weightSemiBold,
-                      color: DesignTokens.textPrimary,
-                      height: 1.4,
-                      letterSpacing: isEnglish ? -0.2 : 0,
-                    ),
-                    highlightStyle: GoogleFonts.lexend(
-                      fontSize: DesignTokens.fontSizeBodyLarge,
-                      fontWeight: DesignTokens.weightBold,
-                      color: DesignTokens.brandColor,
-                      height: 1.4,
-                      letterSpacing: isEnglish ? -0.2 : 0,
-                      backgroundColor:
-                          DesignTokens.brandColor.withValues(alpha: 0.15),
-                    ),
+                      const SizedBox(width: 10),
+                      Text(
+                        'GENERATED SENTENCES',
+                        style: GoogleFonts.lexend(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF906EE8),
+                          letterSpacing: 1.5,
+                        ),
+                      ),
+                      const Spacer(),
+                      // Language Segmented Pill Switcher
+                      Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF3EEFF),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _buildLanguagePill(
+                              label: 'EN',
+                              isActive: isEnglish,
+                              onTap: () {
+                                if (!isEnglish) _toggleSentenceLanguage();
+                              },
+                            ),
+                            _buildLanguagePill(
+                              label: 'TH',
+                              isActive: !isEnglish,
+                              onTap: () {
+                                if (isEnglish) _toggleSentenceLanguage();
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                  if (i < selectedSentences.length - 1)
-                    const SizedBox(height: DesignTokens.spacingSmall),
-                ],
+                ),
+
+                // Separate Sentence Cards
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                  child: Column(
+                    children: [
+                      for (int i = 0; i < selectedSentences.length; i++) ...[
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFAF8FF),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: const Color(0xFFECE6FD),
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Number Badge
+                              Container(
+                                width: 22,
+                                height: 22,
+                                margin:
+                                    const EdgeInsets.only(right: 10, top: 1),
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFFF0EBFF),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    '${i + 1}',
+                                    style: GoogleFonts.lexend(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: const Color(0xFF8B6EC8),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              // Sentence Text
+                              Expanded(
+                                child: _buildHighlightedText(
+                                  text: selectedSentences[i],
+                                  highlightWords: getHighlightWordsForSentence(
+                                    i,
+                                    selectedSentences[i],
+                                  ),
+                                  baseStyle: GoogleFonts.lexend(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                    color: const Color(0xFF374151),
+                                    height: 1.5,
+                                    letterSpacing: isEnglish ? -0.2 : 0,
+                                  ),
+                                  highlightStyle: GoogleFonts.lexend(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                    color: const Color(0xFF6B4FB8),
+                                    height: 1.5,
+                                    letterSpacing: isEnglish ? -0.2 : 0,
+                                    backgroundColor: const Color(0xFFEDE5FF),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (i < selectedSentences.length - 1)
+                          const SizedBox(height: 10),
+                      ],
+                    ],
+                  ),
+                ),
+
+                // Hint Footer
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.touch_app_outlined,
+                        size: 13,
+                        color: Color(0xFFA78BFA),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        isEnglish
+                            ? 'Tap to view Thai translation'
+                            : 'Tap to view English',
+                        style: GoogleFonts.lexend(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: const Color(0xFF8E82A8),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
@@ -2142,59 +2363,131 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
       padding: const EdgeInsets.only(
         left: DesignTokens.spacingLarge,
         right: DesignTokens.spacingLarge,
-        bottom: DesignTokens.spacingXXLarge,
+        bottom: DesignTokens.spacingMedium,
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Wrap(
-            spacing: DesignTokens.spacingSmall,
-            runSpacing: DesignTokens.spacingSmall,
-            children: widget.vocabularyWords.map((vocab) {
-              return Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: DesignTokens.spacingMedium,
-                  vertical: 9,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.84),
-                  borderRadius: BorderRadius.circular(DesignTokens.radiusSmall),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      vocab.word,
-                      style: GoogleFonts.lexend(
-                        fontSize: DesignTokens.fontSizeBody,
-                        fontWeight: DesignTokens.weightBold,
-                        color: const Color(0xFF5B3CC4),
-                      ),
-                    ),
-                    const SizedBox(width: DesignTokens.spacingSmall),
-                    Container(
-                      width: 3,
-                      height: 3,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFA89DBF),
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: DesignTokens.spacingSmall),
-                    Text(
-                      vocab.thaiTranslation,
-                      style: GoogleFonts.lexend(
-                        fontSize: DesignTokens.fontSizeSmall,
-                        fontWeight: DesignTokens.weightMedium,
-                        color: DesignTokens.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }).toList(),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.88),
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFFA78BFA).withValues(alpha: 0.08),
+              blurRadius: 20,
+              offset: const Offset(0, 4),
+            ),
+          ],
+          border: Border.all(
+            color: const Color(0xFFE4DCF9),
+            width: 1,
           ),
-        ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header Section
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+              child: Row(
+                children: [
+                  Container(
+                    width: 4,
+                    height: 18,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [Color(0xFFA78BFA), Color(0xFFC4B5FD)],
+                      ),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    'VOCABULARY',
+                    style: GoogleFonts.lexend(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF906EE8),
+                      letterSpacing: 1.5,
+                    ),
+                  ),
+                  const Spacer(),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF3EEFF),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '${widget.vocabularyWords.length} words',
+                      style: GoogleFonts.lexend(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF8B6EC8),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Vocabulary Chips
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: widget.vocabularyWords.map((vocab) {
+                  return Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFAF8FF),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: const Color(0xFFECE6FD),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          vocab.word,
+                          style: GoogleFonts.lexend(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF6B4FB8),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          width: 3,
+                          height: 3,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFC4B5FD),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          vocab.thaiTranslation,
+                          style: GoogleFonts.lexend(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xFF7E7790),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -2307,7 +2600,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
             vertical: 10,
           ),
           decoration: BoxDecoration(
-            color: isSelected ? const Color(0xFFEDE9FE) : Colors.transparent,
+            color: isSelected ? const Color(0xFFF3EEFF) : Colors.transparent,
             borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
           ),
           child: Column(
@@ -2316,7 +2609,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
               Icon(
                 icon,
                 color: isSelected
-                    ? DesignTokens.brandColor
+                    ? const Color(0xFF906EE8)
                     : DesignTokens.textSecondary,
                 size: 22,
               ),
@@ -2327,7 +2620,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                   fontSize: DesignTokens.fontSizeCaption,
                   fontWeight: DesignTokens.weightSemiBold,
                   color: isSelected
-                      ? DesignTokens.brandColor
+                      ? const Color(0xFF906EE8)
                       : DesignTokens.textSecondary,
                   letterSpacing: 0.2,
                 ),
@@ -3980,7 +4273,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
       }
 
       // If there are newly generated vocabularies to save, save them to vocabularyStateProvider
-      if (widget.vocabulariesToSave != null && widget.vocabulariesToSave!.isNotEmpty) {
+      if (widget.vocabulariesToSave != null &&
+          widget.vocabulariesToSave!.isNotEmpty) {
         String finalImageUrl = widget.imagePath;
         final currentUser = ref.read(currentUserProvider);
         final imageStorageService = ref.read(imageStorageServiceProvider);
@@ -4000,13 +4294,20 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
         final updatedVocabs = widget.vocabulariesToSave!
             .map((v) => v.copyWith(imageUrl: finalImageUrl))
             .toList();
-        await ref.read(vocabularyStateProvider.notifier).addVocabularies(updatedVocabs);
+        await ref
+            .read(vocabularyStateProvider.notifier)
+            .addVocabularies(updatedVocabs);
         ref.invalidate(reviewStateProvider);
 
         // Update streak when acquiring vocabulary
         final streakNotifier = ref.read(streakProvider.notifier);
         await streakNotifier.recordVocabularyAcquired();
       }
+
+      if (!mounted) return;
+
+      // Check and show reward unlocks triggered by saved words or streak
+      await RewardUnlockHelper.checkAndShowUnlocks(context, ref);
 
       if (!mounted) return;
 
@@ -5071,17 +5372,20 @@ class _SaveButtonState extends State<_SaveButton> {
           width: 78,
           height: DesignTokens.iconButtonSize,
           decoration: BoxDecoration(
-            color: isEnabled
-                ? _isPressed
-                    ? const Color(0xFF7549E8)
-                    : DesignTokens.brandColor
-                : const Color(0xFFD1CBDD),
+            gradient: isEnabled
+                ? LinearGradient(
+                    colors: _isPressed
+                        ? const [Color(0xFF9370DB), Color(0xFF8B65D6)]
+                        : const [Color(0xFFA78BFA), Color(0xFF9370DB)],
+                  )
+                : null,
+            color: isEnabled ? null : const Color(0xFFD1CBDD),
             borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
             boxShadow: isEnabled
                 ? [
                     BoxShadow(
-                      color: DesignTokens.brandColor.withValues(alpha: 0.28),
-                      blurRadius: 8,
+                      color: const Color(0xFFA78BFA).withValues(alpha: 0.35),
+                      blurRadius: 10,
                       offset: const Offset(0, 3),
                     ),
                   ]

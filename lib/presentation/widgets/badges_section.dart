@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart' hide Badge;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../providers/badge_provider.dart';
+import '../providers/providers.dart';
 import 'reward_icon_widget.dart';
 
 /// Helper function to show badge details bottom sheet modal
@@ -217,6 +217,10 @@ class BadgesSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final badgeState = ref.watch(badgeStateProvider);
+    final vocabState = ref.watch(vocabularyStateProvider);
+    final streakData = ref.watch(streakProvider);
+    final totalStars = vocabState.vocabularies.length;
+    final streakDays = streakData?.currentStreak ?? 0;
     final allBadges = badgeState.badges;
 
     return Container(
@@ -325,8 +329,16 @@ class BadgesSection extends ConsumerWidget {
               itemBuilder: (context, index) {
                 final badge = allBadges[index];
                 final isUnlocked = !badge.isLocked;
-                final progress = badgeState.getProgress(badge);
-                final progressRatio = badgeState.getProgressRatio(badge);
+                final progress = badgeState.getProgress(
+                  badge,
+                  totalStars: totalStars,
+                  streakDays: streakDays,
+                );
+                final progressRatio = badgeState.getProgressRatio(
+                  badge,
+                  totalStars: totalStars,
+                  streakDays: streakDays,
+                );
                 final gradient = badge.gradientColors.isNotEmpty
                     ? badge.gradientColors
                     : const [Color(0xFF8B5CF6), Color(0xFF6366F1)];

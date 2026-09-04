@@ -120,54 +120,133 @@ class Meaning {
 class DictionaryService {
   final http.Client _client;
   static const String _baseUrl = 'https://api.dictionaryapi.dev/api/v2/entries/en';
+  static final Map<String, DictionaryEntry> _cache = {};
 
   DictionaryService({http.Client? client})
       : _client = client ?? http.Client();
+
+  /// Clear the dictionary cache (useful for testing or memory release)
+  static void clearCache() {
+    _cache.clear();
+  }
 
   /// Fetch dictionary entry for a word
   /// Returns the first entry if multiple are found
   Future<DictionaryEntry?> getWordDefinition(String word) async {
     try {
-      // Clean the word - trim whitespace, remove punctuation and convert to lowercase for API
-      final cleanWord = word.trim().toLowerCase().replaceAll(RegExp(r'[^\w\s-]'), '');
+      // Clean the word - trim whitespace and convert to lowercase for API
+      final cleanWord = word.trim().toLowerCase();
       print('🔍 Fetching definition for: $cleanWord (original: $word)');
 
-      // Use Uri.encodeComponent to properly encode the word for URL
-      final url = '$_baseUrl/${Uri.encodeComponent(cleanWord)}';
-      print('📍 URL: $url');
+      // Try primary Free Dictionary API with 2.5s timeout
+      try {
+        final url = '$_baseUrl/${Uri.encodeComponent(cleanWord)}';
+        final response = await _client.get(
+          Uri.parse(url),
+          headers: {
+            'Accept': 'application/json',
+            'User-Agent': 'StarmoryApp/1.0',
+          },
+        ).timeout(const Duration(milliseconds: 2500));
 
+        if (response.statusCode == 200) {
+          final List<dynamic> data = json.decode(response.body);
+          if (data.isNotEmpty) {
+            final entry = DictionaryEntry.fromJson(Map<String, dynamic>.from(data[0]));
+            _cache[cleanWord] = entry;
+            print('✅ Definition loaded from primary API: ${entry.word}');
+            return entry;
+          }
+        }
+      } catch (e) {
+        print('ℹ️ Primary dictionary API timed out/failed for "$cleanWord", trying fallback...');
+      }
+
+      // Fast fallback to Datamuse API (99.9% uptime & sub-second response)
+      final fallbackEntry = await _fetchFromDatamuse(cleanWord);
+      if (fallbackEntry != null) {
+        return fallbackEntry;
+      }
+
+      return null;
+    } catch (e) {
+      print('ℹ️ Dictionary lookup note for "$word": $e');
+      return null;
+    }
+  }
+
+  /// High-availability fallback dictionary parser using Datamuse API
+  Future<DictionaryEntry?> _fetchFromDatamuse(String cleanWord) async {
+    try {
+      final url = 'https://api.datamuse.com/words?sp=${Uri.encodeComponent(cleanWord)}&md=dp';
       final response = await _client.get(
         Uri.parse(url),
       ).timeout(
-        const Duration(seconds: 5),
+        const Duration(seconds: 10),
       );
 
       print('📡 Status code: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
-        print('✅ Parsed ${data.length} entries');
         if (data.isNotEmpty) {
-          final entry = DictionaryEntry.fromJson(Map<String, dynamic>.from(data[0]));
-          print('✅ Definition loaded: ${entry.word}, ${entry.meanings.length} meanings');
-          return entry;
-        } else {
-          print('⚠️ No entries found in response');
+          final first = data.firstWhere(
+            (item) => (item['word'] as String? ?? '').toLowerCase() == cleanWord,
+            orElse: () => data.first,
+          );
+
+          final defs = (first['defs'] as List<dynamic>?)?.cast<String>() ?? [];
+          if (defs.isNotEmpty) {
+            final Map<String, List<String>> posMap = {};
+            for (final defStr in defs) {
+              final parts = defStr.split('\t');
+              if (parts.length >= 2) {
+                final posCode = parts[0].trim().toLowerCase();
+                final definition = parts[1].trim();
+                String pos;
+                switch (posCode) {
+                  case 'n':
+                    pos = 'noun';
+                    break;
+                  case 'v':
+                    pos = 'verb';
+                    break;
+                  case 'adj':
+                    pos = 'adjective';
+                    break;
+                  case 'adv':
+                    pos = 'adverb';
+                    break;
+                  default:
+                    pos = posCode.isNotEmpty ? posCode : 'general';
+                }
+                posMap.putIfAbsent(pos, () => []).add(definition);
+              }
+            }
+
+            final meanings = posMap.entries.map((e) {
+              return Meaning(
+                partOfSpeech: e.key,
+                definitions: e.value,
+              );
+            }).toList();
+
+            if (meanings.isNotEmpty) {
+              final entry = DictionaryEntry(
+                word: cleanWord,
+                meanings: meanings,
+              );
+              _cache[cleanWord] = entry;
+              print('✅ Definition loaded from Datamuse fallback: $cleanWord');
+              return entry;
+            }
+          }
         }
-      } else if (response.statusCode == 404) {
-        print('⚠️ Word not found in dictionary API: $cleanWord');
-        print('💡 This word may not exist in the Free Dictionary API database');
-        print('💡 Try checking spelling or try a more common English word');
-      } else {
-        print('❌ Unexpected status code: ${response.statusCode}');
-        print('📄 Response: ${response.body.substring(0, response.body.length > 200 ? 200 : response.body.length)}...');
       }
-      return null;
-    } catch (e, stackTrace) {
-      print('❌ Error fetching dictionary definition: $e');
-      print('Stack trace: $stackTrace');
-      return null;
+    } catch (e) {
+      print('ℹ️ Datamuse fallback note for "$cleanWord": $e');
     }
+    return null;
   }
 
   /// Get multiple words definitions at once

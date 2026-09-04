@@ -333,6 +333,11 @@ class _HomeTabState extends ConsumerState<HomeTab>
   }
 
   Widget _buildActionCard(BuildContext context, DailyQuote quote) {
+    final userState = ref.watch(userStateProvider);
+    final user = userState.user;
+    final canGenerate = user?.canGenerate ?? false;
+    final isGuest = user?.isGuest ?? true;
+
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -418,33 +423,46 @@ class _HomeTabState extends ConsumerState<HomeTab>
             children: [
               Expanded(
                 child: GestureDetector(
-                  onTap: () => _pickImage(ImageSource.camera),
+                  onTap: canGenerate
+                      ? () => _pickImage(ImageSource.camera)
+                      : () => _showQuotaLimitDialog(isGuest),
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 22),
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          Color(0xFF60a5fa),
-                          Color(0xFF3b82f6),
-                        ],
-                      ),
+                      gradient: canGenerate
+                          ? const LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                Color(0xFF60a5fa),
+                                Color(0xFF3b82f6),
+                              ],
+                            )
+                          : const LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                Color(0xFFE5E7EB),
+                                Color(0xFFD1D5DB),
+                              ],
+                            ),
                       borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF60a5fa).withValues(alpha: 0.4),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
+                      boxShadow: canGenerate
+                          ? [
+                              BoxShadow(
+                                color: const Color(0xFF60a5fa).withValues(alpha: 0.4),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ]
+                          : null,
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
                           Icons.camera_alt_rounded,
-                          color: Colors.white,
+                          color: canGenerate ? Colors.white : const Color(0xFF9CA3AF),
                           size: 22,
                         ),
                         const SizedBox(width: 10),
@@ -453,7 +471,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
                           style: GoogleFonts.lexend(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
-                            color: Colors.white,
+                            color: canGenerate ? Colors.white : const Color(0xFF9CA3AF),
                           ),
                         ),
                       ],
@@ -464,33 +482,46 @@ class _HomeTabState extends ConsumerState<HomeTab>
               const SizedBox(width: 14),
               Expanded(
                 child: GestureDetector(
-                  onTap: () => _pickImage(ImageSource.gallery),
+                  onTap: canGenerate
+                      ? () => _pickImage(ImageSource.gallery)
+                      : () => _showQuotaLimitDialog(isGuest),
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 22),
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          Color(0xFFa78bfa),
-                          Color(0xFF8b5cf6),
-                        ],
-                      ),
+                      gradient: canGenerate
+                          ? const LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                Color(0xFFa78bfa),
+                                Color(0xFF8b5cf6),
+                              ],
+                            )
+                          : const LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                Color(0xFFE5E7EB),
+                                Color(0xFFD1D5DB),
+                              ],
+                            ),
                       borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFFa78bfa).withValues(alpha: 0.4),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
+                      boxShadow: canGenerate
+                          ? [
+                              BoxShadow(
+                                color: const Color(0xFFa78bfa).withValues(alpha: 0.4),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ]
+                          : null,
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
                           Icons.photo_library_rounded,
-                          color: Colors.white,
+                          color: canGenerate ? Colors.white : const Color(0xFF9CA3AF),
                           size: 22,
                         ),
                         const SizedBox(width: 10),
@@ -499,7 +530,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
                           style: GoogleFonts.lexend(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
-                            color: Colors.white,
+                            color: canGenerate ? Colors.white : const Color(0xFF9CA3AF),
                           ),
                         ),
                       ],
@@ -529,7 +560,9 @@ class _HomeTabState extends ConsumerState<HomeTab>
 
     final totalReached = totalUsage >= totalLimit;
     final canGenerate = user.canGenerate;
-    final remainingDaily = dailyLimit - todayUsage;
+    final remainingGenerations = isGuest
+        ? (totalLimit - totalUsage).clamp(0, (dailyLimit - todayUsage).clamp(0, dailyLimit))
+        : (dailyLimit - todayUsage).clamp(0, dailyLimit);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
@@ -578,7 +611,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
               children: [
                 Text(
                   canGenerate
-                      ? '$remainingDaily generations left today'
+                      ? '$remainingGenerations generations left today'
                       : (totalReached && isGuest ? 'That\'s all for now!' : 'See you tomorrow'),
                   style: GoogleFonts.lexend(
                     fontSize: 15,
@@ -651,7 +684,131 @@ class _HomeTabState extends ConsumerState<HomeTab>
     );
   }
 
+  void _showQuotaLimitDialog(bool isGuest) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: Colors.orange.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.warning_amber_rounded,
+                color: Colors.orange,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                isGuest ? 'Free Trial Limit' : 'Daily Limit Reached',
+                style: GoogleFonts.lexend(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF1f2937),
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              isGuest
+                  ? "You've used all your guest generations. Sign up to get 15 daily generations!"
+                  : "You've reached your 15 daily generations. Come back tomorrow for more!",
+              style: GoogleFonts.lexend(
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+                color: const Color(0xFF6b7280),
+                height: 1.5,
+              ),
+            ),
+            if (isGuest) ...[
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF8b5cf6).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.star_rounded, color: Color(0xFF8b5cf6), size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '15 generations everyday with free account!',
+                        style: GoogleFonts.lexend(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF7c3aed),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          if (isGuest)
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                AccountMethodPage.show(context);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF8b5cf6),
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              ),
+              child: Text(
+                'Sign Up Free',
+                style: GoogleFonts.lexend(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFF6b7280),
+            ),
+            child: Text(
+              isGuest ? 'Later' : 'OK',
+              style: GoogleFonts.lexend(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _pickImage(ImageSource source) async {
+    final user = ref.read(userStateProvider).user;
+    if (user != null && !user.canGenerate) {
+      _showQuotaLimitDialog(user.isGuest);
+      return;
+    }
+
     try {
       // Request permissions
       if (source == ImageSource.camera) {

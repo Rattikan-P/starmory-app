@@ -12,6 +12,8 @@ import '../../data/services/gemini_service.dart';
 import '../../data/services/tts_service.dart';
 import 'generation_loading_screen.dart';
 import 'edit_scrapbook_screen.dart';
+import 'auth/account_method_page.dart';
+import '../utils/reward_unlock_helper.dart';
 import 'dart:ui';
 
 /// Interactive Vocabulary Result Screen
@@ -42,12 +44,14 @@ class _InteractiveVocabularyScreenState
   late List<_VocabularyDot> _vocabularyDots;
   bool _useCombinedSentence = false;
   final Set<String> _selectedWordIds = {};
+  final Set<String> _regeneratingWordIds = {};
   bool _isRegenerating = false;
   _VocabularyDot? _selectedDotForOverlay;
 
   // TTS service
   final TTSService _ttsService = TTSService();
-  String? _playingWordId; // Track which word is currently playing
+  String?
+      _playingAudioId; // Track which audio (word or sentence) is currently playing
   StreamSubscription? _ttsCompletionSubscription;
   StreamSubscription? _ttsErrorSubscription;
 
@@ -56,13 +60,17 @@ class _InteractiveVocabularyScreenState
   Size? _imageSize;
   ({double scale, double offsetX, double offsetY})? _imageFit;
 
-  // Store individual sentences before switching to combined mode
-  final Map<String, ({String english, String thai})> _savedIndividualSentences =
-      {};
+  // Store individual sentences and context before switching to combined mode
+  final Map<String,
+          ({String english, String thai, String tone, String category})>
+      _savedIndividualSentences = {};
 
   // Store combined sentences cache per tone to avoid regenerating
   final Map<String, ({String english, String thai})> _savedCombinedSentences =
       {};
+  Set<String> _savedCombinedWordIds = {};
+  String _combinedTone = 'Describe';
+  String _combinedCategory = 'Daily Life';
 
   /// Map UI tone to API tone format
   String _mapToneToApiFormat(String uiTone) {
@@ -85,20 +93,39 @@ class _InteractiveVocabularyScreenState
     // Listen to TTS completion
     _ttsCompletionSubscription = _ttsService.onComplete.listen((_) {
       if (mounted) {
-        setState(() => _playingWordId = null);
+        setState(() => _playingAudioId = null);
       }
     });
 
     // Listen to TTS errors
     _ttsErrorSubscription = _ttsService.onError.listen((message) {
       if (mounted) {
-        setState(() => _playingWordId = null);
+        setState(() => _playingAudioId = null);
         debugPrint('TTS Error: $message');
       }
     });
 
     // Load actual AI generation result
     _initializeVocabularyData();
+
+    // Check if any badge / sticker rewards unlocked upon generation
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final generatedVocabs = widget.extractionResult?.vocabList ?? [];
+        final additionalWords = generatedVocabs.length;
+        final additionalNatureWords = generatedVocabs
+            .where((v) => (widget.extractionResult?.category.toLowerCase() ?? '') == 'nature' ||
+                          v.word.toLowerCase() == 'nature')
+            .length;
+
+        RewardUnlockHelper.checkAndShowUnlocks(
+          context,
+          ref,
+          additionalWords: additionalWords,
+          additionalNatureWords: additionalNatureWords,
+        );
+      }
+    });
   }
 
   @override
@@ -114,14 +141,18 @@ class _InteractiveVocabularyScreenState
       // Use default context (Describe + image category) for initial sentences
       final defaultTone = 'Describe';
       final defaultCategory = widget.extractionResult!.category;
+      _combinedTone = defaultTone;
+      _combinedCategory = defaultCategory;
 
       // Check if any vocabulary items have pre-generated sentences
       final hasPreGeneratedSentences = widget.extractionResult!.vocabList.any(
-        (item) => item.englishSentence != null && item.englishSentence!.isNotEmpty,
+        (item) =>
+            item.englishSentence != null && item.englishSentence!.isNotEmpty,
       );
 
       // Use actual AI result - use pre-generated sentences if available
-      _vocabularyDots = widget.extractionResult!.vocabList.asMap().entries.map((entry) {
+      _vocabularyDots =
+          widget.extractionResult!.vocabList.asMap().entries.map((entry) {
         final item = entry.value;
         final index = entry.key;
         final bbox = item.boundingBox;
@@ -164,6 +195,8 @@ class _InteractiveVocabularyScreenState
             _savedIndividualSentences[dot.id] = (
               english: dot.englishSentence,
               thai: dot.thaiSentence,
+              tone: dot.tone,
+              category: dot.category,
             );
           }
         }
@@ -177,7 +210,8 @@ class _InteractiveVocabularyScreenState
 
   /// Fix overlapping coordinates so dots never visually touch/stick together
   void _fixOverlappingCoordinates() {
-    const minDistance = 0.045; // Minimum distance between dot centers (~36px) to prevent touching
+    const minDistance =
+        0.045; // Minimum distance between dot centers (~36px) to prevent touching
     const iterations = 2; // Relaxation passes
 
     for (var pass = 0; pass < iterations; pass++) {
@@ -229,19 +263,25 @@ class _InteractiveVocabularyScreenState
     final selectedDots = _selectedWordIds.isEmpty
         ? _vocabularyDots
         : _vocabularyDots
-              .where((d) => _selectedWordIds.contains(d.id))
-              .toList();
+            .where((d) => _selectedWordIds.contains(d.id))
+            .toList();
 
     if (selectedDots.isEmpty) return;
 
     try {
       final geminiService = ref.read(geminiServiceProvider);
 
-      // Collect all unique tones from selected dots
-      final tones = selectedDots
-          .map((d) => _mapToneToApiFormat(d.tone))
-          .toSet()
-          .toList();
+      // Collect tones and category based on mode
+      final tones = _useCombinedSentence
+          ? [_mapToneToApiFormat(_combinedTone)]
+          : selectedDots
+              .map((d) => _mapToneToApiFormat(d.tone))
+              .toSet()
+              .toList();
+
+      final category = _useCombinedSentence
+          ? _combinedCategory
+          : selectedDots.first.category;
 
       // Get selected words only
       final words = selectedDots.map((d) => d.word).toList();
@@ -255,7 +295,7 @@ class _InteractiveVocabularyScreenState
         words: words,
         level: widget.cefrLevel,
         tones: tones,
-        category: selectedDots.first.category,
+        category: category,
         combined: _useCombinedSentence,
         englishVariant: widget.englishVariant,
       );
@@ -269,23 +309,23 @@ class _InteractiveVocabularyScreenState
           if (combinedSentences != null) {
             // Save to cache for future restoration
             _savedCombinedSentences.clear();
+            _savedCombinedWordIds = Set.from(_selectedWordIds);
 
-            for (var i = 0; i < _vocabularyDots.length; i++) {
-              final dot = _vocabularyDots[i];
-              // Only update selected dots
-              if (_selectedWordIds.contains(dot.id)) {
-                final toneKey = _mapToneToApiFormat(dot.tone);
-                final sentenceData = combinedSentences[toneKey];
-                if (sentenceData != null) {
+            final toneKey = _mapToneToApiFormat(_combinedTone);
+            final sentenceData = combinedSentences[toneKey];
+            if (sentenceData != null) {
+              _savedCombinedSentences[toneKey] = (
+                english: sentenceData.text,
+                thai: sentenceData.thai,
+              );
+
+              for (var i = 0; i < _vocabularyDots.length; i++) {
+                final dot = _vocabularyDots[i];
+                // Only update selected dots
+                if (_selectedWordIds.contains(dot.id)) {
                   _vocabularyDots[i] = dot.copyWith(
                     englishSentence: sentenceData.text,
                     thaiSentence: sentenceData.thai,
-                  );
-
-                  // Cache this combined sentence by tone
-                  _savedCombinedSentences[toneKey] = (
-                    english: sentenceData.text,
-                    thai: sentenceData.thai,
                   );
                 }
               }
@@ -311,6 +351,8 @@ class _InteractiveVocabularyScreenState
                   _savedIndividualSentences[dot.id] = (
                     english: sentenceData.text,
                     thai: sentenceData.thai,
+                    tone: dot.tone,
+                    category: dot.category,
                   );
                 }
               }
@@ -346,6 +388,8 @@ class _InteractiveVocabularyScreenState
         _savedIndividualSentences[dot.id] = (
           english: enSentence,
           thai: thSentence,
+          tone: dot.tone,
+          category: dot.category,
         );
       }
     });
@@ -414,7 +458,7 @@ class _InteractiveVocabularyScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        appBar: AppBar(
+      appBar: AppBar(
         elevation: 0,
         scrolledUnderElevation: 0,
         backgroundColor: Colors.transparent,
@@ -546,20 +590,15 @@ class _InteractiveVocabularyScreenState
                 }
               }
             },
-
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 220),
-
               width: 22,
               height: 22,
-
               decoration: BoxDecoration(
                 color: _useCombinedSentence
                     ? const Color(0xFF7B6EF6)
                     : Colors.transparent,
-
                 borderRadius: BorderRadius.circular(6),
-
                 border: Border.all(
                   color: _useCombinedSentence
                       ? const Color(0xFF7B6EF6)
@@ -567,7 +606,6 @@ class _InteractiveVocabularyScreenState
                   width: 1.5,
                 ),
               ),
-
               child: _useCombinedSentence
                   ? const Icon(
                       Icons.check_rounded,
@@ -577,9 +615,7 @@ class _InteractiveVocabularyScreenState
                   : null,
             ),
           ),
-
           const SizedBox(width: 12),
-
           Text(
             'Combined Sentence',
             style: GoogleFonts.lexend(
@@ -605,8 +641,8 @@ class _InteractiveVocabularyScreenState
     }
   }
 
-  /// Save individual sentences before switching to combined mode
-  /// Now saves ALL sentences (not just selected) for better restoration
+  /// Save individual sentences and context before switching to combined mode
+  /// Now saves ALL sentences and contexts (not just selected) for better restoration
   void _saveIndividualSentences() {
     _savedIndividualSentences.clear();
     for (final dot in _vocabularyDots) {
@@ -615,12 +651,14 @@ class _InteractiveVocabularyScreenState
         _savedIndividualSentences[dot.id] = (
           english: dot.englishSentence,
           thai: dot.thaiSentence,
+          tone: dot.tone,
+          category: dot.category,
         );
       }
     }
   }
 
-  /// Restore individual sentences when switching back from combined mode
+  /// Restore individual sentences and context when switching back from combined mode
   /// Returns true if sentences were restored, false if need to regenerate
   bool _restoreIndividualSentences() {
     if (_savedIndividualSentences.isEmpty) {
@@ -641,6 +679,8 @@ class _InteractiveVocabularyScreenState
           _vocabularyDots[i] = dot.copyWith(
             englishSentence: saved.english,
             thaiSentence: saved.thai,
+            tone: saved.tone,
+            category: saved.category,
           );
         }
       }
@@ -656,19 +696,20 @@ class _InteractiveVocabularyScreenState
   /// Restore combined sentences from cache when switching to combined mode
   /// Returns true if sentences were restored, false if need to regenerate
   bool _restoreCombinedSentences() {
-    if (_savedCombinedSentences.isEmpty) {
-      debugPrint('📭 No saved combined sentences, will regenerate');
+    if (_savedCombinedSentences.isEmpty ||
+        _savedCombinedWordIds.length != _selectedWordIds.length ||
+        !_savedCombinedWordIds.containsAll(_selectedWordIds)) {
+      debugPrint('📭 No matching saved combined sentences, will regenerate');
       return false;
     }
 
     setState(() {
-      // Restore combined sentences for each selected dot based on its tone
-      for (var i = 0; i < _vocabularyDots.length; i++) {
-        final dot = _vocabularyDots[i];
-        if (_selectedWordIds.contains(dot.id)) {
-          final toneKey = _mapToneToApiFormat(dot.tone);
-          final saved = _savedCombinedSentences[toneKey];
-          if (saved != null) {
+      final toneKey = _mapToneToApiFormat(_combinedTone);
+      final saved = _savedCombinedSentences[toneKey];
+      if (saved != null) {
+        for (var i = 0; i < _vocabularyDots.length; i++) {
+          final dot = _vocabularyDots[i];
+          if (_selectedWordIds.contains(dot.id)) {
             _vocabularyDots[i] = dot.copyWith(
               englishSentence: saved.english,
               thaiSentence: saved.thai,
@@ -706,7 +747,8 @@ class _InteractiveVocabularyScreenState
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.broken_image_outlined, size: 64, color: Colors.red),
+                        const Icon(Icons.broken_image_outlined,
+                            size: 64, color: Colors.red),
                         const SizedBox(height: 16),
                         Text(
                           'Image Not Found',
@@ -735,7 +777,8 @@ class _InteractiveVocabularyScreenState
                               label: const Text('Go Back'),
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: const Color(0xFF6C63FF),
-                                side: const BorderSide(color: Color(0xFF6C63FF)),
+                                side:
+                                    const BorderSide(color: Color(0xFF6C63FF)),
                               ),
                             ),
                             const SizedBox(width: 16),
@@ -758,7 +801,8 @@ class _InteractiveVocabularyScreenState
 
               // Fallback: show image directly without dimension calculation
               debugPrint('⚠️ Using fallback image display due to error');
-              _containerSize = Size(constraints.maxWidth, constraints.maxHeight);
+              _containerSize =
+                  Size(constraints.maxWidth, constraints.maxHeight);
 
               return Stack(
                 clipBehavior: Clip.none,
@@ -773,16 +817,19 @@ class _InteractiveVocabularyScreenState
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                              const Icon(Icons.error_outline,
+                                  size: 48, color: Colors.red),
                               const SizedBox(height: 8),
                               Text(
                                 'Failed to load image',
-                                style: GoogleFonts.lexend(color: Colors.grey[700]),
+                                style:
+                                    GoogleFonts.lexend(color: Colors.grey[700]),
                               ),
                               const SizedBox(height: 4),
                               Text(
                                 'Please try rescanning',
-                                style: GoogleFonts.lexend(fontSize: 12, color: Colors.grey[500]),
+                                style: GoogleFonts.lexend(
+                                    fontSize: 12, color: Colors.grey[500]),
                               ),
                             ],
                           ),
@@ -825,11 +872,13 @@ class _InteractiveVocabularyScreenState
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                            const Icon(Icons.error_outline,
+                                size: 48, color: Colors.red),
                             const SizedBox(height: 8),
                             Text(
                               'Failed to load image',
-                              style: GoogleFonts.lexend(color: Colors.grey[700]),
+                              style:
+                                  GoogleFonts.lexend(color: Colors.grey[700]),
                             ),
                           ],
                         ),
@@ -890,62 +939,69 @@ class _InteractiveVocabularyScreenState
                       sigmaY: 18,
                     ),
                     child: GestureDetector(
-                      onTap: _selectedDotForOverlay != null ? _hideWordOverlay : null,
+                      onTap: _selectedDotForOverlay != null
+                          ? _hideWordOverlay
+                          : null,
                       child: Container(
                         decoration: BoxDecoration(
                           color: Colors.white.withValues(alpha: 0.82),
                           borderRadius: const BorderRadius.vertical(
                             top: Radius.circular(32),
                           ),
-                          border: Border.all(color: Colors.white.withValues(alpha: 0.6)),
+                          border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.6)),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFF7B6EF6).withValues(alpha: 0.08),
+                              color: const Color(0xFF7B6EF6)
+                                  .withValues(alpha: 0.08),
                               blurRadius: 30,
                               offset: const Offset(0, -10),
                             ),
                           ],
                         ),
                         child: CustomScrollView(
-                        controller: scrollController,
-                        slivers: [
-                          // Drag Handle
-                          SliverToBoxAdapter(
-                            child: Center(
-                              child: Container(
-                                margin: const EdgeInsets.only(top: 12, bottom: 8),
-                                width: 40,
-                                height: 4,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFD4CCFF),
-                                  borderRadius: BorderRadius.circular(99),
+                          controller: scrollController,
+                          slivers: [
+                            // Drag Handle
+                            SliverToBoxAdapter(
+                              child: Center(
+                                child: Container(
+                                  margin:
+                                      const EdgeInsets.only(top: 12, bottom: 8),
+                                  width: 40,
+                                  height: 4,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFD4CCFF),
+                                    borderRadius: BorderRadius.circular(99),
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
 
-                          // Selected Words Chips
-                          SliverToBoxAdapter(child: _buildSelectedWordsChips()),
+                            // Selected Words Chips
+                            SliverToBoxAdapter(
+                                child: _buildSelectedWordsChips()),
 
-                          // Combined Sentence Toggle
-                          SliverToBoxAdapter(child: _buildCombinedSentenceToggle()),
+                            // Combined Sentence Toggle
+                            SliverToBoxAdapter(
+                                child: _buildCombinedSentenceToggle()),
 
-                          // Combined Sentence Display
-                          SliverToBoxAdapter(
-                            child: _buildCombinedSentenceDisplay(),
-                          ),
+                            // Combined Sentence Display
+                            SliverToBoxAdapter(
+                              child: _buildCombinedSentenceDisplay(),
+                            ),
 
-                          // Word Details / Empty State
-                          // Hide individual word cards when combined mode is ON
-                          if (_selectedWordIds.isEmpty)
-                            _buildEmptyStateSliver(scrollController)
-                          else if (!_useCombinedSentence)
-                            _buildWordDetailsSliver(scrollController),
-                        ],
+                            // Word Details / Empty State
+                            // Hide individual word cards when combined mode is ON
+                            if (_selectedWordIds.isEmpty)
+                              _buildEmptyStateSliver(scrollController)
+                            else if (!_useCombinedSentence)
+                              _buildWordDetailsSliver(scrollController),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
                 );
               },
             );
@@ -975,8 +1031,11 @@ class _InteractiveVocabularyScreenState
 
     // Calculate overlay position (show below the dot)
     const dotSize = 34.0;
-    const overlayWidth = 140.0;
-    const overlayHeight = 120.0;
+    const overlayWidth = 156.0;
+    const overlayHeight = 110.0;
+    const borderRadius = 16.0;
+    const arrowWidth = 16.0;
+    const arrowHeight = 8.0;
 
     double overlayX = displayedX - overlayWidth / 2;
     double overlayY = displayedY + dotSize / 2 + 8;
@@ -985,7 +1044,8 @@ class _InteractiveVocabularyScreenState
     final bottomSafeArea = MediaQuery.of(context).padding.bottom;
     final bottomSheetMinHeight = containerHeight * 0.35;
     final reservedBottomSpace = bottomSheetMinHeight + bottomSafeArea;
-    final maxBottomY = containerHeight - overlayHeight - reservedBottomSpace - 8;
+    final maxBottomY =
+        containerHeight - overlayHeight - reservedBottomSpace - 8;
 
     // Track if overlay is shown above or below dot
     bool showAboveDot = false;
@@ -993,9 +1053,7 @@ class _InteractiveVocabularyScreenState
     // Check if overlay would go below the bottom sheet
     if (overlayY > maxBottomY) {
       // Show overlay ABOVE the dot instead
-      // Position so triangle tip is closer to the dot (reduce gap)
-      // Adding 16px to bring it closer than before
-      overlayY = displayedY - dotSize / 2 - overlayHeight + 24;
+      overlayY = displayedY - dotSize / 2 - overlayHeight + 20;
       showAboveDot = true;
     } else {
       // Keep overlay within vertical bounds (normal case - below dot)
@@ -1005,12 +1063,12 @@ class _InteractiveVocabularyScreenState
     // Calculate horizontal bounds - keep overlay within screen
     overlayX = overlayX.clamp(8.0, containerWidth - overlayWidth - 8);
 
-    // Calculate triangle offset - it should align with the dot position
-    // The dot is at displayedX, overlay starts at overlayX
-    // Triangle center should be at (displayedX - overlayX) relative to overlay
+    // Calculate triangle offset - strictly clamped to the flat edge of the card
+    // so the arrow base never floats over the rounded corners
     double triangleRelativeX = displayedX - overlayX;
-    // Clamp to keep triangle within reasonable bounds (not at extreme edges)
-    triangleRelativeX = triangleRelativeX.clamp(12.0, overlayWidth - 12.0);
+    final minTriangleX = borderRadius + (arrowWidth / 2);
+    final maxTriangleX = overlayWidth - borderRadius - (arrowWidth / 2);
+    triangleRelativeX = triangleRelativeX.clamp(minTriangleX, maxTriangleX);
 
     return Positioned(
       left: overlayX,
@@ -1024,13 +1082,14 @@ class _InteractiveVocabularyScreenState
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               // Triangle arrow - position based on whether overlay is above or below dot
+              // Shift by 1px into card edge to eliminate any subpixel/hairline separation
               if (!showAboveDot)
                 Transform.translate(
-                  offset: Offset(triangleRelativeX - overlayWidth / 2, 0),
+                  offset: Offset(triangleRelativeX - overlayWidth / 2, 1.0),
                   child: CustomPaint(
-                    size: const Size(16, 8),
+                    size: const Size(arrowWidth, arrowHeight),
                     painter: _TrianglePainter(
-                      color: Colors.white.withValues(alpha: 0.9),
+                      color: Colors.white.withValues(alpha: 0.95),
                       pointDown: false, // Pointing up (triangle at top)
                     ),
                   ),
@@ -1038,13 +1097,14 @@ class _InteractiveVocabularyScreenState
               Material(
                 elevation: 8,
                 color: Colors.transparent,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(borderRadius),
                 child: Container(
                   width: overlayWidth,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.9),
-                    borderRadius: BorderRadius.circular(16),
+                    color: Colors.white.withValues(alpha: 0.95),
+                    borderRadius: BorderRadius.circular(borderRadius),
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -1054,15 +1114,18 @@ class _InteractiveVocabularyScreenState
                       Row(
                         children: [
                           Expanded(
-                            child: Text(
-                              dot.word,
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF7B6EF6),
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                dot.word,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF7B6EF6),
+                                ),
+                                maxLines: 1,
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           const SizedBox(width: 4),
@@ -1073,7 +1136,7 @@ class _InteractiveVocabularyScreenState
                             child: Padding(
                               padding: const EdgeInsets.all(4),
                               child: Icon(
-                                _playingWordId == dot.id
+                                _playingAudioId == dot.id
                                     ? Icons.stop_rounded
                                     : Icons.volume_up_rounded,
                                 size: 20,
@@ -1085,16 +1148,19 @@ class _InteractiveVocabularyScreenState
                       ),
                       const SizedBox(height: 2),
 
-                      // Thai Translation
-                      Text(
-                        dot.thaiTranslation,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.grey[700],
+                      // Thai Translation with auto-scaling
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          dot.thaiTranslation,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.grey[700],
+                          ),
+                          maxLines: 1,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
@@ -1102,11 +1168,11 @@ class _InteractiveVocabularyScreenState
               ),
               if (showAboveDot)
                 Transform.translate(
-                  offset: Offset(triangleRelativeX - overlayWidth / 2, 0),
+                  offset: Offset(triangleRelativeX - overlayWidth / 2, -1.0),
                   child: CustomPaint(
-                    size: const Size(16, 8),
+                    size: const Size(arrowWidth, arrowHeight),
                     painter: _TrianglePainter(
-                      color: Colors.white.withValues(alpha: 0.9),
+                      color: Colors.white.withValues(alpha: 0.95),
                       pointDown: true, // Pointing down (triangle at bottom)
                     ),
                   ),
@@ -1243,9 +1309,7 @@ class _InteractiveVocabularyScreenState
                     ? const Color(0xFF7B6EF6).withValues(alpha: 0.7)
                     : Colors.white.withValues(alpha: 0.6),
                 border: Border.all(
-                  color: isSelected
-                      ? const Color(0xFF7B6EF6)
-                      : Colors.white,
+                  color: isSelected ? const Color(0xFF7B6EF6) : Colors.white,
                   width: 3,
                 ),
                 boxShadow: [
@@ -1315,14 +1379,13 @@ class _InteractiveVocabularyScreenState
                     ? const Color(0xFF7B6EF6).withValues(alpha: 0.7)
                     : Colors.white.withValues(alpha: 0.6),
                 border: Border.all(
-                  color: isSelected
-                      ? const Color(0xFF7B6EF6)
-                      : Colors.white,
+                  color: isSelected ? const Color(0xFF7B6EF6) : Colors.white,
                   width: 3,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF7B6EF6).withValues(alpha: isSelected ? 0.35 : 0.15),
+                    color: const Color(0xFF7B6EF6)
+                        .withValues(alpha: isSelected ? 0.35 : 0.15),
                     blurRadius: isSelected ? 16 : 8,
                     spreadRadius: 1,
                   ),
@@ -1370,25 +1433,37 @@ class _InteractiveVocabularyScreenState
         separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
           final dot = selectedDots[index];
-          return Chip(
-            backgroundColor: const Color(0xFFF1EEFF),
+          final isOverlayActive = _selectedDotForOverlay?.id == dot.id;
 
+          return InputChip(
+            backgroundColor: isOverlayActive
+                ? const Color(0xFFE9E5FF)
+                : const Color(0xFFF1EEFF),
+            selected: isOverlayActive,
+            selectedColor: const Color(0xFFE9E5FF),
+            showCheckmark: false,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(18),
+              side: isOverlayActive
+                  ? const BorderSide(color: Color(0xFF7B6EF6), width: 1.5)
+                  : BorderSide.none,
             ),
-
-            side: BorderSide.none,
-
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-
-            labelStyle: const TextStyle(
-              color: Color(0xFF2D2A4A),
+            labelStyle: TextStyle(
+              color: isOverlayActive
+                  ? const Color(0xFF7B6EF6)
+                  : const Color(0xFF2D2A4A),
               fontWeight: FontWeight.w600,
             ),
-
             label: Text(dot.word),
-
             deleteIcon: const Icon(Icons.close, size: 18),
+            deleteIconColor: isOverlayActive
+                ? const Color(0xFF7B6EF6)
+                : const Color(0xFF8B87A6),
+            onPressed: () {
+              // Open overlay for this word, just like tapping the dot on the image
+              _showWordOverlay(dot);
+            },
             onDeleted: () => _toggleWordSelection(dot.id),
           );
         },
@@ -1413,26 +1488,13 @@ class _InteractiveVocabularyScreenState
         .map((dot) => dot.word)
         .toList();
 
-    // Get unique tones and categories from all selected dots
-    final uniqueTones = _selectedWordIds
-        .map((id) => _vocabularyDots.firstWhere((d) => d.id == id).tone)
-        .toSet()
-        .toList();
-
-    final uniqueCategories = _selectedWordIds
-        .map((id) => _vocabularyDots.firstWhere((d) => d.id == id).category)
-        .toSet()
-        .toList();
-
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: const Color(0xFFE7E1FF),
         borderRadius: BorderRadius.circular(24),
-
         border: Border.all(color: const Color(0xFFD2C7FF), width: 1.2),
-
         boxShadow: [
           BoxShadow(
             color: const Color(0xFF7B6EF6).withOpacity(0.08),
@@ -1483,7 +1545,6 @@ class _InteractiveVocabularyScreenState
             decoration: BoxDecoration(
               color: const Color(0xFFF8F6FF),
               borderRadius: BorderRadius.circular(18),
-
               border: Border.all(color: const Color(0xFFE0D8FF)),
             ),
             child: _isRegenerating
@@ -1512,61 +1573,101 @@ class _InteractiveVocabularyScreenState
                     ],
                   )
                 : firstSelectedDot.englishSentence.isEmpty
-                ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'No sentence generated. Try selecting words first.',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.grey[500],
-                          fontStyle: FontStyle.italic,
-                        ),
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'No sentence generated. Try selecting words first.',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey[500],
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                        ],
+                      )
+                    : Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  firstSelectedDot.englishSentence,
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    color: Colors.black87,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  firstSelectedDot.thaiSentence,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey[700],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          IconButton(
+                            icon: const Icon(
+                              Icons.refresh_rounded,
+                              size: 22,
+                            ),
+                            color: _isRegenerating
+                                ? Colors.grey
+                                : const Color(0xFF7B6EF6),
+                            onPressed: _isRegenerating
+                                ? null
+                                : () => _refreshCombinedSentence(),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            visualDensity: VisualDensity.compact,
+                            tooltip: 'Regenerate sentence',
+                          ),
+                          const SizedBox(width: 8),
+                          IconButton(
+                            icon: Icon(
+                              _playingAudioId == 'combined_sentence'
+                                  ? Icons.stop_rounded
+                                  : Icons.volume_up_rounded,
+                              size: 22,
+                            ),
+                            color: const Color(0xFF7B6EF6),
+                            onPressed: () => _playSentenceAudio(
+                              'combined_sentence',
+                              firstSelectedDot.englishSentence,
+                            ),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            visualDensity: VisualDensity.compact,
+                            tooltip: 'Read sentence',
+                          ),
+                        ],
                       ),
-                    ],
-                  )
-                : Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        firstSelectedDot.englishSentence,
-                        style: const TextStyle(
-                          fontSize: 15,
-                          color: Colors.black87,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        firstSelectedDot.thaiSentence,
-                        style: TextStyle(fontSize: 14, color: Colors.grey[700]),
-                      ),
-                    ],
-                  ),
           ),
           const SizedBox(height: 12),
 
           // Context Tags & +Context Button
           Row(
             children: [
-              // Show only first tone (all selected words should share the same tone after combined context is applied)
-              if (uniqueTones.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: _ContextChip(label: uniqueTones.first, icon: Icons.tune),
-                ),
-              // Show first category
-              if (uniqueCategories.isNotEmpty)
-                _ContextChip(label: uniqueCategories.first, icon: Icons.category),
+              _ContextChip(label: _combinedTone, icon: Icons.tune),
+              const SizedBox(width: 8),
+              _ContextChip(label: _combinedCategory, icon: Icons.category),
               const Spacer(),
               TextButton.icon(
-                onPressed: _isRegenerating ? null : () => _showCombinedContextSelector(),
+                onPressed: _isRegenerating
+                    ? null
+                    : () => _showCombinedContextSelector(),
                 icon: const Icon(Icons.add, size: 18),
                 label: const Text('Context'),
                 style: TextButton.styleFrom(
-                  foregroundColor: _isRegenerating
-                      ? Colors.grey
-                      : const Color(0xFF6C63FF),
+                  foregroundColor:
+                      _isRegenerating ? Colors.grey : const Color(0xFF6C63FF),
                 ),
               ),
             ],
@@ -1600,7 +1701,8 @@ class _InteractiveVocabularyScreenState
             const SizedBox(height: 8),
             Text(
               'to select vocabulary words',
-              style: GoogleFonts.lexend(fontSize: 14, color: const Color(0xFF8B87A6)),
+              style: GoogleFonts.lexend(
+                  fontSize: 14, color: const Color(0xFF8B87A6)),
             ),
           ],
         ),
@@ -1625,10 +1727,18 @@ class _InteractiveVocabularyScreenState
                 dot: dot,
                 index: index + 1,
                 onContextTap: () =>
-                    _isRegenerating ? null : _showContextSelector(dot),
+                    _isRegenerating || _regeneratingWordIds.contains(dot.id)
+                        ? null
+                        : _showContextSelector(dot),
                 onAudioTap: () => _playAudio(dot),
+                onSentenceAudioTap: () => _playSentenceAudio(
+                  'sentence_${dot.id}',
+                  dot.englishSentence,
+                ),
+                onRegenerateSentenceTap: () => _refreshSingleSentence(dot),
                 isRegenerating: _isRegenerating,
-                playingWordId: _playingWordId,
+                isSentenceRegenerating: _regeneratingWordIds.contains(dot.id),
+                playingAudioId: _playingAudioId,
               ),
             ],
           ),
@@ -1637,20 +1747,38 @@ class _InteractiveVocabularyScreenState
     );
   }
 
-  void _showWordOverlay(_VocabularyDot dot) {
+  void _showWordOverlay(_VocabularyDot dot) async {
+    final wasSelected = _selectedWordIds.contains(dot.id);
+    final isDeselecting = _selectedDotForOverlay?.id == dot.id;
+
     setState(() {
       // If clicking the same dot, deselect it
-      if (_selectedDotForOverlay?.id == dot.id) {
+      if (isDeselecting) {
         _selectedWordIds.remove(dot.id);
         _selectedDotForOverlay = null;
       } else {
         _selectedDotForOverlay = dot;
         // Also select the word when showing overlay
-        if (!_selectedWordIds.contains(dot.id)) {
+        if (!wasSelected) {
           _selectedWordIds.add(dot.id);
         }
       }
     });
+
+    // If selection set changed and combined mode is active, regenerate combined sentence
+    if (_useCombinedSentence && (isDeselecting || !wasSelected)) {
+      if (_selectedWordIds.isNotEmpty) {
+        setState(() {
+          _clearSelectedSentences();
+          _isRegenerating = true;
+        });
+        await _generateAllSentences();
+      } else {
+        setState(() {
+          _clearSelectedSentences();
+        });
+      }
+    }
   }
 
   void _hideWordOverlay() {
@@ -1674,34 +1802,19 @@ class _InteractiveVocabularyScreenState
       }
     });
 
-    // If combined mode is ON and there are selected words
-    if (_useCombinedSentence && _selectedWordIds.isNotEmpty) {
-      // Try to restore from cache first (for newly selected words)
-      final dotIndex = _vocabularyDots.indexWhere((d) => d.id == wordId);
-      if (dotIndex != -1 && !wasSelected) {
-        // This is a newly selected word - check if we have cached combined sentence for its tone
-        final dot = _vocabularyDots[dotIndex];
-        final toneKey = _mapToneToApiFormat(dot.tone);
-        final cached = _savedCombinedSentences[toneKey];
-
-        if (cached != null) {
-          // Cache hit - just update this word without regenerating
-          setState(() {
-            _vocabularyDots[dotIndex] = dot.copyWith(
-              englishSentence: cached.english,
-              thaiSentence: cached.thai,
-            );
-          });
-          return; // Don't regenerate
-        }
+    // If combined mode is ON, regenerate combined sentence with updated selected words
+    if (_useCombinedSentence) {
+      if (_selectedWordIds.isNotEmpty) {
+        setState(() {
+          _clearSelectedSentences();
+          _isRegenerating = true;
+        });
+        await _generateAllSentences();
+      } else {
+        setState(() {
+          _clearSelectedSentences();
+        });
       }
-
-      // No cache for the new word, need to regenerate
-      setState(() {
-        _clearSelectedSentences();
-        _isRegenerating = true;
-      });
-      await _generateAllSentences();
     }
   }
 
@@ -1719,13 +1832,11 @@ class _InteractiveVocabularyScreenState
   }
 
   void _applyContext(_VocabularyDot dot, String tone, String category) async {
-    // Show loading
-    setState(() {
-      _isRegenerating = true;
-    });
+    if (_isRegenerating || _regeneratingWordIds.contains(dot.id)) return;
 
-    // Update tone and category first
+    // Show loading only for this word
     setState(() {
+      _regeneratingWordIds.add(dot.id);
       final index = _vocabularyDots.indexWhere((d) => d.id == dot.id);
       if (index != -1) {
         _vocabularyDots[index] = dot.copyWith(tone: tone, category: category);
@@ -1738,7 +1849,7 @@ class _InteractiveVocabularyScreenState
     if (!mounted) return;
 
     setState(() {
-      _isRegenerating = false;
+      _regeneratingWordIds.remove(dot.id);
     });
 
     if (success) {
@@ -1746,6 +1857,7 @@ class _InteractiveVocabularyScreenState
         SnackBar(
           content: Text('✓ Context applied to ${dot.word}'),
           backgroundColor: Colors.green,
+          duration: const Duration(seconds: 2),
         ),
       );
     } else {
@@ -1753,6 +1865,7 @@ class _InteractiveVocabularyScreenState
         SnackBar(
           content: Text('✗ Failed to update ${dot.word}. Please try again.'),
           backgroundColor: Colors.red,
+          duration: const Duration(seconds: 2),
         ),
       );
     }
@@ -1808,6 +1921,82 @@ class _InteractiveVocabularyScreenState
     }
   }
 
+  /// Refresh/regenerate a new sentence for a single word
+  Future<void> _refreshSingleSentence(_VocabularyDot dot) async {
+    if (_isRegenerating || _regeneratingWordIds.contains(dot.id)) return;
+
+    setState(() {
+      _regeneratingWordIds.add(dot.id);
+    });
+
+    final success = await _regenerateSentence(dot.id, dot.tone, dot.category);
+
+    if (!mounted) return;
+
+    setState(() {
+      _regeneratingWordIds.remove(dot.id);
+    });
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('✓ New sentence generated for ${dot.word}'),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              '✗ Failed to generate new sentence for ${dot.word}. Please try again.'),
+          backgroundColor: Colors.orange,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  /// Refresh/regenerate combined sentences for all selected words
+  Future<void> _refreshCombinedSentence() async {
+    if (_isRegenerating || _selectedWordIds.isEmpty) return;
+
+    setState(() {
+      _isRegenerating = true;
+    });
+
+    final success = await _regenerateCombinedSentences(
+      _selectedWordIds.toList(),
+      _combinedTone,
+      _combinedCategory,
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      _isRegenerating = false;
+    });
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✓ New combined sentence generated'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              '✗ Failed to generate new combined sentence. Please try again.'),
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
   /// Regenerate sentence for a specific word with new context
   Future<bool> _regenerateSentence(
     String wordId,
@@ -1847,6 +2036,12 @@ class _InteractiveVocabularyScreenState
             thaiSentence: sentenceData.thai,
           );
         });
+        _savedIndividualSentences[dot.id] = (
+          english: sentenceData.text,
+          thai: sentenceData.thai,
+          tone: tone,
+          category: category,
+        );
         return true;
       } else {
         // Use fallback sentence
@@ -1862,6 +2057,12 @@ class _InteractiveVocabularyScreenState
             thaiSentence: thSentence,
           );
         });
+        _savedIndividualSentences[dot.id] = (
+          english: enSentence,
+          thai: thSentence,
+          tone: tone,
+          category: category,
+        );
         return false; // Return false since API didn't work
       }
     } catch (e) {
@@ -1878,6 +2079,12 @@ class _InteractiveVocabularyScreenState
           thaiSentence: thSentence,
         );
       });
+      _savedIndividualSentences[dot.id] = (
+        english: enSentence,
+        thai: thSentence,
+        tone: tone,
+        category: category,
+      );
       return false;
     }
   }
@@ -1891,9 +2098,8 @@ class _InteractiveVocabularyScreenState
     final geminiService = ref.read(geminiServiceProvider);
 
     // Get selected words
-    final selectedDots = _vocabularyDots
-        .where((d) => wordIds.contains(d.id))
-        .toList();
+    final selectedDots =
+        _vocabularyDots.where((d) => wordIds.contains(d.id)).toList();
     if (selectedDots.isEmpty) return false;
 
     final words = selectedDots.map((d) => d.word).toList();
@@ -1949,6 +2155,12 @@ class _InteractiveVocabularyScreenState
                   englishSentence: sentenceData.text,
                   thaiSentence: sentenceData.thai,
                 );
+                _savedIndividualSentences[dot.id] = (
+                  english: sentenceData.text,
+                  thai: sentenceData.thai,
+                  tone: tone,
+                  category: category,
+                );
                 successCount++;
               } else {
                 // Use fallback sentence for this word
@@ -1961,6 +2173,12 @@ class _InteractiveVocabularyScreenState
                 _vocabularyDots[i] = dot.copyWith(
                   englishSentence: enSentence,
                   thaiSentence: thSentence,
+                );
+                _savedIndividualSentences[dot.id] = (
+                  english: enSentence,
+                  thai: thSentence,
+                  tone: tone,
+                  category: category,
                 );
               }
             }
@@ -1985,6 +2203,12 @@ class _InteractiveVocabularyScreenState
               englishSentence: enSentence,
               thaiSentence: thSentence,
             );
+            _savedIndividualSentences[dot.id] = (
+              english: enSentence,
+              thai: thSentence,
+              tone: tone,
+              category: category,
+            );
           }
         }
       });
@@ -1992,35 +2216,43 @@ class _InteractiveVocabularyScreenState
     }
   }
 
-  void _playAudio(_VocabularyDot dot) async {
-    // If clicking the same word that's playing, stop it
-    if (_playingWordId == dot.id) {
+  void _playAudio(_VocabularyDot dot) {
+    _playAudioText(dot.id, dot.word);
+  }
+
+  void _playSentenceAudio(String audioId, String sentence) {
+    _playAudioText(audioId, sentence);
+  }
+
+  void _playAudioText(String audioId, String text) async {
+    // If clicking the same audio that's playing, stop it
+    if (_playingAudioId == audioId) {
       await _ttsService.stop();
-      setState(() => _playingWordId = null);
+      setState(() => _playingAudioId = null);
       return;
     }
 
     // Stop any currently playing audio first
-    if (_playingWordId != null) {
+    if (_playingAudioId != null) {
       await _ttsService.stop();
     }
 
-    // Play pronunciation of the word
-    setState(() => _playingWordId = dot.id);
+    // Play pronunciation / audio
+    setState(() => _playingAudioId = audioId);
 
     // Set language based on englishVariant
     final language = TTSService.getLanguageCode(widget.englishVariant);
 
-    // Speak the word (returns estimated duration for fallback)
+    // Speak text (returns estimated duration for fallback)
     final estimatedDuration = _ttsService.speak(
-      dot.word,
+      text,
       language: language,
     );
 
-    // Fallback: Auto-reset after estimated duration (in case completion handler doesn't fire)
+    // Fallback: Auto-reset after estimated duration
     Future.delayed(estimatedDuration, () {
-      if (mounted && _playingWordId == dot.id) {
-        setState(() => _playingWordId = null);
+      if (mounted && _playingAudioId == audioId) {
+        setState(() => _playingAudioId = null);
       }
     });
   }
@@ -2139,7 +2371,9 @@ class _InteractiveVocabularyScreenState
       );
 
       // Wait for vocabulary to be saved to cloud first (trigger needs to fire)
-      await ref.read(vocabularyStateProvider.notifier).addVocabulary(vocabulary);
+      await ref
+          .read(vocabularyStateProvider.notifier)
+          .addVocabulary(vocabulary);
 
       // Refresh review session to show newly added card
       ref.invalidate(reviewStateProvider);
@@ -2151,6 +2385,9 @@ class _InteractiveVocabularyScreenState
     // Update streak when saving vocabulary (only once per day)
     final streakNotifier = ref.read(streakProvider.notifier);
     await streakNotifier.recordVocabularyAcquired();
+
+    // Check and show any reward unlocks triggered by adding words
+    await RewardUnlockHelper.checkAndShowUnlocks(context, ref);
 
     if (!mounted) return;
 
@@ -2166,6 +2403,12 @@ class _InteractiveVocabularyScreenState
   }
 
   void _showRescanConfirmation() {
+    final user = ref.read(userStateProvider).user;
+    if (user != null && !user.canGenerate) {
+      _showQuotaLimitDialog(user.isGuest);
+      return;
+    }
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -2183,7 +2426,8 @@ class _InteractiveVocabularyScreenState
               Navigator.pop(context); // Close dialog
 
               // Collect all existing words to exclude when regenerating
-              final existingWords = _vocabularyDots.map((dot) => dot.word).toList();
+              final existingWords =
+                  _vocabularyDots.map((dot) => dot.word).toList();
 
               // Navigate to GenerationLoadingScreen with same image and exclude words
               Navigator.pushReplacement(
@@ -2211,21 +2455,134 @@ class _InteractiveVocabularyScreenState
     );
   }
 
+  void _showQuotaLimitDialog(bool isGuest) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: Colors.orange.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.warning_amber_rounded,
+                color: Colors.orange,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                isGuest ? 'Free Trial Limit' : 'Daily Limit Reached',
+                style: GoogleFonts.lexend(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF1f2937),
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              isGuest
+                  ? "You've used all your guest generations. Sign up to get 15 daily generations!"
+                  : "You've reached your 15 daily generations. Come back tomorrow for more!",
+              style: GoogleFonts.lexend(
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+                color: const Color(0xFF6b7280),
+                height: 1.5,
+              ),
+            ),
+            if (isGuest) ...[
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF8b5cf6).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.star_rounded, color: Color(0xFF8b5cf6), size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '15 generations everyday with free account!',
+                        style: GoogleFonts.lexend(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF7c3aed),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          if (isGuest)
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                AccountMethodPage.show(context);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF8b5cf6),
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              ),
+              child: Text(
+                'Sign Up Free',
+                style: GoogleFonts.lexend(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFF6b7280),
+            ),
+            child: Text(
+              isGuest ? 'Later' : 'OK',
+              style: GoogleFonts.lexend(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   /// Show context selector for combined sentences
   void _showCombinedContextSelector() {
     if (_selectedWordIds.isEmpty) return;
-
-    // Get current context from first selected dot
-    final firstSelectedDot = _vocabularyDots.firstWhere(
-      (d) => _selectedWordIds.contains(d.id),
-    );
 
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => CombinedContextSelectorScreen(
-          currentTone: firstSelectedDot.tone,
-          currentCategory: firstSelectedDot.category,
+          currentTone: _combinedTone,
+          currentCategory: _combinedCategory,
           selectedWords: _selectedWordIds
               .map((id) => _vocabularyDots.firstWhere((d) => d.id == id).word)
               .toList(),
@@ -2235,26 +2592,16 @@ class _InteractiveVocabularyScreenState
     );
   }
 
-  /// Apply new context to all selected words in combined mode
+  /// Apply new context to combined sentence
   void _applyCombinedContext(String tone, String category) async {
-    // Show loading
+    // Show loading and update combined context
     setState(() {
+      _combinedTone = tone;
+      _combinedCategory = category;
       _isRegenerating = true;
     });
 
-    // Update tone and category for all selected words
     final selectedDotIds = List<String>.from(_selectedWordIds);
-
-    setState(() {
-      for (int i = 0; i < _vocabularyDots.length; i++) {
-        if (_selectedWordIds.contains(_vocabularyDots[i].id)) {
-          _vocabularyDots[i] = _vocabularyDots[i].copyWith(
-            tone: tone,
-            category: category,
-          );
-        }
-      }
-    });
 
     // Regenerate combined sentences with new context
     final success = await _regenerateCombinedSentences(
@@ -2271,15 +2618,16 @@ class _InteractiveVocabularyScreenState
 
     if (success) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text('✓ Combined sentence updated with new context'),
           backgroundColor: Colors.green,
         ),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('✗ Failed to update combined sentence. Please try again.'),
+        const SnackBar(
+          content:
+              Text('✗ Failed to update combined sentence. Please try again.'),
           backgroundColor: Colors.red,
         ),
       );
@@ -2295,9 +2643,8 @@ class _InteractiveVocabularyScreenState
     final geminiService = ref.read(geminiServiceProvider);
 
     // Get selected words
-    final selectedDots = _vocabularyDots
-        .where((d) => wordIds.contains(d.id))
-        .toList();
+    final selectedDots =
+        _vocabularyDots.where((d) => wordIds.contains(d.id)).toList();
     if (selectedDots.isEmpty) return false;
 
     final words = selectedDots.map((d) => d.word).toList();
@@ -2329,6 +2676,7 @@ class _InteractiveVocabularyScreenState
 
           if (sentenceData != null) {
             // Update cache
+            _savedCombinedWordIds = Set.from(_selectedWordIds);
             _savedCombinedSentences[apiTone] = (
               english: sentenceData.text,
               thai: sentenceData.thai,
@@ -2363,16 +2711,22 @@ class _WordDetailCard extends StatelessWidget {
   final int index;
   final VoidCallback onContextTap;
   final VoidCallback onAudioTap;
+  final VoidCallback onSentenceAudioTap;
+  final VoidCallback onRegenerateSentenceTap;
   final bool isRegenerating;
-  final String? playingWordId;
+  final bool isSentenceRegenerating;
+  final String? playingAudioId;
 
   const _WordDetailCard({
     required this.dot,
     required this.index,
     required this.onContextTap,
     required this.onAudioTap,
+    required this.onSentenceAudioTap,
+    required this.onRegenerateSentenceTap,
     this.isRegenerating = false,
-    this.playingWordId,
+    this.isSentenceRegenerating = false,
+    this.playingAudioId,
   });
 
   @override
@@ -2419,11 +2773,19 @@ class _WordDetailCard extends StatelessWidget {
                   ],
                 ),
               ),
-              // Audio Button
+              // Audio Button (Word pronunciation)
               IconButton(
-                icon: Icon(playingWordId == dot.id ? Icons.stop : Icons.volume_up),
-                color: isRegenerating ? Colors.grey : const Color(0xFF6C63FF),
-                onPressed: isRegenerating ? null : onAudioTap,
+                icon: Icon(
+                  playingAudioId == dot.id
+                      ? Icons.stop_rounded
+                      : Icons.volume_up_rounded,
+                ),
+                color: isRegenerating || isSentenceRegenerating
+                    ? Colors.grey
+                    : const Color(0xFF6C63FF),
+                onPressed: isRegenerating || isSentenceRegenerating
+                    ? null
+                    : onAudioTap,
               ),
             ],
           ),
@@ -2436,11 +2798,13 @@ class _WordDetailCard extends StatelessWidget {
               color: const Color(0xFFF6F4FF),
               borderRadius: BorderRadius.circular(18),
             ),
-            child: dot.englishSentence.isEmpty || isRegenerating
+            child: dot.englishSentence.isEmpty ||
+                    isRegenerating ||
+                    isSentenceRegenerating
                 ? Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      SizedBox(
+                      const SizedBox(
                         width: 20,
                         height: 20,
                         child: CircularProgressIndicator(
@@ -2461,20 +2825,67 @@ class _WordDetailCard extends StatelessWidget {
                       ),
                     ],
                   )
-                : Column(
+                : Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        dot.englishSentence,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Colors.black87,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              dot.englishSentence,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: Colors.black87,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              dot.thaiSentence,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        dot.thaiSentence,
-                        style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(
+                          Icons.refresh_rounded,
+                          size: 20,
+                        ),
+                        color: isRegenerating || isSentenceRegenerating
+                            ? Colors.grey
+                            : const Color(0xFF6C63FF),
+                        onPressed: isRegenerating || isSentenceRegenerating
+                            ? null
+                            : onRegenerateSentenceTap,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        visualDensity: VisualDensity.compact,
+                        tooltip: 'Regenerate sentence',
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: Icon(
+                          playingAudioId == 'sentence_${dot.id}'
+                              ? Icons.stop_rounded
+                              : Icons.volume_up_rounded,
+                          size: 20,
+                        ),
+                        color: isRegenerating || isSentenceRegenerating
+                            ? Colors.grey
+                            : const Color(0xFF6C63FF),
+                        onPressed: isRegenerating || isSentenceRegenerating
+                            ? null
+                            : onSentenceAudioTap,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        visualDensity: VisualDensity.compact,
+                        tooltip: 'Read sentence',
                       ),
                     ],
                   ),
@@ -2489,11 +2900,13 @@ class _WordDetailCard extends StatelessWidget {
               _ContextChip(label: dot.category, icon: Icons.category),
               const Spacer(),
               TextButton.icon(
-                onPressed: isRegenerating ? null : onContextTap,
+                onPressed: isRegenerating || isSentenceRegenerating
+                    ? null
+                    : onContextTap,
                 icon: const Icon(Icons.add, size: 18),
                 label: const Text('Context'),
                 style: TextButton.styleFrom(
-                  foregroundColor: isRegenerating
+                  foregroundColor: isRegenerating || isSentenceRegenerating
                       ? Colors.grey
                       : const Color(0xFF6C63FF),
                 ),
@@ -2694,7 +3107,6 @@ class _ContextSelectorScreenState extends State<ContextSelectorScreen> {
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.9),
                 borderRadius: BorderRadius.circular(24),
-
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withOpacity(0.04),
@@ -2822,11 +3234,9 @@ class _ContextSelectorScreenState extends State<ContextSelectorScreen> {
           },
           selectedColor: const Color(0xFFDCD4FF),
           backgroundColor: Colors.white,
-
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-
           side: BorderSide(color: const Color(0xFFD8D1FF), width: 1.2),
         );
       }).toList(),
@@ -2847,11 +3257,9 @@ class _ContextSelectorScreenState extends State<ContextSelectorScreen> {
           },
           selectedColor: const Color(0xFFDCD4FF),
           backgroundColor: Colors.white,
-
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-
           side: BorderSide(color: const Color(0xFFD8D1FF), width: 1.2),
         );
       }).toList(),
@@ -2861,8 +3269,8 @@ class _ContextSelectorScreenState extends State<ContextSelectorScreen> {
   void _handleApply() {
     final category = _selectedCategory == 'Custom'
         ? (_customTextController.text.isNotEmpty
-              ? _customTextController.text
-              : 'Other')
+            ? _customTextController.text
+            : 'Other')
         : _selectedCategory;
 
     widget.onApply(_selectedTone, category);
@@ -2872,8 +3280,8 @@ class _ContextSelectorScreenState extends State<ContextSelectorScreen> {
   void _handleApplyToAll() {
     final category = _selectedCategory == 'Custom'
         ? (_customTextController.text.isNotEmpty
-              ? _customTextController.text
-              : 'Other')
+            ? _customTextController.text
+            : 'Other')
         : _selectedCategory;
 
     widget.onApplyToAll(_selectedTone, category);
@@ -3148,8 +3556,8 @@ class _CombinedContextSelectorScreenState
   void _handleApply() {
     final category = _selectedCategory == 'Custom'
         ? (_customTextController.text.isNotEmpty
-              ? _customTextController.text
-              : 'Other')
+            ? _customTextController.text
+            : 'Other')
         : _selectedCategory;
 
     widget.onApply(_selectedTone, category);

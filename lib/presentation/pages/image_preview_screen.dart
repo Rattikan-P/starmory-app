@@ -26,6 +26,11 @@ class _ImagePreviewScreenState extends ConsumerState<ImagePreviewScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final userState = ref.watch(userStateProvider);
+    final currentUser = userState.user;
+    final canGenerate = currentUser?.canGenerate ?? false;
+    final isGuest = currentUser?.isGuest ?? true;
+
     return Scaffold(
       body: GalaxyScreenBackground(
         child: SafeArea(
@@ -115,50 +120,115 @@ class _ImagePreviewScreenState extends ConsumerState<ImagePreviewScreen> {
                   ),
                 ),
 
-                // BUTTON
+                // BUTTON & QUOTA WARNING
                 Padding(
                   padding: const EdgeInsets.all(24),
-                  child: SizedBox(
-                    width: double.infinity,
-                    height: 62,
-                    child: ElevatedButton(
-                      onPressed: _isProcessing ? null : _usePhoto,
-                      style: ElevatedButton.styleFrom(
-                        elevation: 0,
-                        backgroundColor: const Color(0xFF8b7cf6),
-                        disabledBackgroundColor: Colors.grey.shade300,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: double.infinity,
+                        height: 62,
+                        child: ElevatedButton(
+                          onPressed: (_isProcessing || !canGenerate) ? null : _usePhoto,
+                          style: ElevatedButton.styleFrom(
+                            elevation: 0,
+                            backgroundColor: const Color(0xFF8b7cf6),
+                            disabledBackgroundColor: Colors.grey.shade200,
+                            foregroundColor: Colors.white,
+                            disabledForegroundColor: const Color(0xFF9ca3af),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                          ),
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 250),
+                            child: _isProcessing
+                                ? const SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.auto_awesome_rounded,
+                                        color: canGenerate
+                                            ? Colors.white
+                                            : const Color(0xFF9ca3af),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Text(
+                                        canGenerate
+                                            ? 'Generate Vocabulary'
+                                            : 'Generation Limit Reached',
+                                        style: GoogleFonts.lexend(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                          color: canGenerate
+                                              ? Colors.white
+                                              : const Color(0xFF9ca3af),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                          ),
                         ),
                       ),
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 250),
-                        child: _isProcessing
-                            ? const SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const Icon(Icons.auto_awesome_rounded),
-                                  const SizedBox(width: 10),
-                                  Text(
-                                    'Generate Vocabulary',
-                                    style: GoogleFonts.lexend(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
+                      if (!canGenerate && isGuest) ...[
+                        const SizedBox(height: 12),
+                        GestureDetector(
+                          onTap: () => AccountMethodPage.show(context),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF8b5cf6).withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: const Color(0xFF8b5cf6).withValues(alpha: 0.3),
                               ),
-                      ),
-                    ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(
+                                  Icons.star_rounded,
+                                  color: Color(0xFF8b5cf6),
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Sign up for 15 daily generations!',
+                                  style: GoogleFonts.lexend(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: const Color(0xFF7c3aed),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ] else if (!canGenerate && !isGuest) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          'Daily limit reached. Come back tomorrow for 15 new generations!',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.lexend(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w400,
+                            color: const Color(0xFF9ca3af),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
               ],
