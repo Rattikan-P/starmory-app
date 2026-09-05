@@ -229,12 +229,13 @@ class BadgeState {
         final nextBadge = starBadges.first;
         final target = nextBadge.requiredStars;
         final ratio = target > 0 ? (totalStars / target).clamp(0.0, 1.0) : 0.0;
+        final unit = target == 1 ? 'Star' : 'Stars';
         return UpcomingBadgeInfo(
           badge: nextBadge,
           currentProgress: totalStars,
           targetProgress: target,
           progressPercentage: ratio,
-          progressLabel: '$totalStars / $target Stars',
+          progressLabel: '$totalStars / $target $unit',
         );
       }
     }
@@ -253,14 +254,14 @@ class BadgeState {
 
       if (isStars) {
         current = totalStars;
-        unit = 'Stars';
+        unit = target == 1 ? 'Star' : 'Stars';
       } else if (isStreak) {
         current = streakDays;
-        unit = 'Days';
+        unit = target == 1 ? 'Day' : 'Days';
       } else {
         // Special badges with numerical stats (night owl, early bird, etc.)
         current = getProgress(badge);
-        unit = 'Actions';
+        unit = target == 1 ? 'Action' : 'Actions';
       }
 
       // Skip badges that have already met requirements or have no target

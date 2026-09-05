@@ -128,14 +128,18 @@ class StickerState {
       case StickerUnlockType.free:
         return 'Free';
       case StickerUnlockType.streak:
-        return '$current / $target Days';
+        final unit = target == 1 ? 'Day' : 'Days';
+        return '$current / $target $unit';
       case StickerUnlockType.category:
         if (pack.requiredCategory?.toLowerCase() == 'nature') {
-          return '$current / $target Nature words';
+          final unit = target == 1 ? 'Nature word' : 'Nature words';
+          return '$current / $target $unit';
         }
-        return '$current / $target words';
+        final unit = target == 1 ? 'word' : 'words';
+        return '$current / $target $unit';
       case StickerUnlockType.stars:
-        return '$current / $target Stars';
+        final unit = target == 1 ? 'Star' : 'Stars';
+        return '$current / $target $unit';
     }
   }
 
