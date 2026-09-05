@@ -479,52 +479,73 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
 
   Widget _buildStreakBanner(int days, int multiplier, int shields) {
     return Container(
-      height: 52,
+      height: 48,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [
-            Color(0xFFFF7A51),
-            Color(0xFFFF5238),
-          ],
+        color: const Color(0xFFFFF7F2),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: const Color(0xFFFFE6D8),
+          width: 1.2,
         ),
-        borderRadius: BorderRadius.circular(26),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFFFF5238).withValues(alpha: 0.28),
-            blurRadius: 14,
-            offset: const Offset(0, 4),
-          ),
-        ],
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(
-            Icons.local_fire_department_rounded,
-            color: Colors.white,
-            size: 24,
-          ),
-          const SizedBox(width: 8),
-          Text(
-            '$days Day Streak!',
-            style: GoogleFonts.lexend(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
-              letterSpacing: 0.2,
+          Container(
+            padding: const EdgeInsets.all(5),
+            decoration: const BoxDecoration(
+              color: Color(0xFFFFECE0),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.local_fire_department_rounded,
+              color: Color(0xFFFF5722),
+              size: 18,
             ),
           ),
           const SizedBox(width: 10),
+          Expanded(
+            child: Row(
+              children: [
+                Text(
+                  '$days Day Streak',
+                  style: GoogleFonts.lexend(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF221F33),
+                  ),
+                ),
+                if (multiplier > 1) ...[
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFF5722),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '${multiplier}x',
+                      style: GoogleFonts.lexend(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
           // Shield badge
           GestureDetector(
             onTap: () => _showShieldInfoDialog(context),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.25),
-                borderRadius: BorderRadius.circular(14),
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.4),
+                  color: const Color(0xFFFFDFCE),
                   width: 1,
                 ),
               ),
@@ -534,15 +555,15 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                   const Icon(
                     Icons.shield_rounded,
                     size: 13,
-                    color: Colors.white,
+                    color: Color(0xFFFF7A51),
                   ),
                   const SizedBox(width: 4),
                   Text(
                     '$shields',
                     style: GoogleFonts.lexend(
-                      fontSize: 13,
+                      fontSize: 12.5,
                       fontWeight: FontWeight.w700,
-                      color: Colors.white,
+                      color: const Color(0xFF221F33),
                     ),
                   ),
                 ],
@@ -564,137 +585,196 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
     final progressPercent = upcoming?.progressPercentage ?? 1.0;
 
     return Container(
-      padding: const EdgeInsets.all(22),
+      width: double.infinity,
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: const Color(0xFFEBE6FC),
-          width: 1.2,
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFFFFEEDB),
+            Color(0xFFFBE4EA),
+            Color(0xFFEDE3FD),
+            Color(0xFFDFD8FD),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
+        borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF7C5CFC).withValues(alpha: 0.07),
-            blurRadius: 18,
-            offset: const Offset(0, 4),
+            color: const Color(0xFF8A6DC8).withValues(alpha: 0.14),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Stars count
-          Row(
-            children: [
-              Text(
-                '$totalStars',
-                style: GoogleFonts.lexend(
-                  fontSize: 44,
-                  fontWeight: FontWeight.w800,
-                  color: const Color(0xFF221F33),
-                  height: 1,
-                  letterSpacing: -1,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(28),
+        child: Stack(
+          children: [
+            // Scattered decorative stars in background
+            Positioned(
+              top: -10,
+              right: 20,
+              child: Transform.rotate(
+                angle: 0.2,
+                child: const Opacity(
+                  opacity: 0.35,
+                  child: Icon(Icons.star_border_rounded, size: 80, color: Colors.white),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'stars in your galaxy',
-                      style: GoogleFonts.lexend(
-                        fontSize: 15.5,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF221F33),
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Vocabulary collected through discovery',
-                      style: GoogleFonts.lexend(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w400,
-                        color: const Color(0xFF9892A6),
-                      ),
-                    ),
-                  ],
+            ),
+            Positioned(
+              bottom: -15,
+              left: 40,
+              child: Transform.rotate(
+                angle: -0.15,
+                child: const Opacity(
+                  opacity: 0.3,
+                  child: Icon(Icons.star_rounded, size: 55, color: Colors.white),
                 ),
               ),
-            ],
-          ),
+            ),
+            Positioned(
+              top: 35,
+              right: 90,
+              child: const Opacity(
+                opacity: 0.3,
+                child: Icon(Icons.star_rounded, size: 24, color: Colors.white),
+              ),
+            ),
 
-          const SizedBox(height: 18),
-
-          // Progress bar
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            // Main Content
+            Padding(
+              padding: const EdgeInsets.all(22),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    progressText,
-                    style: GoogleFonts.lexend(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF7C5CFC), // Primary Purple
-                    ),
-                  ),
+                  // Stars count
                   Row(
-                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        'to unlock ',
+                        '$totalStars',
                         style: GoogleFonts.lexend(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: const Color(0xFF9892A6),
+                          fontSize: 44,
+                          fontWeight: FontWeight.w800,
+                          color: const Color(0xFF221F33),
+                          height: 1,
+                          letterSpacing: -1,
                         ),
                       ),
-                      if (upcoming != null) ...[
-                        RewardIconWidget(
-                          icon: upcoming.badge.icon,
-                          size: 16,
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'stars in your galaxy',
+                              style: GoogleFonts.lexend(
+                                fontSize: 15.5,
+                                fontWeight: FontWeight.w700,
+                                color: const Color(0xFF221F33),
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Vocabulary collected through discovery',
+                              style: GoogleFonts.lexend(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w400,
+                                color: const Color(0xFF655D80),
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 4),
-                        Text(
-                          upcoming.badge.name,
-                          style: GoogleFonts.lexend(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: const Color(0xFF221F33),
-                          ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 18),
+
+                  // Progress bar inside translucent white capsule
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.75),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.9),
+                        width: 1.2,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              progressText,
+                              style: GoogleFonts.lexend(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w700,
+                                color: const Color(0xFF7C5CFC),
+                              ),
+                            ),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'to unlock ',
+                                  style: GoogleFonts.lexend(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w500,
+                                    color: const Color(0xFF655D80),
+                                  ),
+                                ),
+                                if (upcoming != null) ...[
+                                  RewardIconWidget(
+                                    icon: upcoming.badge.icon,
+                                    size: 15,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    upcoming.badge.name,
+                                    style: GoogleFonts.lexend(
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: const Color(0xFF221F33),
+                                    ),
+                                  ),
+                                ] else ...[
+                                  Text(
+                                    '🎉 Galaxy Master!',
+                                    style: GoogleFonts.lexend(
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: const Color(0xFF221F33),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ],
                         ),
-                      ] else ...[
-                        Text(
-                          '🎉 Galaxy Master!',
-                          style: GoogleFonts.lexend(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: const Color(0xFF221F33),
+                        const SizedBox(height: 8),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(6),
+                          child: LinearProgressIndicator(
+                            value: progressPercent,
+                            backgroundColor: Colors.white,
+                            valueColor: const AlwaysStoppedAnimation<Color>(
+                              Color(0xFF7C5CFC),
+                            ),
+                            minHeight: 7,
                           ),
                         ),
                       ],
-                    ],
+                    ),
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: LinearProgressIndicator(
-                  value: progressPercent,
-                  backgroundColor: const Color(0xFFF1EDFC),
-                  valueColor: const AlwaysStoppedAnimation<Color>(
-                    Color(0xFF7C5CFC),
-                  ),
-                  minHeight: 8,
-                ),
-              ),
-            ],
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }
