@@ -226,18 +226,18 @@ class BadgesSection extends ConsumerWidget {
     return Container(
       margin: margin ?? const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.85),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
-            blurRadius: 20,
+            color: const Color(0xFF7C5CFC).withValues(alpha: 0.06),
+            blurRadius: 18,
             offset: const Offset(0, 4),
           ),
         ],
         border: Border.all(
-          color: const Color(0xFF8B5CF6).withValues(alpha: 0.15),
-          width: 1,
+          color: const Color(0xFFEBE6FC),
+          width: 1.5,
         ),
       ),
       child: Column(
@@ -252,11 +252,7 @@ class BadgesSection extends ConsumerWidget {
                   width: 4,
                   height: 18,
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [Color(0xFF8B5CF6), Color(0xFF6366F1)],
-                    ),
+                    color: const Color(0xFF7C5CFC),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -266,7 +262,7 @@ class BadgesSection extends ConsumerWidget {
                   style: GoogleFonts.lexend(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
-                    color: const Color(0xFF8B5CF6),
+                    color: const Color(0xFF7C5CFC),
                     letterSpacing: 1.5,
                   ),
                 ),
@@ -274,7 +270,7 @@ class BadgesSection extends ConsumerWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF8B5CF6).withValues(alpha: 0.1),
+                    color: const Color(0xFFF4EEFF),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
@@ -282,7 +278,7 @@ class BadgesSection extends ConsumerWidget {
                     style: GoogleFonts.lexend(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
-                      color: const Color(0xFF8B5CF6),
+                      color: const Color(0xFF7C5CFC),
                     ),
                   ),
                 ),
@@ -300,14 +296,14 @@ class BadgesSection extends ConsumerWidget {
                             style: GoogleFonts.lexend(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
-                              color: const Color(0xFF8B5CF6),
+                              color: const Color(0xFF7C5CFC),
                             ),
                           ),
                           const SizedBox(width: 2),
                           const Icon(
                             Icons.arrow_forward_ios,
                             size: 10,
-                            color: Color(0xFF8B5CF6),
+                            color: Color(0xFF7C5CFC),
                           ),
                         ],
                       ),

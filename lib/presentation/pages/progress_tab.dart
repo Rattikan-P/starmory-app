@@ -7,7 +7,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../data/models/vocabulary_model.dart';
 import '../../data/services/dictionary_service.dart';
 import '../providers/providers.dart';
-import '../widgets/galaxy_screen_background.dart';
 import '../widgets/reward_icon_widget.dart';
 import '../widgets/badges_section.dart';
 import '../widgets/vocabulary_detail_bottom_sheet.dart';
@@ -261,20 +260,24 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
       });
     }
 
-    return GalaxyScreenBackground(
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        body: SafeArea(
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
           child: Column(
             children: [
               // Header
               _buildHeader(),
 
+              const SizedBox(height: 14),
+
               // Content
               Expanded(
                 child: SingleChildScrollView(
                   controller: _scrollController,
-                  padding: const EdgeInsets.all(16),
+                  physics: const BouncingScrollPhysics(),
+                  padding: EdgeInsets.zero,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -943,8 +946,8 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
           'Galaxy Collection',
           style: GoogleFonts.lexend(
             fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: Colors.white,
+            fontWeight: FontWeight.w700,
+            color: const Color(0xFF221F33),
           ),
         ),
         const SizedBox(height: 12),
@@ -1011,18 +1014,18 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.85),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
-            blurRadius: 20,
+            color: const Color(0xFF7C5CFC).withValues(alpha: 0.06),
+            blurRadius: 18,
             offset: const Offset(0, 4),
           ),
         ],
         border: Border.all(
-          color: const Color(0xFF8B5CF6).withValues(alpha: 0.15),
-          width: 1,
+          color: const Color(0xFFEBE6FC),
+          width: 1.5,
         ),
       ),
       child: Column(
@@ -1037,11 +1040,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                   width: 4,
                   height: 18,
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [Color(0xFF8B5CF6), Color(0xFF6366F1)],
-                    ),
+                    color: const Color(0xFF7C5CFC),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -1051,7 +1050,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                   style: GoogleFonts.lexend(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
-                    color: const Color(0xFF8B5CF6),
+                    color: const Color(0xFF7C5CFC),
                     letterSpacing: 1.5,
                   ),
                 ),
@@ -1059,7 +1058,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF8B5CF6).withValues(alpha: 0.1),
+                    color: const Color(0xFFF4EEFF),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
@@ -1067,7 +1066,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                     style: GoogleFonts.lexend(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
-                      color: const Color(0xFF8B5CF6),
+                      color: const Color(0xFF7C5CFC),
                     ),
                   ),
                 ),
@@ -1089,14 +1088,14 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                           style: GoogleFonts.lexend(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
-                            color: const Color(0xFF8B5CF6),
+                            color: const Color(0xFF7C5CFC),
                           ),
                         ),
                         const SizedBox(width: 2),
                         const Icon(
                           Icons.arrow_forward_ios,
                           size: 10,
-                          color: Color(0xFF8B5CF6),
+                          color: Color(0xFF7C5CFC),
                         ),
                       ],
                     ),
@@ -2166,28 +2165,28 @@ class PhotosGalleryPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GalaxyScreenBackground(
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white),
-            onPressed: () => Navigator.pop(context),
-          ),
-          title: Text(
-            'My Photos',
-            style: GoogleFonts.lexend(
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
-              color: Colors.white,
-            ),
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Color(0xFF221F33)),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          'My Photos',
+          style: GoogleFonts.lexend(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: const Color(0xFF221F33),
           ),
         ),
-        body: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
+      ),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
             child: GridView.builder(
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
@@ -2203,9 +2202,8 @@ class PhotosGalleryPage extends StatelessWidget {
             ),
           ),
         ),
-      ),
-    );
-  }
+      );
+    }
 
   Widget _buildPhotoCard(BuildContext context, PhotoEntry entry) {
     final wordCount = entry.vocabularies.length;

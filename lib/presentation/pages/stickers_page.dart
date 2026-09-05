@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../data/sticker_sets.dart';
 import '../providers/providers.dart';
-import '../widgets/galaxy_screen_background.dart';
 
 class StickersPage extends ConsumerStatefulWidget {
   const StickersPage({super.key});
@@ -49,160 +48,164 @@ class _StickersPageState extends ConsumerState<StickersPage> {
       return true;
     }).toList();
 
-    return GalaxyScreenBackground(
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: Color(0xFF1F2937)),
-            onPressed: () => Navigator.pop(context),
-          ),
-          title: Text(
-            'Sticker Collection',
-            style: GoogleFonts.lexend(
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              color: const Color(0xFF1F2937),
-            ),
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Color(0xFF221F33)),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          'Sticker Collection',
+          style: GoogleFonts.lexend(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: const Color(0xFF221F33),
           ),
         ),
-        body: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 8),
+      ),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 8),
 
-                // Overall Collection Banner
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
-                        blurRadius: 16,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
+              // Overall Collection Banner
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: const Color(0xFFEBE6FC),
+                    width: 1.5,
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFEDE9FE),
-                                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF7C5CFC).withValues(alpha: 0.06),
+                      blurRadius: 18,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF4EEFF),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Text('🎨', style: TextStyle(fontSize: 20)),
+                            ),
+                            const SizedBox(width: 12),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Scrapbook Stickers',
+                                  style: GoogleFonts.lexend(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    color: const Color(0xFF221F33),
+                                  ),
                                 ),
-                                child: const Text('🎨', style: TextStyle(fontSize: 20)),
-                              ),
-                              const SizedBox(width: 12),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Scrapbook Stickers',
-                                    style: GoogleFonts.lexend(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w700,
-                                      color: const Color(0xFF1F2937),
-                                    ),
+                                Text(
+                                  'Unlocked $unlockedCount of $totalPacks packs',
+                                  style: GoogleFonts.lexend(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w400,
+                                    color: const Color(0xFF9892A6),
                                   ),
-                                  Text(
-                                    'Unlocked $unlockedCount of $totalPacks packs',
-                                    style: GoogleFonts.lexend(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w400,
-                                      color: const Color(0xFF6B7280),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [Color(0xFF8B5CF6), Color(0xFF6366F1)],
-                              ),
-                              borderRadius: BorderRadius.circular(14),
+                                ),
+                              ],
                             ),
-                            child: Text(
-                              '$progressPercentInt%',
-                              style: GoogleFonts.lexend(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 14),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: LinearProgressIndicator(
-                          value: progressPercent,
-                          backgroundColor: const Color(0xFFF3F4F6),
-                          valueColor: const AlwaysStoppedAnimation<Color>(
-                            Color(0xFF8B5CF6),
-                          ),
-                          minHeight: 8,
+                          ],
                         ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF4EEFF),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            '$progressPercentInt%',
+                            style: GoogleFonts.lexend(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF7C5CFC),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: LinearProgressIndicator(
+                        value: progressPercent,
+                        backgroundColor: const Color(0xFFF1EDFC),
+                        valueColor: const AlwaysStoppedAnimation<Color>(
+                          Color(0xFF7C5CFC),
+                        ),
+                        minHeight: 8,
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
+              ),
 
-                const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-                // Filter Chips
-                Row(
-                  children: ['All', 'Unlocked', 'Locked'].map((filterName) {
-                    final isSelected = _filter == filterName;
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: ChoiceChip(
-                        label: Text(
-                          filterName == 'All'
-                              ? '🌟 All ($totalPacks)'
-                              : filterName == 'Unlocked'
-                                  ? '✨ Unlocked ($unlockedCount)'
-                                  : '🔒 Locked (${totalPacks - unlockedCount})',
+              // Filter Chips
+              Row(
+                children: ['All', 'Unlocked', 'Locked'].map((filterName) {
+                  final isSelected = _filter == filterName;
+                  final label = filterName == 'All'
+                      ? '🌟 All ($totalPacks)'
+                      : filterName == 'Unlocked'
+                          ? '✨ Unlocked ($unlockedCount)'
+                          : '🔒 Locked (${totalPacks - unlockedCount})';
+
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: InkWell(
+                      onTap: () => setState(() => _filter = filterName),
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: isSelected ? const Color(0xFFF4EEFF) : Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: isSelected ? const Color(0xFF7C5CFC) : const Color(0xFFEBE6FC),
+                            width: 1.2,
+                          ),
+                        ),
+                        child: Text(
+                          label,
                           style: GoogleFonts.lexend(
-                            fontSize: 13,
-                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                            color: isSelected ? Colors.white : const Color(0xFF4B5563),
+                            fontSize: 12.5,
+                            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                            color: isSelected ? const Color(0xFF7C5CFC) : const Color(0xFF8E88A8),
                           ),
                         ),
-                        selected: isSelected,
-                        selectedColor: const Color(0xFF8B5CF6),
-                        backgroundColor: Colors.white,
-                        side: BorderSide(
-                          color: isSelected
-                              ? const Color(0xFF8B5CF6)
-                              : const Color(0xFFE5E7EB),
-                        ),
-                        onSelected: (selected) {
-                          if (selected) {
-                            setState(() => _filter = filterName);
-                          }
-                        },
                       ),
-                    );
-                  }).toList(),
-                ),
+                    ),
+                  );
+                }).toList(),
+              ),
 
                 const SizedBox(height: 16),
 
@@ -231,8 +234,7 @@ class _StickersPageState extends ConsumerState<StickersPage> {
             ),
           ),
         ),
-      ),
-    );
+      );
   }
 
   Widget _buildPackCard(

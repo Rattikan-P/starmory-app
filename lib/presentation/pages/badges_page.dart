@@ -2,7 +2,6 @@ import 'package:flutter/material.dart' hide Badge;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../providers/providers.dart';
-import '../widgets/galaxy_screen_background.dart';
 import '../widgets/reward_icon_widget.dart';
 
 import '../widgets/badges_section.dart';
@@ -44,171 +43,176 @@ class _BadgesPageState extends ConsumerState<BadgesPage> {
           );
     });
 
-    return GalaxyScreenBackground(
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: Color(0xFF1F2937)),
-            onPressed: () => Navigator.pop(context),
-          ),
-          title: Text(
-            'My Badges',
-            style: GoogleFonts.lexend(
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              color: const Color(0xFF1F2937),
-            ),
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Color(0xFF221F33)),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          'My Badges',
+          style: GoogleFonts.lexend(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: const Color(0xFF221F33),
           ),
         ),
-        body: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 8),
+      ),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 8),
 
-                // Overall Progress Banner
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
-                        blurRadius: 16,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
+              // Overall Progress Banner
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: const Color(0xFFEBE6FC),
+                    width: 1.5,
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Collection Progress',
-                            style: GoogleFonts.lexend(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: const Color(0xFF1F2937),
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF8B5CF6),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              '$progressPercentInt%',
-                              style: GoogleFonts.lexend(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Unlocked $unlockedCount of $totalBadges badges',
-                        style: GoogleFonts.lexend(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
-                          color: const Color(0xFF6B7280),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: LinearProgressIndicator(
-                          value: progressPercent,
-                          backgroundColor: const Color(0xFFF3F4F6),
-                          valueColor: const AlwaysStoppedAnimation<Color>(
-                            Color(0xFF8B5CF6), // Purple
-                          ),
-                          minHeight: 8,
-                        ),
-                      ),
-                    ],
-                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF7C5CFC).withValues(alpha: 0.06),
+                      blurRadius: 18,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Collection Progress',
+                          style: GoogleFonts.lexend(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF221F33),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF4EEFF),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            '$progressPercentInt%',
+                            style: GoogleFonts.lexend(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF7C5CFC),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Unlocked $unlockedCount of $totalBadges badges',
+                      style: GoogleFonts.lexend(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w400,
+                        color: const Color(0xFF9892A6),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: LinearProgressIndicator(
+                        value: progressPercent,
+                        backgroundColor: const Color(0xFFF1EDFC),
+                        valueColor: const AlwaysStoppedAnimation<Color>(
+                          Color(0xFF7C5CFC), // Primary Purple
+                        ),
+                        minHeight: 8,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
 
-                const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-                // Category filter chips
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: _categories.map((cat) {
-                      final isSelected = _selectedCategory == cat;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: ChoiceChip(
-                          label: Text(
+              // Category filter chips
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: _categories.map((cat) {
+                    final isSelected = _selectedCategory == cat;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: InkWell(
+                        onTap: () {
+                          setState(() {
+                            _selectedCategory = cat;
+                          });
+                        },
+                        borderRadius: BorderRadius.circular(16),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: isSelected ? const Color(0xFFF4EEFF) : Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: isSelected ? const Color(0xFF7C5CFC) : const Color(0xFFEBE6FC),
+                              width: 1.2,
+                            ),
+                          ),
+                          child: Text(
                             cat,
                             style: GoogleFonts.lexend(
                               fontSize: 13,
-                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                              color: isSelected ? Colors.white : const Color(0xFF4B5563),
+                              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                              color: isSelected ? const Color(0xFF7C5CFC) : const Color(0xFF8E88A8),
                             ),
                           ),
-                          selected: isSelected,
-                          selectedColor: const Color(0xFF8B5CF6),
-                          backgroundColor: Colors.white,
-                          side: BorderSide(
-                            color: isSelected
-                                ? const Color(0xFF8B5CF6)
-                                : const Color(0xFFE5E7EB),
-                          ),
-                          onSelected: (selected) {
-                            if (selected) {
-                              setState(() {
-                                _selectedCategory = cat;
-                              });
-                            }
-                          },
                         ),
-                      );
-                    }).toList(),
-                  ),
+                      ),
+                    );
+                  }).toList(),
                 ),
+              ),
 
-                const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-                // Badges grid
-                Expanded(
-                  child: filteredBadges.isEmpty
-                      ? _buildEmptyState()
-                      : GridView.builder(
-                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 3,
-                            crossAxisSpacing: 12,
-                            mainAxisSpacing: 12,
-                            childAspectRatio: 0.78,
-                          ),
-                          itemCount: filteredBadges.length,
-                          itemBuilder: (context, index) {
-                            final badge = filteredBadges[index];
-                            return _buildBadgeCard(
-                              context,
-                              badge,
-                              badgeState,
-                              totalStars: totalStars,
-                              currentStreak: currentStreak,
-                            );
-                          },
+              // Badges grid
+              Expanded(
+                child: filteredBadges.isEmpty
+                    ? _buildEmptyState()
+                    : GridView.builder(
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 3,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          childAspectRatio: 0.78,
                         ),
-                ),
-              ],
-            ),
+                        itemCount: filteredBadges.length,
+                        itemBuilder: (context, index) {
+                          final badge = filteredBadges[index];
+                          return _buildBadgeCard(
+                            context,
+                            badge,
+                            badgeState,
+                            totalStars: totalStars,
+                            currentStreak: currentStreak,
+                          );
+                        },
+                      ),
+              ),
+            ],
           ),
         ),
       ),
