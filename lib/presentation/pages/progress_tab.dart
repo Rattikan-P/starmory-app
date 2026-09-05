@@ -650,35 +650,38 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                 children: [
                   // Stars count
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Text(
                         '$totalStars',
                         style: GoogleFonts.lexend(
-                          fontSize: 44,
+                          fontSize: 56,
                           fontWeight: FontWeight.w800,
                           color: const Color(0xFF221F33),
                           height: 1,
-                          letterSpacing: -1,
+                          letterSpacing: -1.5,
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 14),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
                               'stars in your galaxy',
                               style: GoogleFonts.lexend(
-                                fontSize: 15.5,
-                                fontWeight: FontWeight.w700,
+                                fontSize: 17.5,
+                                fontWeight: FontWeight.w800,
                                 color: const Color(0xFF221F33),
+                                height: 1.2,
                               ),
                             ),
-                            const SizedBox(height: 2),
+                            const SizedBox(height: 3),
                             Text(
                               'Vocabulary collected through discovery',
                               style: GoogleFonts.lexend(
-                                fontSize: 12,
+                                fontSize: 12.5,
                                 fontWeight: FontWeight.w400,
                                 color: const Color(0xFF655D80),
                               ),
