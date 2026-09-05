@@ -2587,6 +2587,8 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
         final navigator = Navigator.of(context);
 
         // ⭐ CRITICAL: Get GUEST QUOTA BACKUP (persists across login/logout)
+        final guestQuotaBackup = await hiveService.getGuestQuotaBackup();
+
         // ⭐ Clear ALL local data (vocabulary, scrapbooks, word cards, user stats, preferences, photos, streak)
         await Future.wait([
           hiveService.clearAllVocabulary(),
