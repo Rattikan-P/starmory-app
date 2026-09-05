@@ -3,17 +3,17 @@ import 'dart:io';
 import 'package:flutter/material.dart' hide Badge;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../data/models/vocabulary_model.dart';
 import '../../data/services/dictionary_service.dart';
-import '../../data/services/tts_service.dart';
 import '../providers/providers.dart';
-import '../providers/navigation_provider.dart';
 import '../widgets/galaxy_screen_background.dart';
 import '../widgets/reward_icon_widget.dart';
 import '../widgets/badges_section.dart';
 import '../widgets/vocabulary_detail_bottom_sheet.dart';
 import 'badges_page.dart';
 import 'stickers_page.dart';
+import 'profile_tab.dart';
 
 class ProgressTab extends ConsumerStatefulWidget {
   const ProgressTab({super.key});
@@ -39,6 +39,14 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
   List<VocabularyModel> _allFilteredVocabs = []; // Store filtered results
   bool _isInitialized = false; // Prevent infinite loop
   int _lastVocabLength = -1;
+
+  void _openProfile() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const ProfileTab(),
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -364,38 +372,123 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
   }
 
   Widget _buildHeader() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-      child: Row(
-        children: [
-          Text(
-            'My Progress',
-            style: GoogleFonts.lexend(
-              fontSize: 24,
-              fontWeight: FontWeight.w700,
-              color: const Color(0xFF1F2937),
+    final userState = ref.watch(userStateProvider);
+    final user = userState.user;
+    final photoUrl = user?.photoUrl;
+    final displayName = user?.displayName ?? 'User';
+    final avatarLetter = displayName.isNotEmpty ? displayName[0].toUpperCase() : 'U';
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'My Progress',
+                style: GoogleFonts.lexend(
+                  fontSize: 27,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.5,
+                  color: const Color(0xFF221F33),
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                'Your learning journey & collected vocabulary',
+                style: GoogleFonts.lexend(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w400,
+                  color: const Color(0xFF9892A6),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 12),
+        // Interactive Circular User Avatar matching Profile & Review & Home
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: _openProfile,
+            customBorder: const CircleBorder(),
+            child: Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFFF4EEFF),
+                border: Border.all(color: const Color(0xFFE2DBFD), width: 1.5),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF7C5CFC).withValues(alpha: 0.12),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: ClipOval(
+                child: photoUrl != null && photoUrl.isNotEmpty
+                    ? CachedNetworkImage(
+                        imageUrl: photoUrl,
+                        fit: BoxFit.cover,
+                        width: 48,
+                        height: 48,
+                        placeholder: (context, url) => Center(
+                          child: Text(
+                            avatarLetter,
+                            style: GoogleFonts.lexend(
+                              fontSize: 19,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF7C5CFC),
+                            ),
+                          ),
+                        ),
+                        errorWidget: (context, url, error) => Center(
+                          child: Text(
+                            avatarLetter,
+                            style: GoogleFonts.lexend(
+                              fontSize: 19,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF7C5CFC),
+                            ),
+                          ),
+                        ),
+                      )
+                    : Center(
+                        child: Text(
+                          avatarLetter,
+                          style: GoogleFonts.lexend(
+                            fontSize: 19,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF7C5CFC),
+                          ),
+                        ),
+                      ),
+              ),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
   Widget _buildStreakBanner(int days, int multiplier, int shields) {
     return Container(
-      height: 48,
+      height: 52,
       decoration: BoxDecoration(
-        gradient: LinearGradient(
+        gradient: const LinearGradient(
           colors: [
-            const Color(0xFFFF6B35), // Orange-red
-            const Color(0xFFFF8C42).withValues(alpha: 0.9),
+            Color(0xFFFF7A51),
+            Color(0xFFFF5238),
           ],
         ),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(26),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFFF6B35).withValues(alpha: 0.4),
-            blurRadius: 12,
+            color: const Color(0xFFFF5238).withValues(alpha: 0.28),
+            blurRadius: 14,
             offset: const Offset(0, 4),
           ),
         ],
@@ -403,8 +496,8 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.local_fire_department,
+          const Icon(
+            Icons.local_fire_department_rounded,
             color: Colors.white,
             size: 24,
           ),
@@ -413,26 +506,31 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
             '$days Day Streak!',
             style: GoogleFonts.lexend(
               fontSize: 16,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w700,
               color: Colors.white,
+              letterSpacing: 0.2,
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 10),
           // Shield badge
           GestureDetector(
             onTap: () => _showShieldInfoDialog(context),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.25),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.4),
+                  width: 1,
+                ),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
+                  const Icon(
                     Icons.shield_rounded,
-                    size: 12,
+                    size: 13,
                     color: Colors.white,
                   ),
                   const SizedBox(width: 4),
@@ -463,14 +561,18 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
     final progressPercent = upcoming?.progressPercentage ?? 1.0;
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: const Color(0xFFEBE6FC),
+          width: 1.2,
+        ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
-            blurRadius: 20,
+            color: const Color(0xFF7C5CFC).withValues(alpha: 0.07),
+            blurRadius: 18,
             offset: const Offset(0, 4),
           ),
         ],
@@ -484,10 +586,11 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
               Text(
                 '$totalStars',
                 style: GoogleFonts.lexend(
-                  fontSize: 48,
+                  fontSize: 44,
                   fontWeight: FontWeight.w800,
-                  color: const Color(0xFF1f2937),
+                  color: const Color(0xFF221F33),
                   height: 1,
+                  letterSpacing: -1,
                 ),
               ),
               const SizedBox(width: 12),
@@ -498,9 +601,18 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                     Text(
                       'stars in your galaxy',
                       style: GoogleFonts.lexend(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: const Color(0xFF2d2d44),
+                        fontSize: 15.5,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF221F33),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Vocabulary collected through discovery',
+                      style: GoogleFonts.lexend(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
+                        color: const Color(0xFF9892A6),
                       ),
                     ),
                   ],
@@ -509,7 +621,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
             ],
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 18),
 
           // Progress bar
           Column(
@@ -522,8 +634,8 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                     progressText,
                     style: GoogleFonts.lexend(
                       fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF8B5CF6), // Purple
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF7C5CFC), // Primary Purple
                     ),
                   ),
                   Row(
@@ -534,7 +646,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                         style: GoogleFonts.lexend(
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
-                          color: const Color(0xFF6b7280),
+                          color: const Color(0xFF9892A6),
                         ),
                       ),
                       if (upcoming != null) ...[
@@ -547,8 +659,8 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                           upcoming.badge.name,
                           style: GoogleFonts.lexend(
                             fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: const Color(0xFF1f2937),
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF221F33),
                           ),
                         ),
                       ] else ...[
@@ -556,8 +668,8 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                           '🎉 Galaxy Master!',
                           style: GoogleFonts.lexend(
                             fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: const Color(0xFF1f2937),
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF221F33),
                           ),
                         ),
                       ],
@@ -565,14 +677,14 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
                 child: LinearProgressIndicator(
                   value: progressPercent,
-                  backgroundColor: const Color(0xFFf3f4f6),
+                  backgroundColor: const Color(0xFFF1EDFC),
                   valueColor: const AlwaysStoppedAnimation<Color>(
-                    Color(0xFF8B5CF6), // Purple
+                    Color(0xFF7C5CFC),
                   ),
                   minHeight: 8,
                 ),
@@ -614,15 +726,19 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
     VoidCallback? onTap,
   }) {
     final card = Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: const Color(0xFFEBE6FC),
+          width: 1.2,
+        ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
-            blurRadius: 12,
-            offset: const Offset(0, 2),
+            color: const Color(0xFF7C5CFC).withValues(alpha: 0.06),
+            blurRadius: 14,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
@@ -631,49 +747,48 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: const Color(0xFFEDE9FE), // Light purple
-              borderRadius: BorderRadius.circular(12),
+              color: const Color(0xFFF4EEFF),
+              borderRadius: BorderRadius.circular(14),
             ),
             child: Icon(
               icon,
-              size: 22,
-              color: const Color(0xFF8B5CF6),
+              size: 20,
+              color: const Color(0xFF7C5CFC),
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   value,
                   style: GoogleFonts.lexend(
                     fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF1f2937),
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF221F33),
+                    height: 1.1,
                   ),
                 ),
+                const SizedBox(height: 2),
                 Text(
                   label,
                   style: GoogleFonts.lexend(
-                    fontSize: 12,
+                    fontSize: 11.5,
                     fontWeight: FontWeight.w400,
-                    color: const Color(0xFF6b7280),
+                    color: const Color(0xFF9892A6),
                   ),
                 ),
               ],
             ),
           ),
-          // Chevron inside card for consistent size
-          Icon(
-            onTap != null
-                ? Icons.chevron_right
-                : null, // No icon when no onTap
-            color: onTap != null
-                ? const Color(0xFFd1d5db)
-                : Colors.transparent,
-            size: 20,
-          ),
+          if (onTap != null)
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: Color(0xFFC4BDD9),
+              size: 18,
+            ),
         ],
       ),
     );
@@ -683,7 +798,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           child: card,
         ),
       );
@@ -694,17 +809,15 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
 
   Widget _buildTabBar() {
     return Container(
-      height: 48,
+      height: 50,
+      padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 12,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        color: const Color(0xFFF4EEFF),
+        borderRadius: BorderRadius.circular(25),
+        border: Border.all(
+          color: const Color(0xFFE2DBFD),
+          width: 1,
+        ),
       ),
       child: Row(
         children: [
@@ -717,37 +830,44 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                 });
                 _scrollToTop();
               },
-              borderRadius: BorderRadius.circular(24),
-              child: Container(
-                height: 48,
+              borderRadius: BorderRadius.circular(22),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
                 decoration: BoxDecoration(
-                  color: _selectedTab == 'Vocab'
-                      ? const Color(0xFFEDE9FE) // Light purple
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(24),
+                  color: _selectedTab == 'Vocab' ? Colors.white : Colors.transparent,
+                  borderRadius: BorderRadius.circular(22),
+                  boxShadow: _selectedTab == 'Vocab'
+                      ? [
+                          BoxShadow(
+                            color: const Color(0xFF7C5CFC).withValues(alpha: 0.12),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ]
+                      : null,
                 ),
                 alignment: Alignment.center,
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
-                      Icons.star,
-                      size: 20,
+                      Icons.auto_stories_rounded,
+                      size: 18,
                       color: _selectedTab == 'Vocab'
-                          ? const Color(0xFF8B5CF6)
-                          : const Color(0xFF9ca3af),
+                          ? const Color(0xFF7C5CFC)
+                          : const Color(0xFF8E88A8),
                     ),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 8),
                     Text(
-                      'Vocab',
+                      'Vocabulary',
                       style: GoogleFonts.lexend(
-                        fontSize: 15,
+                        fontSize: 14.5,
                         fontWeight: _selectedTab == 'Vocab'
-                            ? FontWeight.w600
-                            : FontWeight.w400,
+                            ? FontWeight.w700
+                            : FontWeight.w500,
                         color: _selectedTab == 'Vocab'
-                            ? const Color(0xFF1f2937)
-                            : const Color(0xFF9ca3af),
+                            ? const Color(0xFF221F33)
+                            : const Color(0xFF8E88A8),
                       ),
                     ),
                   ],
@@ -764,37 +884,44 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                 });
                 _scrollToTop();
               },
-              borderRadius: BorderRadius.circular(24),
-              child: Container(
-                height: 48,
+              borderRadius: BorderRadius.circular(22),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
                 decoration: BoxDecoration(
-                  color: _selectedTab == 'Reward'
-                      ? const Color(0xFFEDE9FE) // Light purple
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(24),
+                  color: _selectedTab == 'Reward' ? Colors.white : Colors.transparent,
+                  borderRadius: BorderRadius.circular(22),
+                  boxShadow: _selectedTab == 'Reward'
+                      ? [
+                          BoxShadow(
+                            color: const Color(0xFF7C5CFC).withValues(alpha: 0.12),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ]
+                      : null,
                 ),
                 alignment: Alignment.center,
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
-                      Icons.card_giftcard,
-                      size: 20,
+                      Icons.emoji_events_rounded,
+                      size: 18,
                       color: _selectedTab == 'Reward'
-                          ? const Color(0xFF8B5CF6)
-                          : const Color(0xFF9ca3af),
+                          ? const Color(0xFF7C5CFC)
+                          : const Color(0xFF8E88A8),
                     ),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 8),
                     Text(
-                      'Reward',
+                      'Rewards',
                       style: GoogleFonts.lexend(
-                        fontSize: 15,
+                        fontSize: 14.5,
                         fontWeight: _selectedTab == 'Reward'
-                            ? FontWeight.w600
-                            : FontWeight.w400,
+                            ? FontWeight.w700
+                            : FontWeight.w500,
                         color: _selectedTab == 'Reward'
-                            ? const Color(0xFF1f2937)
-                            : const Color(0xFF9ca3af),
+                            ? const Color(0xFF221F33)
+                            : const Color(0xFF8E88A8),
                       ),
                     ),
                   ],
@@ -1165,10 +1292,14 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
       height: 48,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFFEBE6FC),
+          width: 1.2,
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
+            color: const Color(0xFF7C5CFC).withValues(alpha: 0.05),
             blurRadius: 12,
             offset: const Offset(0, 2),
           ),
@@ -1180,26 +1311,40 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
           setState(() {
             _searchQuery = value;
           });
-          // Reload list with new filter
           final vocabState = ref.read(vocabularyStateProvider);
           _applyFiltersAndLoadInitial(vocabState.vocabularies);
         },
         decoration: InputDecoration(
-          hintText: 'Find vocab or sentence...',
+          hintText: 'Search vocabulary or translation...',
           hintStyle: GoogleFonts.lexend(
-            color: const Color(0xFF9ca3af),
-            fontSize: 14,
+            color: const Color(0xFF9892A6),
+            fontSize: 13.5,
           ),
-          prefixIcon: Icon(
-            Icons.search,
-            color: const Color(0xFF9ca3af),
+          prefixIcon: const Icon(
+            Icons.search_rounded,
+            color: Color(0xFF9892A6),
+            size: 20,
           ),
+          suffixIcon: _searchQuery.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(Icons.close_rounded, size: 18, color: Color(0xFF9892A6)),
+                  onPressed: () {
+                    _searchController.clear();
+                    setState(() {
+                      _searchQuery = '';
+                    });
+                    final vocabState = ref.read(vocabularyStateProvider);
+                    _applyFiltersAndLoadInitial(vocabState.vocabularies);
+                  },
+                )
+              : null,
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         ),
         style: GoogleFonts.lexend(
-          color: const Color(0xFF1f2937),
+          color: const Color(0xFF221F33),
           fontSize: 14,
+          fontWeight: FontWeight.w500,
         ),
       ),
     );
@@ -1217,18 +1362,18 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
         children: [
           // All chip
           _buildCategoryChip('All', _getCategoryCount('All', totalCount)),
-          const SizedBox(width: 6),
+          const SizedBox(width: 8),
           // Favorites chip
           if (favCount > 0 || _selectedCategory == 'Favorites') ...[
             _buildCategoryChip('Favorites', favCount),
-            const SizedBox(width: 6),
+            const SizedBox(width: 8),
           ],
           // Popular category chips with spacing
           for (int i = 0; i < popularCategories.length; i++) ...[
-            if (i > 0) const SizedBox(width: 6),
+            if (i > 0) const SizedBox(width: 8),
             _buildCategoryChip(popularCategories[i], _getCategoryCount(popularCategories[i], totalCount)),
           ],
-          const SizedBox(width: 6),
+          const SizedBox(width: 8),
           // More... dropdown if there are more categories
           if (hasMore)
             _buildMoreCategoryDropdown(),
@@ -1268,74 +1413,128 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
     if (category == 'Favorites') return '❤️ Favorites';
     return category
         .split('_')
-        .map((word) => word[0].toUpperCase() + word.substring(1))
+        .map((word) => word.isNotEmpty ? word[0].toUpperCase() + word.substring(1) : '')
         .join(' ');
   }
 
   Widget _buildCategoryChip(String category, int count) {
     final isSelected = _selectedCategory == category;
+    final isFav = category == 'Favorites';
+
     return InkWell(
       onTap: () {
         setState(() {
           _selectedCategory = category;
         });
-        // Reload list with new filter
         final vocabState = ref.read(vocabularyStateProvider);
         _applyFiltersAndLoadInitial(vocabState.vocabularies);
       },
       borderRadius: BorderRadius.circular(20),
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFEDE9FE) : Colors.white,
+          color: isSelected ? const Color(0xFFF4EEFF) : Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected ? const Color(0xFF8B5CF6) : const Color(0xFFe5e7eb),
+            color: isSelected ? const Color(0xFF7C5CFC) : const Color(0xFFEBE6FC),
+            width: isSelected ? 1.5 : 1.0,
           ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: const Color(0xFF7C5CFC).withValues(alpha: 0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
         ),
-        child: Text(
-          category == 'All' ? 'All ($count)' : '${_formatCategoryName(category)} ($count)',
-          style: GoogleFonts.lexend(
-            fontSize: 13,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-            color: isSelected ? const Color(0xFF1f2937) : const Color(0xFF6b7280),
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isFav) ...[
+              const Icon(
+                Icons.favorite_rounded,
+                size: 14,
+                color: Color(0xFFEC4899),
+              ),
+              const SizedBox(width: 5),
+            ],
+            Text(
+              isFav
+                  ? 'Favorites'
+                  : (category == 'All' ? 'All' : _formatCategoryName(category)),
+              style: GoogleFonts.lexend(
+                fontSize: 13,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                color: isSelected ? const Color(0xFF7C5CFC) : const Color(0xFF8E88A8),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? const Color(0xFF7C5CFC).withValues(alpha: 0.15)
+                    : const Color(0xFFF4F2FA),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                '$count',
+                style: GoogleFonts.lexend(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: isSelected ? const Color(0xFF7C5CFC) : const Color(0xFF8E88A8),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
   Widget _buildMoreCategoryDropdown() {
+    final isCustomCategorySelected = _selectedCategory != 'All' &&
+        _selectedCategory != 'Favorites' &&
+        !_getPopularCategories(_allFilteredVocabs.length).contains(_selectedCategory);
+
     return InkWell(
-      onTap: () {
-        // Show category bottom sheet
-        _showCategoryBottomSheet();
-      },
+      onTap: _showCategoryBottomSheet,
       borderRadius: BorderRadius.circular(20),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: isCustomCategorySelected ? const Color(0xFFF4EEFF) : Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: const Color(0xFFe5e7eb),
+            color: isCustomCategorySelected
+                ? const Color(0xFF7C5CFC)
+                : const Color(0xFFEBE6FC),
+            width: isCustomCategorySelected ? 1.5 : 1.0,
           ),
         ),
         child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'More...',
+              isCustomCategorySelected ? _formatCategoryName(_selectedCategory) : 'More...',
               style: GoogleFonts.lexend(
                 fontSize: 13,
-                fontWeight: FontWeight.w400,
-                color: const Color(0xFF6b7280),
+                fontWeight: isCustomCategorySelected ? FontWeight.w700 : FontWeight.w500,
+                color: isCustomCategorySelected
+                    ? const Color(0xFF7C5CFC)
+                    : const Color(0xFF8E88A8),
               ),
             ),
             const SizedBox(width: 4),
             Icon(
-              Icons.keyboard_arrow_down,
+              Icons.keyboard_arrow_down_rounded,
               size: 18,
-              color: const Color(0xFF9ca3af),
+              color: isCustomCategorySelected
+                  ? const Color(0xFF7C5CFC)
+                  : const Color(0xFF8E88A8),
             ),
           ],
         ),
@@ -1487,7 +1686,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
         // Display all current vocabularies
         ..._displayedVocabs.map((vocab) =>
           _buildVocabularyItem(vocab, _displayedVocabs)
-        ).toList(),
+        ),
 
         // Loading indicator at bottom
         if (_isLoadingMore)
@@ -1504,21 +1703,22 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
 
   Widget _buildVocabularyItem(VocabularyModel vocab, List<VocabularyModel> allVocabularies) {
     final isFavorite = vocab.isFavorite;
+    final topicName = _formatCategoryName(vocab.topic).replaceAll('❤️ ', '');
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.95),
-        borderRadius: BorderRadius.circular(16),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: const Color(0xFFE2D1F9).withValues(alpha: 0.4),
-          width: 1.5,
+          color: const Color(0xFFEBE6FC),
+          width: 1.2,
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF8B5CF6).withValues(alpha: 0.1),
-            blurRadius: 12,
-            offset: const Offset(0, 2),
+            color: const Color(0xFF7C5CFC).withValues(alpha: 0.06),
+            blurRadius: 14,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
@@ -1536,9 +1736,9 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
             ),
           );
         },
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
           child: Row(
             children: [
               // Vocabulary info (vertical layout)
@@ -1546,26 +1746,49 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // English word
-                    Text(
-                      vocab.word,
-                      style: GoogleFonts.lexend(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF1f2937),
-                        height: 1.2,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 1,
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            vocab.word,
+                            style: GoogleFonts.lexend(
+                              fontSize: 17.5,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF221F33),
+                              height: 1.2,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
+                        ),
+                        if (vocab.topic.isNotEmpty && vocab.topic != 'other') ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF4EEFF),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              topicName,
+                              style: GoogleFonts.lexend(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xFF7C5CFC),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 5),
                     // Thai translation
                     Text(
                       vocab.thaiTranslation,
                       style: GoogleFonts.lexend(
-                        fontSize: 15,
+                        fontSize: 14.5,
                         fontWeight: FontWeight.w500,
-                        color: const Color(0xFF6b7280),
+                        color: const Color(0xFF655D80),
                         height: 1.3,
                       ),
                       overflow: TextOverflow.ellipsis,
@@ -1575,38 +1798,52 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                 ),
               ),
 
-              const SizedBox(width: 8),
+              const SizedBox(width: 10),
 
-              // Favorite Heart Button
-              IconButton(
-                icon: Icon(
-                  isFavorite ? Icons.favorite : Icons.favorite_border,
-                  color: isFavorite
-                      ? const Color(0xFFEC4899) // Pink/Red Heart
-                      : const Color(0xFF9CA3AF),
-                  size: 22,
+              // Favorite Heart Button in circle pill
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () {
+                    setState(() {
+                      _displayedVocabs = _displayedVocabs.map((v) {
+                        return v.id == vocab.id ? v.copyWith(isFavorite: !v.isFavorite) : v;
+                      }).toList();
+                    });
+                    ref.read(vocabularyStateProvider.notifier).toggleFavorite(vocab.id);
+                  },
+                  borderRadius: BorderRadius.circular(19),
+                  child: Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: isFavorite ? const Color(0xFFFDF2F8) : const Color(0xFFF9F7FD),
+                      border: Border.all(
+                        color: isFavorite ? const Color(0xFFFCE7F3) : const Color(0xFFEBE6FC),
+                        width: 1,
+                      ),
+                    ),
+                    child: Center(
+                      child: Icon(
+                        isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                        color: isFavorite
+                            ? const Color(0xFFEC4899)
+                            : const Color(0xFFA69EB8),
+                        size: 20,
+                      ),
+                    ),
+                  ),
                 ),
-                onPressed: () {
-                  setState(() {
-                    _displayedVocabs = _displayedVocabs.map((v) {
-                      return v.id == vocab.id ? v.copyWith(isFavorite: !v.isFavorite) : v;
-                    }).toList();
-                  });
-                  ref.read(vocabularyStateProvider.notifier).toggleFavorite(vocab.id);
-                },
-                splashRadius: 20,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                tooltip: isFavorite ? 'Remove from favorites' : 'Add to favorites',
               ),
 
-              const SizedBox(width: 4),
+              const SizedBox(width: 6),
 
               // Arrow
               const Icon(
-                Icons.chevron_right,
-                color: Color(0xFFd1d5db),
-                size: 20,
+                Icons.chevron_right_rounded,
+                color: Color(0xFFC4BDD9),
+                size: 22,
               ),
             ],
           ),
@@ -1619,50 +1856,65 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
     return SizedBox(
       width: double.infinity,
       child: Container(
-        padding: const EdgeInsets.all(40),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
         decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: const Color(0xFFE2D1F9).withValues(alpha: 0.3),
-          width: 1,
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: const Color(0xFFEBE6FC),
+            width: 1.2,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF7C5CFC).withValues(alpha: 0.06),
+              blurRadius: 16,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
-            blurRadius: 12,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Icon(
-            Icons.star_border,
-            size: 64,
-            color: const Color(0xFFd1d5db),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'No vocabulary found',
-            style: GoogleFonts.lexend(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: const Color(0xFF1f2937),
+        child: Column(
+          children: [
+            Container(
+              width: 68,
+              height: 68,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFFF4EEFF),
+                border: Border.all(
+                  color: const Color(0xFFE2DBFD),
+                  width: 1.5,
+                ),
+              ),
+              child: const Center(
+                child: Icon(
+                  Icons.auto_awesome_rounded,
+                  size: 32,
+                  color: Color(0xFF7C5CFC),
+                ),
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Start learning to build your galaxy!',
-            style: GoogleFonts.lexend(
-              fontSize: 14,
-              fontWeight: FontWeight.w400,
-              color: const Color(0xFF6b7280),
+            const SizedBox(height: 18),
+            Text(
+              'No vocabulary found',
+              style: GoogleFonts.lexend(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF221F33),
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 6),
+            Text(
+              'Start discovering words with new photos to build your galaxy!',
+              style: GoogleFonts.lexend(
+                fontSize: 13.5,
+                fontWeight: FontWeight.w400,
+                color: const Color(0xFF9892A6),
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
       ),
-    ),
     );
   }
 
