@@ -691,84 +691,73 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
 
                   const SizedBox(height: 18),
 
-                  // Progress bar inside translucent white capsule
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.75),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.9),
-                        width: 1.2,
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              progressText,
-                              style: GoogleFonts.lexend(
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w700,
-                                color: const Color(0xFF7C5CFC),
-                              ),
+                  // Progress bar directly on card with crisp contrast
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            progressText,
+                            style: GoogleFonts.lexend(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF5E3A8E), // Deep purple high contrast
                             ),
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
+                          ),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'to unlock ',
+                                style: GoogleFonts.lexend(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                  color: const Color(0xFF5A536B),
+                                ),
+                              ),
+                              if (upcoming != null) ...[
+                                RewardIconWidget(
+                                  icon: upcoming.badge.icon,
+                                  size: 16,
+                                ),
+                                const SizedBox(width: 4),
                                 Text(
-                                  'to unlock ',
+                                  upcoming.badge.name,
                                   style: GoogleFonts.lexend(
-                                    fontSize: 11.5,
-                                    fontWeight: FontWeight.w500,
-                                    color: const Color(0xFF655D80),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: const Color(0xFF221F33),
                                   ),
                                 ),
-                                if (upcoming != null) ...[
-                                  RewardIconWidget(
-                                    icon: upcoming.badge.icon,
-                                    size: 15,
+                              ] else ...[
+                                Text(
+                                  '🎉 Galaxy Master!',
+                                  style: GoogleFonts.lexend(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: const Color(0xFF221F33),
                                   ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    upcoming.badge.name,
-                                    style: GoogleFonts.lexend(
-                                      fontSize: 11.5,
-                                      fontWeight: FontWeight.w700,
-                                      color: const Color(0xFF221F33),
-                                    ),
-                                  ),
-                                ] else ...[
-                                  Text(
-                                    '🎉 Galaxy Master!',
-                                    style: GoogleFonts.lexend(
-                                      fontSize: 11.5,
-                                      fontWeight: FontWeight.w700,
-                                      color: const Color(0xFF221F33),
-                                    ),
-                                  ),
-                                ],
+                                ),
                               ],
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(6),
-                          child: LinearProgressIndicator(
-                            value: progressPercent,
-                            backgroundColor: Colors.white,
-                            valueColor: const AlwaysStoppedAnimation<Color>(
-                              Color(0xFF7C5CFC),
-                            ),
-                            minHeight: 7,
+                            ],
                           ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: LinearProgressIndicator(
+                          value: progressPercent,
+                          backgroundColor: Colors.white.withValues(alpha: 0.65),
+                          valueColor: const AlwaysStoppedAnimation<Color>(
+                            Color(0xFF7C5CFC), // Primary Purple
+                          ),
+                          minHeight: 8,
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ],
               ),
