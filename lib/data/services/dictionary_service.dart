@@ -18,6 +18,18 @@ class DictionaryEntry {
   factory DictionaryEntry.fromJson(Map<String, dynamic> json) {
     // Get phonetic text
     String? phonetic = json['phonetic'] as String?;
+    if ((phonetic == null || phonetic.trim().isEmpty) &&
+        json['phonetics'] != null &&
+        json['phonetics'] is List) {
+      for (final p in json['phonetics'] as List) {
+        if (p is Map &&
+            p['text'] != null &&
+            (p['text'] as String).trim().isNotEmpty) {
+          phonetic = (p['text'] as String).trim();
+          break;
+        }
+      }
+    }
 
     // Get audio URL
     String? audio;
@@ -136,6 +148,10 @@ class DictionaryService {
     try {
       // Clean the word - trim whitespace and convert to lowercase for API
       final cleanWord = word.trim().toLowerCase();
+      // Use cached entry if available and has phonetic
+      if (_cache.containsKey(cleanWord) && _cache[cleanWord]?.phonetic != null) {
+        return _cache[cleanWord];
+      }
       print('🔍 Fetching definition for: $cleanWord (original: $word)');
 
       // Try primary Free Dictionary API with 2.5s timeout
@@ -178,7 +194,8 @@ class DictionaryService {
   /// High-availability fallback dictionary parser using Datamuse API
   Future<DictionaryEntry?> _fetchFromDatamuse(String cleanWord) async {
     try {
-      final url = 'https://api.datamuse.com/words?sp=${Uri.encodeComponent(cleanWord)}&md=dp';
+      final url =
+          'https://api.datamuse.com/words?sp=${Uri.encodeComponent(cleanWord)}&md=dpr&ipa=1';
       final response = await _client.get(
         Uri.parse(url),
       ).timeout(
@@ -195,51 +212,63 @@ class DictionaryService {
             orElse: () => data.first,
           );
 
-          final defs = (first['defs'] as List<dynamic>?)?.cast<String>() ?? [];
-          if (defs.isNotEmpty) {
-            final Map<String, List<String>> posMap = {};
-            for (final defStr in defs) {
-              final parts = defStr.split('\t');
-              if (parts.length >= 2) {
-                final posCode = parts[0].trim().toLowerCase();
-                final definition = parts[1].trim();
-                String pos;
-                switch (posCode) {
-                  case 'n':
-                    pos = 'noun';
-                    break;
-                  case 'v':
-                    pos = 'verb';
-                    break;
-                  case 'adj':
-                    pos = 'adjective';
-                    break;
-                  case 'adv':
-                    pos = 'adverb';
-                    break;
-                  default:
-                    pos = posCode.isNotEmpty ? posCode : 'general';
-                }
-                posMap.putIfAbsent(pos, () => []).add(definition);
+          // Extract phonetic (IPA) from tags
+          String? phonetic;
+          final tags = (first['tags'] as List<dynamic>?)?.cast<String>() ?? [];
+          for (final tag in tags) {
+            if (tag.startsWith('ipa_pron:')) {
+              final raw = tag.replaceFirst('ipa_pron:', '').trim();
+              if (raw.isNotEmpty) {
+                phonetic = '/$raw/';
+                break;
               }
             }
+          }
 
-            final meanings = posMap.entries.map((e) {
-              return Meaning(
-                partOfSpeech: e.key,
-                definitions: e.value,
-              );
-            }).toList();
-
-            if (meanings.isNotEmpty) {
-              final entry = DictionaryEntry(
-                word: cleanWord,
-                meanings: meanings,
-              );
-              _cache[cleanWord] = entry;
-              print('✅ Definition loaded from Datamuse fallback: $cleanWord');
-              return entry;
+          final defs = (first['defs'] as List<dynamic>?)?.cast<String>() ?? [];
+          final Map<String, List<String>> posMap = {};
+          for (final defStr in defs) {
+            final parts = defStr.split('\t');
+            if (parts.length >= 2) {
+              final posCode = parts[0].trim().toLowerCase();
+              final definition = parts[1].trim();
+              String pos;
+              switch (posCode) {
+                case 'n':
+                  pos = 'noun';
+                  break;
+                case 'v':
+                  pos = 'verb';
+                  break;
+                case 'adj':
+                  pos = 'adjective';
+                  break;
+                case 'adv':
+                  pos = 'adverb';
+                  break;
+                default:
+                  pos = posCode.isNotEmpty ? posCode : 'general';
+              }
+              posMap.putIfAbsent(pos, () => []).add(definition);
             }
+          }
+
+          final meanings = posMap.entries.map((e) {
+            return Meaning(
+              partOfSpeech: e.key,
+              definitions: e.value,
+            );
+          }).toList();
+
+          if (meanings.isNotEmpty || phonetic != null) {
+            final entry = DictionaryEntry(
+              word: cleanWord,
+              phonetic: phonetic,
+              meanings: meanings,
+            );
+            _cache[cleanWord] = entry;
+            print('✅ Definition loaded from Datamuse fallback: $cleanWord (phonetic: $phonetic)');
+            return entry;
           }
         }
       }

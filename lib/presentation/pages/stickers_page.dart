@@ -430,8 +430,8 @@ class _StickersPageState extends ConsumerState<StickersPage> {
 
             // Description
             Text(
-              pack.descriptionTh.isNotEmpty ? pack.descriptionTh : pack.description,
-              style: GoogleFonts.kanit(
+              pack.description,
+              style: GoogleFonts.lexend(
                 fontSize: 12,
                 color: const Color(0xFF4B5563),
                 height: 1.35,
@@ -498,7 +498,7 @@ class _StickersPageState extends ConsumerState<StickersPage> {
                   Expanded(
                     child: Text(
                       getStickerUnlockRequirementTitle(pack),
-                      style: GoogleFonts.kanit(
+                      style: GoogleFonts.lexend(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
                         color: const Color(0xFF6B7280),

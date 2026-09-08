@@ -205,48 +205,43 @@ class _VocabularyDetailBottomSheetState
 
     // If twin word exists, show both phonetics
     if (_twinWord != null) {
-      return Row(
-        children: [
-          if (currentPhonetic != null) ...[
-            Text(
-              'UK: $currentPhonetic',
-              style: GoogleFonts.lexend(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: const Color(0xFF8B5CF6),
-              ),
-            ),
-            if (twinPhonetic != null) ...[
-              const SizedBox(width: 12),
-              Text(
-                '|',
-                style: GoogleFonts.lexend(
-                  fontSize: 13,
-                  color: const Color(0xFF9ca3af),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                'US: $twinPhonetic',
-                style: GoogleFonts.lexend(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xFF8B5CF6),
-                ),
-              ),
-            ],
-          ] else if (twinPhonetic != null)
-            Text(
-              twinPhonetic,
-              style: GoogleFonts.lexend(
-                fontSize: 14,
-                fontWeight: FontWeight.w400,
-                color: const Color(0xFF6b7280),
-                fontStyle: FontStyle.italic,
-              ),
-            ),
-        ],
-      );
+      final spans = <InlineSpan>[];
+      if (currentPhonetic != null && currentPhonetic.isNotEmpty) {
+        spans.add(TextSpan(
+          text: '${widget.vocabulary.languageVariant}:\u00A0$currentPhonetic',
+          style: GoogleFonts.lexend(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: const Color(0xFF8B5CF6),
+          ),
+        ));
+      }
+      if (currentPhonetic != null &&
+          currentPhonetic.isNotEmpty &&
+          twinPhonetic != null &&
+          twinPhonetic.isNotEmpty) {
+        spans.add(TextSpan(
+          text: '   |   ',
+          style: GoogleFonts.lexend(
+            fontSize: 13,
+            color: const Color(0xFF9ca3af),
+          ),
+        ));
+      }
+      if (twinPhonetic != null && twinPhonetic.isNotEmpty) {
+        spans.add(TextSpan(
+          text: '${_twinWord!.languageVariant}:\u00A0$twinPhonetic',
+          style: GoogleFonts.lexend(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: const Color(0xFF8B5CF6),
+          ),
+        ));
+      }
+      if (spans.isNotEmpty) {
+        return Text.rich(TextSpan(children: spans));
+      }
+      return const SizedBox.shrink();
     }
 
     // No twin word, show single phonetic
@@ -254,9 +249,8 @@ class _VocabularyDetailBottomSheetState
       currentPhonetic ?? '',
       style: GoogleFonts.lexend(
         fontSize: 14,
-        fontWeight: FontWeight.w400,
-        color: const Color(0xFF6b7280),
-        fontStyle: FontStyle.italic,
+        fontWeight: FontWeight.w500,
+        color: const Color(0xFF8B5CF6),
       ),
     );
   }
@@ -323,51 +317,51 @@ class _VocabularyDetailBottomSheetState
                     children: [
                       // Show both spellings if twin word exists
                       if (_twinWord != null)
-                        Row(
-                          children: [
-                            Text(
-                              widget.vocabulary.word,
-                              style: GoogleFonts.lexend(
-                                fontSize: 22,
-                                fontWeight: FontWeight.w700,
-                                color: const Color(0xFF1f2937),
+                        Text.rich(
+                          TextSpan(
+                            children: [
+                              TextSpan(
+                                text: widget.vocabulary.word,
+                                style: GoogleFonts.lexend(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w700,
+                                  color: const Color(0xFF1f2937),
+                                ),
                               ),
-                            ),
-                            Text(
-                              ' (${widget.vocabulary.languageVariant})',
-                              style: GoogleFonts.lexend(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
-                                color: const Color(0xFF8B5CF6),
+                              TextSpan(
+                                text: '\u00A0(${widget.vocabulary.languageVariant})',
+                                style: GoogleFonts.lexend(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                  color: const Color(0xFF8B5CF6),
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              '/',
-                              style: GoogleFonts.lexend(
-                                fontSize: 22,
-                                fontWeight: FontWeight.w400,
-                                color: const Color(0xFF9ca3af),
+                              TextSpan(
+                                text: '  /  ',
+                                style: GoogleFonts.lexend(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w400,
+                                  color: const Color(0xFF9ca3af),
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              _twinWord!.word,
-                              style: GoogleFonts.lexend(
-                                fontSize: 22,
-                                fontWeight: FontWeight.w700,
-                                color: const Color(0xFF1f2937),
+                              TextSpan(
+                                text: _twinWord!.word,
+                                style: GoogleFonts.lexend(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w700,
+                                  color: const Color(0xFF1f2937),
+                                ),
                               ),
-                            ),
-                            Text(
-                              ' (${_twinWord!.languageVariant})',
-                              style: GoogleFonts.lexend(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
-                                color: const Color(0xFF8B5CF6),
+                              TextSpan(
+                                text: '\u00A0(${_twinWord!.languageVariant})',
+                                style: GoogleFonts.lexend(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                  color: const Color(0xFF8B5CF6),
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         )
                       else
                         Text(
@@ -378,10 +372,23 @@ class _VocabularyDetailBottomSheetState
                             color: const Color(0xFF1f2937),
                           ),
                         ),
-                      // Show phonetics for both words if twin exists
-                      if (_dictionaryEntry?.phonetic != null ||
-                          _twinDictionaryEntry?.phonetic != null)
+                      // Show phonetics
+                      if (_isLoading) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          'Loading phonetic...',
+                          style: GoogleFonts.lexend(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w400,
+                            color: const Color(0xFF9ca3af),
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ] else if (_dictionaryEntry?.phonetic != null ||
+                          _twinDictionaryEntry?.phonetic != null) ...[
+                        const SizedBox(height: 4),
                         _buildPhoneticRow(),
+                      ],
                     ],
                   ),
                 ),
