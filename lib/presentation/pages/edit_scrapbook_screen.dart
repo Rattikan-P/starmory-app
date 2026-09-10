@@ -3219,7 +3219,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                       HapticFeedback.lightImpact();
                       Navigator.pop(
                         sheetContext,
-                        selectedColor.toARGB32(),
+                        selectedColor.value,
                       );
                     },
                     icon: const Icon(

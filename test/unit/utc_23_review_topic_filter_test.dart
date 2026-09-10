@@ -9,10 +9,10 @@ import 'package:starmory_app/presentation/providers/review_provider.dart';
 import '../test_helpers.dart';
 import '../test_helpers.mocks.dart';
 
-/// UTC-33: Topic Filtering & Available Card Counts
+/// UTC-23: Topic Filtering & Available Card Counts
 /// Test Function: ReviewService.getAvailableCardCountsByTopic() / ReviewService.getDueCards(topicFilter)
 void main() {
-  printTestHeader('UTC-33: Topic Filtering & Available Card Counts');
+  printTestHeader('UTC-23: Topic Filtering & Available Card Counts');
 
   late MockReviewService mockReviewService;
   late ReviewNotifier notifier;
@@ -54,7 +54,7 @@ void main() {
     );
   }
 
-  test('UTC-33-TC01: Calculate card counts and availability per topic', () async {
+  test('UTC-23-TC01: Calculate card counts and availability per topic', () async {
     when(mockReviewService.getAvailableCardCountsByTopic()).thenAnswer((_) async => {
       'Nature': 8,
       'Food & Drinks': 4,
@@ -68,7 +68,7 @@ void main() {
     expect(counts['Travel'], 0);
 
     printTestOutputSimple(
-      testId: 'UTC-33-TC01',
+      testId: 'UTC-23-TC01',
       description: 'Calculate card counts and availability per topic',
       input: 'TD01: Nature=8, Food=4, Travel=0',
       expectedOutput: {
@@ -88,7 +88,7 @@ void main() {
     );
   });
 
-  test('UTC-33-TC02: Filter review session cards strictly by selected topic', () async {
+  test('UTC-23-TC02: Filter review session cards strictly by selected topic', () async {
     final foodCards = List.generate(4, (i) => createCardWithTopic('food_$i', 'Food & Drinks'));
 
     when(mockReviewService.getReviewSession(
@@ -104,7 +104,7 @@ void main() {
     expect(notifier.state.cards.every((c) => c.vocabulary?.topic == 'Food & Drinks'), isTrue);
 
     printTestOutputSimple(
-      testId: 'UTC-33-TC02',
+      testId: 'UTC-23-TC02',
       description: 'Filter review session cards strictly by selected topic',
       input: 'TD02: topicFilter = "Food & Drinks", batchSize = 10',
       expectedOutput: {'filter': 'Food & Drinks', 'count': 4, 'allMatchTopic': true},
@@ -116,7 +116,7 @@ void main() {
     );
   });
 
-  test('UTC-33-TC03: Restrict loaded cards to configured session size', () async {
+  test('UTC-23-TC03: Restrict loaded cards to configured session size', () async {
     final natureCards = List.generate(5, (i) => createCardWithTopic('nature_$i', 'Nature'));
 
     when(mockReviewService.getReviewSession(
@@ -132,7 +132,7 @@ void main() {
     expect(notifier.state.remainingDueCount, 3);
 
     printTestOutputSimple(
-      testId: 'UTC-33-TC03',
+      testId: 'UTC-23-TC03',
       description: 'Restrict loaded cards to configured session size',
       input: 'TD03: topic = "Nature", batchSize = 5, total = 8',
       expectedOutput: {'requestedSize': 5, 'loaded': 5, 'totalAvailable': 8},
@@ -144,3 +144,4 @@ void main() {
     );
   });
 }
+

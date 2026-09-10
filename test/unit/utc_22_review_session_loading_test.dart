@@ -9,10 +9,10 @@ import 'package:starmory_app/presentation/providers/review_provider.dart';
 import '../test_helpers.dart';
 import '../test_helpers.mocks.dart';
 
-/// UTC-32: Due Cards Retrieval & Session Construction
+/// UTC-22: Due Cards Retrieval & Session Construction
 /// Test Function: ReviewService.getReviewSession() / ReviewNotifier.loadSession()
 void main() {
-  printTestHeader('UTC-32: Due Cards Retrieval & Session Construction');
+  printTestHeader('UTC-22: Due Cards Retrieval & Session Construction');
 
   late MockReviewService mockReviewService;
   late ReviewNotifier notifier;
@@ -54,7 +54,7 @@ void main() {
     );
   }
 
-  test('UTC-32-TC01: Load full batch of due cards for Quick Review', () async {
+  test('UTC-22-TC01: Load full batch of due cards for Quick Review', () async {
     final now = DateTime.now();
     final cards = List.generate(5, (i) => createCard('$i', now.subtract(Duration(hours: i + 1))));
 
@@ -72,7 +72,7 @@ void main() {
     expect(notifier.state.error, isNull);
 
     printTestOutputSimple(
-      testId: 'UTC-32-TC01',
+      testId: 'UTC-22-TC01',
       description: 'Load full batch of due cards for Quick Review',
       input: 'TD01: 5 cards due, batchSize = 5',
       expectedOutput: {'loadedCount': 5, 'allDue': true, 'error': null},
@@ -84,7 +84,7 @@ void main() {
     );
   });
 
-  test('UTC-32-TC02: Sort loaded due cards chronologically by due date', () async {
+  test('UTC-22-TC02: Sort loaded due cards chronologically by due date', () async {
     final now = DateTime.now();
     final cardA = createCard('A', now.subtract(const Duration(hours: 2)));
     final cardB = createCard('B', now.subtract(const Duration(days: 1)));
@@ -105,7 +105,7 @@ void main() {
     expect(notifier.state.cards.last.id, 'C');
 
     printTestOutputSimple(
-      testId: 'UTC-32-TC02',
+      testId: 'UTC-22-TC02',
       description: 'Sort loaded due cards chronologically by due date',
       input: 'TD02: Due cards A (2h ago), B (1d ago), C (5m ago)',
       expectedOutput: {'sorted': true, 'firstCard': 'Card B', 'lastCard': 'Card C'},
@@ -117,7 +117,7 @@ void main() {
     );
   });
 
-  test('UTC-32-TC03: Backfill new review cards from unreviewed vocabulary', () async {
+  test('UTC-22-TC03: Backfill new review cards from unreviewed vocabulary', () async {
     final now = DateTime.now();
     final cards = [
       createCard('1', now.subtract(const Duration(hours: 1))),
@@ -139,7 +139,7 @@ void main() {
     expect(notifier.state.cards.length, 5);
 
     printTestOutputSimple(
-      testId: 'UTC-32-TC03',
+      testId: 'UTC-22-TC03',
       description: 'Backfill new review cards from unreviewed vocabulary',
       input: 'TD03: 2 due cards, 3 unreviewed vocab items, batchSize = 5',
       expectedOutput: {'totalSession': 5, 'dueLoaded': 2, 'newCreated': 3},
@@ -151,7 +151,7 @@ void main() {
     );
   });
 
-  test('UTC-32-TC04: Detect empty review queue when no cards are due', () async {
+  test('UTC-22-TC04: Detect empty review queue when no cards are due', () async {
     when(mockReviewService.getReviewSession(
       topicFilter: null,
       batchSize: 5,
@@ -164,7 +164,7 @@ void main() {
     expect(notifier.state.cards, isEmpty);
 
     printTestOutputSimple(
-      testId: 'UTC-32-TC04',
+      testId: 'UTC-22-TC04',
       description: 'Detect empty review queue when no cards are due',
       input: 'TD04: 0 due cards, 0 new vocab',
       expectedOutput: {'cards': [], 'isEmpty': true},
@@ -175,7 +175,7 @@ void main() {
     );
   });
 
-  test('UTC-32-TC05: Handle database read failure gracefully', () async {
+  test('UTC-22-TC05: Handle database read failure gracefully', () async {
     when(mockReviewService.getReviewSession(
       topicFilter: null,
       batchSize: 5,
@@ -187,7 +187,7 @@ void main() {
     expect(notifier.state.error, contains('Failed to load review session'));
 
     printTestOutputSimple(
-      testId: 'UTC-32-TC05',
+      testId: 'UTC-22-TC05',
       description: 'Handle database read failure gracefully',
       input: 'TD05: Database read error',
       expectedOutput: {'loaded': false, 'error': 'Failed to load review session'},
@@ -198,3 +198,4 @@ void main() {
     );
   });
 }
+

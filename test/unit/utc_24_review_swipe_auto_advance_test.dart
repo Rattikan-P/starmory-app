@@ -9,10 +9,10 @@ import 'package:starmory_app/presentation/providers/review_provider.dart';
 import '../test_helpers.dart';
 import '../test_helpers.mocks.dart';
 
-/// UTC-34: Review Card Rating, Auto-Advance & Persistence
+/// UTC-24: Review Card Rating, Auto-Advance & Persistence
 /// Test Function: ReviewNotifier.swipeCard(bool remembered) / ReviewService.updateCard()
 void main() {
-  printTestHeader('UTC-34: Review Card Rating, Auto-Advance & Persistence');
+  printTestHeader('UTC-24: Review Card Rating, Auto-Advance & Persistence');
 
   late MockReviewService mockReviewService;
   late ReviewNotifier notifier;
@@ -69,7 +69,7 @@ void main() {
     await notifier.loadSession();
   }
 
-  test('UTC-34-TC01: Got it rating advances index and increments Got It count', () async {
+  test('UTC-24-TC01: Got it rating advances index and increments Got It count', () async {
     await initSession([createCard('card_1'), createCard('card_2'), createCard('card_3')]);
 
     await notifier.swipeCard(true);
@@ -81,7 +81,7 @@ void main() {
     expect(notifier.state.canUndo, isTrue);
 
     printTestOutputSimple(
-      testId: 'UTC-34-TC01',
+      testId: 'UTC-24-TC01',
       description: 'Got it rating advances index and increments Got It count',
       input: 'TD01: Rate Card 1 as Got it (true)',
       expectedOutput: {'currentIndex': 1, 'gotItCount': 1, 'notYetCount': 0, 'totalReviews': 1, 'canUndo': true},
@@ -95,7 +95,7 @@ void main() {
     );
   });
 
-  test('UTC-34-TC02: Not yet rating advances index and increments Not Yet count', () async {
+  test('UTC-24-TC02: Not yet rating advances index and increments Not Yet count', () async {
     await initSession([createCard('card_1'), createCard('card_2'), createCard('card_3')]);
 
     await notifier.swipeCard(true);
@@ -108,7 +108,7 @@ void main() {
     expect(notifier.state.canUndo, isTrue);
 
     printTestOutputSimple(
-      testId: 'UTC-34-TC02',
+      testId: 'UTC-24-TC02',
       description: 'Not yet rating advances index and increments Not Yet count',
       input: 'TD02: Rate Card 2 as Not yet (false)',
       expectedOutput: {'currentIndex': 2, 'gotItCount': 1, 'notYetCount': 1, 'totalReviews': 2, 'canUndo': true},
@@ -122,7 +122,7 @@ void main() {
     );
   });
 
-  test('UTC-34-TC03: Updated card with new FSRS due date persisted to storage', () async {
+  test('UTC-24-TC03: Updated card with new FSRS due date persisted to storage', () async {
     await initSession([createCard('card_1')]);
 
     await notifier.swipeCard(true);
@@ -132,7 +132,7 @@ void main() {
     expect(captured.reps, 1);
 
     printTestOutputSimple(
-      testId: 'UTC-34-TC03',
+      testId: 'UTC-24-TC03',
       description: 'Updated card with new FSRS due date persisted to storage',
       input: 'TD01: Swipe Card 1',
       expectedOutput: {'cardSaved': true, 'cardId': 'card_1', 'storageUpdated': true},
@@ -144,7 +144,7 @@ void main() {
     );
   });
 
-  test('UTC-34-TC04: Handle storage write error without crashing state', () async {
+  test('UTC-24-TC04: Handle storage write error without crashing state', () async {
     when(mockReviewService.getReviewSession(
       topicFilter: anyNamed('topicFilter'),
       batchSize: anyNamed('batchSize'),
@@ -159,7 +159,7 @@ void main() {
     expect(notifier.state.error, contains('Failed to update card'));
 
     printTestOutputSimple(
-      testId: 'UTC-34-TC04',
+      testId: 'UTC-24-TC04',
       description: 'Handle storage write error without crashing state',
       input: 'TD03: Storage update failure',
       expectedOutput: {'error': 'Failed to update card', 'canContinue': true},
@@ -170,3 +170,4 @@ void main() {
     );
   });
 }
+

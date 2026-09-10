@@ -496,7 +496,6 @@ class ReviewService {
       if (response == null) return null;
       return UserStatsModel(
         totalReviewsCompleted: response['total_reviews'] as int? ?? 0,
-        averageTimePerCard: 7.0, // Fixed, no longer tracked
         lastReviewDate: DateTime.now(),
       );
     } catch (_) {
@@ -506,14 +505,11 @@ class ReviewService {
 
   Future<void> saveUserStats({
     required int totalReviewsCompleted,
-    double? averageTimePerCard,
   }) async {
     if (!isLoggedIn) {
       final current = await _hiveService.getUserStats();
       await _hiveService.saveUserStats(UserStatsModel(
         totalReviewsCompleted: totalReviewsCompleted,
-        averageTimePerCard:
-            averageTimePerCard ?? current?.averageTimePerCard ?? 7.0,
         lastReviewDate: DateTime.now(),
         createdAt: current?.createdAt ?? DateTime.now(),
         updatedAt: DateTime.now(),
@@ -588,97 +584,6 @@ class ReviewService {
     }
   }
 
-  /// Load more cards for review (when user clicks Continue)
-  Future<List<WordCardModel>> getMoreCards(
-      {int batchSize = 5,
-      List<String>? excludeIds,
-      String? topicFilter}) async {
-    final userId = currentUserId;
-
-    if (userId == null) {
-      // Guest mode: get from Hive
-      return _getMoreCardsFromHive(batchSize, excludeIds, topicFilter);
-    } else {
-      // Registered mode: get from Supabase
-      return _getMoreCardsFromSupabase(
-          userId, batchSize, excludeIds, topicFilter);
-    }
-  }
-
-  /// Get more cards from Hive (Guest mode)
-  Future<List<WordCardModel>> _getMoreCardsFromHive(
-      int batchSize, List<String>? excludeIds, String? topicFilter) async {
-    try {
-      final allCards = await _hiveService.getWordCards();
-      final now = DateTime.now();
-
-      // Filter due cards
-      var dueCards = allCards.where((card) => card.isDue).toList();
-
-      // Apply topic filter if specified
-      if (topicFilter != null && topicFilter.isNotEmpty) {
-        if (topicFilter.toLowerCase() == 'favorites') {
-          dueCards = dueCards
-              .where((card) => card.vocabulary?.isFavorite == true)
-              .toList();
-        } else {
-          dueCards = dueCards
-              .where((card) => card.vocabulary?.topic == topicFilter)
-              .toList();
-        }
-      }
-
-      // Exclude already reviewed cards
-      if (excludeIds != null && excludeIds.isNotEmpty) {
-        dueCards =
-            dueCards.where((card) => !excludeIds.contains(card.id)).toList();
-      }
-
-      // Sort by due date
-      dueCards.sort((a, b) => a.dueDate.compareTo(b.dueDate));
-
-      // Limit
-      return dueCards.take(batchSize).toList();
-    } catch (e) {
-      print('❌ Error getting more cards from Hive: $e');
-      return [];
-    }
-  }
-
-  /// Get more cards from Supabase (Registered mode)
-  Future<List<WordCardModel>> _getMoreCardsFromSupabase(String userId,
-      int batchSize, List<String>? excludeIds, String? topicFilter) async {
-    try {
-      // Get due cards with higher limit to get more
-      final response = await _client.rpc('get_due_cards', params: {
-        'p_user_id': userId,
-        'p_limit': 100,
-        'p_topic_filter': topicFilter
-      });
-
-      if (response == null) return [];
-
-      final List<dynamic> data = response as List<dynamic>;
-      var cards = data
-          .map((json) => WordCardModel.fromSupabaseWithVocabulary(
-              json as Map<String, dynamic>))
-          .toList();
-
-      // Exclude already reviewed cards
-      if (excludeIds != null && excludeIds.isNotEmpty) {
-        cards = cards.where((card) => !excludeIds.contains(card.id)).toList();
-      }
-
-      // Sort by due date (should already be sorted from RPC)
-      cards.sort((a, b) => a.dueDate.compareTo(b.dueDate));
-
-      // Limit
-      return cards.take(batchSize).toList();
-    } catch (e) {
-      print('❌ Error getting more cards from Supabase: $e');
-      return [];
-    }
-  }
 
   /// Generate unique ID for guest mode
   String _generateId() {

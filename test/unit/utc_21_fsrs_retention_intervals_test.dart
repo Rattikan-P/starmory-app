@@ -3,12 +3,12 @@ import 'package:starmory_app/core/utils/fsrs_helper.dart';
 import 'package:starmory_app/data/models/word_card_model.dart';
 import '../test_helpers.dart';
 
-/// UTC-31: FSRS Long-term Memory Retention & Multi-Day Intervals
+/// UTC-21: FSRS Long-term Memory Retention & Multi-Day Intervals
 /// Test Function: FsrSHelper.reviewCard(WordCardModel card, bool remembered)
 void main() {
-  printTestHeader('UTC-31: FSRS Long-term Memory Retention & Multi-Day Intervals');
+  printTestHeader('UTC-21: FSRS Long-term Memory Retention & Multi-Day Intervals');
 
-  test('UTC-31-TC01: Initial graduated review card expands interval across days', () async {
+  test('UTC-21-TC01: Initial graduated review card expands interval across days', () async {
     final now = DateTime.now();
     final card = WordCardModel(
       id: 'card_graduated',
@@ -32,7 +32,7 @@ void main() {
     expect(result.stability, greaterThan(2.5));
 
     printTestOutputSimple(
-      testId: 'UTC-31-TC01',
+      testId: 'UTC-21-TC01',
       description: 'Initial graduated review card expands interval across days',
       input: 'TD01: Graduated card (Stability = 2.5), remembered = true',
       expectedOutput: {'state': 'review', 'stabilityIncreased': true, 'intervalDaysGreaterThan': 1},
@@ -44,7 +44,7 @@ void main() {
     );
   });
 
-  test('UTC-31-TC02: Intermediate review card expands interval across weeks', () async {
+  test('UTC-21-TC02: Intermediate review card expands interval across weeks', () async {
     final now = DateTime.now();
     final card = WordCardModel(
       id: 'card_intermediate',
@@ -67,7 +67,7 @@ void main() {
     expect(days, greaterThan(7));
 
     printTestOutputSimple(
-      testId: 'UTC-31-TC02',
+      testId: 'UTC-21-TC02',
       description: 'Intermediate review card expands interval across weeks',
       input: 'TD02: Intermediate card (Stability = 7.5), remembered = true',
       expectedOutput: {'state': 'review', 'stabilityGreaterThan': 7.5, 'intervalDaysGreaterThan': 7},
@@ -79,7 +79,7 @@ void main() {
     );
   });
 
-  test('UTC-31-TC03: Mature stable card expands interval across months', () async {
+  test('UTC-21-TC03: Mature stable card expands interval across months', () async {
     final now = DateTime.now();
     final card = WordCardModel(
       id: 'card_mature',
@@ -102,7 +102,7 @@ void main() {
     expect(days, greaterThan(30));
 
     printTestOutputSimple(
-      testId: 'UTC-31-TC03',
+      testId: 'UTC-21-TC03',
       description: 'Mature stable card expands interval across months',
       input: 'TD03: Mature card (Stability = 25.0), remembered = true',
       expectedOutput: {'state': 'review', 'intervalDaysGreaterThan': 30},
@@ -113,7 +113,7 @@ void main() {
     );
   });
 
-  test('UTC-31-TC04: Lapse reduces stability and resets interval to short step', () async {
+  test('UTC-21-TC04: Lapse reduces stability and resets interval to short step', () async {
     final now = DateTime.now();
     final card = WordCardModel(
       id: 'card_lapse',
@@ -136,7 +136,7 @@ void main() {
     expect(result.lapses, 1);
 
     printTestOutputSimple(
-      testId: 'UTC-31-TC04',
+      testId: 'UTC-21-TC04',
       description: 'Lapse reduces stability and resets interval to short step',
       input: 'TD04: Mature card (Stability = 25.0), remembered = false',
       expectedOutput: {'state': 'relearning', 'stabilityReduced': true, 'lapses': 1},
@@ -148,3 +148,4 @@ void main() {
     );
   });
 }
+

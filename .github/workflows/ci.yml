@@ -28,6 +28,13 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      # Create dummy .env file for CI asset bundle
+      - name: Create mock .env file
+        run: |
+          touch .env
+          echo "SUPABASE_URL=https://dummy.supabase.co" >> .env
+          echo "SUPABASE_ANON_KEY=dummy_key" >> .env
+
       # Run tests
       - name: Run tests
         run: flutter test --coverage

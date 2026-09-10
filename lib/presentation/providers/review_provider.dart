@@ -16,18 +16,13 @@ class ReviewState {
   final bool isLoading;
   final String? error;
   final int sessionCount;
-  final bool showFeedback;
   final bool? lastRating; // true = remembered, false = forgot
-  final int
-      remainingDueCount; // Number of due cards remaining (for Continue button)
-  final Set<String>
-      reviewedCardIds; // Track cards already reviewed in this session
+  final int remainingDueCount;
+  final Set<String> reviewedCardIds; // Track cards already reviewed in this session
   final DateTime? sessionStartTime;
   final int totalReviewsCompleted;
-  final double averageTimePerCard;
   final bool canUndo; // Whether undo is available (for last swipe)
-  final WordCardModel?
-      previousCardState; // Card state before last swipe (for undo)
+  final WordCardModel? previousCardState; // Card state before last swipe (for undo)
   final String? currentTopicFilter; // Current topic filter being applied
   final int gotItCount; // Track number of recalled cards in session
   final int notYetCount; // Track number of forgotten cards in session
@@ -38,13 +33,11 @@ class ReviewState {
     this.isLoading = false,
     this.error,
     this.sessionCount = 0,
-    this.showFeedback = false,
     this.lastRating,
     this.remainingDueCount = 0,
     this.reviewedCardIds = const {},
     this.sessionStartTime,
     this.totalReviewsCompleted = 0,
-    this.averageTimePerCard = 7.0,
     this.canUndo = false,
     this.previousCardState,
     this.currentTopicFilter,
@@ -58,13 +51,11 @@ class ReviewState {
     bool? isLoading,
     String? error,
     int? sessionCount,
-    bool? showFeedback,
     bool? lastRating,
     int? remainingDueCount,
     Set<String>? reviewedCardIds,
     DateTime? sessionStartTime,
     int? totalReviewsCompleted,
-    double? averageTimePerCard,
     bool? canUndo,
     WordCardModel? previousCardState,
     String? currentTopicFilter,
@@ -77,14 +68,12 @@ class ReviewState {
       isLoading: isLoading ?? this.isLoading,
       error: error,
       sessionCount: sessionCount ?? this.sessionCount,
-      showFeedback: showFeedback ?? this.showFeedback,
       lastRating: lastRating ?? this.lastRating,
       remainingDueCount: remainingDueCount ?? this.remainingDueCount,
       reviewedCardIds: reviewedCardIds ?? this.reviewedCardIds,
       sessionStartTime: sessionStartTime ?? this.sessionStartTime,
       totalReviewsCompleted:
           totalReviewsCompleted ?? this.totalReviewsCompleted,
-      averageTimePerCard: averageTimePerCard ?? this.averageTimePerCard,
       canUndo: canUndo ?? this.canUndo,
       previousCardState: previousCardState ?? this.previousCardState,
       currentTopicFilter: currentTopicFilter ?? this.currentTopicFilter,
@@ -170,7 +159,6 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
         reviewedCardIds: {}, // Clear reviewed cards on new session
         sessionStartTime: DateTime.now(),
         totalReviewsCompleted: userStats?.totalReviewsCompleted ?? 0,
-        averageTimePerCard: userStats?.averageTimePerCard ?? 7.0,
         canUndo: false,
         previousCardState: null,
         currentTopicFilter: topicFilter, // Save current topic filter
@@ -187,54 +175,9 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
     }
   }
 
-  /// Load more cards (when user clicks Continue)
-  Future<void> loadMore() async {
-    try {
-      state = state.copyWith(isLoading: true, error: null);
-
-      // Get more cards, excluding already reviewed ones (with current topic filter)
-      final moreCards = await _reviewService.getMoreCards(
-        excludeIds: state.reviewedCardIds.toList(),
-        topicFilter: state.currentTopicFilter,
-      );
-
-      if (moreCards.isEmpty) {
-        // No more cards
-        state = state.copyWith(isLoading: false, remainingDueCount: 0);
-        return;
-      }
-
-      // Add to current session
-      final currentCards = List<WordCardModel>.from(state.cards);
-      currentCards.addAll(moreCards);
-
-      // Update remaining count (with current topic filter)
-      final remainingDue = await _reviewService.getRemainingDueCount(
-        topicFilter: state.currentTopicFilter,
-      );
-
-      state = ReviewState(
-        cards: currentCards,
-        currentIndex: state.currentIndex, // Keep current position
-        isLoading: false,
-        sessionCount: currentCards.length,
-        remainingDueCount: remainingDue,
-        reviewedCardIds: state.reviewedCardIds, // Keep tracking
-        canUndo: false,
-        previousCardState: null,
-        currentTopicFilter: state.currentTopicFilter, // Keep topic filter
-      );
-    } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        error: e.toString(),
-      );
-    }
-  }
-
   /// Swipe card and process rating
   /// [remembered] = true for swipe right (recalled), false for swipe left (forgot)
-    Future<void> swipeCard(bool remembered) async {
+  Future<void> swipeCard(bool remembered) async {
     final currentCard = state.currentCard;
     if (currentCard == null) return;
 
@@ -264,12 +207,8 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
       if (_ref != null) {
         await _ref!.read(badgeProvider.notifier).recordActivity(ActivityType.review);
       }
-      
-      // Calculate new average time per card
-      final elapsedSeconds = DateTime.now().difference(state.sessionStartTime ?? DateTime.now()).inSeconds / (state.currentIndex + 1);
+
       final totalReviews = state.totalReviewsCompleted + 1;
-      final currentAvg = state.averageTimePerCard;
-      final newAvg = ((currentAvg * state.totalReviewsCompleted) + elapsedSeconds) / totalReviews;
 
       // Add card ID to reviewed set
       final newReviewedIds = Set<String>.from(state.reviewedCardIds);
@@ -280,7 +219,6 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
       // Auto-advance: Advance directly to next card
       state = state.copyWith(
         currentIndex: state.currentIndex + 1,
-        showFeedback: false,
         lastRating: remembered,
         reviewedCardIds: newReviewedIds,
         totalReviewsCompleted: totalReviews,
@@ -339,7 +277,6 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
         notYetCount: state.lastRating == false && state.notYetCount > 0
             ? state.notYetCount - 1
             : state.notYetCount,
-        showFeedback: false,
         lastRating: null,
       );
       await _reviewService.saveUserStats(
@@ -348,27 +285,6 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
     } catch (e) {
       print('❌ [UndoSwipe] Error: $e');
       state = state.copyWith(error: e.toString());
-    }
-  }
-
-  /// Move to next card after feedback
-  void nextCard() {
-    if (state.showFeedback) {
-      // Hide feedback and move to next card
-      state = state.copyWith(
-        showFeedback: false,
-        lastRating: null,
-        currentIndex: state.currentIndex + 1,
-        canUndo: false, // Disable undo after moving to next card
-        previousCardState: null,
-      );
-    } else {
-      // Move directly to next card
-      state = state.copyWith(
-        currentIndex: state.currentIndex + 1,
-        canUndo: false, // Disable undo after moving to next card
-        previousCardState: null,
-      );
     }
   }
 

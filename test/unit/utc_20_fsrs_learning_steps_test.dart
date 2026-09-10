@@ -3,12 +3,12 @@ import 'package:starmory_app/core/utils/fsrs_helper.dart';
 import 'package:starmory_app/data/models/word_card_model.dart';
 import '../test_helpers.dart';
 
-/// UTC-30: FSRS Short-term Learning & Relearning Steps
+/// UTC-20: FSRS Short-term Learning & Relearning Steps
 /// Test Function: FsrSHelper.reviewCard(WordCardModel card, bool remembered)
 void main() {
-  printTestHeader('UTC-30: FSRS Short-term Learning & Relearning Steps');
+  printTestHeader('UTC-20: FSRS Short-term Learning & Relearning Steps');
 
-  test('UTC-30-TC01: New card first Got it schedules 10-minute learning step', () async {
+  test('UTC-20-TC01: New card first Got it schedules 10-minute learning step', () async {
     final now = DateTime.now();
     final card = WordCardModel(
       id: 'card1',
@@ -30,7 +30,7 @@ void main() {
     expect(result.dueDate.isAfter(now), isTrue);
 
     printTestOutputSimple(
-      testId: 'UTC-30-TC01',
+      testId: 'UTC-20-TC01',
       description: 'New card first Got it schedules 10-minute learning step',
       input: 'TD01: New card, remembered = true (Got it)',
       expectedOutput: {'state': 'learning', 'reps': 1, 'intervalMinutes': 10},
@@ -42,7 +42,7 @@ void main() {
     );
   });
 
-  test('UTC-30-TC02: New card first Not yet schedules 1-minute repeat step', () async {
+  test('UTC-20-TC02: New card first Not yet schedules 1-minute repeat step', () async {
     final now = DateTime.now();
     final card = WordCardModel(
       id: 'card1',
@@ -64,7 +64,7 @@ void main() {
     expect(result.lapses, 1);
 
     printTestOutputSimple(
-      testId: 'UTC-30-TC02',
+      testId: 'UTC-20-TC02',
       description: 'New card first Not yet schedules 1-minute repeat step',
       input: 'TD02: New card, remembered = false (Not yet)',
       expectedOutput: {'state': 'learning', 'reps': 1, 'lapses': 1, 'intervalMinutes': 1},
@@ -77,7 +77,7 @@ void main() {
     );
   });
 
-  test('UTC-30-TC03: Consecutive Got it in learning step advances stability', () async {
+  test('UTC-20-TC03: Consecutive Got it in learning step advances stability', () async {
     final now = DateTime.now();
     final card = WordCardModel(
       id: 'card1',
@@ -99,7 +99,7 @@ void main() {
     expect(result.stability, greaterThan(1.0));
 
     printTestOutputSimple(
-      testId: 'UTC-30-TC03',
+      testId: 'UTC-20-TC03',
       description: 'Consecutive Got it in learning step advances stability',
       input: 'TD03: reps = 1, state = learning, remembered = true',
       expectedOutput: {'reps': 2, 'stabilityIncreased': true},
@@ -110,7 +110,7 @@ void main() {
     );
   });
 
-  test('UTC-30-TC04: Forgotten card lapses into 10-minute Relearning state', () async {
+  test('UTC-20-TC04: Forgotten card lapses into 10-minute Relearning state', () async {
     final now = DateTime.now();
     final card = WordCardModel(
       id: 'card1',
@@ -132,7 +132,7 @@ void main() {
     expect(result.state, CardState.relearning);
 
     printTestOutputSimple(
-      testId: 'UTC-30-TC04',
+      testId: 'UTC-20-TC04',
       description: 'Forgotten card lapses into 10-minute Relearning state',
       input: 'TD04: Review card, remembered = false (Not yet)',
       expectedOutput: {'state': 'relearning', 'lapses': 1, 'intervalMinutes': 10},
@@ -144,3 +144,4 @@ void main() {
     );
   });
 }
+

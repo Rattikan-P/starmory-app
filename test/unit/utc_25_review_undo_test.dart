@@ -9,10 +9,10 @@ import 'package:starmory_app/presentation/providers/review_provider.dart';
 import '../test_helpers.dart';
 import '../test_helpers.mocks.dart';
 
-/// UTC-35: Undo Last Rating & Card State Restoration
+/// UTC-25: Undo Last Rating & Card State Restoration
 /// Test Function: ReviewNotifier.undoSwipe()
 void main() {
-  printTestHeader('UTC-35: Undo Last Rating & Card State Restoration');
+  printTestHeader('UTC-25: Undo Last Rating & Card State Restoration');
 
   late MockReviewService mockReviewService;
   late ReviewNotifier notifier;
@@ -69,7 +69,7 @@ void main() {
     await notifier.loadSession();
   }
 
-  test('UTC-35-TC01: Restore previous card state and decrement review stats', () async {
+  test('UTC-25-TC01: Restore previous card state and decrement review stats', () async {
     final originalCard = createCard('card_1');
     await initSession([originalCard, createCard('card_2')]);
 
@@ -86,7 +86,7 @@ void main() {
     expect(notifier.state.canUndo, isFalse);
 
     printTestOutputSimple(
-      testId: 'UTC-35-TC01',
+      testId: 'UTC-25-TC01',
       description: 'Restore previous card state and decrement review stats',
       input: 'TD01: Rate Card 1 as Got it, then call undoSwipe()',
       expectedOutput: {'currentIndex': 0, 'gotItCount': 0, 'totalReviews': 0, 'cardRestored': true, 'canUndo': false},
@@ -100,7 +100,7 @@ void main() {
     );
   });
 
-  test('UTC-35-TC02: Restored card with original due date saved back to storage', () async {
+  test('UTC-25-TC02: Restored card with original due date saved back to storage', () async {
     final originalCard = createCard('card_1');
     await initSession([originalCard]);
 
@@ -114,7 +114,7 @@ void main() {
     expect(restored.reps, originalCard.reps);
 
     printTestOutputSimple(
-      testId: 'UTC-35-TC02',
+      testId: 'UTC-25-TC02',
       description: 'Restored card with original due date saved back to storage',
       input: 'TD01: Undo action saves original card model',
       expectedOutput: {'storageRestored': true, 'dueDateMatchesOriginal': true},
@@ -125,7 +125,7 @@ void main() {
     );
   });
 
-  test('UTC-35-TC03: Ignore undo request when canUndo is false', () async {
+  test('UTC-25-TC03: Ignore undo request when canUndo is false', () async {
     await initSession([createCard('card_1')]);
 
     expect(notifier.state.canUndo, isFalse);
@@ -134,7 +134,7 @@ void main() {
     expect(notifier.state.currentIndex, 0);
 
     printTestOutputSimple(
-      testId: 'UTC-35-TC03',
+      testId: 'UTC-25-TC03',
       description: 'Ignore undo request when canUndo is false',
       input: 'TD02: Call undoSwipe() when canUndo = false',
       expectedOutput: {'undoPerformed': false, 'currentIndex': 0},
@@ -145,7 +145,7 @@ void main() {
     );
   });
 
-  test('UTC-35-TC04: Prevent multiple consecutive undos', () async {
+  test('UTC-25-TC04: Prevent multiple consecutive undos', () async {
     await initSession([createCard('card_1'), createCard('card_2')]);
 
     await notifier.swipeCard(true);
@@ -159,7 +159,7 @@ void main() {
     expect(notifier.state.canUndo, isFalse);
 
     printTestOutputSimple(
-      testId: 'UTC-35-TC04',
+      testId: 'UTC-25-TC04',
       description: 'Prevent multiple consecutive undos',
       input: 'TD03: Call undoSwipe() twice',
       expectedOutput: {'firstUndoSuccess': true, 'secondUndoIgnored': true, 'canUndo': false},
@@ -171,3 +171,4 @@ void main() {
     );
   });
 }
+
