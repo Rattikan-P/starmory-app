@@ -275,7 +275,7 @@ void main() {
       );
     });
 
-    testWidgets('UT-27-TC10: Detail Sheet header emoji tap opens Edit Scrapbook Screen (SRS-100)',
+    testWidgets('UT-27-TC10: Detail Sheet header emoji tap opens Edit Scrapbook Screen (SRS-140)',
         (tester) async {
       final memory = scrapbook(
         id: 'edit-emoji-test',
@@ -312,7 +312,7 @@ void main() {
       );
     });
 
-    testWidgets('UT-27-TC11: Detail Sheet vocabulary word chip tap opens VocabularyDetailBottomSheet (SRS-101)',
+    testWidgets('UT-27-TC11: Detail Sheet vocabulary word chip tap opens VocabularyDetailBottomSheet (SRS-141)',
         (tester) async {
       final memory = scrapbook(
         id: 'vocab-test',
@@ -352,7 +352,7 @@ void main() {
       );
     });
 
-    testWidgets('UT-27-TC12: Tapping memory card in horizontal strip opens Edit Scrapbook Screen (SRS-102)',
+    testWidgets('UT-27-TC12: Tapping memory card in horizontal strip opens Edit Scrapbook Screen (SRS-142)',
         (tester) async {
       final day = DateTime.now();
       final memory = scrapbook(id: 'card-test', date: day, imagePath: 'test_card.jpg');
