@@ -61,6 +61,24 @@ class StreakData {
       'last_activity_date': lastActivityDate?.toIso8601String(),
     };
   }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is StreakData &&
+        other.currentStreak == currentStreak &&
+        other.longestStreak == longestStreak &&
+        other.shieldsAvailable == shieldsAvailable &&
+        other.lastActivityDate == lastActivityDate;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        currentStreak,
+        longestStreak,
+        shieldsAvailable,
+        lastActivityDate,
+      );
 }
 
 /// Service for managing user streaks and shields

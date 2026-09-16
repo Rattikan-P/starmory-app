@@ -290,6 +290,7 @@ class BadgeState {
 /// Controller managing all badge evaluations, stats tracking, and unlocks
 class BadgeController extends StateNotifier<BadgeState> {
   final Ref _ref;
+  final List<Badge> _pendingBadgesToCelebrate = [];
 
   BadgeController(this._ref) : super(BadgeState.initial()) {
     _initializeBadges();
@@ -311,12 +312,13 @@ class BadgeController extends StateNotifier<BadgeState> {
   }
 
   void _syncWithUser(dynamic user) {
+    _pendingBadgesToCelebrate.clear();
     final rawStats = user.preferences['badge_stats'] as Map<String, dynamic>?;
     final stats = BadgeStats.fromMap(rawStats);
     final userBadges = Set<String>.from(user.badges);
 
     final updatedBadges = state.badges.map((badge) {
-      final shouldBeUnlocked = userBadges.contains(badge.id) || (badge.id == 'first_word' && user.isGuest);
+      final shouldBeUnlocked = userBadges.contains(badge.id);
       return Badge(
         id: badge.id,
         name: badge.name,
@@ -746,6 +748,7 @@ class BadgeController extends StateNotifier<BadgeState> {
   }
 
   void unlockBadge(String badgeId, {BuildContext? context}) {
+    Badge? newlyUnlockedBadge;
     final updatedBadges = state.badges.map((badge) {
       if (badge.id == badgeId) {
         final unlocked = Badge(
@@ -761,9 +764,7 @@ class BadgeController extends StateNotifier<BadgeState> {
           tier: badge.tier,
           gradientColors: badge.gradientColors,
         );
-        if (context != null && context.mounted) {
-          BadgeUnlockDialog.show(context, badge: unlocked);
-        }
+        newlyUnlockedBadge = unlocked;
         return unlocked;
       }
       return badge;
@@ -773,11 +774,16 @@ class BadgeController extends StateNotifier<BadgeState> {
       badges: updatedBadges,
       unlockedCount: updatedBadges.where((b) => !b.isLocked).length,
     );
+
+    if (newlyUnlockedBadge != null && context != null && context.mounted) {
+      BadgeUnlockDialog.show(context, badge: newlyUnlockedBadge!);
+    }
   }
 
   Future<List<Badge>> checkAndUnlockBadges(
     int totalStars,
     int streakDays, {
+    bool isPerfectReview = false,
     BuildContext? context,
   }) async {
     final user = _ref.read(userStateProvider).user;
@@ -802,6 +808,11 @@ class BadgeController extends StateNotifier<BadgeState> {
         shouldUnlock = true;
       }
 
+      // Perfect Review session badge
+      if (badge.id == 'perfect_review' && isPerfectReview) {
+        shouldUnlock = true;
+      }
+
       if (shouldUnlock) {
         final unlocked = Badge(
           id: badge.id,
@@ -821,46 +832,69 @@ class BadgeController extends StateNotifier<BadgeState> {
       }
     }
 
-    if (newlyUnlocked.isEmpty) return [];
+    if (newlyUnlocked.isNotEmpty) {
+      // Save to UserModel (SSOT)
+      if (user != null) {
+        final updatedUser = user.copyWith(
+          badges: currentBadges.toList(),
+        );
+        await _ref.read(userStateProvider.notifier).updateUser(updatedUser);
+      }
 
-    // Save to UserModel (SSOT)
-    if (user != null) {
-      final updatedUser = user.copyWith(
-        badges: currentBadges.toList(),
+      final updatedBadges = state.badges.map((badge) {
+        if (currentBadges.contains(badge.id)) {
+          return badge.isLocked
+              ? Badge(
+                  id: badge.id,
+                  name: badge.name,
+                  titleTh: badge.titleTh,
+                  icon: badge.icon,
+                  description: badge.description,
+                  descriptionTh: badge.descriptionTh,
+                  isLocked: false,
+                  requiredStars: badge.requiredStars,
+                  category: badge.category,
+                  tier: badge.tier,
+                  gradientColors: badge.gradientColors,
+                )
+              : badge;
+        }
+        return badge;
+      }).toList();
+
+      state = state.copyWith(
+        badges: updatedBadges,
+        unlockedCount: updatedBadges.where((b) => !b.isLocked).length,
+        latestUnlockedBadge: newlyUnlocked.last,
       );
-      await _ref.read(userStateProvider.notifier).updateUser(updatedUser);
     }
 
-    final updatedBadges = state.badges.map((badge) {
-      if (currentBadges.contains(badge.id)) {
-        return badge.isLocked
-            ? Badge(
-                id: badge.id,
-                name: badge.name,
-                titleTh: badge.titleTh,
-                icon: badge.icon,
-                description: badge.description,
-                descriptionTh: badge.descriptionTh,
-                isLocked: false,
-                requiredStars: badge.requiredStars,
-                category: badge.category,
-                tier: badge.tier,
-                gradientColors: badge.gradientColors,
-              )
-            : badge;
+    if (newlyUnlocked.isNotEmpty && (context == null || !context.mounted)) {
+      for (final b in newlyUnlocked) {
+        if (!_pendingBadgesToCelebrate.any((item) => item.id == b.id)) {
+          _pendingBadgesToCelebrate.add(b);
+        }
       }
-      return badge;
-    }).toList();
-
-    state = state.copyWith(
-      badges: updatedBadges,
-      unlockedCount: updatedBadges.where((b) => !b.isLocked).length,
-      latestUnlockedBadge: newlyUnlocked.last,
-    );
+    }
 
     if (context != null && context.mounted) {
-      for (final badge in newlyUnlocked) {
-        await BadgeUnlockDialog.show(context, badge: badge);
+      final badgesToCelebrate = <Badge>[];
+      for (final b in _pendingBadgesToCelebrate) {
+        if (!badgesToCelebrate.any((item) => item.id == b.id)) {
+          badgesToCelebrate.add(b);
+        }
+      }
+      for (final b in newlyUnlocked) {
+        if (!badgesToCelebrate.any((item) => item.id == b.id)) {
+          badgesToCelebrate.add(b);
+        }
+      }
+      _pendingBadgesToCelebrate.clear();
+
+      for (final badge in badgesToCelebrate) {
+        if (context.mounted) {
+          await BadgeUnlockDialog.show(context, badge: badge);
+        }
       }
     }
 

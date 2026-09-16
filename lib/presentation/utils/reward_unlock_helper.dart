@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/providers.dart';
-import '../providers/badge_provider.dart';
-import '../providers/sticker_provider.dart';
 
 /// Helper utility for evaluating and displaying reward unlock animations
 class RewardUnlockHelper {
@@ -13,6 +11,7 @@ class RewardUnlockHelper {
     WidgetRef ref, {
     int additionalWords = 0,
     int additionalNatureWords = 0,
+    bool isPerfectReview = false,
   }) async {
     if (!context.mounted) return;
 
@@ -29,6 +28,7 @@ class RewardUnlockHelper {
     await ref.read(badgeStateProvider.notifier).checkAndUnlockBadges(
           totalStars,
           streakDays,
+          isPerfectReview: isPerfectReview,
           context: context,
         );
 
@@ -43,3 +43,6 @@ class RewardUnlockHelper {
         );
   }
 }
+
+/// Provider to signal pending reward checks when returning to Home screen
+final pendingRewardCheckProvider = StateProvider<bool>((ref) => false);

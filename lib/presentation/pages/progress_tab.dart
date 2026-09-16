@@ -38,6 +38,9 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
   List<VocabularyModel> _allFilteredVocabs = []; // Store filtered results
   bool _isInitialized = false; // Prevent infinite loop
   int _lastVocabLength = -1;
+  int _lastCheckedStars = -1;
+  int _lastCheckedStreak = -1;
+  int _lastCheckedNature = -1;
 
   void _openProfile() {
     Navigator.of(context).push(
@@ -180,6 +183,9 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
         setState(() {
           _isInitialized = false;
           _lastVocabLength = -1;
+          _lastCheckedStars = -1;
+          _lastCheckedStreak = -1;
+          _lastCheckedNature = -1;
           _displayedVocabs = [];
           _allFilteredVocabs = [];
         });
@@ -226,18 +232,25 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
         .where((v) => v.topic.toLowerCase() == 'nature')
         .length;
 
-    // Check and unlock badges / stickers if eligible (silently in background)
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(badgeStateProvider.notifier).checkAndUnlockBadges(
-            totalStars,
-            streakDays,
-          );
-      ref.read(stickerStateProvider.notifier).checkAndUnlockPacks(
-            totalStars: totalStars,
-            streakDays: streakDays,
-            natureVocabCount: natureVocabCount,
-          );
-    });
+    // Check and unlock badges / stickers if eligible (only when counts change, to prevent infinite loops)
+    if (_lastCheckedStars != totalStars ||
+        _lastCheckedStreak != streakDays ||
+        _lastCheckedNature != natureVocabCount) {
+      _lastCheckedStars = totalStars;
+      _lastCheckedStreak = streakDays;
+      _lastCheckedNature = natureVocabCount;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(badgeStateProvider.notifier).checkAndUnlockBadges(
+              totalStars,
+              streakDays,
+            );
+        ref.read(stickerStateProvider.notifier).checkAndUnlockPacks(
+              totalStars: totalStars,
+              streakDays: streakDays,
+              natureVocabCount: natureVocabCount,
+            );
+      });
+    }
 
     // Listen for vocabulary state changes to immediately refresh the list
     ref.listen<VocabularyState>(vocabularyStateProvider, (previous, next) {

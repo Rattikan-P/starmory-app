@@ -16,6 +16,7 @@ import 'image_preview_screen.dart';
 import 'edit_scrapbook_screen.dart';
 import 'auth/account_method_page.dart';
 import 'profile_tab.dart';
+import '../utils/reward_unlock_helper.dart';
 import '../widgets/galaxy_screen_background.dart';
 import '../widgets/scrapbook_detail_sheet.dart';
 import '../widgets/scrapbook_polaroid.dart';
@@ -40,6 +41,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
     // Refresh user data when home page is opened
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _refreshUserData();
+      _checkPendingRewards();
     });
   }
 
@@ -64,6 +66,17 @@ class _HomeTabState extends ConsumerState<HomeTab>
       } catch (e) {
         print('⚠️ Home page: Failed to refresh user data: $e');
       }
+    }
+  }
+
+  void _checkPendingRewards() {
+    if (ref.read(pendingRewardCheckProvider)) {
+      ref.read(pendingRewardCheckProvider.notifier).state = false;
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted && context.mounted) {
+          RewardUnlockHelper.checkAndShowUnlocks(context, ref);
+        }
+      });
     }
   }
 
@@ -117,6 +130,21 @@ class _HomeTabState extends ConsumerState<HomeTab>
       (previous, next) {
         if (previous != next) {
           _scrollToTop();
+        }
+      },
+    );
+
+    // Listen for pending reward celebration upon returning to Home
+    ref.listen<bool>(
+      pendingRewardCheckProvider,
+      (previous, next) {
+        if (next == true) {
+          ref.read(pendingRewardCheckProvider.notifier).state = false;
+          Future.delayed(const Duration(milliseconds: 300), () {
+            if (mounted && context.mounted) {
+              RewardUnlockHelper.checkAndShowUnlocks(context, ref);
+            }
+          });
         }
       },
     );

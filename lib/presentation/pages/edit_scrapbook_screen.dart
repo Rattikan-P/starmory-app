@@ -4306,11 +4306,6 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
 
       if (!mounted) return;
 
-      // Check and show reward unlocks triggered by saved words or streak
-      await RewardUnlockHelper.checkAndShowUnlocks(context, ref);
-
-      if (!mounted) return;
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
@@ -4334,6 +4329,9 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
           ),
         ),
       );
+
+      // Signal Home screen to trigger reward celebrations once landed
+      ref.read(pendingRewardCheckProvider.notifier).state = true;
 
       // Navigate back to home
       Navigator.popUntil(context, (route) => route.isFirst);

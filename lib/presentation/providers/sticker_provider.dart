@@ -159,6 +159,7 @@ class StickerState {
 /// Controller managing Sticker Sets, unlocks, and sync with UserModel
 class StickerController extends StateNotifier<StickerState> {
   final Ref _ref;
+  final List<StickerSet> _pendingPacksToCelebrate = [];
 
   StickerController(this._ref) : super(StickerState.initial()) {
     _initUserListener();
@@ -179,6 +180,7 @@ class StickerController extends StateNotifier<StickerState> {
   }
 
   void _syncWithUser(dynamic user) {
+    _pendingPacksToCelebrate.clear();
     final userStickers = Set<String>.from(user.stickers);
     userStickers.add('doodle'); // Doodle is always free and unlocked
 
@@ -245,32 +247,55 @@ class StickerController extends StateNotifier<StickerState> {
       }
     }
 
-    if (newlyUnlocked.isEmpty) return [];
+    if (newlyUnlocked.isNotEmpty) {
+      // Save to UserModel (SSOT)
+      final updatedUser = user.copyWith(
+        stickers: currentUnlocked.toList(),
+      );
+      await _ref.read(userStateProvider.notifier).updateUser(updatedUser);
 
-    // Save to UserModel (SSOT)
-    final updatedUser = user.copyWith(
-      stickers: currentUnlocked.toList(),
-    );
-    await _ref.read(userStateProvider.notifier).updateUser(updatedUser);
+      // Update local state
+      final updatedPacks = state.packs.map((pack) {
+        if (currentUnlocked.contains(pack.id)) {
+          return pack.copyWith(isLocked: false);
+        }
+        return pack;
+      }).toList();
 
-    // Update local state
-    final updatedPacks = state.packs.map((pack) {
-      if (currentUnlocked.contains(pack.id)) {
-        return pack.copyWith(isLocked: false);
+      state = state.copyWith(
+        packs: updatedPacks,
+        unlockedCount: updatedPacks.where((p) => !p.isLocked).length,
+        latestUnlockedPack: newlyUnlocked.last,
+      );
+    }
+
+    if (newlyUnlocked.isNotEmpty && (context == null || !context.mounted)) {
+      for (final p in newlyUnlocked) {
+        if (!_pendingPacksToCelebrate.any((item) => item.id == p.id)) {
+          _pendingPacksToCelebrate.add(p);
+        }
       }
-      return pack;
-    }).toList();
-
-    state = state.copyWith(
-      packs: updatedPacks,
-      unlockedCount: updatedPacks.where((p) => !p.isLocked).length,
-      latestUnlockedPack: newlyUnlocked.last,
-    );
+    }
 
     // Show celebration dialogs if context is mounted
     if (context != null && context.mounted) {
-      for (final pack in newlyUnlocked) {
-        await StickerPackUnlockDialog.show(context, stickerSet: pack);
+      final packsToCelebrate = <StickerSet>[];
+      for (final p in _pendingPacksToCelebrate) {
+        if (!packsToCelebrate.any((item) => item.id == p.id)) {
+          packsToCelebrate.add(p);
+        }
+      }
+      for (final p in newlyUnlocked) {
+        if (!packsToCelebrate.any((item) => item.id == p.id)) {
+          packsToCelebrate.add(p);
+        }
+      }
+      _pendingPacksToCelebrate.clear();
+
+      for (final pack in packsToCelebrate) {
+        if (context.mounted) {
+          await StickerPackUnlockDialog.show(context, stickerSet: pack);
+        }
       }
     }
 
@@ -290,6 +315,18 @@ class StickerController extends StateNotifier<StickerState> {
 
     final targetPack = state.packs.firstWhere((p) => p.id == packId);
     final unlockedPack = targetPack.copyWith(isLocked: false);
+
+    final updatedPacks = state.packs.map((pack) {
+      if (pack.id == packId) {
+        return unlockedPack;
+      }
+      return pack;
+    }).toList();
+
+    state = state.copyWith(
+      packs: updatedPacks,
+      unlockedCount: updatedPacks.where((p) => !p.isLocked).length,
+    );
 
     if (context != null && context.mounted) {
       await StickerPackUnlockDialog.show(context, stickerSet: unlockedPack);

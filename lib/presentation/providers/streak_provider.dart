@@ -29,11 +29,28 @@ class StreakNotifier extends StateNotifier<StreakData?> {
   StreamSubscription<UserState>? _userStateSubscription;
 
   Future<void> _init() async {
-    // Listen to user state changes via stream
+    // Listen to user state changes via stream (only trigger refresh if streak-relevant fields changed)
+    String? lastUserId;
+    int? lastStreak;
+    int? lastShields;
+    DateTime? lastActivity;
     _userStateSubscription = _userNotifier.stream.listen((userState) {
-      // User changed - refresh streak data
-      if (!_userStateSubscription!.isPaused) {
-        refresh();
+      final user = userState.user;
+      final userId = user?.id;
+      final streak = user?.currentStreak;
+      final shields = user?.shields;
+      final activity = user?.lastStreakActivityDate;
+      if (userId != lastUserId ||
+          streak != lastStreak ||
+          shields != lastShields ||
+          activity != lastActivity) {
+        lastUserId = userId;
+        lastStreak = streak;
+        lastShields = shields;
+        lastActivity = activity;
+        if (!_userStateSubscription!.isPaused) {
+          refresh();
+        }
       }
     }, onError: (error) {
       print('❌ Error in user state stream: $error');
@@ -68,10 +85,17 @@ class StreakNotifier extends StateNotifier<StreakData?> {
     final supabaseUser = Supabase.instance.client.auth.currentUser;
     if (supabaseUser != null) {
       // Registered - load from cloud
-      print('🔵 [Streak] Loading cloud streak...');
-      final data = await _service.getStreakData();
-      state = data;
-      print('✅ [Streak] Cloud streak loaded: streak=${data?.currentStreak ?? 0}, shields=${data?.shieldsAvailable ?? 0}');
+      print('🔵 [Streak] Loading registered user streak from cloud...');
+      try {
+        final streakData = await _service.getStreakData();
+        print('✅ [Streak] Cloud streak loaded: streak=${streakData?.currentStreak ?? 0}');
+        if (state != streakData) {
+          state = streakData;
+        }
+      } catch (e) {
+        print('⚠️ [Streak] Failed to load from cloud: $e');
+        state = null;
+      }
     } else {
       // No user - null state
       print('⚠️ [Streak] No user found - setting streak to null');
@@ -81,12 +105,15 @@ class StreakNotifier extends StateNotifier<StreakData?> {
 
   /// Load streak data from UserModel (SSOT - Single Source of Truth)
   void _loadFromUserModel(dynamic user) {
-    state = StreakData(
+    final newData = StreakData(
       currentStreak: user.currentStreak,
       shieldsAvailable: user.shields,
       longestStreak: user.longestStreak,
       lastActivityDate: user.lastStreakActivityDate,
     );
+    if (state != newData) {
+      state = newData;
+    }
   }
 
   /// Update streak after activity

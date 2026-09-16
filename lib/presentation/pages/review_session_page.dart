@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../providers/providers.dart';
+import '../utils/reward_unlock_helper.dart';
 import '../widgets/review_card_widget.dart';
 
 /// Review Session Page
@@ -25,6 +26,7 @@ class _ReviewSessionPageState extends ConsumerState<ReviewSessionPage> {
   String? _currentTopicFilter;
   late int _batchSize;
   bool _allowPop = false;
+  bool _hasCheckedCompletionRewards = false;
 
   @override
   void initState() {
@@ -435,6 +437,23 @@ class _ReviewSessionPageState extends ConsumerState<ReviewSessionPage> {
     final gotIt = state.gotItCount;
     final notYet = state.notYetCount;
 
+    // Check and celebrate any rewards (streak, milestones, perfect_review) upon completion
+    if (!_hasCheckedCompletionRewards) {
+      _hasCheckedCompletionRewards = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Future.delayed(const Duration(milliseconds: 350), () {
+          if (mounted && context.mounted) {
+            final isPerfect = state.isComplete && state.notYetCount == 0 && state.sessionCount > 0;
+            RewardUnlockHelper.checkAndShowUnlocks(
+              context,
+              ref,
+              isPerfectReview: isPerfect,
+            );
+          }
+        });
+      });
+    }
+
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
@@ -641,7 +660,17 @@ class _ReviewSessionPageState extends ConsumerState<ReviewSessionPage> {
                   color: Colors.transparent,
                   child: InkWell(
                     borderRadius: BorderRadius.circular(26),
-                    onTap: () => Navigator.pop(context),
+                    onTap: () async {
+                      final isPerfect = state.isComplete && state.notYetCount == 0 && state.sessionCount > 0;
+                      await RewardUnlockHelper.checkAndShowUnlocks(
+                        context,
+                        ref,
+                        isPerfectReview: isPerfect,
+                      );
+                      if (context.mounted) {
+                        Navigator.pop(context);
+                      }
+                    },
                     child: Center(
                       child: Text(
                         'Done',

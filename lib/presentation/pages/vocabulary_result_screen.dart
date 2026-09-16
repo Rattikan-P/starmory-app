@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../widgets/galaxy_screen_background.dart';
 import '../providers/providers.dart' show vocabularyStateProvider, reviewStateProvider;
 import '../providers/streak_provider.dart' show streakProvider;
+import '../utils/reward_unlock_helper.dart';
 import '../../data/models/vocabulary_model.dart';
 
 /// Vocabulary Result Screen - Display generated vocabulary
@@ -219,6 +220,9 @@ class VocabularyResultScreen extends ConsumerWidget {
         duration: const Duration(seconds: 2),
       ),
     );
+
+    // Signal Home screen to trigger reward celebrations once landed
+    ref.read(pendingRewardCheckProvider.notifier).state = true;
 
     // Navigate back to home
     if (!context.mounted) return;
