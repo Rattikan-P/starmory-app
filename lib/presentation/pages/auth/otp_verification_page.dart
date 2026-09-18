@@ -13,7 +13,7 @@ import '../language_selection_page.dart';
 import '../main_navigation.dart';
 import '../onboarding_page.dart' show onboardingServiceProvider;
 import '../../../constants/app_defaults.dart';
-import '../../../presentation/providers/providers.dart' show hiveServiceProvider, vocabularySyncServiceProvider, userStateProvider;
+import '../../../presentation/providers/providers.dart' show hiveServiceProvider, vocabularySyncServiceProvider, userStateProvider, scrapbookStateProvider, vocabularyStateProvider;
 import '../../../presentation/providers/streak_provider.dart' show streakProvider;
 
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
@@ -145,6 +145,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
 
       final preferenceService = ref.read(onboardingServiceProvider);
 
+      bool? shouldMerge;
       if (!isNewUser) {
         // Existing user → เช็คว่ามี guest data ไหม
         final hasGuestData = widget.languageLevel != null || widget.englishVariant != null;
@@ -152,7 +153,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
         if (hasGuestData && widget.isGuestCreatingAccount) {
           // แสดง dialog ถามว่าต้องการ merge ไหม
           if (!mounted) return;
-          final shouldMerge = await _showMergeDialog(context);
+          shouldMerge = await _showMergeDialog(context);
 
           if (shouldMerge == true) {
             // User เลือก merge → ใช้ MergeService เพื่อ merge ข้อมูล
@@ -216,9 +217,21 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
               if (localVocabs.isNotEmpty) {
                 print('☁️ [OTP Login] Merging vocabulary to cloud...');
                 final syncedVocabs = await vocabSyncService.mergeWithCloud(localVocabs);
-                // Clear local after successful sync
+                // Clear local and save merged result
                 await hiveService.clearAllVocabulary();
-                print('✅ [OTP Login] Vocabulary synced: ${syncedVocabs.length} total');
+                for (final vocab in syncedVocabs) {
+                  await hiveService.saveVocabulary(vocab);
+                }
+                print('✅ [OTP Login] Vocabulary synced and saved locally: ${syncedVocabs.length} total');
+              }
+
+              // 4b2. Upload guest scrapbooks to cloud
+              try {
+                print('☁️ [OTP Login] Syncing guest scrapbooks to cloud...');
+                await ref.read(scrapbookStateProvider.notifier).syncGuestScrapbooksToCloud();
+                print('✅ [OTP Login] Guest scrapbooks synced to cloud');
+              } catch (e) {
+                print('⚠️ [OTP Login] Failed to sync guest scrapbooks to cloud: $e');
               }
 
               // 4c. Update merged streak to cloud
@@ -250,8 +263,16 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
               return; // Stay on page
             }
           } else {
-            // User chose "No" → Keep original server data, don't migrate anything
-            print('ℹ️ [OTP Login] User chose to keep original data - skipping merge');
+            // User chose "No" / "Keep my account" → Clear local guest data
+            print('ℹ️ [OTP Login] User chose to keep original server data - clearing guest data');
+            try {
+              final hiveService = ref.read(hiveServiceProvider);
+              await hiveService.clearAllVocabulary();
+              await hiveService.clearAllScrapbooks();
+              await ref.read(scrapbookStateProvider.notifier).clear();
+            } catch (e) {
+              print('⚠️ [OTP Login] Failed to clear local guest data: $e');
+            }
           }
 
           // Sync UserModel with Supabase preferences (both merge and keep old cases)
@@ -314,6 +335,15 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
               print('❌ [OTP Login] Upload failed: $e');
             }
 
+            // Upload guest scrapbooks to cloud
+            try {
+              print('🔄 [OTP Login] Uploading guest scrapbooks to cloud...');
+              await ref.read(scrapbookStateProvider.notifier).syncGuestScrapbooksToCloud();
+              print('✅ [OTP Login] Guest scrapbooks uploaded to cloud');
+            } catch (e) {
+              print('⚠️ [OTP Login] Guest scrapbooks upload failed: $e');
+            }
+
             // Migrate guest streak to cloud
             try {
               print('🔄 [OTP Login] Migrating guest streak...');
@@ -371,36 +401,43 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
             .eq('id', user.id);
       }
 
-      // Auto sync local vocabularies to cloud (for existing users with unsynced data)
-      // Skip for new users who just uploaded (already cleared)
-      if (!isNewUser) {
+      // Post-auth data sync & state refresh
+      if (shouldMerge == false) {
+        // User explicitly chose NOT to merge guest data -> load cloud-only data
         try {
-          print('🔄 [OTP Login] Starting auto sync...');
+          print('☁️ [OTP Login] Loading cloud-only data (no guest merge)...');
           final hiveService = ref.read(hiveServiceProvider);
           final vocabSyncService = ref.read(vocabularySyncServiceProvider);
-          final localVocabs = await hiveService.getAllVocabulary();
 
-          print('📦 [OTP Login] Found ${localVocabs.length} local vocabularies');
+          // Clear any leftover local guest data
+          await hiveService.clearAllVocabulary();
+          await hiveService.clearAllScrapbooks();
+          await ref.read(scrapbookStateProvider.notifier).clear();
 
-          if (localVocabs.isNotEmpty) {
-            // Use mergeWithCloud to avoid duplicates
-            print('☁️ [OTP Login] Merging with cloud...');
-            final syncedVocabs = await vocabSyncService.mergeWithCloud(localVocabs);
-            // Update local storage with merged vocabularies
-            await hiveService.clearAllVocabulary();
-            for (final vocab in syncedVocabs) {
-              await hiveService.saveVocabulary(vocab);
-            }
-            print('✅ [OTP Login] Sync complete! Total vocabularies: ${syncedVocabs.length}');
-          } else {
-            print('ℹ️ [OTP Login] No local vocabularies to sync');
+          // Fetch cloud-only vocabularies and save to Hive
+          final cloudVocabs = await vocabSyncService.fetchFromCloud();
+          for (final vocab in cloudVocabs) {
+            await hiveService.saveVocabulary(vocab);
           }
+
+          await ref.read(vocabularyStateProvider.notifier).refresh();
+          await ref.read(scrapbookStateProvider.notifier).refresh();
+          await ref.read(streakProvider.notifier).refresh();
+          print('✅ [OTP Login] Cloud-only data loaded successfully');
         } catch (e) {
-          print('❌ [OTP Login] Sync failed: $e');
-          // Sync failed - continue with login (local vocabularies still available)
+          print('⚠️ [OTP Login] Failed to load cloud-only data: $e');
         }
       } else {
-        print('ℹ️ [OTP Login] Skipping sync (new user)');
+        // New user or Combine chosen or Existing user logging in -> sync & refresh
+        try {
+          print('🔄 [OTP Login] Refreshing user data state from cloud...');
+          await ref.read(vocabularyStateProvider.notifier).syncFromCloud();
+          await ref.read(scrapbookStateProvider.notifier).refresh();
+          await ref.read(streakProvider.notifier).refresh();
+          print('✅ [OTP Login] User data state synced and refreshed');
+        } catch (e) {
+          print('⚠️ [OTP Login] Failed to sync/refresh user data state: $e');
+        }
       }
 
       if (!mounted) return;

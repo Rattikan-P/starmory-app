@@ -356,14 +356,13 @@ class ScrapbookNotifier extends StateNotifier<ScrapbookState> {
 
       // Load from cloud
       final cloudScrapbooks = await _loadFromCloud();
+      final localScrapbooks = await _hiveService.getAllScrapbooks();
+
       if (cloudScrapbooks.isEmpty) {
         print('📭 No scrapbooks in cloud to sync');
+        state = ScrapbookState(scrapbooks: localScrapbooks, isLoading: false);
         return;
       }
-
-      // Get local scrapbooks
-      final localScrapbooks = await _hiveService.getAllScrapbooks();
-      final localIds = localScrapbooks.map((s) => s.id).toSet();
 
       // Save cloud scrapbooks to local storage
       int syncedCount = 0;
@@ -385,10 +384,12 @@ class ScrapbookNotifier extends StateNotifier<ScrapbookState> {
         cloudScrapbooks,
         localScrapbooks,
       );
-      state = ScrapbookState(scrapbooks: mergedScrapbooks);
+      state = ScrapbookState(scrapbooks: mergedScrapbooks, isLoading: false);
       print('✅ State updated with ${mergedScrapbooks.length} total scrapbooks');
     } catch (e) {
       print('❌ Failed to sync from cloud: $e');
+      final localScrapbooks = await _hiveService.getAllScrapbooks();
+      state = ScrapbookState(scrapbooks: localScrapbooks, isLoading: false, error: e.toString());
     }
   }
 
@@ -509,12 +510,52 @@ class ScrapbookNotifier extends StateNotifier<ScrapbookState> {
         'updated_at': DateTime.now().toUtc().toIso8601String(),
       };
 
-      await client.from('scrapbooks').insert(data);
+      await client.from('scrapbooks').upsert(data);
       print('✅ Scrapbook saved to cloud');
     } catch (e) {
       await _cleanupFailedCloudUpload(newlyUploadedUrls);
       print('⚠️ Failed to save scrapbook to cloud: $e');
       rethrow;
+    }
+  }
+
+  /// Upload guest scrapbooks to cloud for the logged-in user
+  Future<void> syncGuestScrapbooksToCloud() async {
+    try {
+      final client = Supabase.instance.client;
+      final userId = client.auth.currentUser?.id;
+      if (userId == null) {
+        print('⚠️ No user logged in, cannot sync guest scrapbooks to cloud');
+        return;
+      }
+
+      final localScrapbooks = await _hiveService.getAllScrapbooks();
+      if (localScrapbooks.isEmpty) {
+        print('ℹ️ No local guest scrapbooks to sync to cloud');
+        return;
+      }
+
+      print('☁️ Syncing ${localScrapbooks.length} guest scrapbooks to cloud for user: $userId...');
+
+      // Load existing cloud scrapbooks to avoid duplicate uploads
+      final cloudScrapbooks = await _loadFromCloud();
+      final cloudIds = cloudScrapbooks.map((s) => s.id).toSet();
+
+      for (final localScrapbook in localScrapbooks) {
+        // If this scrapbook is not yet on the cloud, upload it
+        if (!cloudIds.contains(localScrapbook.id)) {
+          try {
+            print('⬆️ Uploading guest scrapbook ${localScrapbook.id} to cloud...');
+            await _saveToCloud(localScrapbook);
+          } catch (e) {
+            print('⚠️ Failed to upload guest scrapbook ${localScrapbook.id}: $e');
+          }
+        }
+      }
+
+      print('✅ Guest scrapbooks sync complete!');
+    } catch (e) {
+      print('❌ Error syncing guest scrapbooks to cloud: $e');
     }
   }
 

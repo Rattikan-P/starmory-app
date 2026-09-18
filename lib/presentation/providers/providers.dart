@@ -287,10 +287,10 @@ class UserNotifier extends StateNotifier<UserState> {
         print('⚠️ Failed to fetch user data from server: $e');
       }
 
-      // Use Merge Framework to merge guest data with server data
+      // Use Merge Framework to merge guest data with server data for brand new users
       UserModel registeredUser;
-      if (hasGuestData) {
-        // Guest → Registered: Use Merge Framework
+      if (hasGuestData && serverUserData == null) {
+        // Brand new user registering: Migrate guest data to new registered user
         print('🔄 Migrating guest data to registered user...');
 
         // Read guest streak from local database (Hive) - this is the source of truth for guests
@@ -1034,50 +1034,52 @@ class VocabularyNotifier extends StateNotifier<VocabularyState> {
       var vocabularies = await _hiveService.getAllVocabulary();
 
       // Auto-backfill: check if any scrapbooks contain vocabulary words not yet in local storage
-      try {
-        final scrapbooks = await _hiveService.getAllScrapbooks();
-        final existingWords = vocabularies.map((v) => v.word.toLowerCase().trim()).toSet();
-        final missingVocabs = <VocabularyModel>[];
+      // Only run auto-backfill if we already have local vocabularies or if user is in guest mode
+      // (prevents creating fake backfilled cards during login/cloud sync when local storage is temporarily empty)
+      if (vocabularies.isNotEmpty || !_syncService.isLoggedIn) {
+        try {
+          final scrapbooks = await _hiveService.getAllScrapbooks();
+          final existingWords = vocabularies.map((v) => v.word.toLowerCase().trim()).toSet();
+          final missingVocabs = <VocabularyModel>[];
 
-        for (final sb in scrapbooks) {
-          for (final sbWord in sb.vocabularyWords) {
-            final wordKey = sbWord.word.toLowerCase().trim();
-            if (wordKey.isNotEmpty && !existingWords.contains(wordKey)) {
-              existingWords.add(wordKey);
-              final newVocab = VocabularyModel(
-                id: 'sb_${sb.id}_${sbWord.word.replaceAll(' ', '_')}',
-                word: sbWord.word,
-                partOfSpeech: sbWord.partOfSpeech.isNotEmpty ? sbWord.partOfSpeech : 'noun',
-                thaiTranslation: sbWord.thaiTranslation,
-                englishSentence: sb.englishSentence,
-                thaiSentence: sb.thaiSentence,
-                cefrLevel: 'A1',
-                communicativeFunction: 'Daily Life',
-                languageVariant: 'US',
-                imageUrl: sb.imagePath,
-                topic: 'other',
-                tags: const [],
-                createdAt: sb.createdAt,
-              );
-              missingVocabs.add(newVocab);
+          for (final sb in scrapbooks) {
+            for (final sbWord in sb.vocabularyWords) {
+              final wordKey = sbWord.word.toLowerCase().trim();
+              if (wordKey.isNotEmpty && !existingWords.contains(wordKey)) {
+                existingWords.add(wordKey);
+                final newVocab = VocabularyModel(
+                  id: 'sb_${sb.id}_${sbWord.word.replaceAll(' ', '_')}',
+                  word: sbWord.word,
+                  partOfSpeech: sbWord.partOfSpeech.isNotEmpty ? sbWord.partOfSpeech : 'noun',
+                  thaiTranslation: sbWord.thaiTranslation,
+                  englishSentence: sb.englishSentence,
+                  thaiSentence: sb.thaiSentence,
+                  cefrLevel: 'A1',
+                  communicativeFunction: 'Daily Life',
+                  languageVariant: 'US',
+                  imageUrl: sb.imagePath,
+                  topic: 'other',
+                  tags: const [],
+                  createdAt: sb.createdAt,
+                );
+                missingVocabs.add(newVocab);
+              }
             }
           }
-        }
 
-        if (missingVocabs.isNotEmpty) {
-          print('🔄 [VocabularyNotifier] Backfilling ${missingVocabs.length} words from scrapbooks...');
-          for (final vocab in missingVocabs) {
-            await _hiveService.saveVocabulary(vocab);
-            if (_syncService.isLoggedIn) {
-              await _syncService.saveToCloud(vocab);
-            } else {
-              await _reviewService.createCard(vocab.id);
+          if (missingVocabs.isNotEmpty) {
+            print('🔄 [VocabularyNotifier] Backfilling ${missingVocabs.length} words from scrapbooks...');
+            for (final vocab in missingVocabs) {
+              await _hiveService.saveVocabulary(vocab);
+              if (!_syncService.isLoggedIn) {
+                await _reviewService.createCard(vocab.id);
+              }
             }
+            vocabularies = await _hiveService.getAllVocabulary();
           }
-          vocabularies = await _hiveService.getAllVocabulary();
+        } catch (e) {
+          print('⚠️ [VocabularyNotifier] Backfill check error: $e');
         }
-      } catch (e) {
-        print('⚠️ [VocabularyNotifier] Backfill check error: $e');
       }
 
       state = VocabularyState(vocabularies: vocabularies);

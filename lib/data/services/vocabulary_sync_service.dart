@@ -161,14 +161,10 @@ class VocabularySyncService {
 
     int successCount = 0;
     final userId = currentUserId!;
-
-    // Cache for uploaded images: local path -> cloud URL
     final uploadedImages = <String, String>{};
-    // Upload vocabularies with image processing
     final data = <Map<String, dynamic>>[];
 
     try {
-
       for (final vocab in vocabularies) {
         String finalImageUrl = vocab.imageUrl;
 
@@ -215,18 +211,17 @@ class VocabularySyncService {
         });
       }
 
-      // Batch insert
-      await _client.from('vocabularies').insert(data);
-
+      // Batch upsert to cloud
+      await _client.from('vocabularies').upsert(data);
       successCount = vocabularies.length;
     } catch (e) {
-      // Fallback: upload individually using already-processed data (with cloud URLs)
+      print('⚠️ [VocabularySyncService] Batch upload failed, attempting fallback upserts: $e');
       for (final item in data) {
         try {
-          await _client.from('vocabularies').insert(item);
+          await _client.from('vocabularies').upsert(item);
           successCount++;
         } catch (e) {
-          // Skip failed items
+          print('⚠️ [VocabularySyncService] Single upsert failed for ${item['word']}: $e');
         }
       }
     }
@@ -245,33 +240,28 @@ class VocabularySyncService {
       // Fetch cloud vocabularies
       final cloudVocabs = await fetchFromCloud();
 
-      // Create map for quick lookup
+      // Create map for quick lookup by ID
       final cloudMap = {for (var v in cloudVocabs) v.id: v};
-
-      // Merge: cloud takes precedence, but keep local items not in cloud
-      final mergedVocabs = <VocabularyModel>[];
-
-      // Add all cloud vocabularies
-      mergedVocabs.addAll(cloudVocabs);
 
       // Add local vocabularies that don't exist in cloud
       final localOnlyVocabs = <VocabularyModel>[];
       for (final localVocab in localVocabs) {
         if (!cloudMap.containsKey(localVocab.id)) {
-          mergedVocabs.add(localVocab);
           localOnlyVocabs.add(localVocab);
         }
       }
 
-      // Batch upload local-only vocabularies to cloud (faster than one-by-one)
+      // Batch upload local-only vocabularies to cloud
       if (localOnlyVocabs.isNotEmpty) {
         await batchUpload(localOnlyVocabs);
+        // Re-fetch fresh list from cloud so all items have updated cloud URLs & IDs
+        final updatedCloudVocabs = await fetchFromCloud();
+        updatedCloudVocabs.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        return updatedCloudVocabs;
       }
 
-      // Sort by created date descending
-      mergedVocabs.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-
-      return mergedVocabs;
+      cloudVocabs.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return cloudVocabs;
     } catch (e) {
       return localVocabs;
     }

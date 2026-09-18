@@ -11,7 +11,7 @@ import '../onboarding_page.dart';
 import '../language_selection_page.dart';
 import 'otp_verification_page.dart' show OtpVerificationPage;
 import '../../../constants/app_defaults.dart';
-import '../../../presentation/providers/providers.dart' show hiveServiceProvider, vocabularySyncServiceProvider, userStateProvider;
+import '../../../presentation/providers/providers.dart' show hiveServiceProvider, vocabularySyncServiceProvider, userStateProvider, scrapbookStateProvider, vocabularyStateProvider;
 import '../../../presentation/providers/streak_provider.dart' show streakProvider;
 
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
@@ -117,6 +117,8 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
 
       if (!context.mounted) return;
 
+      bool? shouldMerge;
+
       if (isNewUser) {
         //  New user
         String? finalLevel = guestLevel;
@@ -175,6 +177,15 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
             print('❌ [Google Login] Upload failed: $e');
           }
 
+          // Upload guest scrapbooks to cloud
+          try {
+            print('🔄 [Google Login] Uploading guest scrapbooks to cloud...');
+            await ref.read(scrapbookStateProvider.notifier).syncGuestScrapbooksToCloud();
+            print('✅ [Google Login] Guest scrapbooks uploaded to cloud');
+          } catch (e) {
+            print('⚠️ [Google Login] Guest scrapbooks upload failed: $e');
+          }
+
           // Migrate guest streak to cloud
           try {
             print('🔄 [Google Login] Migrating guest streak...');
@@ -210,7 +221,7 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
         if (hasGuestData) {
           // แสดง dialog ถามว่าต้องการ merge ไหม
           if (!context.mounted) return;
-          final shouldMerge = await _showMergeDialog(context, guestLevel, guestVariant);
+          shouldMerge = await _showMergeDialog(context, guestLevel, guestVariant);
 
           if (shouldMerge == true) {
             // User เลือก merge → ใช้ MergeService เพื่อ merge ข้อมูล
@@ -273,9 +284,21 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
               if (localVocabs.isNotEmpty) {
                 print('☁️ [Google Login] Merging vocabulary to cloud...');
                 final syncedVocabs = await vocabSyncService.mergeWithCloud(localVocabs);
-                // Clear local after successful sync
+                // Clear local and save merged result
                 await hiveService.clearAllVocabulary();
-                print('✅ [Google Login] Vocabulary synced: ${syncedVocabs.length} total');
+                for (final vocab in syncedVocabs) {
+                  await hiveService.saveVocabulary(vocab);
+                }
+                print('✅ [Google Login] Vocabulary synced and saved locally: ${syncedVocabs.length} total');
+              }
+
+              // 4b2. Upload guest scrapbooks to cloud
+              try {
+                print('☁️ [Google Login] Syncing guest scrapbooks to cloud...');
+                await ref.read(scrapbookStateProvider.notifier).syncGuestScrapbooksToCloud();
+                print('✅ [Google Login] Guest scrapbooks synced to cloud');
+              } catch (e) {
+                print('⚠️ [Google Login] Failed to sync guest scrapbooks to cloud: $e');
               }
 
               // 4c. Update merged streak to cloud
@@ -325,8 +348,16 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
               return; // Stay on page, user can retry
             }
           } else {
-            // User chose "No" → Keep original server data, don't migrate anything
-            print('ℹ️ [Google Login] User chose to keep original data - skipping merge');
+            // User chose "No" / "Keep my account" → Clear local guest data
+            print('ℹ️ [Google Login] User chose to keep original server data - clearing guest data');
+            try {
+              final hiveService = ref.read(hiveServiceProvider);
+              await hiveService.clearAllVocabulary();
+              await hiveService.clearAllScrapbooks();
+              await ref.read(scrapbookStateProvider.notifier).clear();
+            } catch (e) {
+              print('⚠️ [Google Login] Failed to clear local guest data: $e');
+            }
           }
         }
       }
@@ -336,36 +367,43 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
       await preferenceService.setOnboardingCompleted(true);
       // Note: setGuestMode removed - UserModel.isGuest reflects actual auth state
 
-      // Auto sync local vocabularies to cloud (for existing users with unsynced data)
-      // Skip for new users who just uploaded (already cleared)
-      if (!isNewUser) {
+      // Post-auth data sync & state refresh
+      if (shouldMerge == false) {
+        // User explicitly chose NOT to merge guest data -> load cloud-only data
         try {
-          print('🔄 [Google Login] Starting auto sync...');
+          print('☁️ [Google Login] Loading cloud-only data (no guest merge)...');
           final hiveService = ref.read(hiveServiceProvider);
           final vocabSyncService = ref.read(vocabularySyncServiceProvider);
-          final localVocabs = await hiveService.getAllVocabulary();
 
-          print('📦 [Google Login] Found ${localVocabs.length} local vocabularies');
+          // Clear any leftover local guest data
+          await hiveService.clearAllVocabulary();
+          await hiveService.clearAllScrapbooks();
+          await ref.read(scrapbookStateProvider.notifier).clear();
 
-          if (localVocabs.isNotEmpty) {
-            // Use mergeWithCloud to avoid duplicates
-            print('☁️ [Google Login] Merging with cloud...');
-            final syncedVocabs = await vocabSyncService.mergeWithCloud(localVocabs);
-            // Update local storage with merged vocabularies
-            await hiveService.clearAllVocabulary();
-            for (final vocab in syncedVocabs) {
-              await hiveService.saveVocabulary(vocab);
-            }
-            print('✅ [Google Login] Sync complete! Total vocabularies: ${syncedVocabs.length}');
-          } else {
-            print('ℹ️ [Google Login] No local vocabularies to sync');
+          // Fetch cloud-only vocabularies and save to Hive
+          final cloudVocabs = await vocabSyncService.fetchFromCloud();
+          for (final vocab in cloudVocabs) {
+            await hiveService.saveVocabulary(vocab);
           }
+
+          await ref.read(vocabularyStateProvider.notifier).refresh();
+          await ref.read(scrapbookStateProvider.notifier).refresh();
+          await ref.read(streakProvider.notifier).refresh();
+          print('✅ [Google Login] Cloud-only data loaded successfully');
         } catch (e) {
-          print('❌ [Google Login] Sync failed: $e');
-          // Sync failed - continue with login (local vocabularies still available)
+          print('⚠️ [Google Login] Failed to load cloud-only data: $e');
         }
       } else {
-        print('ℹ️ [Google Login] Skipping sync (new user)');
+        // New user or Combine chosen or Existing user logging in -> sync & refresh
+        try {
+          print('🔄 [Google Login] Refreshing user data state from cloud...');
+          await ref.read(vocabularyStateProvider.notifier).syncFromCloud();
+          await ref.read(scrapbookStateProvider.notifier).refresh();
+          await ref.read(streakProvider.notifier).refresh();
+          print('✅ [Google Login] User data state synced and refreshed');
+        } catch (e) {
+          print('⚠️ [Google Login] Failed to sync/refresh user data state: $e');
+        }
       }
 
       if (!context.mounted) return;
