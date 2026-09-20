@@ -3932,7 +3932,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                 Text(
                   _getStickerPackLockMessage(set),
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.kanit(
+                  style: GoogleFonts.lexend(
                     fontSize: DesignTokens.fontSizeBody,
                     color: DesignTokens.textSecondary,
                     height: 1.45,
@@ -4013,16 +4013,16 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
   String _getStickerPackLockMessage(StickerSet set) {
     switch (set.unlockType) {
       case StickerUnlockType.free:
-        return 'ชุดสติกเกอร์นี้พร้อมใช้งานแล้ว';
+        return 'This sticker pack is unlocked and ready to use.';
       case StickerUnlockType.streak:
-        return 'รักษาสถิติการเรียนต่อเนื่อง ${set.requiredStreakDays ?? 7} วัน เพื่อปลดล็อกแพ็คนี้';
+        return 'Maintain a ${set.requiredStreakDays ?? 7}-day learning streak to unlock this pack.';
       case StickerUnlockType.category:
         if (set.requiredCategory?.toLowerCase() == 'nature') {
-          return 'สะสมคำศัพท์หมวดธรรมชาติครบ ${set.requiredCategoryCount ?? 100} คำ เพื่อปลดล็อกแพ็คนี้';
+          return 'Collect ${set.requiredCategoryCount ?? 100} Nature vocabulary words to unlock this pack.';
         }
-        return 'สะสมคำศัพท์หมวด ${set.requiredCategory} ครบ ${set.requiredCategoryCount ?? 100} คำ เพื่อปลดล็อกแพ็คนี้';
+        return 'Collect ${set.requiredCategoryCount ?? 100} ${set.requiredCategory} vocabulary words to unlock this pack.';
       case StickerUnlockType.stars:
-        return 'สะสมครบ ${set.requiredStars ?? 50} ดาว เพื่อปลดล็อกแพ็คนี้';
+        return 'Earn ${set.requiredStars ?? 50} stars to unlock this pack.';
     }
   }
 

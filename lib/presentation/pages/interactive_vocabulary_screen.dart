@@ -48,6 +48,10 @@ class _InteractiveVocabularyScreenState
   bool _isRegenerating = false;
   _VocabularyDot? _selectedDotForOverlay;
 
+  // Sheet Controller for auto-collapsing sheet when dot is tapped
+  final DraggableScrollableController _sheetController =
+      DraggableScrollableController();
+
   // TTS service
   final TTSService _ttsService = TTSService();
   String?
@@ -114,6 +118,7 @@ class _InteractiveVocabularyScreenState
     _ttsCompletionSubscription?.cancel();
     _ttsErrorSubscription?.cancel();
     _ttsService.stop();
+    _sheetController.dispose();
     super.dispose();
   }
 
@@ -495,12 +500,12 @@ class _InteractiveVocabularyScreenState
             ),
           ),
 
-          // Word Overlay (before bottom sheet so bottom sheet can cover it)
+          // Bottom Sheet
+          Positioned.fill(child: _buildBottomSheet()),
+
+          // Word Overlay (on top of bottom sheet so tooltip is NEVER hidden/covered)
           if (_selectedDotForOverlay != null)
             _buildWordOverlay(_selectedDotForOverlay!),
-
-          // Bottom Sheet (on top of overlay)
-          Positioned.fill(child: _buildBottomSheet()),
         ],
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
@@ -905,11 +910,22 @@ class _InteractiveVocabularyScreenState
               minChildSize = (remainingHeight / screenHeight).clamp(0.05, 0.5);
             }
 
-            return DraggableScrollableSheet(
-              initialChildSize: minChildSize.clamp(0.35, 0.85),
-              minChildSize: minChildSize,
-              maxChildSize: maxChildSize,
-              builder: (context, scrollController) {
+            return NotificationListener<Notification>(
+              onNotification: (notification) {
+                if (_selectedDotForOverlay != null) {
+                  if (notification is DraggableScrollableNotification ||
+                      notification is ScrollStartNotification) {
+                    _hideWordOverlay();
+                  }
+                }
+                return false;
+              },
+              child: DraggableScrollableSheet(
+                controller: _sheetController,
+                initialChildSize: minChildSize.clamp(0.35, 0.85),
+                minChildSize: minChildSize,
+                maxChildSize: maxChildSize,
+                builder: (context, scrollController) {
                 return ClipRRect(
                   borderRadius: const BorderRadius.vertical(
                     top: Radius.circular(32),
@@ -978,6 +994,13 @@ class _InteractiveVocabularyScreenState
                               _buildEmptyStateSliver(scrollController)
                             else if (!_useCombinedSentence)
                               _buildWordDetailsSliver(scrollController),
+
+                            // Bottom padding so content is never blocked by "Create Scrapbook" button
+                            SliverToBoxAdapter(
+                              child: SizedBox(
+                                height: 110 + MediaQuery.of(context).padding.bottom,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -985,11 +1008,12 @@ class _InteractiveVocabularyScreenState
                   ),
                 );
               },
-            );
-          },
-        );
-      },
-    );
+            ),
+          );
+        },
+      );
+    },
+  );
   }
 
   /// Build word overlay popup near the dot
@@ -1731,6 +1755,18 @@ class _InteractiveVocabularyScreenState
   void _showWordOverlay(_VocabularyDot dot) async {
     final wasSelected = _selectedWordIds.contains(dot.id);
     final isDeselecting = _selectedDotForOverlay?.id == dot.id;
+
+    // Smoothly collapse bottom sheet if it's currently expanded high (> 0.45)
+    // so the image area, dot, and word overlay popup are fully visible
+    if (!isDeselecting &&
+        _sheetController.isAttached &&
+        _sheetController.size > 0.45) {
+      _sheetController.animateTo(
+        0.35,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOutCubic,
+      );
+    }
 
     setState(() {
       // If clicking the same dot, deselect it
