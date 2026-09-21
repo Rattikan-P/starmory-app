@@ -45,8 +45,9 @@ class ScrapbookPolaroid extends StatelessWidget {
         height: height,
         child: Material(
           color: backgroundColor,
-          elevation: 3,
-          shadowColor: Colors.black.withValues(alpha: 0.22),
+          elevation: 2,
+          borderRadius: BorderRadius.circular(16),
+          shadowColor: Colors.black.withValues(alpha: 0.15),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
             onTap: onTap,
@@ -57,7 +58,10 @@ class ScrapbookPolaroid extends StatelessWidget {
                     Expanded(
                       child: Padding(
                         padding: EdgeInsets.all(frameBorder),
-                        child: SizedBox.expand(child: _buildImage()),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: SizedBox.expand(child: _buildImage()),
+                        ),
                       ),
                     ),
                     SizedBox(height: bottomArea),
@@ -65,33 +69,42 @@ class ScrapbookPolaroid extends StatelessWidget {
                 ),
                 if (vocabularyCount != null)
                   Positioned(
-                    top: frameBorder * 0.8,
-                    right: frameBorder * 0.45,
+                    top: frameBorder + 6,
+                    right: frameBorder + 6,
                     child: Semantics(
                       label: '$vocabularyCount stars collected in this memory',
                       child: ExcludeSemantics(
                         child: Container(
-                          height: 28,
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF1ECFF),
-                            borderRadius: BorderRadius.circular(8),
+                            color: const Color(0xFFEF4444),
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.15),
+                                blurRadius: 4,
+                                offset: const Offset(0, 1),
+                              ),
+                            ],
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               const Icon(
-                                Icons.auto_awesome_rounded,
-                                size: 15,
-                                color: Color(0xFF7351CC),
+                                Icons.star_rounded,
+                                size: 13,
+                                color: Colors.white,
                               ),
-                              const SizedBox(width: 4),
+                              const SizedBox(width: 3),
                               Text(
-                                '$vocabularyCount stars',
+                                '$vocabularyCount',
                                 style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: Color(0xFF493774),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
                                 ),
                               ),
                             ],

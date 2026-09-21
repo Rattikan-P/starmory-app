@@ -14,8 +14,10 @@ import '../providers/navigation_provider.dart';
 import '../../data/models/scrapbook_model.dart';
 import 'image_preview_screen.dart';
 import 'edit_scrapbook_screen.dart';
+import 'review_session_page.dart';
 import 'auth/account_method_page.dart';
 import 'profile_tab.dart';
+import '../providers/review_provider.dart';
 import '../utils/reward_unlock_helper.dart';
 import '../widgets/galaxy_screen_background.dart';
 import '../widgets/scrapbook_detail_sheet.dart';
@@ -153,47 +155,38 @@ class _HomeTabState extends ConsumerState<HomeTab>
     final quote = _quotes[DateTime.now().day % _quotes.length];
 
     return Scaffold(
-      body: GalaxyScreenBackground(
-        child: Column(
-          children: [
-            // Status bar spacer
-            SizedBox(
-              height: MediaQuery.of(context).padding.top,
-            ),
-            // Main content
-            Expanded(
-              child: SingleChildScrollView(
-                controller: _scrollController,
-                padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 12),
+      backgroundColor: const Color(0xFFF9FAFC),
+      body: SafeArea(
+        bottom: false,
+        child: SingleChildScrollView(
+          controller: _scrollController,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 6),
 
-                      // Header with warm greeting
-                      _buildHeader(context, userState),
+              // Header with greeting and profile avatar
+              _buildHeader(context, userState),
 
-                      const SizedBox(height: 20),
+              const SizedBox(height: 22),
 
-                      // Daily motivation + Quick Actions combined
-                      _buildActionCard(context, quote),
+              // Hero Card with "Every photo hides a word you don't know yet."
+              _buildHeroCard(context),
 
-                      const SizedBox(height: 20),
+              const SizedBox(height: 16),
 
-                      // Subtle quota indicator (only if needed)
-                      _buildSubtleQuotaIndicator(context),
+              // Quota indicator card
+              _buildQuotaCard(context),
 
-                      const SizedBox(height: 24),
+              const SizedBox(height: 24),
 
-                      // Recent Scrapbook
-                      _buildRecentScrapbook(context),
+              // Recent Scrapbook
+              _buildRecentScrapbook(context),
 
-                      const SizedBox(height: 100), // Extra space at bottom
-                    ],
-                  ),
-                ),
-            ),
-          ],
+              const SizedBox(height: 120), // Extra space at bottom for floating nav
+            ],
+          ),
         ),
       ),
     );
@@ -214,421 +207,321 @@ class _HomeTabState extends ConsumerState<HomeTab>
 
     final userName = userState.user?.displayName ?? 'Guest';
 
-    IconData getTimeIcon() {
-      if (hour < 12) return Icons.wb_sunny_rounded;
-      if (hour < 17) return Icons.wb_twilight_rounded;
-      if (hour < 21) return Icons.nights_stay_rounded;
-      return Icons.bedtime_rounded;
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF8b5cf6),
-            Color(0xFF7c3aed),
-          ],
+    return Row(
+      children: [
+        // Sun / Weather icon
+        const Icon(
+          Icons.wb_sunny_rounded,
+          size: 34,
+          color: Color(0xFF1F2937),
         ),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF8b5cf6).withValues(alpha: 0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Icon(
-            getTimeIcon(),
-            size: 42,
-            color: Colors.white.withValues(alpha: 0.9),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  greeting,
-                  style: GoogleFonts.lexend(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
-                    color: Colors.white.withValues(alpha: 0.8),
-                    height: 1.4,
-                  ),
+        const SizedBox(width: 14),
+        // Greeting & Name
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                greeting,
+                style: GoogleFonts.lexend(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: const Color(0xFF9CA3AF),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  (() {
-                    final display = userName.length > 11
-                        ? '${userName.substring(0, 11)}...'
-                        : userName;
-                    return display;
-                  })(),
-                  style: GoogleFonts.lexend(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                    height: 1.2,
-                  ),
-                  overflow: TextOverflow.visible,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                userName,
+                style: GoogleFonts.lexend(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF1F2937),
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+        // Profile Avatar
+        GestureDetector(
+          onTap: _openProfile,
+          child: Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white,
+              border: Border.all(
+                color: const Color(0xFFDDD6FE),
+                width: 1.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
                 ),
               ],
             ),
-          ),
-          const SizedBox(width: 16),
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: _openProfile,
-              borderRadius: BorderRadius.circular(18),
-              child: Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xFFC4B5FD), Color(0xFFA78BFA)],
-                  ),
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.3),
-                    width: 2,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF8b5cf6).withValues(alpha: 0.3),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
+            child: Center(
+              child: userState.user?.photoUrl != null
+                  ? ClipOval(
+                      child: CachedNetworkImage(
+                        imageUrl: userState.user!.photoUrl!,
+                        fit: BoxFit.cover,
+                        width: 48,
+                        height: 48,
+                      ),
+                    )
+                  : Text(
+                      userState.user?.displayNameOrEmail.isNotEmpty == true
+                          ? userState.user!.displayNameOrEmail[0].toUpperCase()
+                          : 'G',
+                      style: GoogleFonts.lexend(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF1F2937),
+                      ),
                     ),
-                  ],
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: userState.user?.photoUrl != null
-                      ? CachedNetworkImage(
-                          imageUrl: userState.user!.photoUrl!,
-                          fit: BoxFit.cover,
-                          placeholder: (context, url) => Center(
-                            child: Text(
-                              userState.user?.displayNameOrEmail[0].toUpperCase() ?? 'G',
-                              style: GoogleFonts.lexend(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 22,
-                              ),
-                            ),
-                          ),
-                          errorWidget: (context, url, error) => Center(
-                            child: Text(
-                              userState.user?.displayNameOrEmail[0].toUpperCase() ?? 'G',
-                              style: GoogleFonts.lexend(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 22,
-                              ),
-                            ),
-                          ),
-                        )
-                      : Center(
-                          child: Text(
-                            userState.user?.displayNameOrEmail[0].toUpperCase() ?? 'G',
-                            style: GoogleFonts.lexend(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 22,
-                            ),
-                          ),
-                        ),
-                ),
-              ),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
-  Widget _buildActionCard(BuildContext context, DailyQuote quote) {
+  Widget _buildHeroCard(BuildContext context) {
     final userState = ref.watch(userStateProvider);
     final user = userState.user;
     final canGenerate = user?.canGenerate ?? false;
     final isGuest = user?.isGuest ?? true;
 
     return Container(
-      padding: const EdgeInsets.all(24),
+      width: double.infinity,
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFFFFF1D6), // soft warm peach/yellow
+            Color(0xFFFEE6F2), // soft pastel pink
+            Color(0xFFEDE8FF), // soft lavender
+            Color(0xFFE0E7FF), // soft baby blue
+          ],
+          stops: [0.0, 0.35, 0.75, 1.0],
+        ),
+        borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
+            color: const Color(0xFF8B5CF6).withValues(alpha: 0.12),
             blurRadius: 20,
-            offset: const Offset(0, 4),
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
+            offset: const Offset(0, 6),
           ),
         ],
-        border: Border.all(
-          color: const Color(0xFFE2D1F9).withValues(alpha: 0.3),
-          width: 1,
-        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Stack(
         children: [
-          // Quote section
-          Row(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Color(0xFFFDE68A), // ส้มเหลืองอ่อนกว่า
-                      Color(0xFFFBCFE8), // ชมพู่อ่อนกว่า
-                    ],
+          // Background decorative outline stars
+          Positioned(
+            top: -15,
+            right: -25,
+            child: Icon(
+              Icons.star_border_rounded,
+              size: 150,
+              color: Colors.white.withValues(alpha: 0.45),
+            ),
+          ),
+          Positioned(
+            bottom: 20,
+            right: 30,
+            child: Icon(
+              Icons.star_border_rounded,
+              size: 75,
+              color: Colors.white.withValues(alpha: 0.35),
+            ),
+          ),
+          // Content
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 26),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Every photo hides a\nword you don't know\nyet.",
+                  style: GoogleFonts.lexend(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF2E244F),
+                    height: 1.25,
                   ),
-                  borderRadius: BorderRadius.circular(16),
                 ),
-                child: Center(
-                  child: Text(
-                    quote.emoji,
-                    style: const TextStyle(fontSize: 24),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                const SizedBox(height: 24),
+                // Action buttons: Camera & Gallery
+                Row(
                   children: [
-                    Text(
-                      quote.text,
-                      style: GoogleFonts.lexend(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                        color: const Color(0xFF1f2937),
-                        height: 1.4,
+                    // Camera Button
+                    Expanded(
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: canGenerate
+                              ? () => _pickImage(ImageSource.camera)
+                              : () => _showQuotaLimitDialog(isGuest),
+                          borderRadius: BorderRadius.circular(30),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [
+                                  Color(0xFF8B5CF6),
+                                  Color(0xFF7C3AED),
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(30),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFF7C3AED).withValues(alpha: 0.35),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(
+                                  Icons.camera_alt_rounded,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Camera',
+                                  style: GoogleFonts.lexend(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      quote.subtext,
-                      style: GoogleFonts.lexend(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w400,
-                        color: const Color(0xFF9ca3af),
+                    const SizedBox(width: 12),
+                    // Gallery Button
+                    Expanded(
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: canGenerate
+                              ? () => _pickImage(ImageSource.gallery)
+                              : () => _showQuotaLimitDialog(isGuest),
+                          borderRadius: BorderRadius.circular(30),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.88),
+                              borderRadius: BorderRadius.circular(30),
+                              border: Border.all(
+                                color: const Color(0xFFDDD6FE),
+                                width: 1.5,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(
+                                  Icons.photo_library_outlined,
+                                  color: Color(0xFF7C3AED),
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Gallery',
+                                  style: GoogleFonts.lexend(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                    color: const Color(0xFF7C3AED),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ],
                 ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 24),
-
-          // Action buttons
-          Row(
-            children: [
-              Expanded(
-                child: GestureDetector(
-                  onTap: canGenerate
-                      ? () => _pickImage(ImageSource.camera)
-                      : () => _showQuotaLimitDialog(isGuest),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 22),
-                    decoration: BoxDecoration(
-                      gradient: canGenerate
-                          ? const LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                Color(0xFF60a5fa),
-                                Color(0xFF3b82f6),
-                              ],
-                            )
-                          : const LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                Color(0xFFE5E7EB),
-                                Color(0xFFD1D5DB),
-                              ],
-                            ),
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: canGenerate
-                          ? [
-                              BoxShadow(
-                                color: const Color(0xFF60a5fa).withValues(alpha: 0.4),
-                                blurRadius: 12,
-                                offset: const Offset(0, 4),
-                              ),
-                            ]
-                          : null,
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.camera_alt_rounded,
-                          color: canGenerate ? Colors.white : const Color(0xFF9CA3AF),
-                          size: 22,
-                        ),
-                        const SizedBox(width: 10),
-                        Text(
-                          'Camera',
-                          style: GoogleFonts.lexend(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: canGenerate ? Colors.white : const Color(0xFF9CA3AF),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: GestureDetector(
-                  onTap: canGenerate
-                      ? () => _pickImage(ImageSource.gallery)
-                      : () => _showQuotaLimitDialog(isGuest),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 22),
-                    decoration: BoxDecoration(
-                      gradient: canGenerate
-                          ? const LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                Color(0xFFa78bfa),
-                                Color(0xFF8b5cf6),
-                              ],
-                            )
-                          : const LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                Color(0xFFE5E7EB),
-                                Color(0xFFD1D5DB),
-                              ],
-                            ),
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: canGenerate
-                          ? [
-                              BoxShadow(
-                                color: const Color(0xFFa78bfa).withValues(alpha: 0.4),
-                                blurRadius: 12,
-                                offset: const Offset(0, 4),
-                              ),
-                            ]
-                          : null,
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.photo_library_rounded,
-                          color: canGenerate ? Colors.white : const Color(0xFF9CA3AF),
-                          size: 22,
-                        ),
-                        const SizedBox(width: 10),
-                        Text(
-                          'Gallery',
-                          style: GoogleFonts.lexend(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: canGenerate ? Colors.white : const Color(0xFF9CA3AF),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildSubtleQuotaIndicator(BuildContext context) {
+  Widget _buildQuotaCard(BuildContext context) {
     final userState = ref.watch(userStateProvider);
     final user = userState.user;
 
-    if (user == null) return const SizedBox.shrink();
+    final isGuest = user?.isGuest ?? true;
+    final quotaManager = user?.quotaManager;
+    final todayUsage = quotaManager?.getTodayUsage() ?? 0;
+    final dailyLimit = quotaManager?.dailyLimit ?? 3;
+    final totalUsage = quotaManager?.usageHistory.length ?? 0;
+    final totalLimit = quotaManager?.totalLimit ?? 3;
 
-    final isGuest = user.isGuest;
-    final quotaManager = user.quotaManager;
-    final todayUsage = quotaManager.getTodayUsage();
-    final dailyLimit = quotaManager.dailyLimit;
-    final totalUsage = quotaManager.usageHistory.length;
-    final totalLimit = quotaManager.totalLimit;
-
-    final totalReached = totalUsage >= totalLimit;
-    final canGenerate = user.canGenerate;
     final remainingGenerations = isGuest
         ? (totalLimit - totalUsage).clamp(0, (dailyLimit - todayUsage).clamp(0, dailyLimit))
         : (dailyLimit - todayUsage).clamp(0, dailyLimit);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: const Color(0xFFEDE9FE),
+          width: 1.2,
+        ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
+            color: const Color(0xFF8B5CF6).withValues(alpha: 0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 3),
           ),
         ],
-        border: Border.all(
-          color: const Color(0xFFE2D1F9).withValues(alpha: 0.3),
-          width: 1,
-        ),
       ),
       child: Row(
         children: [
           Container(
-            width: 40,
-            height: 40,
+            width: 44,
+            height: 44,
             decoration: BoxDecoration(
-              color: canGenerate
-                  ? const Color(0xFFF3F4F6)
-                  : const Color(0xFFFEF3C7),
-              borderRadius: BorderRadius.circular(12),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: const Color(0xFF7C3AED),
+                width: 3,
+              ),
             ),
             child: Center(
               child: Text(
-                canGenerate ? '📸' : '✨',
-                style: const TextStyle(fontSize: 20),
+                '$remainingGenerations',
+                style: GoogleFonts.lexend(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF1F2937),
+                ),
               ),
             ),
           ),
@@ -638,75 +531,25 @@ class _HomeTabState extends ConsumerState<HomeTab>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  canGenerate
-                      ? '$remainingGenerations generations left today'
-                      : (totalReached && isGuest ? 'That\'s all for now!' : 'See you tomorrow'),
+                  '$remainingGenerations generation${remainingGenerations == 1 ? '' : 's'} left today',
                   style: GoogleFonts.lexend(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
-                    color: const Color(0xFF1f2937),
+                    color: const Color(0xFF1F2937),
                   ),
                 ),
-                if (canGenerate)
-                  Text(
-                    'Keep capturing memories',
-                    style: GoogleFonts.lexend(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w400,
-                      color: const Color(0xFF9ca3af),
-                    ),
-                  )
-                else if (!totalReached || !isGuest)
-                  Text(
-                    'Continue your journey tomorrow',
-                    style: GoogleFonts.lexend(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w400,
-                      color: const Color(0xFF9ca3af),
-                    ),
-                  )
-                else
-                  Text(
-                    'Save your progress forever',
-                    style: GoogleFonts.lexend(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w400,
-                      color: const Color(0xFF9ca3af),
-                    ),
+                const SizedBox(height: 2),
+                Text(
+                  'Keep capturing memories',
+                  style: GoogleFonts.lexend(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                    color: const Color(0xFF9CA3AF),
                   ),
+                ),
               ],
             ),
           ),
-          if (isGuest && !canGenerate && totalReached)
-            GestureDetector(
-              onTap: () {
-                AccountMethodPage.show(context);
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFFa78bfa), Color(0xFF8b5cf6)],
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF8b5cf6).withValues(alpha: 0.3),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Text(
-                  'Save my stars',
-                  style: GoogleFonts.lexend(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            ),
         ],
       ),
     );
@@ -1031,22 +874,19 @@ class _HomeTabState extends ConsumerState<HomeTab>
               'Recent Scrapbook',
               style: GoogleFonts.lexend(
                 fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFF1f2937),
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF1F2937),
               ),
             ),
-            TextButton.icon(
-              onPressed: () =>
+            GestureDetector(
+              onTap: () =>
                   ref.read(navigationProvider.notifier).goScrapbook(),
-              icon: const Icon(Icons.arrow_forward_rounded, size: 17),
-              label: const Text('View all'),
-              iconAlignment: IconAlignment.end,
-              style: TextButton.styleFrom(
-                foregroundColor: DesignTokens.brandColor,
-                minimumSize: const Size(0, DesignTokens.touchTarget),
-                textStyle: GoogleFonts.lexend(
-                  fontSize: 12,
+              child: Text(
+                'See all',
+                style: GoogleFonts.lexend(
+                  fontSize: 14,
                   fontWeight: FontWeight.w600,
+                  color: const Color(0xFF7C5CFC),
                 ),
               ),
             ),
