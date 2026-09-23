@@ -14,6 +14,10 @@ pluginManagement {
         google()
         mavenCentral()
         gradlePluginPortal()
+        maven("https://storage.flutter-io.cn/download.flutter.io")
+        maven("http://download.flutter.io") {
+            isAllowInsecureProtocol = true
+        }
     }
 
     resolutionStrategy {
