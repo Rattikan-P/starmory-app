@@ -444,17 +444,18 @@ class _InteractiveVocabularyScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      extendBodyBehindAppBar: true,
+      backgroundColor: const Color(0xFFF9FAFC),
       appBar: AppBar(
         elevation: 0,
         scrolledUnderElevation: 0,
-        backgroundColor: Colors.transparent,
-        foregroundColor: Colors.white,
+        backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF1F2937),
         leading: Padding(
           padding: const EdgeInsets.only(left: 16),
           child: Center(
-            child: _glassButton(
+            child: _appBarCircleButton(
               icon: Icons.arrow_back_ios_new_rounded,
+              iconSize: 18,
               onTap: () => Navigator.pop(context),
             ),
           ),
@@ -464,14 +465,7 @@ class _InteractiveVocabularyScreenState
           style: GoogleFonts.lexend(
             fontSize: 18,
             fontWeight: FontWeight.w600,
-            color: Colors.white,
-            shadows: [
-              Shadow(
-                color: Colors.black.withValues(alpha: 0.65),
-                blurRadius: 10,
-                offset: const Offset(0, 2),
-              ),
-            ],
+            color: const Color(0xFF1F2937),
           ),
         ),
         centerTitle: true,
@@ -479,8 +473,9 @@ class _InteractiveVocabularyScreenState
           Padding(
             padding: const EdgeInsets.only(right: 16),
             child: Center(
-              child: _glassButton(
+              child: _appBarCircleButton(
                 icon: Icons.refresh_rounded,
+                iconSize: 20,
                 onTap: () => _showRescanConfirmation(),
               ),
             ),
@@ -495,28 +490,6 @@ class _InteractiveVocabularyScreenState
               onTap: _selectedDotForOverlay != null ? _hideWordOverlay : null,
               behavior: HitTestBehavior.translucent,
               child: _buildImageWithDots(),
-            ),
-          ),
-
-          // Top Vignette Gradient Overlay (guarantees text and buttons pop over any photo)
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            height: 140,
-            child: IgnorePointer(
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.black.withValues(alpha: 0.65),
-                      Colors.transparent,
-                    ],
-                  ),
-                ),
-              ),
             ),
           ),
 
@@ -562,22 +535,27 @@ class _InteractiveVocabularyScreenState
     );
   }
 
-  Widget _glassButton({required IconData icon, VoidCallback? onTap}) {
+  Widget _appBarCircleButton({
+    required IconData icon,
+    required double iconSize,
+    VoidCallback? onTap,
+  }) {
     return GestureDetector(
       onTap: onTap,
+      behavior: HitTestBehavior.opaque,
       child: Container(
-        width: 42,
-        height: 42,
+        width: 40,
+        height: 40,
         decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.35),
+          color: Colors.white,
           shape: BoxShape.circle,
           border: Border.all(
-            color: Colors.white.withValues(alpha: 0.25),
-            width: 1.2,
+            color: const Color(0xFFE5E7EB),
+            width: 1,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.25),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -586,8 +564,8 @@ class _InteractiveVocabularyScreenState
         child: Center(
           child: Icon(
             icon,
-            color: Colors.white,
-            size: 18,
+            color: const Color(0xFF1F2937),
+            size: iconSize,
           ),
         ),
       ),
@@ -644,13 +622,13 @@ class _InteractiveVocabularyScreenState
               height: 22,
               decoration: BoxDecoration(
                 color: _useCombinedSentence
-                    ? const Color(0xFF7B6EF6)
+                    ? const Color(0xFF8B5CF6)
                     : Colors.transparent,
                 borderRadius: BorderRadius.circular(6),
                 border: Border.all(
                   color: _useCombinedSentence
-                      ? const Color(0xFF7B6EF6)
-                      : const Color.fromARGB(255, 77, 74, 98),
+                      ? const Color(0xFF8B5CF6)
+                      : const Color(0xFFD1D5DB),
                   width: 1.5,
                 ),
               ),
@@ -669,7 +647,7 @@ class _InteractiveVocabularyScreenState
             style: GoogleFonts.lexend(
               fontSize: 14,
               fontWeight: FontWeight.w600,
-              color: const Color(0xFF2D2A4A),
+              color: const Color(0xFF1F2937),
             ),
           ),
         ],
@@ -803,7 +781,7 @@ class _InteractiveVocabularyScreenState
                           style: GoogleFonts.lexend(
                             fontSize: 20,
                             fontWeight: FontWeight.w600,
-                            color: const Color(0xFF2D2A4A),
+                            color: const Color(0xFF1F2937),
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -824,9 +802,9 @@ class _InteractiveVocabularyScreenState
                               icon: const Icon(Icons.arrow_back),
                               label: const Text('Go Back'),
                               style: OutlinedButton.styleFrom(
-                                foregroundColor: const Color(0xFF6C63FF),
+                                foregroundColor: const Color(0xFF8B5CF6),
                                 side:
-                                    const BorderSide(color: Color(0xFF6C63FF)),
+                                    const BorderSide(color: Color(0xFF8B5CF6)),
                               ),
                             ),
                             const SizedBox(width: 16),
@@ -835,7 +813,7 @@ class _InteractiveVocabularyScreenState
                               icon: const Icon(Icons.refresh),
                               label: const Text('Rescan'),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF6C63FF),
+                                backgroundColor: const Color(0xFF8B5CF6),
                                 foregroundColor: Colors.white,
                               ),
                             ),
@@ -852,82 +830,13 @@ class _InteractiveVocabularyScreenState
               _containerSize =
                   Size(constraints.maxWidth, constraints.maxHeight);
 
-              final topMargin = MediaQuery.of(context).padding.top + 54.0;
               return Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  Positioned(
-                    top: topMargin,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    child: Align(
-                      alignment: Alignment.topCenter,
-                      child: Image.file(
-                        file,
-                        fit: BoxFit.contain,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(Icons.error_outline,
-                                    size: 48, color: Colors.red),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'Failed to load image',
-                                  style:
-                                      GoogleFonts.lexend(color: Colors.grey[700]),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Please try rescanning',
-                                  style: GoogleFonts.lexend(
-                                      fontSize: 12, color: Colors.grey[500]),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-                  // Show dots without precise positioning (will use normalized coordinates directly)
-                  if (_vocabularyDots.isNotEmpty)
-                    ..._buildVocabularyDotsFallback(
-                      constraints.maxWidth,
-                      constraints.maxHeight,
-                      topMargin: topMargin,
-                    ),
-                ],
-              );
-            }
-
-            final topMargin = MediaQuery.of(context).padding.top + 54.0;
-            final imageSize = snapshot.data!;
-
-            // Store dimensions for overlay use
-            _containerSize = Size(constraints.maxWidth, constraints.maxHeight);
-            _imageSize = imageSize;
-            _imageFit = _calculateBoxFitContain(
-              imageSize,
-              constraints.maxWidth,
-              constraints.maxHeight,
-              topMargin: topMargin,
-            );
-
-            return Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Positioned(
-                  top: topMargin,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: Align(
+                  Align(
                     alignment: Alignment.topCenter,
                     child: Image.file(
-                      File(widget.imagePath),
+                      file,
                       fit: BoxFit.contain,
                       errorBuilder: (context, error, stackTrace) {
                         return Center(
@@ -942,18 +851,70 @@ class _InteractiveVocabularyScreenState
                                 style:
                                     GoogleFonts.lexend(color: Colors.grey[700]),
                               ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Please try rescanning',
+                                style: GoogleFonts.lexend(
+                                    fontSize: 12, color: Colors.grey[500]),
+                              ),
                             ],
                           ),
                         );
                       },
                     ),
                   ),
+                  // Show dots without precise positioning (will use normalized coordinates directly)
+                  if (_vocabularyDots.isNotEmpty)
+                    ..._buildVocabularyDotsFallback(
+                      constraints.maxWidth,
+                      constraints.maxHeight,
+                    ),
+                ],
+              );
+            }
+
+            final imageSize = snapshot.data!;
+
+            // Store dimensions for overlay use
+            _containerSize = Size(constraints.maxWidth, constraints.maxHeight);
+            _imageSize = imageSize;
+            _imageFit = _calculateBoxFitContain(
+              imageSize,
+              constraints.maxWidth,
+              constraints.maxHeight,
+            );
+
+            return Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Align(
+                  alignment: Alignment.topCenter,
+                  child: Image.file(
+                    File(widget.imagePath),
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.error_outline,
+                                size: 48, color: Colors.red),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Failed to load image',
+                              style:
+                                  GoogleFonts.lexend(color: Colors.grey[700]),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
                 ),
                 ..._buildVocabularyDots(
                   constraints.maxWidth,
                   constraints.maxHeight,
                   imageSize,
-                  topMargin: topMargin,
                 ),
               ],
             );
@@ -972,7 +933,6 @@ class _InteractiveVocabularyScreenState
             double minChildSize = 0.15;
             double maxChildSize = 0.85;
 
-            final topMargin = MediaQuery.of(context).padding.top + 54.0;
             if (snapshot.hasData && snapshot.data != null) {
               final imageSize = snapshot.data!;
               final screenHeight = constraints.maxHeight;
@@ -982,11 +942,10 @@ class _InteractiveVocabularyScreenState
                 imageSize,
                 screenWidth,
                 screenHeight,
-                topMargin: topMargin,
               );
               final displayedImageHeight = imageSize.height * fit.scale;
 
-              final remainingHeight = screenHeight - (displayedImageHeight + topMargin);
+              final remainingHeight = screenHeight - displayedImageHeight;
               minChildSize = (remainingHeight / screenHeight).clamp(0.08, 0.5);
             }
 
@@ -1029,7 +988,7 @@ class _InteractiveVocabularyScreenState
                               color: Colors.white.withValues(alpha: 0.6)),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFF7B6EF6)
+                              color: const Color(0xFF8B5CF6)
                                   .withValues(alpha: 0.08),
                               blurRadius: 30,
                               offset: const Offset(0, -10),
@@ -1048,7 +1007,7 @@ class _InteractiveVocabularyScreenState
                                   width: 40,
                                   height: 4,
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFFD4CCFF),
+                                    color: const Color(0xFFDDD6FE),
                                     borderRadius: BorderRadius.circular(99),
                                   ),
                                 ),
@@ -1207,7 +1166,7 @@ class _InteractiveVocabularyScreenState
                                 style: const TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
-                                  color: Color(0xFF7B6EF6),
+                                  color: Color(0xFF8B5CF6),
                                 ),
                                 maxLines: 1,
                               ),
@@ -1225,7 +1184,7 @@ class _InteractiveVocabularyScreenState
                                     ? Icons.stop_rounded
                                     : Icons.volume_up_rounded,
                                 size: 20,
-                                color: const Color(0xFF7B6EF6),
+                                color: const Color(0xFF8B5CF6),
                               ),
                             ),
                           ),
@@ -1318,20 +1277,18 @@ class _InteractiveVocabularyScreenState
     return await File(widget.imagePath).readAsBytes();
   }
 
-  /// Calculate BoxFit.contain scaling and position with topMargin
+  /// Calculate BoxFit.contain scaling and position (aligned top-center)
   ({double scale, double offsetX, double offsetY}) _calculateBoxFitContain(
     Size imageSize,
     double containerWidth,
-    double containerHeight, {
-    double topMargin = 0,
-  }) {
-    final availableHeight = (containerHeight - topMargin).clamp(100.0, containerHeight);
+    double containerHeight,
+  ) {
     final imageAspectRatio = imageSize.width / imageSize.height;
-    final containerAspectRatio = containerWidth / availableHeight;
+    final containerAspectRatio = containerWidth / containerHeight;
 
     double scale;
     double offsetX = 0;
-    final double offsetY = topMargin;
+    const double offsetY = 0;
 
     // BoxFit.contain: scale to fit within container
     if (imageAspectRatio > containerAspectRatio) {
@@ -1339,7 +1296,7 @@ class _InteractiveVocabularyScreenState
       scale = containerWidth / imageSize.width;
     } else {
       // Image is taller than container - scale to height
-      scale = availableHeight / imageSize.height;
+      scale = containerHeight / imageSize.height;
       // Center horizontally
       offsetX = (containerWidth - imageSize.width * scale) / 2;
     }
@@ -1350,14 +1307,12 @@ class _InteractiveVocabularyScreenState
   List<Widget> _buildVocabularyDots(
     double containerWidth,
     double containerHeight,
-    Size imageSize, {
-    double topMargin = 0,
-  }) {
+    Size imageSize,
+  ) {
     final fit = _calculateBoxFitContain(
       imageSize,
       containerWidth,
       containerHeight,
-      topMargin: topMargin,
     );
 
     return _vocabularyDots.map((dot) {
@@ -1387,42 +1342,32 @@ class _InteractiveVocabularyScreenState
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 280),
                 curve: Curves.easeOutCubic,
-                width: isSelected ? 30 : 24,
-                height: isSelected ? 30 : 24,
+                width: isSelected ? 28 : 22,
+                height: isSelected ? 28 : 22,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: isSelected
                       ? const Color(0xFFFF6A3D)
-                      : const Color(0xFF8B5CF6).withValues(alpha: 0.9),
+                      : Colors.white.withValues(alpha: 0.85),
                   border: Border.all(
                     color: Colors.white,
-                    width: 2.2,
+                    width: isSelected ? 2.5 : 2.0,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: (isSelected
-                              ? const Color(0xFFFF6A3D)
-                              : const Color(0xFF8B5CF6))
-                          .withValues(alpha: isSelected ? 0.6 : 0.35),
-                      blurRadius: isSelected ? 10 : 6,
-                      spreadRadius: isSelected ? 2 : 1,
+                      color: isSelected
+                          ? const Color(0xFFFF6A3D).withValues(alpha: 0.6)
+                          : Colors.black.withValues(alpha: 0.28),
+                      blurRadius: isSelected ? 12 : 6,
+                      spreadRadius: isSelected ? 2 : 0,
+                      offset: isSelected ? Offset.zero : const Offset(0, 1.5),
                     ),
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.25),
-                      blurRadius: 5,
-                      offset: const Offset(0, 2),
-                    ),
+                    if (!isSelected)
+                      BoxShadow(
+                        color: Colors.white.withValues(alpha: 0.4),
+                        blurRadius: 4,
+                      ),
                   ],
-                ),
-                child: Center(
-                  child: Container(
-                    width: isSelected ? 8 : 6,
-                    height: isSelected ? 8 : 6,
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
                 ),
               ),
             ),
@@ -1436,16 +1381,14 @@ class _InteractiveVocabularyScreenState
   /// Uses normalized coordinates directly (assumes container is the display area)
   List<Widget> _buildVocabularyDotsFallback(
     double containerWidth,
-    double containerHeight, {
-    double topMargin = 0,
-  }) {
-    final availableHeight = (containerHeight - topMargin).clamp(100.0, containerHeight);
+    double containerHeight,
+  ) {
     return _vocabularyDots.map((dot) {
       final isSelected = _selectedWordIds.contains(dot.id);
 
       // Use normalized coordinates directly (0-1 range mapped to container)
       final displayedX = dot.x * containerWidth;
-      final displayedY = topMargin + (dot.y * availableHeight);
+      final displayedY = dot.y * containerHeight;
 
       const dotSize = 38.0;
 
@@ -1462,42 +1405,32 @@ class _InteractiveVocabularyScreenState
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 280),
                 curve: Curves.easeOutCubic,
-                width: isSelected ? 30 : 24,
-                height: isSelected ? 30 : 24,
+                width: isSelected ? 28 : 22,
+                height: isSelected ? 28 : 22,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: isSelected
                       ? const Color(0xFFFF6A3D)
-                      : const Color(0xFF8B5CF6).withValues(alpha: 0.9),
+                      : Colors.white.withValues(alpha: 0.85),
                   border: Border.all(
                     color: Colors.white,
-                    width: 2.2,
+                    width: isSelected ? 2.5 : 2.0,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: (isSelected
-                              ? const Color(0xFFFF6A3D)
-                              : const Color(0xFF8B5CF6))
-                          .withValues(alpha: isSelected ? 0.6 : 0.35),
-                      blurRadius: isSelected ? 10 : 6,
-                      spreadRadius: isSelected ? 2 : 1,
+                      color: isSelected
+                          ? const Color(0xFFFF6A3D).withValues(alpha: 0.6)
+                          : Colors.black.withValues(alpha: 0.28),
+                      blurRadius: isSelected ? 12 : 6,
+                      spreadRadius: isSelected ? 2 : 0,
+                      offset: isSelected ? Offset.zero : const Offset(0, 1.5),
                     ),
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.25),
-                      blurRadius: 5,
-                      offset: const Offset(0, 2),
-                    ),
+                    if (!isSelected)
+                      BoxShadow(
+                        color: Colors.white.withValues(alpha: 0.4),
+                        blurRadius: 4,
+                      ),
                   ],
-                ),
-                child: Center(
-                  child: Container(
-                    width: isSelected ? 8 : 6,
-                    height: isSelected ? 8 : 6,
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
                 ),
               ),
             ),
@@ -1529,29 +1462,29 @@ class _InteractiveVocabularyScreenState
 
           return InputChip(
             backgroundColor: isOverlayActive
-                ? const Color(0xFFE9E5FF)
-                : const Color(0xFFF1EEFF),
+                ? const Color(0xFFEDE9FE)
+                : const Color(0xFFF3F4F6),
             selected: isOverlayActive,
-            selectedColor: const Color(0xFFE9E5FF),
+            selectedColor: const Color(0xFFEDE9FE),
             showCheckmark: false,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(18),
               side: isOverlayActive
-                  ? const BorderSide(color: Color(0xFF7B6EF6), width: 1.5)
+                  ? const BorderSide(color: Color(0xFF8B5CF6), width: 1.5)
                   : BorderSide.none,
             ),
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
             labelStyle: TextStyle(
               color: isOverlayActive
-                  ? const Color(0xFF7B6EF6)
-                  : const Color(0xFF2D2A4A),
+                  ? const Color(0xFF8B5CF6)
+                  : const Color(0xFF1F2937),
               fontWeight: FontWeight.w600,
             ),
             label: Text(dot.word),
             deleteIcon: const Icon(Icons.close, size: 18),
             deleteIconColor: isOverlayActive
-                ? const Color(0xFF7B6EF6)
-                : const Color(0xFF8B87A6),
+                ? const Color(0xFF8B5CF6)
+                : const Color(0xFF9CA3AF),
             onPressed: () {
               // Open overlay for this word, just like tapping the dot on the image
               _showWordOverlay(dot);
@@ -1584,12 +1517,12 @@ class _InteractiveVocabularyScreenState
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFE7E1FF),
+        color: const Color(0xFFEDE9FE),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFD2C7FF), width: 1.2),
+        border: Border.all(color: const Color(0xFFDDD6FE), width: 1.2),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF7B6EF6).withOpacity(0.08),
+            color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
             blurRadius: 16,
             offset: const Offset(0, 6),
           ),
@@ -1604,7 +1537,7 @@ class _InteractiveVocabularyScreenState
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF6C63FF),
+                  color: const Color(0xFF8B5CF6),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Text(
@@ -1635,21 +1568,21 @@ class _InteractiveVocabularyScreenState
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFFF8F6FF),
+              color: Colors.white,
               borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: const Color(0xFFE0D8FF)),
+              border: Border.all(color: const Color(0xFFDDD6FE)),
             ),
             child: _isRegenerating
                 ? Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      SizedBox(
+                      const SizedBox(
                         width: 20,
                         height: 20,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          valueColor: const AlwaysStoppedAnimation<Color>(
-                            Color(0xFF6C63FF),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Color(0xFF8B5CF6),
                           ),
                         ),
                       ),
@@ -1712,7 +1645,7 @@ class _InteractiveVocabularyScreenState
                             ),
                             color: _isRegenerating
                                 ? Colors.grey
-                                : const Color(0xFF7B6EF6),
+                                : const Color(0xFF8B5CF6),
                             onPressed: _isRegenerating
                                 ? null
                                 : () => _refreshCombinedSentence(),
@@ -1725,11 +1658,11 @@ class _InteractiveVocabularyScreenState
                           IconButton(
                             icon: Icon(
                               _playingAudioId == 'combined_sentence'
-                                  ? Icons.stop_rounded
-                                  : Icons.volume_up_rounded,
+                                    ? Icons.stop_rounded
+                                    : Icons.volume_up_rounded,
                               size: 22,
                             ),
-                            color: const Color(0xFF7B6EF6),
+                            color: const Color(0xFF8B5CF6),
                             onPressed: () => _playSentenceAudio(
                               'combined_sentence',
                               firstSelectedDot.englishSentence,
@@ -1765,7 +1698,7 @@ class _InteractiveVocabularyScreenState
                 ),
                 style: TextButton.styleFrom(
                   foregroundColor:
-                      _isRegenerating ? Colors.grey : const Color(0xFF7C5CFC),
+                      _isRegenerating ? Colors.grey : const Color(0xFF8B5CF6),
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 ),
               ),
@@ -1786,14 +1719,14 @@ class _InteractiveVocabularyScreenState
             const Icon(
               Icons.touch_app_rounded,
               size: 70,
-              color: Color(0xFFC5BCFF),
+              color: Color(0xFFDDD6FE),
             ),
             const SizedBox(height: 16),
             Text(
               'Tap the dots on the image',
               style: GoogleFonts.lexend(
                 fontSize: 18,
-                color: const Color(0xFF2D2A4A),
+                color: const Color(0xFF1F2937),
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -1801,7 +1734,7 @@ class _InteractiveVocabularyScreenState
             Text(
               'to select vocabulary words',
               style: GoogleFonts.lexend(
-                  fontSize: 14, color: const Color(0xFF8B87A6)),
+                  fontSize: 14, color: const Color(0xFF6B7280)),
             ),
           ],
         ),
@@ -2556,7 +2489,7 @@ class _InteractiveVocabularyScreenState
               );
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF6C63FF),
+              backgroundColor: const Color(0xFF8B5CF6),
               foregroundColor: Colors.white,
             ),
             child: const Text('Rescan'),
@@ -2871,7 +2804,7 @@ class _WordDetailCard extends StatelessWidget {
                       style: GoogleFonts.lexend(
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
-                        color: const Color(0xFF7C5CFC),
+                        color: const Color(0xFF7C3AED),
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -2895,7 +2828,7 @@ class _WordDetailCard extends StatelessWidget {
                 ),
                 color: isRegenerating || isSentenceRegenerating
                     ? Colors.grey
-                    : const Color(0xFF6C63FF),
+                    : const Color(0xFF8B5CF6),
                 onPressed: isRegenerating || isSentenceRegenerating
                     ? null
                     : onAudioTap,
@@ -2908,7 +2841,7 @@ class _WordDetailCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFFF6F4FF),
+              color: const Color(0xFFEDE9FE).withValues(alpha: 0.5),
               borderRadius: BorderRadius.circular(18),
             ),
             child: dot.englishSentence.isEmpty ||
@@ -2923,7 +2856,7 @@ class _WordDetailCard extends StatelessWidget {
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
                           valueColor: AlwaysStoppedAnimation<Color>(
-                            Color(0xFF6C63FF),
+                            Color(0xFF8B5CF6),
                           ),
                         ),
                       ),
@@ -2972,7 +2905,7 @@ class _WordDetailCard extends StatelessWidget {
                         ),
                         color: isRegenerating || isSentenceRegenerating
                             ? Colors.grey
-                            : const Color(0xFF6C63FF),
+                            : const Color(0xFF8B5CF6),
                         onPressed: isRegenerating || isSentenceRegenerating
                             ? null
                             : onRegenerateSentenceTap,
@@ -2991,7 +2924,7 @@ class _WordDetailCard extends StatelessWidget {
                         ),
                         color: isRegenerating || isSentenceRegenerating
                             ? Colors.grey
-                            : const Color(0xFF6C63FF),
+                            : const Color(0xFF8B5CF6),
                         onPressed: isRegenerating || isSentenceRegenerating
                             ? null
                             : onSentenceAudioTap,
@@ -3027,7 +2960,7 @@ class _WordDetailCard extends StatelessWidget {
                 style: TextButton.styleFrom(
                   foregroundColor: isRegenerating || isSentenceRegenerating
                       ? Colors.grey
-                      : const Color(0xFF7C5CFC),
+                      : const Color(0xFF8B5CF6),
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 ),
               ),
@@ -3050,19 +2983,19 @@ class _ContextChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: const Color(0xFFF1EEFF),
+        color: const Color(0xFFEDE9FE),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: const Color(0xFF7B6EF6)),
+          Icon(icon, size: 14, color: const Color(0xFF7C3AED)),
           const SizedBox(width: 4),
           Text(
             label,
             style: const TextStyle(
               fontSize: 12,
-              color: Color(0xFF7B6EF6),
+              color: Color(0xFF7C3AED),
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -3225,11 +3158,11 @@ class _ContextSelectorScreenState extends State<ContextSelectorScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.9),
+                color: Colors.white,
                 borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.04),
+                    color: Colors.black.withValues(alpha: 0.04),
                     blurRadius: 18,
                     offset: const Offset(0, 8),
                   ),
@@ -3242,7 +3175,7 @@ class _ContextSelectorScreenState extends State<ContextSelectorScreen> {
                     style: GoogleFonts.lexend(
                       fontSize: 24,
                       fontWeight: FontWeight.w700,
-                      color: const Color(0xFF7B6EF6),
+                      color: const Color(0xFF8B5CF6),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -3289,7 +3222,7 @@ class _ContextSelectorScreenState extends State<ContextSelectorScreen> {
               child: ElevatedButton(
                 onPressed: _handleApply,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF6C63FF),
+                  backgroundColor: const Color(0xFF8B5CF6),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
@@ -3308,8 +3241,8 @@ class _ContextSelectorScreenState extends State<ContextSelectorScreen> {
               child: OutlinedButton(
                 onPressed: _handleApplyToAll,
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFF6C63FF),
-                  side: const BorderSide(color: Color(0xFF6C63FF)),
+                  foregroundColor: const Color(0xFF8B5CF6),
+                  side: const BorderSide(color: Color(0xFF8B5CF6)),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
                   ),
@@ -3352,12 +3285,17 @@ class _ContextSelectorScreenState extends State<ContextSelectorScreen> {
           onSelected: (_) {
             setState(() => _selectedTone = tone);
           },
-          selectedColor: const Color(0xFFDCD4FF),
+          selectedColor: const Color(0xFFEDE9FE),
           backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          side: BorderSide(color: const Color(0xFFD8D1FF), width: 1.2),
+          side: BorderSide(
+            color: isSelected
+                ? const Color(0xFF8B5CF6)
+                : const Color(0xFFDDD6FE),
+            width: 1.2,
+          ),
         );
       }).toList(),
     );
@@ -3375,12 +3313,17 @@ class _ContextSelectorScreenState extends State<ContextSelectorScreen> {
           onSelected: (_) {
             setState(() => _selectedCategory = category);
           },
-          selectedColor: const Color(0xFFDCD4FF),
+          selectedColor: const Color(0xFFEDE9FE),
           backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          side: BorderSide(color: const Color(0xFFD8D1FF), width: 1.2),
+          side: BorderSide(
+            color: isSelected
+                ? const Color(0xFF8B5CF6)
+                : const Color(0xFFDDD6FE),
+            width: 1.2,
+          ),
         );
       }).toList(),
     );
@@ -3533,11 +3476,11 @@ class _CombinedContextSelectorScreenState
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.9),
+                color: Colors.white,
                 borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.04),
+                    color: Colors.black.withValues(alpha: 0.04),
                     blurRadius: 18,
                     offset: const Offset(0, 8),
                   ),
@@ -3551,7 +3494,7 @@ class _CombinedContextSelectorScreenState
                     style: GoogleFonts.lexend(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
-                      color: const Color(0xFF7B6EF6),
+                      color: const Color(0xFF8B5CF6),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -3598,7 +3541,7 @@ class _CombinedContextSelectorScreenState
               child: ElevatedButton(
                 onPressed: _handleApply,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF6C63FF),
+                  backgroundColor: const Color(0xFF8B5CF6),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
@@ -3639,12 +3582,17 @@ class _CombinedContextSelectorScreenState
           onSelected: (_) {
             setState(() => _selectedTone = tone);
           },
-          selectedColor: const Color(0xFFDCD4FF),
+          selectedColor: const Color(0xFFEDE9FE),
           backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          side: BorderSide(color: const Color(0xFFD8D1FF), width: 1.2),
+          side: BorderSide(
+            color: isSelected
+                ? const Color(0xFF8B5CF6)
+                : const Color(0xFFDDD6FE),
+            width: 1.2,
+          ),
         );
       }).toList(),
     );
@@ -3662,12 +3610,17 @@ class _CombinedContextSelectorScreenState
           onSelected: (_) {
             setState(() => _selectedCategory = category);
           },
-          selectedColor: const Color(0xFFDCD4FF),
+          selectedColor: const Color(0xFFEDE9FE),
           backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          side: BorderSide(color: const Color(0xFFD8D1FF), width: 1.2),
+          side: BorderSide(
+            color: isSelected
+                ? const Color(0xFF8B5CF6)
+                : const Color(0xFFDDD6FE),
+            width: 1.2,
+          ),
         );
       }).toList(),
     );
