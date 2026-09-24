@@ -152,19 +152,28 @@ class _ScrapbookDetailSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: Colors.white,
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       clipBehavior: Clip.antiAlias,
       child: Column(
         children: [
+          const SizedBox(height: 10),
+          Container(
+            width: 36,
+            height: 4,
+            decoration: BoxDecoration(
+              color: const Color(0xFFE5E7EB),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
           _buildHeader(context),
-          const Divider(height: 1, thickness: 1, color: Color(0xFFE9E7EC)),
+          const Divider(height: 1, thickness: 1, color: Color(0xFFF3F4F6)),
           Expanded(
             child: ListView(
               controller: scrollController,
               padding: EdgeInsets.fromLTRB(
-                26,
                 24,
-                26,
+                20,
+                24,
                 24 + MediaQuery.paddingOf(context).bottom,
               ),
               children: [
@@ -174,7 +183,7 @@ class _ScrapbookDetailSheet extends StatelessWidget {
                   scrapbooks: photoScrapbooks,
                   onTap: (entry) => _openEditor(context, entry),
                 ),
-                const SizedBox(height: 30),
+                const SizedBox(height: 28),
                 const _SectionTitle(title: 'Vocab'),
                 const SizedBox(height: 14),
                 _buildVocabulary(context),
@@ -188,7 +197,7 @@ class _ScrapbookDetailSheet extends StatelessWidget {
 
   Widget _buildHeader(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(26, 18, 18, 16),
+      padding: const EdgeInsets.fromLTRB(24, 12, 16, 14),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -201,7 +210,7 @@ class _ScrapbookDetailSheet extends StatelessWidget {
                   style: GoogleFonts.lexend(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
-                    color: const Color(0xFF2D2B30),
+                    color: const Color(0xFF1F2937),
                   ),
                 ),
                 if (scrapbooks.length > 1)
@@ -211,7 +220,7 @@ class _ScrapbookDetailSheet extends StatelessWidget {
                       '${scrapbooks.length} memories saved on this day',
                       style: GoogleFonts.lexend(
                         fontSize: 12,
-                        color: DesignTokens.textSecondary,
+                        color: const Color(0xFF6B7280),
                       ),
                     ),
                   ),
@@ -222,8 +231,8 @@ class _ScrapbookDetailSheet extends StatelessWidget {
           IconButton(
             tooltip: 'Close',
             onPressed: () => Navigator.of(context).pop(),
-            icon: const Icon(Icons.close_rounded, size: 28),
-            color: const Color(0xFF27252A),
+            icon: const Icon(Icons.close_rounded, size: 24),
+            color: const Color(0xFF4B5563),
           ),
         ],
       ),
@@ -270,37 +279,41 @@ class _ScrapbookDetailSheet extends StatelessWidget {
         'No vocabulary saved yet',
         style: GoogleFonts.lexend(
           fontSize: 13,
-          color: DesignTokens.textSecondary,
+          color: const Color(0xFF6B7280),
         ),
       );
     }
 
     return Wrap(
-      spacing: 12,
+      spacing: 10,
       runSpacing: 10,
       children: vocabulary.map((word) {
         return Semantics(
           button: true,
           label: '${word.word}, ${word.thaiTranslation}',
           child: Material(
-            color: const Color(0xFFF4F3F5),
-            borderRadius: BorderRadius.circular(DesignTokens.radiusSmall),
+            color: const Color(0xFFF9FAFB),
+            borderRadius: BorderRadius.circular(12),
             child: InkWell(
               onTap: () => _showWordDetail(context, word),
-              borderRadius: BorderRadius.circular(DesignTokens.radiusSmall),
-              child: ConstrainedBox(
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: const Color(0xFFE5E7EB),
+                    width: 1,
+                  ),
+                ),
                 constraints: const BoxConstraints(minWidth: 96),
-                child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  child: Text(
-                    word.word,
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.lexend(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF302D33),
-                    ),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                child: Text(
+                  word.word,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.lexend(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF1F2937),
                   ),
                 ),
               ),
@@ -325,18 +338,27 @@ class _SectionTitle extends StatelessWidget {
         Text(
           title,
           style: GoogleFonts.lexend(
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-            color: const Color(0xFF302D33),
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: const Color(0xFF1F2937),
           ),
         ),
         if (count != null) ...[
-          const SizedBox(width: 7),
-          Text(
-            '$count',
-            style: GoogleFonts.lexend(
-              fontSize: 12,
-              color: DesignTokens.textSecondary,
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF5F3FF),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFEDE9FE)),
+            ),
+            child: Text(
+              '$count',
+              style: GoogleFonts.lexend(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF7C3AED),
+              ),
             ),
           ),
         ],

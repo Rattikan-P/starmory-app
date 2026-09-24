@@ -7,21 +7,16 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
-import '../../constants/design_tokens.dart';
 import '../providers/providers.dart';
-import '../providers/scrapbook_provider.dart';
-import '../providers/navigation_provider.dart';
 import '../../data/models/scrapbook_model.dart';
 import 'image_preview_screen.dart';
 import 'edit_scrapbook_screen.dart';
-import 'review_session_page.dart';
 import 'auth/account_method_page.dart';
 import 'profile_tab.dart';
-import '../providers/review_provider.dart';
 import '../utils/reward_unlock_helper.dart';
-import '../widgets/galaxy_screen_background.dart';
 import '../widgets/scrapbook_detail_sheet.dart';
 import '../widgets/scrapbook_polaroid.dart';
+import '../widgets/top_header_actions.dart';
 
 /// Home Tab - Main screen with AI generation
 /// Redesigned to feel warm, welcoming, and pressure-free
@@ -160,12 +155,10 @@ class _HomeTabState extends ConsumerState<HomeTab>
         bottom: false,
         child: SingleChildScrollView(
           controller: _scrollController,
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 6),
-
               // Header with greeting and profile avatar
               _buildHeader(context, userState),
 
@@ -206,88 +199,59 @@ class _HomeTabState extends ConsumerState<HomeTab>
     }
 
     final userName = userState.user?.displayName ?? 'Guest';
+    final avatarLetter = userState.user?.displayNameOrEmail.isNotEmpty == true
+        ? userState.user!.displayNameOrEmail[0].toUpperCase()
+        : 'G';
+    final photoUrl = userState.user?.photoUrl;
 
-    return Row(
-      children: [
-        // Sun / Weather icon
-        const Icon(
-          Icons.wb_sunny_rounded,
-          size: 34,
-          color: Color(0xFF1F2937),
-        ),
-        const SizedBox(width: 14),
-        // Greeting & Name
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                greeting,
-                style: GoogleFonts.lexend(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xFF9CA3AF),
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                userName,
-                style: GoogleFonts.lexend(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF1F2937),
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
+    return SizedBox(
+      height: 52,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Sun / Weather icon
+          const Icon(
+            Icons.wb_sunny_rounded,
+            size: 32,
+            color: Color(0xFF1F2937),
           ),
-        ),
-        // Profile Avatar
-        GestureDetector(
-          onTap: _openProfile,
-          child: Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.white,
-              border: Border.all(
-                color: const Color(0xFFDDD6FE),
-                width: 1.5,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
-                  blurRadius: 10,
-                  offset: const Offset(0, 2),
+          const SizedBox(width: 14),
+          // Greeting & Name
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  greeting,
+                  style: GoogleFonts.lexend(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w400,
+                    color: const Color(0xFF9892A6),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  userName,
+                  style: GoogleFonts.lexend(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF221F33),
+                    letterSpacing: -0.4,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
-            child: Center(
-              child: userState.user?.photoUrl != null
-                  ? ClipOval(
-                      child: CachedNetworkImage(
-                        imageUrl: userState.user!.photoUrl!,
-                        fit: BoxFit.cover,
-                        width: 48,
-                        height: 48,
-                      ),
-                    )
-                  : Text(
-                      userState.user?.displayNameOrEmail.isNotEmpty == true
-                          ? userState.user!.displayNameOrEmail[0].toUpperCase()
-                          : 'G',
-                      style: GoogleFonts.lexend(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF1F2937),
-                      ),
-                    ),
-            ),
           ),
-        ),
-      ],
+          const SizedBox(width: 8),
+          // Top Header Actions (Streak + Shield + Profile Avatar)
+          TopHeaderActions(
+            onProfileTap: _openProfile,
+          ),
+        ],
+      ),
     );
   }
 
@@ -304,12 +268,12 @@ class _HomeTabState extends ConsumerState<HomeTab>
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color(0xFFFFF1D6), // soft warm peach/yellow
-            Color(0xFFFEE6F2), // soft pastel pink
-            Color(0xFFEDE8FF), // soft lavender
-            Color(0xFFE0E7FF), // soft baby blue
+            Color(0xFFFFE5C2), // rich warm peach/champagne
+            Color(0xFFFDCFE0), // rich rose pastel pink
+            Color(0xFFDFD2FD), // rich lilac lavender
+            Color(0xFFCEC2FD), // soft vivid violet purple
           ],
-          stops: [0.0, 0.35, 0.75, 1.0],
+          stops: [0.0, 0.32, 0.70, 1.0],
         ),
         borderRadius: BorderRadius.circular(28),
         boxShadow: [
@@ -977,8 +941,13 @@ class _HomeTabState extends ConsumerState<HomeTab>
   }
 
   Widget _buildScrapbookCard(BuildContext context, ScrapbookModel scrapbook, int index) {
+    final tiltAngle = index.isEven ? -0.018 : 0.018;
+
     if (MediaQuery.disableAnimationsOf(context)) {
-      return _buildScrapbookCardInteractive(context, scrapbook);
+      return Transform.rotate(
+        angle: tiltAngle,
+        child: _buildScrapbookCardInteractive(context, scrapbook),
+      );
     }
 
     return TweenAnimationBuilder<double>(
@@ -990,7 +959,10 @@ class _HomeTabState extends ConsumerState<HomeTab>
           offset: Offset(18 * (1 - value), 0),
           child: Opacity(
             opacity: value,
-            child: _buildScrapbookCardInteractive(context, scrapbook),
+            child: Transform.rotate(
+              angle: tiltAngle,
+              child: _buildScrapbookCardInteractive(context, scrapbook),
+            ),
           ),
         );
       },

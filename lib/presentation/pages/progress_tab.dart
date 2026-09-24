@@ -3,13 +3,13 @@ import 'dart:io';
 import 'package:flutter/material.dart' hide Badge;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../../data/models/vocabulary_model.dart';
 import '../../data/services/dictionary_service.dart';
 import '../../utils/topic_categories.dart';
 import '../providers/providers.dart';
 import '../widgets/reward_icon_widget.dart';
 import '../widgets/badges_section.dart';
+import '../widgets/top_header_actions.dart';
 import '../widgets/vocabulary_detail_bottom_sheet.dart';
 import 'badges_page.dart';
 import 'stickers_page.dart';
@@ -98,6 +98,23 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
         });
       }
     });
+  }
+
+  Future<void> _onRefresh() async {
+    final currentUser = ref.read(userStateProvider).user;
+    if (currentUser != null && !currentUser.isGuest) {
+      try {
+        await ref.read(userStateProvider.notifier).refreshUserFromSupabase();
+        await ref.read(vocabularyStateProvider.notifier).syncFromCloud();
+      } catch (e) {
+        await ref.read(vocabularyStateProvider.notifier).refresh();
+      }
+    } else {
+      await ref.read(vocabularyStateProvider.notifier).refresh();
+    }
+    try {
+      await ref.read(scrapbookStateProvider.notifier).refresh();
+    } catch (_) {}
   }
 
   void _applyFiltersAndLoadInitial(List<VocabularyModel> allVocabularies) {
@@ -205,8 +222,6 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
     final totalPhotos = uniqueImages.where((url) => url.isNotEmpty).length;
     final streakDays = streakData?.currentStreak ?? 0;
     final longestStreak = streakData?.longestStreak ?? 0;
-    final shields = streakData?.shieldsAvailable ?? 0;
-    final streakMultiplier = _calculateStreakMultiplier(streakDays);
 
     // Calculate total unique learning days across all vocabularies, scrapbooks, and streak
     final scrapbookState = ref.watch(scrapbookStateProvider);
@@ -288,41 +303,51 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
 
               // Content
               Expanded(
-                child: SingleChildScrollView(
-                  controller: _scrollController,
-                  physics: const BouncingScrollPhysics(),
-                  padding: EdgeInsets.zero,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Streak Banner
-                      _buildStreakBanner(streakDays, streakMultiplier, shields),
+                child: RefreshIndicator(
+                  color: const Color(0xFF7C5CFC),
+                  onRefresh: _onRefresh,
+                  child: LayoutBuilder(
+                    builder: (context, constraints) => SingleChildScrollView(
+                      controller: _scrollController,
+                      physics: const AlwaysScrollableScrollPhysics(
+                        parent: BouncingScrollPhysics(),
+                      ),
+                      padding: EdgeInsets.zero,
+                      child: ConstrainedBox(
+                        constraints:
+                            BoxConstraints(minHeight: constraints.maxHeight),
+                        child: Container(
+                          color: Colors.transparent,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Unified Hero Card
+                              _buildUnifiedHeroCard(
+                                totalStars: totalStars,
+                                streakDays: streakDays,
+                                totalPhotos: totalPhotos,
+                                daysLearning: daysLearning,
+                              ),
 
-                      const SizedBox(height: 12),
+                              const SizedBox(height: 16),
 
-                      // Stars Stats Card
-                      _buildStarsStatsCard(totalStars, streakDays),
+                              // Tab Bar
+                              _buildTabBar(),
 
-                      const SizedBox(height: 12),
+                              const SizedBox(height: 16),
 
-                      // Mini Stats Row
-                      _buildMiniStatsRow(totalPhotos, daysLearning),
+                              // Tab content
+                              if (_selectedTab == 'Vocab')
+                                _buildGalaxyCollectionSection(totalStars)
+                              else
+                                _buildRewardSection(totalStars, streakDays),
 
-                      const SizedBox(height: 16),
-
-                      // Tab Bar
-                      _buildTabBar(),
-
-                      const SizedBox(height: 16),
-
-                      // Tab content
-                      if (_selectedTab == 'Vocab')
-                        _buildGalaxyCollectionSection(totalStars)
-                      else
-                        _buildRewardSection(totalStars, streakDays),
-
-                      const SizedBox(height: 32),
-                    ],
+                              const SizedBox(height: 120),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -331,13 +356,6 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
         ),
       ),
     );
-  }
-
-  int _calculateStreakMultiplier(int streak) {
-    if (streak >= 30) return 3;
-    if (streak >= 14) return 2;
-    if (streak >= 7) return 2;
-    return 1;
   }
 
   /// Sort vocabularies by their word card's due date
@@ -389,207 +407,54 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
   }
 
   Widget _buildHeader() {
-    final userState = ref.watch(userStateProvider);
-    final user = userState.user;
-    final photoUrl = user?.photoUrl;
-    final displayName = user?.displayName ?? 'User';
-    final avatarLetter = displayName.isNotEmpty ? displayName[0].toUpperCase() : 'U';
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'My Progress',
-                style: GoogleFonts.lexend(
-                  fontSize: 27,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.5,
-                  color: const Color(0xFF221F33),
-                ),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                'Your learning journey & collected vocabulary',
-                style: GoogleFonts.lexend(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w400,
-                  color: const Color(0xFF9892A6),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 12),
-        // Interactive Circular User Avatar matching Profile & Review & Home
-        Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: _openProfile,
-            customBorder: const CircleBorder(),
-            child: Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: const Color(0xFFF4EEFF),
-                border: Border.all(color: const Color(0xFFE2DBFD), width: 1.5),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF7C5CFC).withValues(alpha: 0.12),
-                    blurRadius: 10,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: ClipOval(
-                child: photoUrl != null && photoUrl.isNotEmpty
-                    ? CachedNetworkImage(
-                        imageUrl: photoUrl,
-                        fit: BoxFit.cover,
-                        width: 48,
-                        height: 48,
-                        placeholder: (context, url) => Center(
-                          child: Text(
-                            avatarLetter,
-                            style: GoogleFonts.lexend(
-                              fontSize: 19,
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xFF7C5CFC),
-                            ),
-                          ),
-                        ),
-                        errorWidget: (context, url, error) => Center(
-                          child: Text(
-                            avatarLetter,
-                            style: GoogleFonts.lexend(
-                              fontSize: 19,
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xFF7C5CFC),
-                            ),
-                          ),
-                        ),
-                      )
-                    : Center(
-                        child: Text(
-                          avatarLetter,
-                          style: GoogleFonts.lexend(
-                            fontSize: 19,
-                            fontWeight: FontWeight.w600,
-                            color: const Color(0xFF7C5CFC),
-                          ),
-                        ),
-                      ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStreakBanner(int days, int multiplier, int shields) {
-    return Container(
-      height: 48,
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFF7F2),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: const Color(0xFFFFE6D8),
-          width: 1.2,
-        ),
-      ),
+    return SizedBox(
+      height: 52,
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Container(
-            padding: const EdgeInsets.all(5),
-            decoration: const BoxDecoration(
-              color: Color(0xFFFFECE0),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.local_fire_department_rounded,
-              color: Color(0xFFFF5722),
-              size: 18,
-            ),
-          ),
-          const SizedBox(width: 10),
           Expanded(
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  '$days Day Streak',
+                  'My Progress',
                   style: GoogleFonts.lexend(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 26,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.5,
                     color: const Color(0xFF221F33),
                   ),
                 ),
-                if (multiplier > 1) ...[
-                  const SizedBox(width: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFF5722),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      '${multiplier}x',
-                      style: GoogleFonts.lexend(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
-                    ),
+                const SizedBox(height: 2),
+                Text(
+                  'Your learning journey',
+                  style: GoogleFonts.lexend(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w400,
+                    color: const Color(0xFF9892A6),
                   ),
-                ],
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ],
             ),
           ),
-          // Shield badge
-          GestureDetector(
-            onTap: () => _showShieldInfoDialog(context),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: const Color(0xFFFFDFCE),
-                  width: 1,
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.shield_rounded,
-                    size: 13,
-                    color: Color(0xFFFF7A51),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    '$shields',
-                    style: GoogleFonts.lexend(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF221F33),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+          const SizedBox(width: 8),
+          TopHeaderActions(
+            onProfileTap: _openProfile,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildStarsStatsCard(int totalStars, int streakDays) {
+  Widget _buildUnifiedHeroCard({
+    required int totalStars,
+    required int streakDays,
+    required int totalPhotos,
+    required int daysLearning,
+  }) {
     final badgeState = ref.watch(badgeStateProvider);
     final upcoming = badgeState.getNextUpcomingBadge(totalStars, streakDays, category: 'Stars');
 
@@ -603,13 +468,14 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [
-            Color(0xFFFFEEDB),
-            Color(0xFFFBE4EA),
-            Color(0xFFEDE3FD),
-            Color(0xFFDFD8FD),
+            Color(0xFFFFE5C2), // warm peach
+            Color(0xFFFDCFE0), // pastel pink
+            Color(0xFFDFD2FD), // lilac
+            Color(0xFFCEC2FD), // soft violet
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
+          stops: [0.0, 0.32, 0.70, 1.0],
         ),
         borderRadius: BorderRadius.circular(28),
         boxShadow: [
@@ -624,80 +490,73 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
         borderRadius: BorderRadius.circular(28),
         child: Stack(
           children: [
-            // Scattered decorative stars in background
+            // Decorative background stars
             Positioned(
               top: -10,
-              right: 20,
+              right: 18,
               child: Transform.rotate(
                 angle: 0.2,
                 child: const Opacity(
-                  opacity: 0.35,
-                  child: Icon(Icons.star_border_rounded, size: 80, color: Colors.white),
+                  opacity: 0.3,
+                  child: Icon(Icons.star_border_rounded, size: 85, color: Colors.white),
                 ),
               ),
             ),
             Positioned(
-              bottom: -15,
-              left: 40,
+              bottom: 30,
+              left: 30,
               child: Transform.rotate(
                 angle: -0.15,
                 child: const Opacity(
-                  opacity: 0.3,
-                  child: Icon(Icons.star_rounded, size: 55, color: Colors.white),
+                  opacity: 0.25,
+                  child: Icon(Icons.star_rounded, size: 50, color: Colors.white),
                 ),
               ),
             ),
-            Positioned(
-              top: 35,
-              right: 90,
-              child: const Opacity(
-                opacity: 0.3,
-                child: Icon(Icons.star_rounded, size: 24, color: Colors.white),
-              ),
-            ),
 
-            // Main Content
+            // Content
             Padding(
-              padding: const EdgeInsets.all(22),
+              padding: const EdgeInsets.all(20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Stars count
+                  // Top Row: Stars count & label (vertically centered & aligned)
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Text(
                         '$totalStars',
                         style: GoogleFonts.lexend(
-                          fontSize: 56,
+                          fontSize: 44,
                           fontWeight: FontWeight.w800,
                           color: const Color(0xFF221F33),
                           height: 1,
-                          letterSpacing: -1.5,
+                          letterSpacing: -1,
                         ),
                       ),
-                      const SizedBox(width: 14),
+                      const SizedBox(width: 12),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
-                              'stars in your galaxy',
+                              'stars collected',
                               style: GoogleFonts.lexend(
-                                fontSize: 17.5,
+                                fontSize: 16,
                                 fontWeight: FontWeight.w800,
                                 color: const Color(0xFF221F33),
                                 height: 1.2,
                               ),
                             ),
-                            const SizedBox(height: 3),
+                            const SizedBox(height: 2),
                             Text(
-                              'Vocabulary collected through discovery',
+                              'Words in your discovery galaxy',
                               style: GoogleFonts.lexend(
-                                fontSize: 12.5,
+                                fontSize: 12,
                                 fontWeight: FontWeight.w400,
                                 color: const Color(0xFF655D80),
+                                height: 1.2,
                               ),
                             ),
                           ],
@@ -706,9 +565,9 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                     ],
                   ),
 
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 16),
 
-                  // Progress bar directly on card with crisp contrast
+                  // Next Badge Progress Bar
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -718,9 +577,9 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                           Text(
                             progressText,
                             style: GoogleFonts.lexend(
-                              fontSize: 13,
+                              fontSize: 12,
                               fontWeight: FontWeight.w700,
-                              color: const Color(0xFF5E3A8E), // Deep purple high contrast
+                              color: const Color(0xFF5E3A8E),
                             ),
                           ),
                           Row(
@@ -729,7 +588,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                               Text(
                                 'to unlock ',
                                 style: GoogleFonts.lexend(
-                                  fontSize: 12,
+                                  fontSize: 11.5,
                                   fontWeight: FontWeight.w500,
                                   color: const Color(0xFF5A536B),
                                 ),
@@ -737,22 +596,22 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                               if (upcoming != null) ...[
                                 RewardIconWidget(
                                   icon: upcoming.badge.icon,
-                                  size: 16,
+                                  size: 15,
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
                                   upcoming.badge.name,
                                   style: GoogleFonts.lexend(
-                                    fontSize: 12,
+                                    fontSize: 11.5,
                                     fontWeight: FontWeight.w700,
                                     color: const Color(0xFF221F33),
                                   ),
                                 ),
                               ] else ...[
                                 Text(
-                                  '🎉 Galaxy Master!',
+                                  '🎉 Master!',
                                   style: GoogleFonts.lexend(
-                                    fontSize: 12,
+                                    fontSize: 11.5,
                                     fontWeight: FontWeight.w700,
                                     color: const Color(0xFF221F33),
                                   ),
@@ -762,19 +621,132 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 7),
                       ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(6),
                         child: LinearProgressIndicator(
                           value: progressPercent,
                           backgroundColor: Colors.white.withValues(alpha: 0.65),
                           valueColor: const AlwaysStoppedAnimation<Color>(
-                            Color(0xFF7C5CFC), // Primary Purple
+                            Color(0xFF7C5CFC),
                           ),
-                          minHeight: 8,
+                          minHeight: 7,
                         ),
                       ),
                     ],
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Bottom Mini Stats Strip inside Card
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.75),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.9),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        // Photos stat (tappable)
+                        Expanded(
+                          child: InkWell(
+                            onTap: () => _showPhotosGallery(context),
+                            borderRadius: BorderRadius.circular(10),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.photo_library_rounded,
+                                  size: 16,
+                                  color: Color(0xFF7C5CFC),
+                                ),
+                                const SizedBox(width: 7),
+                                Expanded(
+                                  child: Text.rich(
+                                    TextSpan(
+                                      children: [
+                                        TextSpan(
+                                          text: '$totalPhotos ',
+                                          style: GoogleFonts.lexend(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w700,
+                                            color: const Color(0xFF221F33),
+                                          ),
+                                        ),
+                                        TextSpan(
+                                          text: 'photos captured',
+                                          style: GoogleFonts.lexend(
+                                            fontSize: 11.5,
+                                            fontWeight: FontWeight.w400,
+                                            color: const Color(0xFF655D80),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const Icon(
+                                  Icons.chevron_right_rounded,
+                                  size: 16,
+                                  color: Color(0xFF9892A6),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+
+                        // Vertical Divider
+                        Container(
+                          height: 18,
+                          width: 1,
+                          margin: const EdgeInsets.symmetric(horizontal: 10),
+                          color: const Color(0xFFCEC2FD),
+                        ),
+
+                        // Days learning stat
+                        Expanded(
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.calendar_today_rounded,
+                                size: 15,
+                                color: Color(0xFF7C5CFC),
+                              ),
+                              const SizedBox(width: 7),
+                              Expanded(
+                                child: Text.rich(
+                                  TextSpan(
+                                    children: [
+                                      TextSpan(
+                                        text: '$daysLearning ',
+                                        style: GoogleFonts.lexend(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w700,
+                                          color: const Color(0xFF221F33),
+                                        ),
+                                      ),
+                                      TextSpan(
+                                        text: 'days learning',
+                                        style: GoogleFonts.lexend(
+                                          fontSize: 11.5,
+                                          fontWeight: FontWeight.w400,
+                                          color: const Color(0xFF655D80),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -783,117 +755,6 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
         ),
       ),
     );
-  }
-
-  Widget _buildMiniStatsRow(int photos, int days) {
-    return Row(
-      children: [
-        Expanded(
-          child: _buildMiniStatCard(
-            icon: Icons.photo_library_rounded,
-            label: 'photos captured',
-            value: '$photos',
-            onTap: () => _showPhotosGallery(context),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildMiniStatCard(
-            icon: Icons.calendar_today_rounded,
-            label: 'days learning',
-            value: '$days',
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMiniStatCard({
-    required IconData icon,
-    required String label,
-    required String value,
-    VoidCallback? onTap,
-  }) {
-    final card = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: const Color(0xFFEBE6FC),
-          width: 1.2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF7C5CFC).withValues(alpha: 0.06),
-            blurRadius: 14,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF4EEFF),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Icon(
-              icon,
-              size: 20,
-              color: const Color(0xFF7C5CFC),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  value,
-                  style: GoogleFonts.lexend(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                    color: const Color(0xFF221F33),
-                    height: 1.1,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  label,
-                  style: GoogleFonts.lexend(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w400,
-                    color: const Color(0xFF9892A6),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (onTap != null)
-            const Icon(
-              Icons.chevron_right_rounded,
-              color: Color(0xFFC4BDD9),
-              size: 18,
-            ),
-        ],
-      ),
-    );
-
-    if (onTap != null) {
-      return Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(20),
-          child: card,
-        ),
-      );
-    }
-
-    return card;
   }
 
   Widget _buildTabBar() {
@@ -940,17 +801,17 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
-                      Icons.auto_stories_rounded,
+                      Icons.star_rounded,
                       size: 18,
                       color: _selectedTab == 'Vocab'
                           ? const Color(0xFF7C5CFC)
                           : const Color(0xFF8E88A8),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
                     Text(
-                      'Vocabulary',
+                      'Galaxy Collection',
                       style: GoogleFonts.lexend(
-                        fontSize: 14.5,
+                        fontSize: 13.5,
                         fontWeight: _selectedTab == 'Vocab'
                             ? FontWeight.w700
                             : FontWeight.w500,
@@ -1027,17 +888,6 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Section title
-        Text(
-          'Galaxy Collection',
-          style: GoogleFonts.lexend(
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            color: const Color(0xFF221F33),
-          ),
-        ),
-        const SizedBox(height: 12),
-
         // Search bar
         _buildSearchBar(),
 
@@ -1046,7 +896,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
         // Filter chips
         _buildFilterChips(totalCount),
 
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
 
         // Vocabulary list
         if (_displayedVocabs.isEmpty)
@@ -1232,13 +1082,13 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
                       color: isUnlocked
-                          ? const Color(0xFFF3E8FF).withValues(alpha: 0.6)
-                          : const Color(0xFFF8FAFC),
+                          ? const Color(0xFFF4EEFF)
+                          : const Color(0xFFFBF9FE),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
                         color: isUnlocked
                             ? gradient.first.withValues(alpha: 0.4)
-                            : const Color(0xFFE2E8F0),
+                            : const Color(0xFFEBE6FC),
                         width: 1.2,
                       ),
                     ),
@@ -1256,7 +1106,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                             gradient: isUnlocked
                                 ? LinearGradient(colors: gradient)
                                 : const LinearGradient(
-                                    colors: [Color(0xFFE2E8F0), Color(0xFFCBD5E1)],
+                                    colors: [Color(0xFFEBE6FC), Color(0xFFDED8F7)],
                                   ),
                             boxShadow: isUnlocked
                                 ? [
@@ -1287,7 +1137,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                                 errorBuilder: (_, __, ___) => const Icon(
                                   Icons.image_outlined,
                                   size: 24,
-                                  color: Colors.grey,
+                                  color: Color(0xFF9892A6),
                                 ),
                               ),
                             ),
@@ -1305,8 +1155,8 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
                             color: isUnlocked
-                                ? const Color(0xFF1E293B)
-                                : const Color(0xFF94A3B8),
+                                ? const Color(0xFF221F33)
+                                : const Color(0xFF9892A6),
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -1339,7 +1189,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                                   child: LinearProgressIndicator(
                                     value: progressRatio,
                                     minHeight: 4,
-                                    backgroundColor: const Color(0xFFE2E8F0),
+                                    backgroundColor: const Color(0xFFEBE6FC),
                                     valueColor: AlwaysStoppedAnimation<Color>(
                                       gradient.first,
                                     ),
@@ -1353,7 +1203,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                                   style: GoogleFonts.lexend(
                                     fontSize: 8,
                                     fontWeight: FontWeight.w600,
-                                    color: const Color(0xFF64748B),
+                                    color: const Color(0xFF655D80),
                                   ),
                                 ),
                               ],
@@ -1488,10 +1338,46 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
     return TopicCategories.all;
   }
 
+  IconData _getTopicIcon(String topic) {
+    switch (topic) {
+      case 'All':
+        return Icons.grid_view_rounded;
+      case 'Favorites':
+        return Icons.favorite_rounded;
+      case 'daily_life':
+      case TopicCategories.dailyLife:
+        return Icons.favorite_border_rounded;
+      case TopicCategories.technology:
+        return Icons.laptop_chromebook_rounded;
+      case TopicCategories.home:
+        return Icons.home_outlined;
+      case TopicCategories.clothing:
+        return Icons.checkroom_outlined;
+      case TopicCategories.nature:
+        return Icons.eco_outlined;
+      case TopicCategories.food:
+        return Icons.restaurant_outlined;
+      case TopicCategories.people:
+        return Icons.people_outline_rounded;
+      case TopicCategories.hobbies:
+        return Icons.sports_esports_outlined;
+      case TopicCategories.education:
+        return Icons.school_outlined;
+      case TopicCategories.work:
+        return Icons.work_outline_rounded;
+      case TopicCategories.health:
+        return Icons.medical_services_outlined;
+      case TopicCategories.entertainment:
+        return Icons.movie_outlined;
+      default:
+        return Icons.category_outlined;
+    }
+  }
+
   /// Format category name for display (e.g., "Food & Drinks", "Daily Life" matching Review tab)
   String _formatCategoryName(String category) {
     if (category == 'All') return 'All';
-    if (category == 'Favorites') return '❤️ Favorites';
+    if (category == 'Favorites') return 'Favorites';
     return TopicCategories.getDisplayNameEn(category);
   }
 
@@ -1531,14 +1417,16 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (isFav) ...[
-              const Icon(
-                Icons.favorite_rounded,
-                size: 14,
-                color: Color(0xFFEC4899),
-              ),
-              const SizedBox(width: 5),
-            ],
+            Icon(
+              _getTopicIcon(category),
+              size: 15,
+              color: isFav
+                  ? const Color(0xFFEC4899)
+                  : (isSelected
+                      ? const Color(0xFF7C5CFC)
+                      : const Color(0xFF8E88A8)),
+            ),
+            const SizedBox(width: 5),
             Text(
               isFav
                   ? 'Favorites'
@@ -1637,42 +1525,50 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
       isScrollControlled: true,
       builder: (context) => Container(
         width: MediaQuery.of(context).size.width,
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          boxShadow: [
+            BoxShadow(
+              color: Color(0x1F7C5CFC),
+              blurRadius: 24,
+              offset: Offset(0, -4),
+            ),
+          ],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             // Handle bar
             Container(
-              margin: EdgeInsets.only(top: 12),
+              margin: const EdgeInsets.only(top: 12),
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: Color(0xFFE5E7EB),
+                color: const Color(0xFFE2DBFD),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
             Padding(
-              padding: EdgeInsets.all(20),
+              padding: const EdgeInsets.all(22),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     'All Categories',
                     style: GoogleFonts.lexend(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF1f2937),
+                      fontSize: 19,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF221F33),
                     ),
                   ),
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
                   Wrap(
-                    spacing: 12,
-                    runSpacing: 12,
+                    spacing: 10,
+                    runSpacing: 10,
                     children: remainingCategories.map((cat) {
                       final count = _getCategoryCount(cat, allVocabs.length);
+                      final isSelected = _selectedCategory == cat;
                       return InkWell(
                         onTap: () {
                           setState(() {
@@ -1685,29 +1581,43 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                         },
                         borderRadius: BorderRadius.circular(20),
                         child: Container(
-                          padding: EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                           decoration: BoxDecoration(
-                            color: _selectedCategory == cat
-                                ? Color(0xFFEDE9FE)
-                                : Color(0xFFF9FAFB),
+                            color: isSelected
+                                ? const Color(0xFFF4EEFF)
+                                : Colors.white,
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
-                              color: _selectedCategory == cat
-                                  ? Color(0xFF8B5CF6)
-                                  : Color(0xFFe5e7eb),
+                              color: isSelected
+                                  ? const Color(0xFF7C5CFC)
+                                  : const Color(0xFFEBE6FC),
+                              width: isSelected ? 1.5 : 1.0,
                             ),
                           ),
-                          child: Text(
-                            '${_formatCategoryName(cat)} ($count)',
-                            style: GoogleFonts.lexend(
-                              fontSize: 13,
-                              fontWeight: _selectedCategory == cat
-                                  ? FontWeight.w600
-                                  : FontWeight.w400,
-                              color: _selectedCategory == cat
-                                  ? Color(0xFF1f2937)
-                                  : Color(0xFF6b7280),
-                            ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                _getTopicIcon(cat),
+                                size: 15,
+                                color: isSelected
+                                    ? const Color(0xFF7C5CFC)
+                                    : const Color(0xFF8E88A8),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                '${_formatCategoryName(cat)} ($count)',
+                                style: GoogleFonts.lexend(
+                                  fontSize: 13,
+                                  fontWeight: isSelected
+                                      ? FontWeight.w700
+                                      : FontWeight.w500,
+                                  color: isSelected
+                                      ? const Color(0xFF7C5CFC)
+                                      : const Color(0xFF8E88A8),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       );
@@ -1784,8 +1694,8 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
           Container(
             padding: const EdgeInsets.all(16),
             alignment: Alignment.center,
-            child: CircularProgressIndicator(
-              color: const Color(0xFF8B5CF6),
+            child: const CircularProgressIndicator(
+              color: Color(0xFF7C5CFC),
             ),
           ),
       ],
@@ -1794,7 +1704,6 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
 
   Widget _buildVocabularyItem(VocabularyModel vocab, List<VocabularyModel> allVocabularies) {
     final isFavorite = vocab.isFavorite;
-    final topicName = _formatCategoryName(vocab.topic).replaceAll('❤️ ', '');
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -1837,40 +1746,16 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            vocab.word,
-                            style: GoogleFonts.lexend(
-                              fontSize: 17.5,
-                              fontWeight: FontWeight.w700,
-                              color: const Color(0xFF221F33),
-                              height: 1.2,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 1,
-                          ),
-                        ),
-                        if (vocab.topic.isNotEmpty && vocab.topic != 'other') ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF4EEFF),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              topicName,
-                              style: GoogleFonts.lexend(
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xFF7C5CFC),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
+                    Text(
+                      vocab.word,
+                      style: GoogleFonts.lexend(
+                        fontSize: 17.5,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF221F33),
+                        height: 1.2,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
                     const SizedBox(height: 5),
                     // Thai translation
@@ -2009,193 +1894,6 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
     );
   }
 
-  void _showShieldInfoDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Colors.white, Color(0xFFf8f9ff)],
-            ),
-            borderRadius: BorderRadius.circular(28),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF8b5cf6).withValues(alpha: 0.15),
-                blurRadius: 30,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [Color(0xFF8B5CF6), Color(0xFF60a5fa)],
-                    ),
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF8B5CF6).withValues(alpha: 0.3),
-                        blurRadius: 20,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.shield_rounded,
-                    color: Colors.white,
-                    size: 40,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  'Streak Shields',
-                  style: GoogleFonts.lexend(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFF1f2937),
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Don\'t let a missed day break your streak!',
-                  style: GoogleFonts.lexend(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
-                    color: const Color(0xFF6b7280),
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE2D1F9).withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    children: [
-                      _buildShieldInfoItem(
-                        icon: Icons.shield_rounded,
-                        title: 'Shield Protection',
-                        description:
-                            'Each shield protects your streak for 1 missed day',
-                      ),
-                      const SizedBox(height: 12),
-                      _buildShieldInfoItem(
-                        icon: Icons.star_rounded,
-                        title: 'Earn Shields',
-                        description:
-                            'Keep learning for 7 days to earn a shield',
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [Color(0xFF8B5CF6), Color(0xFF60a5fa)],
-                      ),
-                      borderRadius: BorderRadius.circular(14),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF8B5CF6).withValues(alpha: 0.4),
-                          blurRadius: 15,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: () => Navigator.pop(context),
-                        borderRadius: BorderRadius.circular(14),
-                        child: const Center(
-                          child: Text(
-                            'Got it!',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildShieldInfoItem({
-    required IconData icon,
-    required String title,
-    required String description,
-  }) {
-    return Row(
-      children: [
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: const Color(0xFFEDE9FE),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(icon, size: 20, color: const Color(0xFF5E3A8E)),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: GoogleFonts.lexend(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF5E3A8E),
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                description,
-                style: GoogleFonts.lexend(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w400,
-                  color: const Color(0xFF6B7280),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
   void _showPhotosGallery(BuildContext context) {
     final vocabState = ref.read(vocabularyStateProvider);
     final allVocabularies = vocabState.vocabularies;
@@ -2310,21 +2008,25 @@ class PhotosGalleryPage extends StatelessWidget {
           builder: (context) => PhotoWordsBottomSheet(photoEntry: entry),
         );
       },
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(18),
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: const Color(0xFFEBE6FC),
+            width: 1.2,
+          ),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
+              color: const Color(0xFF7C5CFC).withValues(alpha: 0.08),
               blurRadius: 12,
-              offset: const Offset(0, 2),
+              offset: const Offset(0, 3),
             ),
           ],
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(18),
           child: Stack(
             fit: StackFit.expand,
             children: [
@@ -2335,11 +2037,11 @@ class PhotosGalleryPage extends StatelessWidget {
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) {
                         return Container(
-                          color: const Color(0xFFEDE9FE),
+                          color: const Color(0xFFF4EEFF),
                           child: const Icon(
                             Icons.broken_image,
                             size: 40,
-                            color: Color(0xFF8B5CF6),
+                            color: Color(0xFF7C5CFC),
                           ),
                         );
                       },
@@ -2349,11 +2051,11 @@ class PhotosGalleryPage extends StatelessWidget {
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) {
                         return Container(
-                          color: const Color(0xFFEDE9FE),
+                          color: const Color(0xFFF4EEFF),
                           child: const Icon(
                             Icons.broken_image,
                             size: 40,
-                            color: Color(0xFF8B5CF6),
+                            color: Color(0xFF7C5CFC),
                           ),
                         );
                       },
@@ -2366,7 +2068,7 @@ class PhotosGalleryPage extends StatelessWidget {
                     end: Alignment.bottomCenter,
                     colors: [
                       Colors.transparent,
-                      Colors.black.withValues(alpha: 0.7),
+                      Colors.black.withValues(alpha: 0.65),
                     ],
                   ),
                 ),
@@ -2379,16 +2081,22 @@ class PhotosGalleryPage extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.9),
+                      color: Colors.white.withValues(alpha: 0.95),
                       borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.1),
+                          blurRadius: 4,
+                        ),
+                      ],
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         const Icon(
-                          Icons.photo_library,
+                          Icons.photo_library_rounded,
                           size: 12,
-                          color: Color(0xFF8B5CF6),
+                          color: Color(0xFF7C5CFC),
                         ),
                         const SizedBox(width: 4),
                         Text(
@@ -2396,7 +2104,7 @@ class PhotosGalleryPage extends StatelessWidget {
                           style: GoogleFonts.lexend(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
-                            color: Color(0xFF8B5CF6),
+                            color: const Color(0xFF7C5CFC),
                           ),
                         ),
                       ],
@@ -2413,8 +2121,8 @@ class PhotosGalleryPage extends StatelessWidget {
                   child: Text(
                     wordCount == 1 ? firstVocab.word : '$wordCount words',
                     style: GoogleFonts.lexend(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
                       color: Colors.white,
                     ),
                     textAlign: TextAlign.center,
@@ -2430,10 +2138,10 @@ class PhotosGalleryPage extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.3),
+                    color: Colors.black.withValues(alpha: 0.35),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(
+                  child: const Icon(
                     Icons.touch_app,
                     size: 14,
                     color: Colors.white,
@@ -2458,19 +2166,26 @@ class PhotoWordsBottomSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: MediaQuery.of(context).size.height * 0.8,
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x1F7C5CFC),
+            blurRadius: 24,
+            offset: Offset(0, -4),
+          ),
+        ],
       ),
       child: Column(
         children: [
           // Handle bar
           Container(
-            margin: EdgeInsets.only(top: 12),
+            margin: const EdgeInsets.only(top: 12),
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: Color(0xFFE5E7EB),
+              color: const Color(0xFFE2DBFD),
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -2481,31 +2196,35 @@ class PhotoWordsBottomSheet extends StatelessWidget {
             child: Row(
               children: [
                 Container(
-                  width: 50,
-                  height: 50,
+                  width: 52,
+                  height: 52,
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: const Color(0xFFEBE6FC),
+                      width: 1,
+                    ),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF8B5CF6).withValues(alpha: 0.15),
+                        color: const Color(0xFF7C5CFC).withValues(alpha: 0.12),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
                     ],
                   ),
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                     child: photoEntry.imageUrl.startsWith('http://') || photoEntry.imageUrl.startsWith('https://')
                         ? Image.network(
                             photoEntry.imageUrl,
                             fit: BoxFit.cover,
                             errorBuilder: (context, error, stackTrace) {
                               return Container(
-                                color: const Color(0xFFEDE9FE),
+                                color: const Color(0xFFF4EEFF),
                                 child: const Icon(
                                   Icons.broken_image,
                                   size: 24,
-                                  color: Color(0xFF8B5CF6),
+                                  color: Color(0xFF7C5CFC),
                                 ),
                               );
                             },
@@ -2515,18 +2234,18 @@ class PhotoWordsBottomSheet extends StatelessWidget {
                             fit: BoxFit.cover,
                             errorBuilder: (context, error, stackTrace) {
                               return Container(
-                                color: const Color(0xFFEDE9FE),
+                                color: const Color(0xFFF4EEFF),
                                 child: const Icon(
                                   Icons.broken_image,
                                   size: 24,
-                                  color: Color(0xFF8B5CF6),
+                                  color: Color(0xFF7C5CFC),
                                 ),
                               );
                             },
                           ),
                   ),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -2538,24 +2257,24 @@ class PhotoWordsBottomSheet extends StatelessWidget {
                         style: GoogleFonts.lexend(
                           fontSize: 18,
                           fontWeight: FontWeight.w700,
-                          color: const Color(0xFF1f2937),
+                          color: const Color(0xFF221F33),
                         ),
                       ),
                       Text(
                         photoEntry.vocabularies.length == 1
-                            ? 'Click to see pronunciation'
+                            ? 'Collected vocabulary item'
                             : 'All words using this photo',
                         style: GoogleFonts.lexend(
                           fontSize: 13,
                           fontWeight: FontWeight.w400,
-                          color: const Color(0xFF6b7280),
+                          color: const Color(0xFF9892A6),
                         ),
                       ),
                     ],
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close, color: Color(0xFF9ca3af)),
+                  icon: const Icon(Icons.close_rounded, color: Color(0xFF9892A6)),
                   onPressed: () => Navigator.pop(context),
                 ),
               ],
@@ -2565,13 +2284,13 @@ class PhotoWordsBottomSheet extends StatelessWidget {
           // Divider
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 20),
-            child: Divider(height: 1),
+            child: Divider(height: 1, color: Color(0xFFEBE6FC)),
           ),
 
           // Words list
           Expanded(
             child: ListView.separated(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
               itemCount: photoEntry.vocabularies.length,
               separatorBuilder: (context, index) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
@@ -2589,12 +2308,19 @@ class PhotoWordsBottomSheet extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFF9FAFB),
-        borderRadius: BorderRadius.circular(16),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: const Color(0xFFE5E7EB),
-          width: 1,
+          color: const Color(0xFFEBE6FC),
+          width: 1.2,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF7C5CFC).withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2603,36 +2329,44 @@ class PhotoWordsBottomSheet extends StatelessWidget {
           Text(
             vocab.word,
             style: GoogleFonts.lexend(
-              fontSize: 18,
+              fontSize: 17.5,
               fontWeight: FontWeight.w700,
-              color: const Color(0xFF1f2937),
+              color: const Color(0xFF221F33),
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
           // Thai translation
           Text(
             vocab.thaiTranslation,
             style: GoogleFonts.lexend(
-              fontSize: 15,
+              fontSize: 14.5,
               fontWeight: FontWeight.w500,
-              color: const Color(0xFF6b7280),
+              color: const Color(0xFF655D80),
             ),
           ),
-          const SizedBox(height: 10),
           // Example sentence
-          if (vocab.englishSentence.isNotEmpty)
+          if (vocab.englishSentence.isNotEmpty) ...[
+            const SizedBox(height: 10),
             Container(
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: const Color(0xFFEDE9FE),
-                borderRadius: BorderRadius.circular(10),
+                color: const Color(0xFFF4EEFF),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: const Color(0xFFE2DBFD),
+                  width: 0.8,
+                ),
               ),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(
-                    Icons.format_quote,
-                    color: Color(0xFF8B5CF6),
-                    size: 16,
+                  const Padding(
+                    padding: EdgeInsets.only(top: 2),
+                    child: Icon(
+                      Icons.format_quote_rounded,
+                      color: Color(0xFF7C5CFC),
+                      size: 16,
+                    ),
                   ),
                   const SizedBox(width: 6),
                   Expanded(
@@ -2641,13 +2375,14 @@ class PhotoWordsBottomSheet extends StatelessWidget {
                       style: GoogleFonts.lexend(
                         fontSize: 13,
                         fontWeight: FontWeight.w400,
-                        color: const Color(0xFF5E3A8E),
+                        color: const Color(0xFF4C3E72),
                       ),
                     ),
                   ),
                 ],
               ),
             ),
+          ],
         ],
       ),
     );

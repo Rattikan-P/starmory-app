@@ -13,7 +13,7 @@ void showBadgeDetailsModal(
 ) {
   final gradient = badge.gradientColors.isNotEmpty
       ? badge.gradientColors
-      : const [Color(0xFF8B5CF6), Color(0xFF6366F1)];
+      : const [Color(0xFF7C5CFC), Color(0xFF6366F1)];
 
   showModalBottomSheet(
     context: context,
@@ -27,7 +27,7 @@ void showBadgeDetailsModal(
           borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
           boxShadow: [
             BoxShadow(
-              color: Color(0x1F8B5CF6),
+              color: Color(0x1F7C5CFC),
               blurRadius: 24,
               offset: Offset(0, -4),
             ),
@@ -41,7 +41,7 @@ void showBadgeDetailsModal(
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: const Color(0xFFCBD5E1),
+                color: const Color(0xFFE2DBFD),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -56,7 +56,7 @@ void showBadgeDetailsModal(
                 gradient: LinearGradient(
                   colors: isUnlocked
                       ? gradient
-                      : [const Color(0xFFE2E8F0), const Color(0xFFCBD5E1)],
+                      : [const Color(0xFFEBE6FC), const Color(0xFFDED8F7)],
                 ),
                 boxShadow: isUnlocked
                     ? [
@@ -107,7 +107,7 @@ void showBadgeDetailsModal(
               style: GoogleFonts.lexend(
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
-                color: const Color(0xFF1E293B),
+                color: const Color(0xFF221F33),
               ),
             ),
             const SizedBox(height: 2),
@@ -119,10 +119,10 @@ void showBadgeDetailsModal(
               width: double.infinity,
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
+                color: const Color(0xFFF4EEFF),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: const Color(0xFFE2E8F0),
+                  color: const Color(0xFFE2DBFD),
                 ),
               ),
               child: Text(
@@ -130,7 +130,7 @@ void showBadgeDetailsModal(
                 textAlign: TextAlign.center,
                 style: GoogleFonts.lexend(
                   fontSize: 13,
-                  color: const Color(0xFF334155),
+                  color: const Color(0xFF4C3E72),
                   height: 1.4,
                 ),
               ),
@@ -146,7 +146,7 @@ void showBadgeDetailsModal(
                   style: GoogleFonts.lexend(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: isUnlocked ? const Color(0xFF059669) : const Color(0xFF64748B),
+                    color: isUnlocked ? const Color(0xFF059669) : const Color(0xFF655D80),
                   ),
                 ),
                 Text(
@@ -154,7 +154,7 @@ void showBadgeDetailsModal(
                   style: GoogleFonts.lexend(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
-                    color: isUnlocked ? const Color(0xFF059669) : const Color(0xFF8B5CF6),
+                    color: isUnlocked ? const Color(0xFF059669) : const Color(0xFF7C5CFC),
                   ),
                 ),
               ],
@@ -165,7 +165,7 @@ void showBadgeDetailsModal(
               child: LinearProgressIndicator(
                 value: isUnlocked ? 1.0 : (progress / badge.requiredStars).clamp(0.0, 1.0),
                 minHeight: 8,
-                backgroundColor: const Color(0xFFE2E8F0),
+                backgroundColor: const Color(0xFFEBE6FC),
                 valueColor: AlwaysStoppedAnimation<Color>(
                   isUnlocked ? const Color(0xFF10B981) : gradient.first,
                 ),
@@ -180,7 +180,7 @@ void showBadgeDetailsModal(
               child: ElevatedButton(
                 onPressed: () => Navigator.of(context).pop(),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF8B5CF6),
+                  backgroundColor: const Color(0xFF7C5CFC),
                   foregroundColor: Colors.white,
                   elevation: 0,
                   shape: RoundedRectangleBorder(
@@ -337,7 +337,7 @@ class BadgesSection extends ConsumerWidget {
                 );
                 final gradient = badge.gradientColors.isNotEmpty
                     ? badge.gradientColors
-                    : const [Color(0xFF8B5CF6), Color(0xFF6366F1)];
+                    : const [Color(0xFF7C5CFC), Color(0xFF6366F1)];
 
                 return GestureDetector(
                   onTap: () => showBadgeDetailsModal(context, badge, isUnlocked, progress),
@@ -346,13 +346,13 @@ class BadgesSection extends ConsumerWidget {
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
                       color: isUnlocked
-                          ? const Color(0xFFF3E8FF).withValues(alpha: 0.6)
-                          : const Color(0xFFF8FAFC),
+                          ? const Color(0xFFF4EEFF)
+                          : const Color(0xFFFBF9FE),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
                         color: isUnlocked
                             ? gradient.first.withValues(alpha: 0.4)
-                            : const Color(0xFFE2E8F0),
+                            : const Color(0xFFEBE6FC),
                         width: 1.2,
                       ),
                     ),
@@ -369,7 +369,7 @@ class BadgesSection extends ConsumerWidget {
                             gradient: isUnlocked
                                 ? LinearGradient(colors: gradient)
                                 : const LinearGradient(
-                                    colors: [Color(0xFFE2E8F0), Color(0xFFCBD5E1)],
+                                    colors: [Color(0xFFEBE6FC), Color(0xFFDED8F7)],
                                   ),
                             boxShadow: isUnlocked
                                 ? [
@@ -401,8 +401,8 @@ class BadgesSection extends ConsumerWidget {
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
                             color: isUnlocked
-                                ? const Color(0xFF1E293B)
-                                : const Color(0xFF94A3B8),
+                                ? const Color(0xFF221F33)
+                                : const Color(0xFF9892A6),
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -435,7 +435,7 @@ class BadgesSection extends ConsumerWidget {
                                   child: LinearProgressIndicator(
                                     value: progressRatio,
                                     minHeight: 4,
-                                    backgroundColor: const Color(0xFFE2E8F0),
+                                    backgroundColor: const Color(0xFFEBE6FC),
                                     valueColor: AlwaysStoppedAnimation<Color>(
                                       gradient.first,
                                     ),
@@ -449,7 +449,7 @@ class BadgesSection extends ConsumerWidget {
                                   style: GoogleFonts.lexend(
                                     fontSize: 8,
                                     fontWeight: FontWeight.w600,
-                                    color: const Color(0xFF64748B),
+                                    color: const Color(0xFF655D80),
                                   ),
                                 ),
                               ],

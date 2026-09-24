@@ -5,12 +5,12 @@ import 'package:table_calendar/table_calendar.dart';
 
 import '../../constants/design_tokens.dart';
 import '../../data/models/scrapbook_model.dart';
-import '../providers/scrapbook_provider.dart';
-import '../providers/navigation_provider.dart';
-import '../widgets/galaxy_screen_background.dart';
+import '../providers/providers.dart';
 import '../widgets/scrapbook_detail_sheet.dart';
 import '../widgets/scrapbook_polaroid.dart';
+import '../widgets/top_header_actions.dart';
 import 'edit_scrapbook_screen.dart';
+import 'profile_tab.dart';
 
 /// Calendar-led archive of the learner's saved memories.
 class ScrapbookTab extends ConsumerStatefulWidget {
@@ -22,12 +22,12 @@ class ScrapbookTab extends ConsumerStatefulWidget {
 
 class _ScrapbookTabState extends ConsumerState<ScrapbookTab> {
   final ScrollController _scrollController = ScrollController();
-  static const _ink = Color(0xFF28252D);
-  static const _softInk = Color(0xFF68636D);
-  static const _divider = Color(0xFFE8E4EC);
-  static const _calendarLavender = Color(0xFFD9CEFF);
-  static const _calendarLavenderInk = Color(0xFF493579);
-  static const _calendarMarker = Color(0xFFA991E8);
+  static const _ink = Color(0xFF221F33);
+  static const _softInk = Color(0xFF9892A6);
+  static const _divider = Color(0xFFF3F4F6);
+  static const _calendarLavender = Color(0xFF8B5CF6);
+  static const _calendarLavenderInk = Color(0xFF7C3AED);
+  static const _calendarMarker = Color(0xFF8B5CF6);
 
   DateTime _focusedDay = DateTime.now();
   DateTime _selectedDay = DateTime.now();
@@ -49,6 +49,13 @@ class _ScrapbookTabState extends ConsumerState<ScrapbookTab> {
     }
   }
 
+  Future<void> _openProfile() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ProfileTab()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     // Listen for scroll to top signal from tab navigation
@@ -62,110 +69,141 @@ class _ScrapbookTabState extends ConsumerState<ScrapbookTab> {
     );
 
     final scrapbookState = ref.watch(scrapbookStateProvider);
+    final userState = ref.watch(userStateProvider);
 
-    return GalaxyScreenBackground(
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        body: SafeArea(
-          child: RefreshIndicator(
-            color: DesignTokens.brandColor,
-            onRefresh: () =>
-                ref.read(scrapbookStateProvider.notifier).refresh(),
-            child: CustomScrollView(
-              controller: _scrollController,
-              physics: const AlwaysScrollableScrollPhysics(
-                parent: BouncingScrollPhysics(),
+    return Scaffold(
+      backgroundColor: const Color(0xFFF9FAFC),
+      body: SafeArea(
+        child: Stack(
+          children: [
+            // Dot Grid Background (Bullet Journal style)
+            const Positioned.fill(
+              child: CustomPaint(
+                painter: _DotGridPainter(),
               ),
-              slivers: [
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
-                  sliver: SliverToBoxAdapter(
-                    child: _buildPageHeader(scrapbookState),
-                  ),
-                ),
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-                  sliver: SliverToBoxAdapter(
-                    child: _buildCalendar(scrapbookState),
-                  ),
-                ),
-                SliverPadding(
-                  padding: EdgeInsets.fromLTRB(
-                    20,
-                    24,
-                    20,
-                    28 + MediaQuery.paddingOf(context).bottom,
-                  ),
-                  sliver: SliverToBoxAdapter(
-                    child: _buildSelectedDay(scrapbookState),
-                  ),
-                ),
-              ],
             ),
-          ),
+
+            // Main Content matching Review & Progress tab layout
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+              child: Column(
+                children: [
+                  _buildPageHeader(scrapbookState, userState),
+                  const SizedBox(height: 14),
+                  Expanded(
+                    child: RefreshIndicator(
+                      color: const Color(0xFF8B5CF6),
+                      onRefresh: () =>
+                          ref.read(scrapbookStateProvider.notifier).refresh(),
+                      child: CustomScrollView(
+                        controller: _scrollController,
+                        physics: const AlwaysScrollableScrollPhysics(
+                          parent: BouncingScrollPhysics(),
+                        ),
+                        slivers: [
+                          SliverToBoxAdapter(
+                            child: _buildCalendar(scrapbookState),
+                          ),
+                          SliverPadding(
+                            padding: EdgeInsets.fromLTRB(
+                              0,
+                              24,
+                              0,
+                              28 + MediaQuery.paddingOf(context).bottom,
+                            ),
+                            sliver: SliverToBoxAdapter(
+                              child: _buildSelectedDay(scrapbookState),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildPageHeader(ScrapbookState state) {
+  Widget _buildPageHeader(ScrapbookState state, UserState userState) {
     final memoryLabel = state.totalCount == 1 ? 'memory' : 'memories';
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Scrapbook',
-                style: GoogleFonts.lexend(
-                  fontSize: 26,
-                  height: 1.15,
-                  fontWeight: FontWeight.w700,
-                  color: _ink,
-                  letterSpacing: -0.5,
+    return SizedBox(
+      height: 52,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  'Scrapbook',
+                  style: GoogleFonts.lexend(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.5,
+                    color: const Color(0xFF221F33),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 5),
-              Text(
-                state.isLoading
-                    ? 'Gathering your memories…'
-                    : '${state.totalCount} $memoryLabel saved along the way',
-                style: GoogleFonts.lexend(
-                  fontSize: 13,
-                  height: 1.4,
-                  color: _softInk,
+                const SizedBox(height: 2),
+                Text(
+                  state.isLoading
+                      ? 'Gathering your memories…'
+                      : '${state.totalCount} $memoryLabel saved along the way',
+                  style: GoogleFonts.lexend(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w400,
+                    color: const Color(0xFF9892A6),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ],
+          const SizedBox(width: 8),
+          TopHeaderActions(
+            onProfileTap: _openProfile,
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildCalendar(ScrapbookState state) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.94),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: const Color(0xFFEDE9FE),
+          width: 1.2,
+        ),
+        boxShadow: [
           BoxShadow(
-            color: Color(0x170E0917),
-            blurRadius: 8,
-            offset: Offset(0, 3),
+            color: const Color(0xFF8B5CF6).withValues(alpha: 0.05),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 1),
           ),
         ],
       ),
       child: Column(
         children: [
           _buildMonthHeader(),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           const Divider(height: 1, color: _divider),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           TableCalendar<String>(
             firstDay: DateTime(2015, 1, 1),
             lastDay: DateTime(DateTime.now().year + 5, 12, 31),
@@ -182,12 +220,23 @@ class _ScrapbookTabState extends ConsumerState<ScrapbookTab> {
             calendarStyle: CalendarStyle(
               cellMargin: const EdgeInsets.all(3),
               todayDecoration: BoxDecoration(
-                color: const Color(0xFFF0ECFF),
+                color: const Color(0xFFF5F3FF),
                 shape: BoxShape.circle,
+                border: Border.all(
+                  color: const Color(0xFFDDD6FE),
+                  width: 1.2,
+                ),
               ),
-              selectedDecoration: const BoxDecoration(
+              selectedDecoration: BoxDecoration(
                 color: _calendarLavender,
                 shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF8B5CF6).withValues(alpha: 0.35),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
               markerDecoration: const BoxDecoration(
                 color: _calendarMarker,
@@ -198,14 +247,14 @@ class _ScrapbookTabState extends ConsumerState<ScrapbookTab> {
               markerMargin: const EdgeInsets.only(top: 3),
               defaultTextStyle: _dayTextStyle(_ink),
               weekendTextStyle: _dayTextStyle(_ink),
-              outsideTextStyle: _dayTextStyle(const Color(0xFFAAA5AE)),
+              outsideTextStyle: _dayTextStyle(const Color(0xFF9CA3AF)),
               todayTextStyle: _dayTextStyle(
                 _calendarLavenderInk,
-                FontWeight.w700,
+                FontWeight.w600,
               ),
               selectedTextStyle: _dayTextStyle(
-                _calendarLavenderInk,
-                FontWeight.w700,
+                Colors.white,
+                FontWeight.w600,
               ),
             ),
             daysOfWeekStyle: DaysOfWeekStyle(
@@ -267,7 +316,7 @@ class _ScrapbookTabState extends ConsumerState<ScrapbookTab> {
           TextButton(
             onPressed: _jumpToToday,
             style: TextButton.styleFrom(
-              foregroundColor: DesignTokens.brandColor,
+              foregroundColor: const Color(0xFF8B5CF6),
               minimumSize: const Size(52, DesignTokens.touchTarget),
               padding: const EdgeInsets.symmetric(horizontal: 10),
               textStyle: GoogleFonts.lexend(
@@ -304,8 +353,8 @@ class _ScrapbookTabState extends ConsumerState<ScrapbookTab> {
         width: DesignTokens.touchTarget,
         height: DesignTokens.touchTarget,
       ),
-      icon: Icon(icon, size: 24),
-      color: _ink,
+      icon: Icon(icon, size: 22),
+      color: const Color(0xFF374151),
     );
   }
 
@@ -513,22 +562,37 @@ class _EmptyDay extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(14),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: const Color(0xFFEDE9FE),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF8B5CF6).withValues(alpha: 0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: Row(
         children: [
           Container(
-            width: 44,
-            height: 44,
-            decoration: const BoxDecoration(
-              color: Color(0xFFEDE8FE),
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF5F3FF),
               shape: BoxShape.circle,
+              border: Border.all(
+                color: const Color(0xFFDDD6FE),
+                width: 1,
+              ),
             ),
             child: const Icon(
               Icons.add_photo_alternate_outlined,
-              size: 21,
-              color: DesignTokens.brandColor,
+              size: 22,
+              color: Color(0xFF8B5CF6),
             ),
           ),
           const SizedBox(width: 14),
@@ -538,7 +602,7 @@ class _EmptyDay extends StatelessWidget {
               style: GoogleFonts.lexend(
                 fontSize: 13,
                 height: 1.45,
-                color: const Color(0xFF56515B),
+                color: const Color(0xFF4B5563),
               ),
             ),
           ),
@@ -560,7 +624,7 @@ class _MemorySkeleton extends StatelessWidget {
           width: 112,
           height: 18,
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.62),
+            color: const Color(0xFFE5E7EB),
             borderRadius: BorderRadius.circular(6),
           ),
         ),
@@ -569,8 +633,9 @@ class _MemorySkeleton extends StatelessWidget {
           width: double.infinity,
           height: 126,
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.62),
-            borderRadius: BorderRadius.circular(14),
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFFE5E7EB)),
           ),
         ),
       ],
@@ -589,25 +654,68 @@ class _ErrorState extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.82),
-        borderRadius: BorderRadius.circular(14),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFEDE9FE)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         children: [
-          const Icon(Icons.cloud_off_outlined, color: Color(0xFF6B6670)),
+          const Icon(Icons.cloud_off_outlined, color: Color(0xFF9CA3AF)),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               'We couldn’t load your scrapbook.',
               style: GoogleFonts.lexend(
                 fontSize: 13,
-                color: const Color(0xFF454049),
+                color: const Color(0xFF4B5563),
               ),
             ),
           ),
-          TextButton(onPressed: onRetry, child: const Text('Try again')),
+          TextButton(
+            onPressed: onRetry,
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFF8B5CF6),
+              textStyle: GoogleFonts.lexend(
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
+            ),
+            child: const Text('Try again'),
+          ),
         ],
       ),
     );
   }
+}
+
+/// Custom painter for bullet journal dot grid pattern
+class _DotGridPainter extends CustomPainter {
+  const _DotGridPainter();
+
+  static const _dotColor = Color(0xFFD1D5DB);
+  static const _spacing = 22.0;
+  static const _radius = 1.25;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = _dotColor
+      ..style = PaintingStyle.fill;
+
+    for (double x = _spacing / 2; x < size.width; x += _spacing) {
+      for (double y = _spacing / 2; y < size.height; y += _spacing) {
+        canvas.drawCircle(Offset(x, y), _radius, paint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DotGridPainter oldDelegate) => false;
 }

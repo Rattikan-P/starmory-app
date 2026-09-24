@@ -830,7 +830,7 @@ Extract exactly 5 vocabulary items from the image, strictly matching the request
 
       final model = useFallback ? _fallbackVisionModel : _primaryVisionModel;
       if (useFallback) {
-        debugPrint('🔄 Using fallback vision model (gemini-3.6-flash)');
+        debugPrint('🔄 Using fallback vision model (gemini-3.5-flash)');
       }
 
       final response = await model.generateContent(

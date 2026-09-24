@@ -14,7 +14,6 @@ import 'progress_tab.dart';
 import 'image_preview_screen.dart';
 import 'auth/account_method_page.dart';
 import '../providers/providers.dart';
-import '../providers/navigation_provider.dart';
 
 // Track last synced user ID to ensure syncing when switching accounts
 String? _lastSyncedUserId;
@@ -507,6 +506,7 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
     final currentIndex = ref.watch(navigationProvider).currentIndex;
 
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       backgroundColor: Colors.transparent,
       body: Stack(
         clipBehavior: Clip.none,
@@ -557,6 +557,7 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
           // 2. Main White Rounded Capsule Bar
           Container(
             height: 64,
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(36),
@@ -600,7 +601,7 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
                 ),
 
                 // Center gap for the FAB
-                const SizedBox(width: 60),
+                const SizedBox(width: 56),
 
                 // Right side: Scrapbook & Progress (Equal width slots)
                 Expanded(
@@ -640,19 +641,20 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: const LinearGradient(
-                    begin: Alignment.topRight,
-                    end: Alignment.bottomLeft,
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                     colors: [
-                      Color(0xFFD6C8FF), // soft pastel lavender
-                      Color(0xFFFDE1EB), // soft pastel pink
-                      Color(0xFFFFDFBA), // soft warm peach/champagne
+                      Color(0xFFFFD49E), // rich warm sunset peach
+                      Color(0xFFFAA4C2), // vibrant rose pink
+                      Color(0xFFC6B0FB), // rich lilac lavender
+                      Color(0xFFB197FA), // vivid violet purple
                     ],
-                    stops: [0.0, 0.5, 1.0],
+                    stops: [0.0, 0.32, 0.70, 1.0],
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF8B5CF6).withValues(alpha: 0.20),
-                      blurRadius: 10,
+                      color: const Color(0xFF8B5CF6).withValues(alpha: 0.25),
+                      blurRadius: 14,
                       offset: const Offset(0, 4),
                     ),
                   ],
@@ -687,20 +689,22 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
           onTap: () {
             ref.read(navigationProvider.notifier).setIndex(index);
           },
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(20),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
             curve: Curves.easeInOut,
-            width: 58,
+            width: 64,
             height: 48,
+            padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 3),
             decoration: isSelected
                 ? BoxDecoration(
                     color: const Color(0xFFF1EEFF),
-                    borderRadius: BorderRadius.circular(22),
+                    borderRadius: BorderRadius.circular(20),
                   )
                 : null,
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
                   icon,
@@ -710,23 +714,18 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
                       : const Color(0xFF857E9E),
                 ),
                 const SizedBox(height: 2),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      softWrap: false,
-                      style: GoogleFonts.lexend(
-                        fontSize: 10.5,
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                        color: isSelected
-                            ? const Color(0xFF7047EB)
-                            : const Color(0xFF857E9E),
-                        height: 1.1,
-                      ),
-                    ),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.lexend(
+                    fontSize: 10.5,
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                    color: isSelected
+                        ? const Color(0xFF7047EB)
+                        : const Color(0xFF857E9E),
+                    height: 1.1,
                   ),
                 ),
               ],
