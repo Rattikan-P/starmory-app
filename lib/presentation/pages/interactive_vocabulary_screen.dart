@@ -3103,6 +3103,13 @@ class _ContextSelectorScreenState extends State<ContextSelectorScreen> {
 
   final List<String> _tones = ['Describe', 'Command', 'Wish', 'Conditional'];
 
+  final Map<String, (IconData icon, String thaiDesc)> _toneMetadata = {
+    'Describe': (Icons.chat_bubble_outline_rounded, 'บรรยายทั่วไป'),
+    'Command': (Icons.bolt_rounded, 'คำสั่ง / แนะนำ'),
+    'Wish': (Icons.auto_awesome_rounded, 'ความปรารถนา'),
+    'Conditional': (Icons.alt_route_rounded, 'ประโยคเงื่อนไข'),
+  };
+
   final List<String> _categories = [
     'Moment',
     'Nature',
@@ -3111,6 +3118,15 @@ class _ContextSelectorScreenState extends State<ContextSelectorScreen> {
     'Daily Life',
     'Custom',
   ];
+
+  final Map<String, IconData> _categoryIcons = {
+    'Moment': Icons.camera_alt_outlined,
+    'Nature': Icons.park_outlined,
+    'Food': Icons.restaurant_outlined,
+    'Study': Icons.menu_book_outlined,
+    'Daily Life': Icons.coffee_outlined,
+    'Custom': Icons.edit_note_outlined,
+  };
 
   @override
   void initState() {
@@ -3135,17 +3151,54 @@ class _ContextSelectorScreenState extends State<ContextSelectorScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F7FF),
+      backgroundColor: const Color(0xFFF9FAFC),
       appBar: AppBar(
         elevation: 0,
         scrolledUnderElevation: 0,
-        backgroundColor: Colors.transparent,
-        foregroundColor: const Color(0xFF2D2A4A),
+        backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF1F2937),
+        centerTitle: true,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 16),
+          child: Center(
+            child: GestureDetector(
+              onTap: () => Navigator.pop(context),
+              behavior: HitTestBehavior.opaque,
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: const Color(0xFFE5E7EB),
+                    width: 1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Center(
+                  child: Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    color: Color(0xFF1F2937),
+                    size: 18,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
         title: Text(
           'Customize Context',
           style: GoogleFonts.lexend(
+            fontSize: 18,
             fontWeight: FontWeight.w600,
-            color: const Color(0xFF2D2A4A),
+            color: const Color(0xFF1F2937),
           ),
         ),
       ),
@@ -3154,36 +3207,61 @@ class _ContextSelectorScreenState extends State<ContextSelectorScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Word Info
+            // Word Info Hero Card
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(24),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: const Color(0xFFEDE9FE), width: 1.5),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.04),
-                    blurRadius: 18,
-                    offset: const Offset(0, 8),
+                    color: const Color(0xFF8B5CF6).withValues(alpha: 0.06),
+                    blurRadius: 16,
+                    offset: const Offset(0, 4),
                   ),
                 ],
               ),
               child: Row(
                 children: [
-                  Text(
-                    widget.vocabularyDot.word,
-                    style: GoogleFonts.lexend(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF8B5CF6),
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEDE9FE),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Center(
+                      child: Icon(
+                        Icons.auto_fix_high_rounded,
+                        color: Color(0xFF7C3AED),
+                        size: 22,
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Text(
-                    widget.vocabularyDot.thaiTranslation,
-                    style: GoogleFonts.lexend(
-                      fontSize: 18,
-                      color: Colors.grey[700],
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.vocabularyDot.word,
+                          style: GoogleFonts.lexend(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF1F2937),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          widget.vocabularyDot.thaiTranslation,
+                          style: GoogleFonts.lexend(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w400,
+                            color: const Color(0xFF6B7280),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -3192,45 +3270,81 @@ class _ContextSelectorScreenState extends State<ContextSelectorScreen> {
             const SizedBox(height: 24),
 
             // Tone & Intent Selection
-            _buildSectionTitle('Tone & Intent'),
+            _buildSectionTitle(
+              'Tone & Intent',
+              subtitle: 'Select how you want the sentence to sound',
+            ),
             const SizedBox(height: 12),
             _buildToneSelector(),
             const SizedBox(height: 24),
 
             // Category Selection
-            _buildSectionTitle('Category'),
+            _buildSectionTitle(
+              'Category',
+              subtitle: 'Choose a situational context for the example',
+            ),
             const SizedBox(height: 12),
             _buildCategorySelector(),
             if (_selectedCategory == 'Custom') ...[
               const SizedBox(height: 12),
               TextField(
                 controller: _customTextController,
+                style: GoogleFonts.lexend(
+                  fontSize: 14,
+                  color: const Color(0xFF1F2937),
+                ),
                 decoration: InputDecoration(
-                  hintText: 'Enter custom category',
+                  hintText: 'e.g. Travel, Shopping, Tech...',
+                  hintStyle: GoogleFonts.lexend(
+                    fontSize: 13,
+                    color: const Color(0xFF9CA3AF),
+                  ),
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: const BorderSide(
+                      color: Color(0xFF8B5CF6),
+                      width: 1.8,
+                    ),
                   ),
                 ),
               ),
             ],
-            const SizedBox(height: 32),
+            const SizedBox(height: 36),
 
             // Action Buttons
             SizedBox(
               width: double.infinity,
-              height: 50,
+              height: 52,
               child: ElevatedButton(
                 onPressed: _handleApply,
                 style: ElevatedButton.styleFrom(
+                  elevation: 2,
+                  shadowColor:
+                      const Color(0xFF8B5CF6).withValues(alpha: 0.3),
                   backgroundColor: const Color(0xFF8B5CF6),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(26),
                   ),
                 ),
-                child: const Text(
+                child: Text(
                   'Apply',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  style: GoogleFonts.lexend(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ),
@@ -3242,15 +3356,18 @@ class _ContextSelectorScreenState extends State<ContextSelectorScreen> {
                 onPressed: _handleApplyToAll,
                 style: OutlinedButton.styleFrom(
                   foregroundColor: const Color(0xFF8B5CF6),
-                  side: const BorderSide(color: Color(0xFF8B5CF6)),
+                  side: const BorderSide(
+                    color: Color(0xFF8B5CF6),
+                    width: 1.5,
+                  ),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(25),
                   ),
                 ),
                 child: Text(
                   'Use for All Selected',
                   style: GoogleFonts.lexend(
-                    fontSize: 16,
+                    fontSize: 15,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -3262,39 +3379,90 @@ class _ContextSelectorScreenState extends State<ContextSelectorScreen> {
     );
   }
 
-  Widget _buildSectionTitle(String title) {
-    return Text(
-      title,
-      style: GoogleFonts.lexend(
-        fontSize: 18,
-        fontWeight: FontWeight.w600,
-        color: Colors.grey[800],
-      ),
+  Widget _buildSectionTitle(String title, {String? subtitle}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: GoogleFonts.lexend(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: const Color(0xFF1F2937),
+          ),
+        ),
+        if (subtitle != null) ...[
+          const SizedBox(height: 2),
+          Text(
+            subtitle,
+            style: GoogleFonts.lexend(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w400,
+              color: const Color(0xFF6B7280),
+            ),
+          ),
+        ],
+      ],
     );
   }
 
   Widget _buildToneSelector() {
     return Wrap(
-      spacing: 8,
-      runSpacing: 8,
+      spacing: 10,
+      runSpacing: 10,
       children: _tones.map((tone) {
         final isSelected = _selectedTone == tone;
-        return FilterChip(
-          label: Text(tone),
-          selected: isSelected,
-          onSelected: (_) {
-            setState(() => _selectedTone = tone);
-          },
-          selectedColor: const Color(0xFFEDE9FE),
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          side: BorderSide(
-            color: isSelected
-                ? const Color(0xFF8B5CF6)
-                : const Color(0xFFDDD6FE),
-            width: 1.2,
+        final meta = _toneMetadata[tone];
+
+        return GestureDetector(
+          onTap: () => setState(() => _selectedTone = tone),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: isSelected ? const Color(0xFFEDE9FE) : Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: isSelected
+                    ? const Color(0xFF8B5CF6)
+                    : const Color(0xFFE5E7EB),
+                width: isSelected ? 1.6 : 1.0,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: isSelected
+                      ? const Color(0xFF8B5CF6).withValues(alpha: 0.12)
+                      : Colors.black.withValues(alpha: 0.03),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (meta != null) ...[
+                  Icon(
+                    meta.$1,
+                    size: 16,
+                    color: isSelected
+                        ? const Color(0xFF7C3AED)
+                        : const Color(0xFF6B7280),
+                  ),
+                  const SizedBox(width: 6),
+                ],
+                Text(
+                  tone,
+                  style: GoogleFonts.lexend(
+                    fontSize: 13.5,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                    color: isSelected
+                        ? const Color(0xFF7C3AED)
+                        : const Color(0xFF374151),
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       }).toList(),
@@ -3303,26 +3471,59 @@ class _ContextSelectorScreenState extends State<ContextSelectorScreen> {
 
   Widget _buildCategorySelector() {
     return Wrap(
-      spacing: 8,
-      runSpacing: 8,
+      spacing: 10,
+      runSpacing: 10,
       children: _categories.map((category) {
         final isSelected = _selectedCategory == category;
-        return FilterChip(
-          label: Text(category),
-          selected: isSelected,
-          onSelected: (_) {
-            setState(() => _selectedCategory = category);
-          },
-          selectedColor: const Color(0xFFEDE9FE),
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          side: BorderSide(
-            color: isSelected
-                ? const Color(0xFF8B5CF6)
-                : const Color(0xFFDDD6FE),
-            width: 1.2,
+        final icon = _categoryIcons[category] ?? Icons.label_outline_rounded;
+
+        return GestureDetector(
+          onTap: () => setState(() => _selectedCategory = category),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: isSelected ? const Color(0xFFEDE9FE) : Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: isSelected
+                    ? const Color(0xFF8B5CF6)
+                    : const Color(0xFFE5E7EB),
+                width: isSelected ? 1.6 : 1.0,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: isSelected
+                      ? const Color(0xFF8B5CF6).withValues(alpha: 0.12)
+                      : Colors.black.withValues(alpha: 0.03),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  icon,
+                  size: 16,
+                  color: isSelected
+                      ? const Color(0xFF7C3AED)
+                      : const Color(0xFF6B7280),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  category,
+                  style: GoogleFonts.lexend(
+                    fontSize: 13.5,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                    color: isSelected
+                        ? const Color(0xFF7C3AED)
+                        : const Color(0xFF374151),
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       }).toList(),
@@ -3421,6 +3622,13 @@ class _CombinedContextSelectorScreenState
 
   final List<String> _tones = ['Describe', 'Command', 'Wish', 'Conditional'];
 
+  final Map<String, (IconData icon, String thaiDesc)> _toneMetadata = {
+    'Describe': (Icons.chat_bubble_outline_rounded, 'บรรยายทั่วไป'),
+    'Command': (Icons.bolt_rounded, 'คำสั่ง / แนะนำ'),
+    'Wish': (Icons.auto_awesome_rounded, 'ความปรารถนา'),
+    'Conditional': (Icons.alt_route_rounded, 'ประโยคเงื่อนไข'),
+  };
+
   final List<String> _categories = [
     'Moment',
     'Nature',
@@ -3429,6 +3637,15 @@ class _CombinedContextSelectorScreenState
     'Daily Life',
     'Custom',
   ];
+
+  final Map<String, IconData> _categoryIcons = {
+    'Moment': Icons.camera_alt_outlined,
+    'Nature': Icons.park_outlined,
+    'Food': Icons.restaurant_outlined,
+    'Study': Icons.menu_book_outlined,
+    'Daily Life': Icons.coffee_outlined,
+    'Custom': Icons.edit_note_outlined,
+  };
 
   @override
   void initState() {
@@ -3453,17 +3670,54 @@ class _CombinedContextSelectorScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F7FF),
+      backgroundColor: const Color(0xFFF9FAFC),
       appBar: AppBar(
         elevation: 0,
         scrolledUnderElevation: 0,
-        backgroundColor: Colors.transparent,
-        foregroundColor: const Color(0xFF2D2A4A),
+        backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF1F2937),
+        centerTitle: true,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 16),
+          child: Center(
+            child: GestureDetector(
+              onTap: () => Navigator.pop(context),
+              behavior: HitTestBehavior.opaque,
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: const Color(0xFFE5E7EB),
+                    width: 1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Center(
+                  child: Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    color: Color(0xFF1F2937),
+                    size: 18,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
         title: Text(
           'Customize Combined Context',
           style: GoogleFonts.lexend(
+            fontSize: 18,
             fontWeight: FontWeight.w600,
-            color: const Color(0xFF2D2A4A),
+            color: const Color(0xFF1F2937),
           ),
         ),
       ),
@@ -3472,37 +3726,61 @@ class _CombinedContextSelectorScreenState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Combined Words Info
+            // Combined Words Info Hero Card
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(24),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: const Color(0xFFEDE9FE), width: 1.5),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.04),
-                    blurRadius: 18,
-                    offset: const Offset(0, 8),
+                    color: const Color(0xFF8B5CF6).withValues(alpha: 0.06),
+                    blurRadius: 16,
+                    offset: const Offset(0, 4),
                   ),
                 ],
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
                 children: [
-                  Text(
-                    'Combined Sentence',
-                    style: GoogleFonts.lexend(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF8B5CF6),
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEDE9FE),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Center(
+                      child: Icon(
+                        Icons.layers_rounded,
+                        color: Color(0xFF7C3AED),
+                        size: 22,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Words: ${widget.selectedWords.join(", ")}',
-                    style: GoogleFonts.lexend(
-                      fontSize: 14,
-                      color: Colors.grey[700],
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Combined Sentence (${widget.selectedWords.length} Words)',
+                          style: GoogleFonts.lexend(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF1F2937),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          widget.selectedWords.join(", "),
+                          style: GoogleFonts.lexend(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w400,
+                            color: const Color(0xFF6B7280),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -3511,45 +3789,81 @@ class _CombinedContextSelectorScreenState
             const SizedBox(height: 24),
 
             // Tone & Intent Selection
-            _buildSectionTitle('Tone & Intent'),
+            _buildSectionTitle(
+              'Tone & Intent',
+              subtitle: 'Select tone for the combined story',
+            ),
             const SizedBox(height: 12),
             _buildToneSelector(),
             const SizedBox(height: 24),
 
             // Category Selection
-            _buildSectionTitle('Category'),
+            _buildSectionTitle(
+              'Category',
+              subtitle: 'Choose the theme connecting these words',
+            ),
             const SizedBox(height: 12),
             _buildCategorySelector(),
             if (_selectedCategory == 'Custom') ...[
               const SizedBox(height: 12),
               TextField(
                 controller: _customTextController,
+                style: GoogleFonts.lexend(
+                  fontSize: 14,
+                  color: const Color(0xFF1F2937),
+                ),
                 decoration: InputDecoration(
-                  hintText: 'Enter custom category',
+                  hintText: 'e.g. Travel, Shopping, Tech...',
+                  hintStyle: GoogleFonts.lexend(
+                    fontSize: 13,
+                    color: const Color(0xFF9CA3AF),
+                  ),
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: const BorderSide(
+                      color: Color(0xFF8B5CF6),
+                      width: 1.8,
+                    ),
                   ),
                 ),
               ),
             ],
-            const SizedBox(height: 32),
+            const SizedBox(height: 36),
 
             // Action Button
             SizedBox(
               width: double.infinity,
-              height: 50,
+              height: 52,
               child: ElevatedButton(
                 onPressed: _handleApply,
                 style: ElevatedButton.styleFrom(
+                  elevation: 2,
+                  shadowColor:
+                      const Color(0xFF8B5CF6).withValues(alpha: 0.3),
                   backgroundColor: const Color(0xFF8B5CF6),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(26),
                   ),
                 ),
-                child: const Text(
+                child: Text(
                   'Apply to Combined Sentence',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  style: GoogleFonts.lexend(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ),
@@ -3559,39 +3873,90 @@ class _CombinedContextSelectorScreenState
     );
   }
 
-  Widget _buildSectionTitle(String title) {
-    return Text(
-      title,
-      style: GoogleFonts.lexend(
-        fontSize: 18,
-        fontWeight: FontWeight.w600,
-        color: Colors.grey[800],
-      ),
+  Widget _buildSectionTitle(String title, {String? subtitle}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: GoogleFonts.lexend(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: const Color(0xFF1F2937),
+          ),
+        ),
+        if (subtitle != null) ...[
+          const SizedBox(height: 2),
+          Text(
+            subtitle,
+            style: GoogleFonts.lexend(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w400,
+              color: const Color(0xFF6B7280),
+            ),
+          ),
+        ],
+      ],
     );
   }
 
   Widget _buildToneSelector() {
     return Wrap(
-      spacing: 8,
-      runSpacing: 8,
+      spacing: 10,
+      runSpacing: 10,
       children: _tones.map((tone) {
         final isSelected = _selectedTone == tone;
-        return FilterChip(
-          label: Text(tone),
-          selected: isSelected,
-          onSelected: (_) {
-            setState(() => _selectedTone = tone);
-          },
-          selectedColor: const Color(0xFFEDE9FE),
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          side: BorderSide(
-            color: isSelected
-                ? const Color(0xFF8B5CF6)
-                : const Color(0xFFDDD6FE),
-            width: 1.2,
+        final meta = _toneMetadata[tone];
+
+        return GestureDetector(
+          onTap: () => setState(() => _selectedTone = tone),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: isSelected ? const Color(0xFFEDE9FE) : Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: isSelected
+                    ? const Color(0xFF8B5CF6)
+                    : const Color(0xFFE5E7EB),
+                width: isSelected ? 1.6 : 1.0,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: isSelected
+                      ? const Color(0xFF8B5CF6).withValues(alpha: 0.12)
+                      : Colors.black.withValues(alpha: 0.03),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (meta != null) ...[
+                  Icon(
+                    meta.$1,
+                    size: 16,
+                    color: isSelected
+                        ? const Color(0xFF7C3AED)
+                        : const Color(0xFF6B7280),
+                  ),
+                  const SizedBox(width: 6),
+                ],
+                Text(
+                  tone,
+                  style: GoogleFonts.lexend(
+                    fontSize: 13.5,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                    color: isSelected
+                        ? const Color(0xFF7C3AED)
+                        : const Color(0xFF374151),
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       }).toList(),
@@ -3600,26 +3965,59 @@ class _CombinedContextSelectorScreenState
 
   Widget _buildCategorySelector() {
     return Wrap(
-      spacing: 8,
-      runSpacing: 8,
+      spacing: 10,
+      runSpacing: 10,
       children: _categories.map((category) {
         final isSelected = _selectedCategory == category;
-        return FilterChip(
-          label: Text(category),
-          selected: isSelected,
-          onSelected: (_) {
-            setState(() => _selectedCategory = category);
-          },
-          selectedColor: const Color(0xFFEDE9FE),
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          side: BorderSide(
-            color: isSelected
-                ? const Color(0xFF8B5CF6)
-                : const Color(0xFFDDD6FE),
-            width: 1.2,
+        final icon = _categoryIcons[category] ?? Icons.label_outline_rounded;
+
+        return GestureDetector(
+          onTap: () => setState(() => _selectedCategory = category),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: isSelected ? const Color(0xFFEDE9FE) : Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: isSelected
+                    ? const Color(0xFF8B5CF6)
+                    : const Color(0xFFE5E7EB),
+                width: isSelected ? 1.6 : 1.0,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: isSelected
+                      ? const Color(0xFF8B5CF6).withValues(alpha: 0.12)
+                      : Colors.black.withValues(alpha: 0.03),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  icon,
+                  size: 16,
+                  color: isSelected
+                      ? const Color(0xFF7C3AED)
+                      : const Color(0xFF6B7280),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  category,
+                  style: GoogleFonts.lexend(
+                    fontSize: 13.5,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                    color: isSelected
+                        ? const Color(0xFF7C3AED)
+                        : const Color(0xFF374151),
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       }).toList(),
