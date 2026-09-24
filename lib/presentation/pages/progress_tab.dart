@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../data/models/vocabulary_model.dart';
 import '../../data/services/dictionary_service.dart';
+import '../../utils/topic_categories.dart';
 import '../providers/providers.dart';
 import '../widgets/reward_icon_widget.dart';
 import '../widgets/badges_section.dart';
@@ -1484,21 +1485,14 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
   }
 
   List<String> _getAllCategories() {
-    return [
-      'food', 'people', 'nature', 'home', 'daily_life',
-      'clothing', 'hobbies', 'education', 'work',
-      'technology', 'health', 'entertainment', 'other'
-    ];
+    return TopicCategories.all;
   }
 
-  /// Format category name for display (e.g., "daily_life" → "Daily Life")
+  /// Format category name for display (e.g., "Food & Drinks", "Daily Life" matching Review tab)
   String _formatCategoryName(String category) {
     if (category == 'All') return 'All';
     if (category == 'Favorites') return '❤️ Favorites';
-    return category
-        .split('_')
-        .map((word) => word.isNotEmpty ? word[0].toUpperCase() + word.substring(1) : '')
-        .join(' ');
+    return TopicCategories.getDisplayNameEn(category);
   }
 
   Widget _buildCategoryChip(String category, int count) {
@@ -1738,6 +1732,12 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
     if (category == 'Favorites') {
       return allVocabs.where((v) => v.isFavorite).length;
     }
+    if (category == TopicCategories.dailyLife || category == 'daily_life') {
+      return allVocabs
+          .where((v) =>
+              v.topic == TopicCategories.dailyLife || v.topic == 'daily_life')
+          .length;
+    }
 
     return allVocabs.where((v) => v.topic == category).length;
   }
@@ -1758,7 +1758,14 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
     if (_selectedCategory == 'Favorites') {
       filtered = filtered.where((v) => v.isFavorite).toList();
     } else if (_selectedCategory != 'All') {
-      filtered = filtered.where((v) => v.topic == _selectedCategory).toList();
+      filtered = filtered.where((v) {
+        if (_selectedCategory == TopicCategories.dailyLife ||
+            _selectedCategory == 'daily_life') {
+          return v.topic == TopicCategories.dailyLife ||
+              v.topic == 'daily_life';
+        }
+        return v.topic == _selectedCategory;
+      }).toList();
     }
 
     return filtered;

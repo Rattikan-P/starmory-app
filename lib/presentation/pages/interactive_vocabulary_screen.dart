@@ -571,86 +571,155 @@ class _InteractiveVocabularyScreenState
       ),
     );
   }
+  Future<void> _handleToggleCombinedSentence() async {
+    final value = !_useCombinedSentence;
+
+    if (value) {
+      // Switching TO combined mode - save individual sentences first
+      _saveIndividualSentences();
+
+      // Check if we have cached combined sentences to use
+      final restored = _restoreCombinedSentences();
+
+      if (restored) {
+        // Cache hit - switch immediately without loading state
+        setState(() {
+          _useCombinedSentence = true;
+          _isRegenerating = false;
+        });
+      } else {
+        // No cache, need to generate
+        setState(() {
+          _useCombinedSentence = true;
+          _clearSelectedSentences();
+          _isRegenerating = true;
+        });
+        await _generateAllSentences();
+      }
+    } else {
+      // Switching FROM combined mode - restore individual sentences
+      final restored = _restoreIndividualSentences();
+
+      setState(() {
+        _useCombinedSentence = false;
+        _isRegenerating = !restored;
+      });
+
+      if (!restored) {
+        await _generateAllSentences();
+      }
+    }
+  }
 
   Widget _buildCombinedSentenceToggle() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-      child: Row(
-        children: [
-          GestureDetector(
-            onTap: () async {
-              final value = !_useCombinedSentence;
-
-              if (value) {
-                // Switching TO combined mode - save individual sentences first
-                _saveIndividualSentences();
-
-                setState(() {
-                  _useCombinedSentence = true;
-                  _clearSelectedSentences();
-                  _isRegenerating = true;
-                });
-
-                // Check if we have cached combined sentences to use
-                final restored = _restoreCombinedSentences();
-
-                if (!restored) {
-                  // No cache, need to generate
-                  await _generateAllSentences();
-                } else {
-                  // Cache hit - just clear loading state
-                  setState(() => _isRegenerating = false);
-                }
-              } else {
-                // Switching FROM combined mode - restore individual sentences
-                setState(() => _useCombinedSentence = false);
-
-                final restored = _restoreIndividualSentences();
-
-                if (!restored) {
-                  setState(() {
-                    _isRegenerating = true;
-                  });
-
-                  await _generateAllSentences();
-                }
-              }
-            },
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 220),
-              width: 22,
-              height: 22,
-              decoration: BoxDecoration(
-                color: _useCombinedSentence
-                    ? const Color(0xFF8B5CF6)
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      child: GestureDetector(
+        onTap: _handleToggleCombinedSentence,
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: _useCombinedSentence
+                ? const Color(0xFFF5F3FF)
+                : const Color(0xFFF9FAFB),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: _useCombinedSentence
+                  ? const Color(0xFFDDD6FE)
+                  : const Color(0xFFE5E7EB),
+              width: 1.2,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
                   color: _useCombinedSentence
-                      ? const Color(0xFF8B5CF6)
-                      : const Color(0xFFD1D5DB),
-                  width: 1.5,
+                      ? const Color(0xFFEDE9FE)
+                      : const Color(0xFFF3F4F6),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.auto_awesome_rounded,
+                  size: 17,
+                  color: _useCombinedSentence
+                      ? const Color(0xFF7C3AED)
+                      : const Color(0xFF6B7280),
                 ),
               ),
-              child: _useCombinedSentence
-                  ? const Icon(
-                      Icons.check_rounded,
-                      size: 15,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Combined Sentence',
+                      style: GoogleFonts.lexend(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF1F2937),
+                      ),
+                    ),
+                    const SizedBox(height: 1),
+                    Text(
+                      'Join words into one sentence',
+                      style: GoogleFonts.lexend(
+                        fontSize: 11.5,
+                        color: const Color(0xFF6B7280),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeInOut,
+                width: 44,
+                height: 24,
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  color: _useCombinedSentence
+                      ? const Color(0xFF8B5CF6)
+                      : const Color(0xFFE2E8F0),
+                  border: Border.all(
+                    color: _useCombinedSentence
+                        ? const Color(0xFF7C3AED)
+                        : const Color(0xFFCBD5E1),
+                    width: 1.0,
+                  ),
+                ),
+                child: AnimatedAlign(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeInOut,
+                  alignment: _useCombinedSentence
+                      ? Alignment.centerRight
+                      : Alignment.centerLeft,
+                  child: Container(
+                    width: 18,
+                    height: 18,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
                       color: Colors.white,
-                    )
-                  : null,
-            ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.12),
+                          blurRadius: 2.5,
+                          offset: const Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 12),
-          Text(
-            'Combined Sentence',
-            style: GoogleFonts.lexend(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: const Color(0xFF1F2937),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -668,11 +737,11 @@ class _InteractiveVocabularyScreenState
   }
 
   /// Save individual sentences and context before switching to combined mode
-  /// Now saves ALL sentences and contexts (not just selected) for better restoration
+  /// Save individual sentences and context before switching to combined mode
+  /// Only saves when in individual mode so combined sentences never overwrite cache
   void _saveIndividualSentences() {
-    _savedIndividualSentences.clear();
+    if (_useCombinedSentence) return;
     for (final dot in _vocabularyDots) {
-      // Save ALL words that have sentences, not just selected ones
       if (dot.englishSentence.isNotEmpty) {
         _savedIndividualSentences[dot.id] = (
           english: dot.englishSentence,
@@ -692,16 +761,18 @@ class _InteractiveVocabularyScreenState
       return false;
     }
 
-    // Check if all selected words have saved sentences
+    // Check if all selected words have non-empty saved sentences
     final hasAllSaved = _selectedWordIds.every(
-      (id) => _savedIndividualSentences.containsKey(id),
+      (id) =>
+          _savedIndividualSentences.containsKey(id) &&
+          _savedIndividualSentences[id]!.english.isNotEmpty,
     );
 
     setState(() {
       for (var i = 0; i < _vocabularyDots.length; i++) {
         final dot = _vocabularyDots[i];
         final saved = _savedIndividualSentences[dot.id];
-        if (saved != null) {
+        if (saved != null && saved.english.isNotEmpty) {
           _vocabularyDots[i] = dot.copyWith(
             englishSentence: saved.english,
             thaiSentence: saved.thai,
@@ -712,11 +783,7 @@ class _InteractiveVocabularyScreenState
       }
     });
 
-    if (hasAllSaved) {
-      return true;
-    } else {
-      return false;
-    }
+    return hasAllSaved;
   }
 
   /// Restore combined sentences from cache when switching to combined mode
@@ -729,10 +796,10 @@ class _InteractiveVocabularyScreenState
       return false;
     }
 
-    setState(() {
-      final toneKey = _mapToneToApiFormat(_combinedTone);
-      final saved = _savedCombinedSentences[toneKey];
-      if (saved != null) {
+    final toneKey = _mapToneToApiFormat(_combinedTone);
+    final saved = _savedCombinedSentences[toneKey];
+    if (saved != null && saved.english.isNotEmpty) {
+      setState(() {
         for (var i = 0; i < _vocabularyDots.length; i++) {
           final dot = _vocabularyDots[i];
           if (_selectedWordIds.contains(dot.id)) {
@@ -742,10 +809,11 @@ class _InteractiveVocabularyScreenState
             );
           }
         }
-      }
-    });
+      });
+      return true;
+    }
 
-    return true;
+    return false;
   }
 
   Widget _buildImageWithDots() {
@@ -1573,12 +1641,11 @@ class _InteractiveVocabularyScreenState
               border: Border.all(color: const Color(0xFFDDD6FE)),
             ),
             child: _isRegenerating
-                ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                ? Row(
                     children: [
                       const SizedBox(
-                        width: 20,
-                        height: 20,
+                        width: 16,
+                        height: 16,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
                           valueColor: AlwaysStoppedAnimation<Color>(
@@ -1586,12 +1653,12 @@ class _InteractiveVocabularyScreenState
                           ),
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(width: 10),
                       Text(
                         'Generating combined sentence...',
-                        style: TextStyle(
+                        style: GoogleFonts.lexend(
                           fontSize: 13,
-                          color: Colors.grey[500],
+                          color: const Color(0xFF6B7280),
                           fontStyle: FontStyle.italic,
                         ),
                       ),
@@ -1680,9 +1747,19 @@ class _InteractiveVocabularyScreenState
           // Context Tags & +Context Button
           Row(
             children: [
-              _ContextChip(label: _combinedTone, icon: Icons.tune),
+              _ContextChip(
+                label: _combinedTone,
+                icon: _getContextToneIcon(_combinedTone),
+                backgroundColor: Colors.white,
+                borderColor: const Color(0xFFDDD6FE),
+              ),
               const SizedBox(width: 8),
-              _ContextChip(label: _combinedCategory, icon: Icons.category),
+              _ContextChip(
+                label: _combinedCategory,
+                icon: _getContextCategoryIcon(_combinedCategory),
+                backgroundColor: Colors.white,
+                borderColor: const Color(0xFFDDD6FE),
+              ),
               const Spacer(),
               TextButton.icon(
                 onPressed: _isRegenerating
@@ -2847,12 +2924,11 @@ class _WordDetailCard extends StatelessWidget {
             child: dot.englishSentence.isEmpty ||
                     isRegenerating ||
                     isSentenceRegenerating
-                ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                ? Row(
                     children: [
                       const SizedBox(
-                        width: 20,
-                        height: 20,
+                        width: 16,
+                        height: 16,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
                           valueColor: AlwaysStoppedAnimation<Color>(
@@ -2860,12 +2936,12 @@ class _WordDetailCard extends StatelessWidget {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(width: 10),
                       Text(
                         'Updating sentence...',
-                        style: TextStyle(
+                        style: GoogleFonts.lexend(
                           fontSize: 13,
-                          color: Colors.grey[500],
+                          color: const Color(0xFF6B7280),
                           fontStyle: FontStyle.italic,
                         ),
                       ),
@@ -2941,9 +3017,15 @@ class _WordDetailCard extends StatelessWidget {
           // Context Tags & +Context Button
           Row(
             children: [
-              _ContextChip(label: dot.tone, icon: Icons.tune),
+              _ContextChip(
+                label: dot.tone,
+                icon: _getContextToneIcon(dot.tone),
+              ),
               const SizedBox(width: 8),
-              _ContextChip(label: dot.category, icon: Icons.category),
+              _ContextChip(
+                label: dot.category,
+                icon: _getContextCategoryIcon(dot.category),
+              ),
               const Spacer(),
               TextButton.icon(
                 onPressed: isRegenerating || isSentenceRegenerating
@@ -2972,30 +3054,78 @@ class _WordDetailCard extends StatelessWidget {
   }
 }
 
+IconData _getContextToneIcon(String tone) {
+  switch (tone.toLowerCase()) {
+    case 'describe':
+      return Icons.chat_bubble_outline_rounded;
+    case 'command':
+      return Icons.bolt_rounded;
+    case 'wish':
+      return Icons.auto_awesome_rounded;
+    case 'conditional':
+      return Icons.alt_route_rounded;
+    default:
+      return Icons.tune_rounded;
+  }
+}
+
+IconData _getContextCategoryIcon(String category) {
+  switch (category.toLowerCase()) {
+    case 'moment':
+      return Icons.camera_alt_outlined;
+    case 'nature':
+      return Icons.park_outlined;
+    case 'food':
+      return Icons.restaurant_outlined;
+    case 'study':
+      return Icons.menu_book_outlined;
+    case 'daily life':
+    case 'daily_life':
+      return Icons.coffee_outlined;
+    case 'custom':
+      return Icons.edit_note_outlined;
+    default:
+      return Icons.edit_note_outlined;
+  }
+}
+
 class _ContextChip extends StatelessWidget {
   final String label;
   final IconData icon;
+  final Color? backgroundColor;
+  final Color? borderColor;
 
-  const _ContextChip({required this.label, required this.icon});
+  const _ContextChip({
+    required this.label,
+    required this.icon,
+    this.backgroundColor,
+    this.borderColor,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final bg = backgroundColor ?? const Color(0xFFEDE9FE);
+    const textCol = Color(0xFF7C3AED);
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: const Color(0xFFEDE9FE),
+        color: bg,
         borderRadius: BorderRadius.circular(16),
+        border: borderColor != null
+            ? Border.all(color: borderColor!, width: 1.0)
+            : null,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: const Color(0xFF7C3AED)),
+          Icon(icon, size: 14, color: textCol),
           const SizedBox(width: 4),
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
-              color: Color(0xFF7C3AED),
+              color: textCol,
               fontWeight: FontWeight.w500,
             ),
           ),

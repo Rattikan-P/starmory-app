@@ -264,6 +264,7 @@ class GeminiService {
         'food',
         'home',
         'daily_life',
+        'daily life',
         'saucer',
         'coffeecup',
         'teacup'
@@ -365,9 +366,12 @@ class GeminiService {
     // Special case rules for common ambiguous words
     final specialCases = {
       // Accessories that often get miscategorized
-      'glasses': _isMedicalContext(context) ? 'health' : 'daily_life',
-      'sunglasses': 'daily_life',
-      'watch': _hasDigitalKeywords(context) ? 'technology' : 'daily_life',
+      'glasses':
+          _isMedicalContext(context) ? TopicCategories.health : TopicCategories.dailyLife,
+      'sunglasses': TopicCategories.dailyLife,
+      'watch': _hasDigitalKeywords(context)
+          ? TopicCategories.technology
+          : TopicCategories.dailyLife,
 
       // Health items
       'bandage': TopicCategories.health,
@@ -578,7 +582,7 @@ For EACH vocabulary item, select exactly ONE category that best describes it:
   • people        — ${TopicCategories.descriptions[TopicCategories.people]}
   • nature        — ${TopicCategories.descriptions[TopicCategories.nature]}
   • home          — ${TopicCategories.descriptions[TopicCategories.home]}
-  • daily_life    — ${TopicCategories.descriptions[TopicCategories.dailyLife]}
+  • Daily Life    — ${TopicCategories.descriptions[TopicCategories.dailyLife]}
   • clothing      — ${TopicCategories.descriptions[TopicCategories.clothing]}
   • hobbies       — ${TopicCategories.descriptions[TopicCategories.hobbies]}
   • education     — ${TopicCategories.descriptions[TopicCategories.education]}

@@ -23,7 +23,7 @@ class TopicCategories {
   static const String people = 'people';
   static const String nature = 'nature';
   static const String home = 'home';
-  static const String dailyLife = 'daily_life';
+  static const String dailyLife = 'Daily Life';
   static const String clothing = 'clothing';
   static const String hobbies = 'hobbies';
   static const String education = 'education';
@@ -40,6 +40,7 @@ class TopicCategories {
     nature: 'ธรรมชาติ & สัตว์',
     home: 'บ้าน & สิ่งของ',
     dailyLife: 'ชีวิตประจำวัน',
+    'daily_life': 'ชีวิตประจำวัน',
     clothing: 'เสื้อผ้า & แฟชั่น',
     hobbies: 'งานอดิเรก & กีฬา',
     education: 'การศึกษา',
@@ -57,6 +58,7 @@ class TopicCategories {
     nature: 'Nature & Animals',
     home: 'Home & Things',
     dailyLife: 'Daily Life',
+    'daily_life': 'Daily Life',
     clothing: 'Clothing & Fashion',
     hobbies: 'Hobbies & Sports',
     education: 'Education',
@@ -74,6 +76,7 @@ class TopicCategories {
     nature: 'Animals, plants, weather, landscape, environment',
     home: 'Furniture, rooms, household items',
     dailyLife: 'Daily routines, transportation, places, locations',
+    'daily_life': 'Daily routines, transportation, places, locations',
     clothing: 'Clothing, shoes, accessories, fashion',
     hobbies: 'Sports, games, leisure activities, arts',
     education: 'School, learning, subjects, studying',
@@ -112,11 +115,13 @@ class TopicCategories {
   /// Validate if a string is a valid category
   static bool isValid(String? category) {
     if (category == null || category.isEmpty) return false;
+    if (category == 'daily_life') return true;
     return all.contains(category);
   }
 
   /// Get a safe category (returns 'other' if invalid)
   static String safeValue(String? category) {
+    if (category == 'daily_life') return dailyLife;
     return isValid(category) ? category! : other;
   }
 }

@@ -1141,6 +1141,7 @@ class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserv
 
   IconData _getTopicIcon(String topic) {
     switch (topic) {
+      case 'daily_life':
       case TopicCategories.dailyLife:
         return Icons.favorite_border_rounded;
       case TopicCategories.technology:
