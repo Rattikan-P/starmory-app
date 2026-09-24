@@ -226,8 +226,11 @@ class _GenerationLoadingScreenState
 
       final geminiService = ref.read(geminiServiceProvider);
 
+      // Brief delay so Phase 1 is visible smoothly
+      await Future.delayed(const Duration(milliseconds: 600));
+
       // Phase 2: Analyzing with AI
-      setState(() => _currentPhase = 2);
+      if (mounted) setState(() => _currentPhase = 2);
 
       // Actual API call with timeout to prevent indefinite hanging
       final result = await geminiService.extractVocabulary(
@@ -284,8 +287,10 @@ class _GenerationLoadingScreenState
             vocabList: vocabListWithSentences,
           );
 
-          // Phase 4: Finalizing
+          // Phase 4: Finalizing / Done!
           setState(() => _currentPhase = 4);
+          await Future.delayed(const Duration(milliseconds: 600));
+          if (!mounted) return;
           setState(() => _isProcessing = false);
           await _showResult(updatedResult);
         }
@@ -548,33 +553,87 @@ class _GenerationLoadingScreenState
     );
   }
 
-  String get _currentPhaseTitle {
-    switch (_currentPhase) {
-      case 1:
-      case 2:
-        return 'Analyzing your photo';
-      case 3:
-        return 'Creating magic';
-      case 4:
-        return 'Finalizing';
-      default:
-        return 'Analyzing your photo';
-    }
-  }
+  static const List<String> _phases = [
+    'Analyzing your photo',
+    'Detecting vocabulary words',
+    'Generating contextual sentences',
+    'Done!',
+  ];
 
-  String get _currentPhaseSubtitle {
-    switch (_currentPhase) {
-      case 1:
-        return 'Scanning image details...';
-      case 2:
-        return 'Detecting vocab Word';
-      case 3:
-        return 'Generating sentences...';
-      case 4:
-        return 'Almost ready...';
-      default:
-        return 'Detecting vocab Word';
-    }
+  Widget _buildPhaseItem(int index) {
+    final phaseNum = index + 1;
+    final isCurrent = _currentPhase == phaseNum;
+    final isPast = _currentPhase > phaseNum;
+
+    return AnimatedOpacity(
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeInOut,
+      opacity: isCurrent ? 1.0 : (isPast ? 0.5 : 0.22),
+      child: AnimatedScale(
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeOutCubic,
+        scale: isCurrent ? 1.08 : 0.92,
+        alignment: Alignment.center,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 3),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (isPast)
+                const Icon(
+                  Icons.check_circle_rounded,
+                  color: Color(0xFF4ADE80),
+                  size: 16,
+                )
+              else if (isCurrent)
+                Container(
+                  width: 7,
+                  height: 7,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFFF7A45),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Color(0xFFFF7A45),
+                        blurRadius: 6,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                )
+              else
+                Container(
+                  width: 5,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.3),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              const SizedBox(width: 8),
+              AnimatedDefaultTextStyle(
+                duration: const Duration(milliseconds: 350),
+                curve: Curves.easeInOut,
+                style: GoogleFonts.lexend(
+                  fontSize: isCurrent ? 17.5 : 13.0,
+                  fontWeight: isCurrent
+                      ? FontWeight.w700
+                      : (isPast ? FontWeight.w500 : FontWeight.w400),
+                  color: isCurrent
+                      ? Colors.white
+                      : (isPast
+                          ? Colors.white.withValues(alpha: 0.8)
+                          : Colors.white.withValues(alpha: 0.5)),
+                  letterSpacing: isCurrent ? 0.2 : 0,
+                ),
+                child: Text(_phases[index]),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -710,41 +769,27 @@ class _GenerationLoadingScreenState
 
                 const Spacer(),
 
-                // Bottom Status Texts and Pill Badge
+                // Bottom Status Steps List and Pill Badge
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Status Title
-                      Text(
-                        _currentPhaseTitle,
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.lexend(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
+                      // Animated Phase List
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: List.generate(
+                          _phases.length,
+                          (index) => _buildPhaseItem(index),
                         ),
                       ),
-                      const SizedBox(height: 6),
-
-                      // Status Subtitle
-                      Text(
-                        _currentPhaseSubtitle,
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.lexend(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w400,
-                          color: Colors.white.withValues(alpha: 0.75),
-                        ),
-                      ),
-                      const SizedBox(height: 22),
+                      const SizedBox(height: 20),
 
                       // Translucent Pill Badge "This may take a few seconds."
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 20,
-                          vertical: 10,
+                          vertical: 9,
                         ),
                         decoration: BoxDecoration(
                           color: Colors.white.withValues(alpha: 0.12),
@@ -757,13 +802,13 @@ class _GenerationLoadingScreenState
                         child: Text(
                           'This may take a few seconds.',
                           style: GoogleFonts.lexend(
-                            fontSize: 13,
+                            fontSize: 12.5,
                             fontWeight: FontWeight.w400,
                             color: Colors.white.withValues(alpha: 0.85),
                           ),
                         ),
                       ),
-                      const SizedBox(height: 32),
+                      const SizedBox(height: 28),
                     ],
                   ),
                 ),
