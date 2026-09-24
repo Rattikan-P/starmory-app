@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../widgets/galaxy_screen_background.dart';
 import '../providers/providers.dart';
 import '../../core/utils/image_clarity_checker.dart';
 import '../../core/utils/image_validator.dart';
@@ -32,113 +31,133 @@ class _ImagePreviewScreenState extends ConsumerState<ImagePreviewScreen> {
     final isGuest = currentUser?.isGuest ?? true;
 
     return Scaffold(
-      body: GalaxyScreenBackground(
-        child: SafeArea(
-          child: Column(
-            children: [
+      backgroundColor: Colors.black,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          // 1. Fullscreen Image
+          Image.file(
+            File(widget.imagePath),
+            fit: BoxFit.cover,
+            width: double.infinity,
+            height: double.infinity,
+          ),
+
+          // 2. Top Vignette Gradient Overlay
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 140,
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black.withValues(alpha: 0.65),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // 3. Bottom Vignette Gradient Overlay
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: 320,
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [
+                    Colors.black.withValues(alpha: 0.90),
+                    Colors.black.withValues(alpha: 0.50),
+                    Colors.transparent,
+                  ],
+                  stops: const [0.0, 0.55, 1.0],
+                ),
+              ),
+            ),
+          ),
+
+          // 4. Foreground Content
+          SafeArea(
+            child: Column(
+              children: [
                 // TOP BAR
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
                   child: Row(
                     children: [
                       _glassButton(
-                        icon: Icons.arrow_back_ios_rounded,
+                        icon: Icons.arrow_back_ios_new_rounded,
                         onTap: () => Navigator.pop(context),
                       ),
                       const Spacer(),
                       Text(
                         'Preview',
                         style: GoogleFonts.lexend(
-                          fontSize: 20,
+                          fontSize: 18,
                           fontWeight: FontWeight.w600,
-                          color: const Color(0xFF1f2937),
+                          color: Colors.white,
                         ),
                       ),
                       const Spacer(),
-                      // Empty space to balance the layout
-                      const SizedBox(width: 46),
+                      // Balance space for center title
+                      const SizedBox(width: 44),
                     ],
                   ),
                 ),
 
-                const SizedBox(height: 24),
+                const Spacer(),
 
-                // IMAGE CARD
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: Container(
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.9),
-                        borderRadius: BorderRadius.circular(32),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFF8B7CFF).withValues(alpha: 0.08),
-                            blurRadius: 40,
-                            offset: const Offset(0, 20),
-                          ),
-                        ],
-                      ),
-                      padding: const EdgeInsets.all(12),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(24),
-                        child: Image.file(
-                          File(widget.imagePath),
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-
-                // TEXT + INFO
+                // BOTTOM TEXT & ACTION BUTTON
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 28, 24, 0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Ready to Generate',
-                        style: GoogleFonts.lexend(
-                          fontSize: 26,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFF1f2937),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        'AI will analyze your image and create contextual vocabulary cards.',
-                        style: GoogleFonts.lexend(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w400,
-                          color: const Color(0xFF6b7280),
-                          height: 1.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // BUTTON & QUOTA WARNING
-                Padding(
-                  padding: const EdgeInsets.all(24),
+                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      Text(
+                        'Ready to Generate',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.lexend(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'AI will analyze your image and create\ncontextual vocabulary cards',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.lexend(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w400,
+                          color: Colors.white.withValues(alpha: 0.85),
+                          height: 1.35,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Generate Vocabulary Button
                       SizedBox(
                         width: double.infinity,
-                        height: 62,
+                        height: 56,
                         child: ElevatedButton(
                           onPressed: (_isProcessing || !canGenerate) ? null : _usePhoto,
                           style: ElevatedButton.styleFrom(
                             elevation: 0,
-                            backgroundColor: const Color(0xFF8b7cf6),
-                            disabledBackgroundColor: Colors.grey.shade200,
+                            backgroundColor: const Color(0xFF8B5CF6),
+                            disabledBackgroundColor: Colors.white.withValues(alpha: 0.25),
                             foregroundColor: Colors.white,
-                            disabledForegroundColor: const Color(0xFF9ca3af),
+                            disabledForegroundColor: Colors.white.withValues(alpha: 0.6),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
+                              borderRadius: BorderRadius.circular(28),
                             ),
                           ),
                           child: AnimatedSwitcher(
@@ -148,37 +167,24 @@ class _ImagePreviewScreenState extends ConsumerState<ImagePreviewScreen> {
                                     width: 24,
                                     height: 24,
                                     child: CircularProgressIndicator(
-                                      strokeWidth: 2,
+                                      strokeWidth: 2.5,
                                       color: Colors.white,
                                     ),
                                   )
-                                : Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(
-                                        Icons.auto_awesome_rounded,
-                                        color: canGenerate
-                                            ? Colors.white
-                                            : const Color(0xFF9ca3af),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Text(
-                                        canGenerate
-                                            ? 'Generate Vocabulary'
-                                            : 'Generation Limit Reached',
-                                        style: GoogleFonts.lexend(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w600,
-                                          color: canGenerate
-                                              ? Colors.white
-                                              : const Color(0xFF9ca3af),
-                                        ),
-                                      ),
-                                    ],
+                                : Text(
+                                    canGenerate
+                                        ? 'Generate Vocabulary'
+                                        : 'Generation Limit Reached',
+                                    style: GoogleFonts.lexend(
+                                      fontSize: 15.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.white,
+                                    ),
                                   ),
                           ),
                         ),
                       ),
+
                       if (!canGenerate && isGuest) ...[
                         const SizedBox(height: 12),
                         GestureDetector(
@@ -186,13 +192,13 @@ class _ImagePreviewScreenState extends ConsumerState<ImagePreviewScreen> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 16,
-                              vertical: 12,
+                              vertical: 10,
                             ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF8b5cf6).withValues(alpha: 0.1),
+                              color: Colors.white.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(
-                                color: const Color(0xFF8b5cf6).withValues(alpha: 0.3),
+                                color: Colors.white.withValues(alpha: 0.3),
                               ),
                             ),
                             child: Row(
@@ -200,16 +206,16 @@ class _ImagePreviewScreenState extends ConsumerState<ImagePreviewScreen> {
                               children: [
                                 const Icon(
                                   Icons.star_rounded,
-                                  color: Color(0xFF8b5cf6),
-                                  size: 20,
+                                  color: Color(0xFFFDE047),
+                                  size: 18,
                                 ),
                                 const SizedBox(width: 8),
                                 Text(
                                   'Sign up for 15 daily generations!',
                                   style: GoogleFonts.lexend(
-                                    fontSize: 14,
+                                    fontSize: 13,
                                     fontWeight: FontWeight.w600,
-                                    color: const Color(0xFF7c3aed),
+                                    color: Colors.white,
                                   ),
                                 ),
                               ],
@@ -222,9 +228,9 @@ class _ImagePreviewScreenState extends ConsumerState<ImagePreviewScreen> {
                           'Daily limit reached. Come back tomorrow for 15 new generations!',
                           textAlign: TextAlign.center,
                           style: GoogleFonts.lexend(
-                            fontSize: 13,
+                            fontSize: 12.5,
                             fontWeight: FontWeight.w400,
-                            color: const Color(0xFF9ca3af),
+                            color: Colors.white.withValues(alpha: 0.75),
                           ),
                         ),
                       ],
@@ -234,7 +240,8 @@ class _ImagePreviewScreenState extends ConsumerState<ImagePreviewScreen> {
               ],
             ),
           ),
-        ),
+        ],
+      ),
     );
   }
 
@@ -242,23 +249,29 @@ class _ImagePreviewScreenState extends ConsumerState<ImagePreviewScreen> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 46,
-        height: 46,
+        width: 44,
+        height: 44,
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.9),
-          borderRadius: BorderRadius.circular(16),
+          color: Colors.black.withValues(alpha: 0.35),
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.25),
+            width: 1.2,
+          ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.08),
-              blurRadius: 10,
+              color: Colors.black.withValues(alpha: 0.25),
+              blurRadius: 8,
               offset: const Offset(0, 2),
             ),
           ],
         ),
-        child: Icon(
-          icon,
-          color: const Color(0xFF1f2937),
-          size: 18,
+        child: Center(
+          child: Icon(
+            icon,
+            color: Colors.white,
+            size: 20,
+          ),
         ),
       ),
     );

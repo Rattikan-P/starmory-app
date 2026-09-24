@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../widgets/galaxy_screen_background.dart';
 import '../providers/providers.dart';
 import '../providers/auth_quota_provider.dart';
 import '../../data/services/gemini_service.dart';
@@ -39,14 +38,6 @@ class _GenerationLoadingScreenState
     with TickerProviderStateMixin {
   int _currentPhase = 1;
   bool _isProcessing = true;
-
-  // Phase descriptions - updated to reflect actual process
-  final List<String> _phaseDescriptions = [
-    'Analyzing your photo...',
-    'Detecting vocabulary words...',
-    'Generating sentences...',
-    'Finalizing...',
-  ];
 
   late AnimationController _scanController;
   late Animation<double> _scanAnimation;
@@ -310,7 +301,7 @@ class _GenerationLoadingScreenState
         });
         _handleImageError(e.errorCode, e.message);
       }
-    } on TimeoutException catch (e) {
+    } on TimeoutException {
       if (mounted) {
         setState(() {
           _isProcessing = false;
@@ -557,210 +548,297 @@ class _GenerationLoadingScreenState
     );
   }
 
+  String get _currentPhaseTitle {
+    switch (_currentPhase) {
+      case 1:
+      case 2:
+        return 'Analyzing your photo';
+      case 3:
+        return 'Creating magic';
+      case 4:
+        return 'Finalizing';
+      default:
+        return 'Analyzing your photo';
+    }
+  }
+
+  String get _currentPhaseSubtitle {
+    switch (_currentPhase) {
+      case 1:
+        return 'Scanning image details...';
+      case 2:
+        return 'Detecting vocab Word';
+      case 3:
+        return 'Generating sentences...';
+      case 4:
+        return 'Almost ready...';
+      default:
+        return 'Detecting vocab Word';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: GalaxyScreenBackground(
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Column(
-              children: [
-                  const SizedBox(height: 30),
+      backgroundColor: Colors.black,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          // 1. Fullscreen Image
+          Image.file(
+            File(widget.imagePath),
+            fit: BoxFit.cover,
+            width: double.infinity,
+            height: double.infinity,
+          ),
 
-                  // TOP TEXT
-                  Column(
-                    children: [
-                      Text(
-                        'Creating Magic',
-                        style: GoogleFonts.lexend(
-                          fontSize: 30,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFF1f2937),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        _phaseDescriptions[_currentPhase - 1],
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.lexend(
-                          fontSize: 15,
-                          height: 1.5,
-                          color: const Color(0xFF6b7280),
-                        ),
-                      ),
-                    ],
-                  ),
+          // 2. Dark Overlay
+          Container(
+            color: Colors.black.withValues(alpha: 0.55),
+          ),
 
-                  const Spacer(),
-
-                  // IMAGE CARD
-                  Container(
-                    width: double.infinity,
-                    constraints: const BoxConstraints(maxWidth: 340),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(32),
-                      color: Colors.white.withValues(alpha: 0.9),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF6C63FF).withValues(alpha: 0.12),
-                          blurRadius: 40,
-                          spreadRadius: 2,
-                        ),
-                      ],
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(24),
-                      child: Stack(
-                        children: [
-                          // IMAGE
-                          AspectRatio(
-                            aspectRatio: 0.8,
-                            child: Image.file(
-                              File(widget.imagePath),
-                              fit: BoxFit.cover,
-                            ),
-                          ),
-
-                          // DARK OVERLAY
-                          Positioned.fill(
-                            child: Container(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                  colors: [
-                                    Colors.black.withValues(alpha: 0.1),
-                                    Colors.black.withValues(alpha: 0.25),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-
-                          // SCAN EFFECT
-                          if (_isProcessing)
-                            Positioned.fill(
-                              child: AnimatedBuilder(
-                                animation: _scanAnimation,
-                                builder: (context, child) {
-                                  return Align(
-                                    alignment: Alignment(
-                                      0,
-                                      -1 + (_scanAnimation.value * 2),
-                                    ),
-                                    child: Container(
-                                      height: 80,
-                                      decoration: BoxDecoration(
-                                        gradient: LinearGradient(
-                                          colors: [
-                                            Colors.transparent,
-                                            const Color(0xFF8B7CFF)
-                                                .withValues(alpha: 0.4),
-                                            Colors.transparent,
-                                          ],
-                                          begin: Alignment.topCenter,
-                                          end: Alignment.bottomCenter,
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-
-                          // CENTER LOADER
-                          if (_isProcessing)
-                            Positioned.fill(
-                              child: Center(
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 18,
-                                    vertical: 10,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withValues(alpha: 0.9),
-                                    borderRadius: BorderRadius.circular(999),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black
-                                            .withValues(alpha: 0.1),
-                                        blurRadius: 10,
-                                      ),
-                                    ],
-                                  ),
-                                  child: const Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      SizedBox(
-                                        width: 16,
-                                        height: 16,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: Color(0xFF8b7cf6),
-                                        ),
-                                      ),
-                                      SizedBox(width: 10),
-                                      Text(
-                                        'AI Processing',
-                                        style: TextStyle(
-                                          color: Color(0xFF1f2937),
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  const Spacer(),
-
-                  // STEP INDICATOR
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(3, (index) {
-                      final isActive = index + 1 == _currentPhase;
-
-                      return AnimatedContainer(
-                        duration: const Duration(milliseconds: 300),
-                        margin: const EdgeInsets.symmetric(horizontal: 6),
-                        width: isActive ? 36 : 10,
-                        height: 10,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(999),
-                          color: isActive
-                              ? const Color(0xFF8b7cf6)
-                              : const Color(0xFFc4b5fd).withValues(alpha: 0.3),
-                        ),
-                      );
-                    }),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  Text(
-                    'This may take a few seconds',
-                    style: GoogleFonts.lexend(
-                      color: const Color(0xFF9ca3af),
-                      fontSize: 13,
-                    ),
-                  ),
-
-                  const SizedBox(height: 40),
-                ],
+          // 3. Vignette Top and Bottom Gradients
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 160,
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black.withValues(alpha: 0.7),
+                    Colors.transparent,
+                  ],
+                ),
               ),
             ),
           ),
-        ),
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: 280,
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [
+                    Colors.black.withValues(alpha: 0.85),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // 4. Content
+          SafeArea(
+            child: Column(
+              children: [
+                const SizedBox(height: 20),
+
+                // Top Title "Creating Magic"
+                Text(
+                  'Creating Magic',
+                  style: GoogleFonts.lexend(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+
+                const Spacer(),
+
+                // Center Scanner Box with Orange Rounded Corners
+                Center(
+                  child: SizedBox(
+                    width: 260,
+                    height: 260,
+                    child: Stack(
+                      children: [
+                        // Reticle corners
+                        Positioned.fill(
+                          child: CustomPaint(
+                            painter: _ScannerReticlePainter(
+                              color: const Color(0xFFFF6A3D),
+                              cornerLength: 36,
+                              cornerRadius: 18,
+                              strokeWidth: 3.5,
+                            ),
+                          ),
+                        ),
+
+                        // Scan laser beam moving up and down
+                        if (_isProcessing)
+                          AnimatedBuilder(
+                            animation: _scanAnimation,
+                            builder: (context, child) {
+                              return Positioned(
+                                top: 12 + (_scanAnimation.value * (260 - 24)),
+                                left: 16,
+                                right: 16,
+                                child: Container(
+                                  height: 2,
+                                  decoration: BoxDecoration(
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: const Color(0xFFFF6A3D).withValues(alpha: 0.8),
+                                        blurRadius: 8,
+                                        spreadRadius: 2,
+                                      ),
+                                    ],
+                                    gradient: const LinearGradient(
+                                      colors: [
+                                        Colors.transparent,
+                                        Color(0xFFFF7A45),
+                                        Colors.transparent,
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const Spacer(),
+
+                // Bottom Status Texts and Pill Badge
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Status Title
+                      Text(
+                        _currentPhaseTitle,
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.lexend(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+
+                      // Status Subtitle
+                      Text(
+                        _currentPhaseSubtitle,
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.lexend(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w400,
+                          color: Colors.white.withValues(alpha: 0.75),
+                        ),
+                      ),
+                      const SizedBox(height: 22),
+
+                      // Translucent Pill Badge "This may take a few seconds."
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(30),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.2),
+                            width: 1,
+                          ),
+                        ),
+                        child: Text(
+                          'This may take a few seconds.',
+                          style: GoogleFonts.lexend(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w400,
+                            color: Colors.white.withValues(alpha: 0.85),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
+}
 
+/// Custom painter for the scanner corner brackets
+class _ScannerReticlePainter extends CustomPainter {
+  final Color color;
+  final double cornerLength;
+  final double cornerRadius;
+  final double strokeWidth;
+
+  _ScannerReticlePainter({
+    this.color = const Color(0xFFFF6A3D),
+    this.cornerLength = 36.0,
+    this.cornerRadius = 18.0,
+    this.strokeWidth = 3.5,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = strokeWidth
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    final w = size.width;
+    final h = size.height;
+    final r = cornerRadius;
+    final l = cornerLength;
+
+    // Top-Left Corner
+    final tlPath = Path()
+      ..moveTo(0, l)
+      ..lineTo(0, r)
+      ..arcToPoint(Offset(r, 0), radius: Radius.circular(r))
+      ..lineTo(l, 0);
+    canvas.drawPath(tlPath, paint);
+
+    // Top-Right Corner
+    final trPath = Path()
+      ..moveTo(w - l, 0)
+      ..lineTo(w - r, 0)
+      ..arcToPoint(Offset(w, r), radius: Radius.circular(r))
+      ..lineTo(w, l);
+    canvas.drawPath(trPath, paint);
+
+    // Bottom-Left Corner
+    final blPath = Path()
+      ..moveTo(0, h - l)
+      ..lineTo(0, h - r)
+      ..arcToPoint(Offset(r, h), radius: Radius.circular(r))
+      ..lineTo(l, h);
+    canvas.drawPath(blPath, paint);
+
+    // Bottom-Right Corner
+    final brPath = Path()
+      ..moveTo(w - l, h)
+      ..lineTo(w - r, h)
+      ..arcToPoint(Offset(w, h - r), radius: Radius.circular(r))
+      ..lineTo(w, h - l);
+    canvas.drawPath(brPath, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 /// Custom exception for image analysis errors
