@@ -444,47 +444,45 @@ class _InteractiveVocabularyScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
         elevation: 0,
         scrolledUnderElevation: 0,
         backgroundColor: Colors.transparent,
-        foregroundColor: const Color(0xFF2D2A4A),
+        foregroundColor: Colors.white,
         leading: Padding(
-          padding: const EdgeInsets.all(8),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.9),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: IconButton(
-              icon: const Icon(Icons.arrow_back_rounded),
-              onPressed: () => Navigator.pop(context),
+          padding: const EdgeInsets.only(left: 16),
+          child: Center(
+            child: _glassButton(
+              icon: Icons.arrow_back_ios_new_rounded,
+              onTap: () => Navigator.pop(context),
             ),
           ),
         ),
-        title: const Text(
+        title: Text(
           'Vocabulary Result',
-          style: TextStyle(
-            fontWeight: FontWeight.w700,
-            fontSize: 20,
-            color: Color(0xFF2D2A4A),
+          style: GoogleFonts.lexend(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+            shadows: [
+              Shadow(
+                color: Colors.black.withValues(alpha: 0.65),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
         ),
-        titleTextStyle: GoogleFonts.lexend(
-          fontSize: 20,
-          fontWeight: FontWeight.w600,
-          color: const Color(0xFF2D2A4A),
-        ),
+        centerTitle: true,
         actions: [
-          Container(
-            margin: const EdgeInsets.only(right: 16),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.9),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: IconButton(
-              icon: const Icon(Icons.refresh_rounded),
-              onPressed: () => _showRescanConfirmation(),
+          Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: Center(
+              child: _glassButton(
+                icon: Icons.refresh_rounded,
+                onTap: () => _showRescanConfirmation(),
+              ),
             ),
           ),
         ],
@@ -500,6 +498,28 @@ class _InteractiveVocabularyScreenState
             ),
           ),
 
+          // Top Vignette Gradient Overlay (guarantees text and buttons pop over any photo)
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 140,
+            child: IgnorePointer(
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withValues(alpha: 0.65),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+
           // Bottom Sheet
           Positioned.fill(child: _buildBottomSheet()),
 
@@ -509,23 +529,65 @@ class _InteractiveVocabularyScreenState
         ],
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      floatingActionButton: FilledButton(
-        onPressed: _selectedWordIds.isEmpty ? null : _navigateToEditScrapbook,
-        style: FilledButton.styleFrom(
-          backgroundColor: const Color(0xFF7B6EF6),
-          foregroundColor: Colors.white,
-          disabledBackgroundColor: Colors.grey[300],
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(30),
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: SizedBox(
+          width: double.infinity,
+          height: 54,
+          child: ElevatedButton(
+            onPressed: _selectedWordIds.isEmpty ? null : _navigateToEditScrapbook,
+            style: ElevatedButton.styleFrom(
+              elevation: 4,
+              shadowColor: const Color(0xFF8B5CF6).withValues(alpha: 0.35),
+              backgroundColor: const Color(0xFF8B5CF6),
+              disabledBackgroundColor: Colors.grey.withValues(alpha: 0.3),
+              foregroundColor: Colors.white,
+              disabledForegroundColor: Colors.white.withValues(alpha: 0.6),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(27),
+              ),
+            ),
+            child: Text(
+              _selectedWordIds.isEmpty
+                  ? 'Select Words to Continue'
+                  : 'Create Scrapbook (${_selectedWordIds.length})',
+              style: GoogleFonts.lexend(
+                fontSize: 15.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-          elevation: 8,
         ),
-        child: Text(
-          'Create Scrapbook',
-          style: GoogleFonts.lexend(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
+      ),
+    );
+  }
+
+  Widget _glassButton({required IconData icon, VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 42,
+        height: 42,
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.35),
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.25),
+            width: 1.2,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.25),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Center(
+          child: Icon(
+            icon,
+            color: Colors.white,
+            size: 18,
           ),
         ),
       ),
@@ -790,13 +852,82 @@ class _InteractiveVocabularyScreenState
               _containerSize =
                   Size(constraints.maxWidth, constraints.maxHeight);
 
+              final topMargin = MediaQuery.of(context).padding.top + 54.0;
               return Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  Align(
+                  Positioned(
+                    top: topMargin,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      child: Image.file(
+                        file,
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.error_outline,
+                                    size: 48, color: Colors.red),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Failed to load image',
+                                  style:
+                                      GoogleFonts.lexend(color: Colors.grey[700]),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Please try rescanning',
+                                  style: GoogleFonts.lexend(
+                                      fontSize: 12, color: Colors.grey[500]),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                  // Show dots without precise positioning (will use normalized coordinates directly)
+                  if (_vocabularyDots.isNotEmpty)
+                    ..._buildVocabularyDotsFallback(
+                      constraints.maxWidth,
+                      constraints.maxHeight,
+                      topMargin: topMargin,
+                    ),
+                ],
+              );
+            }
+
+            final topMargin = MediaQuery.of(context).padding.top + 54.0;
+            final imageSize = snapshot.data!;
+
+            // Store dimensions for overlay use
+            _containerSize = Size(constraints.maxWidth, constraints.maxHeight);
+            _imageSize = imageSize;
+            _imageFit = _calculateBoxFitContain(
+              imageSize,
+              constraints.maxWidth,
+              constraints.maxHeight,
+              topMargin: topMargin,
+            );
+
+            return Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Positioned(
+                  top: topMargin,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: Align(
                     alignment: Alignment.topCenter,
                     child: Image.file(
-                      file,
+                      File(widget.imagePath),
                       fit: BoxFit.contain,
                       errorBuilder: (context, error, stackTrace) {
                         return Center(
@@ -811,71 +942,18 @@ class _InteractiveVocabularyScreenState
                                 style:
                                     GoogleFonts.lexend(color: Colors.grey[700]),
                               ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'Please try rescanning',
-                                style: GoogleFonts.lexend(
-                                    fontSize: 12, color: Colors.grey[500]),
-                              ),
                             ],
                           ),
                         );
                       },
                     ),
                   ),
-                  // Show dots without precise positioning (will use normalized coordinates directly)
-                  if (_vocabularyDots.isNotEmpty)
-                    ..._buildVocabularyDotsFallback(
-                      constraints.maxWidth,
-                      constraints.maxHeight,
-                    ),
-                ],
-              );
-            }
-
-            final imageSize = snapshot.data!;
-
-            // Store dimensions for overlay use
-            _containerSize = Size(constraints.maxWidth, constraints.maxHeight);
-            _imageSize = imageSize;
-            _imageFit = _calculateBoxFitContain(
-              imageSize,
-              constraints.maxWidth,
-              constraints.maxHeight,
-            );
-
-            return Stack(
-              clipBehavior: Clip.none,
-              children: [
-                // เปลี่ยนจาก Center เป็น Align ชิดบน
-                Align(
-                  alignment: Alignment.topCenter,
-                  child: Image.file(
-                    File(widget.imagePath),
-                    fit: BoxFit.contain,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.error_outline,
-                                size: 48, color: Colors.red),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Failed to load image',
-                              style:
-                                  GoogleFonts.lexend(color: Colors.grey[700]),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
                 ),
                 ..._buildVocabularyDots(
                   constraints.maxWidth,
                   constraints.maxHeight,
                   imageSize,
+                  topMargin: topMargin,
                 ),
               ],
             );
@@ -894,6 +972,7 @@ class _InteractiveVocabularyScreenState
             double minChildSize = 0.15;
             double maxChildSize = 0.85;
 
+            final topMargin = MediaQuery.of(context).padding.top + 54.0;
             if (snapshot.hasData && snapshot.data != null) {
               final imageSize = snapshot.data!;
               final screenHeight = constraints.maxHeight;
@@ -903,11 +982,12 @@ class _InteractiveVocabularyScreenState
                 imageSize,
                 screenWidth,
                 screenHeight,
+                topMargin: topMargin,
               );
               final displayedImageHeight = imageSize.height * fit.scale;
 
-              final remainingHeight = screenHeight - displayedImageHeight;
-              minChildSize = (remainingHeight / screenHeight).clamp(0.05, 0.5);
+              final remainingHeight = screenHeight - (displayedImageHeight + topMargin);
+              minChildSize = (remainingHeight / screenHeight).clamp(0.08, 0.5);
             }
 
             return NotificationListener<Notification>(
@@ -1035,7 +1115,7 @@ class _InteractiveVocabularyScreenState
     final displayedY = imageY * fit.scale + fit.offsetY;
 
     // Calculate overlay position (show below the dot)
-    const dotSize = 34.0;
+    const dotSize = 38.0;
     const overlayWidth = 156.0;
     const overlayHeight = 110.0;
     const borderRadius = 16.0;
@@ -1238,28 +1318,28 @@ class _InteractiveVocabularyScreenState
     return await File(widget.imagePath).readAsBytes();
   }
 
-  /// Calculate BoxFit.contain scaling and position (centered)
+  /// Calculate BoxFit.contain scaling and position with topMargin
   ({double scale, double offsetX, double offsetY}) _calculateBoxFitContain(
     Size imageSize,
     double containerWidth,
-    double containerHeight,
-  ) {
+    double containerHeight, {
+    double topMargin = 0,
+  }) {
+    final availableHeight = (containerHeight - topMargin).clamp(100.0, containerHeight);
     final imageAspectRatio = imageSize.width / imageSize.height;
-    final containerAspectRatio = containerWidth / containerHeight;
+    final containerAspectRatio = containerWidth / availableHeight;
 
     double scale;
     double offsetX = 0;
-    const double offsetY = 0;
+    final double offsetY = topMargin;
 
-    // BoxFit.contain: scale to fit within container, then center
+    // BoxFit.contain: scale to fit within container
     if (imageAspectRatio > containerAspectRatio) {
       // Image is wider than container - scale to width
       scale = containerWidth / imageSize.width;
-      // Center vertically
-      // offsetY = 0 (ชิดบน)
     } else {
       // Image is taller than container - scale to height
-      scale = containerHeight / imageSize.height;
+      scale = availableHeight / imageSize.height;
       // Center horizontally
       offsetX = (containerWidth - imageSize.width * scale) / 2;
     }
@@ -1270,12 +1350,14 @@ class _InteractiveVocabularyScreenState
   List<Widget> _buildVocabularyDots(
     double containerWidth,
     double containerHeight,
-    Size imageSize,
-  ) {
+    Size imageSize, {
+    double topMargin = 0,
+  }) {
     final fit = _calculateBoxFitContain(
       imageSize,
       containerWidth,
       containerHeight,
+      topMargin: topMargin,
     );
 
     return _vocabularyDots.map((dot) {
@@ -1289,58 +1371,57 @@ class _InteractiveVocabularyScreenState
       final displayedX = imageX * fit.scale + fit.offsetX;
       final displayedY = imageY * fit.scale + fit.offsetY;
 
-      // debugPrint(
-      //   '📍 Dot "${dot.word}": normalized=(${dot.x.toStringAsFixed(2)}, ${dot.y.toStringAsFixed(2)}) → displayed=(${displayedX.toStringAsFixed(1)}, ${displayedY.toStringAsFixed(1)})',
-      // );
-
       // Don't hide dots that are out of bounds - let them be clickable even if outside visible area
-      const dotSize = 34.0;
+      const dotSize = 38.0;
 
       return Positioned(
         left: displayedX - dotSize / 2,
         top: displayedY - dotSize / 2,
         child: GestureDetector(
           onTap: () => _showWordOverlay(dot),
-          child: Container(
+          behavior: HitTestBehavior.opaque,
+          child: SizedBox(
             width: dotSize,
             height: dotSize,
-            padding: const EdgeInsets.all(8), // Invisible tap area padding
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 280),
-              curve: Curves.easeOutCubic,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: isSelected
-                    ? const Color(0xFF7B6EF6).withValues(alpha: 0.7)
-                    : Colors.white.withValues(alpha: 0.6),
-                border: Border.all(
-                  color: isSelected ? const Color(0xFF7B6EF6) : Colors.white,
-                  width: 3,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(
-                      0xFF7B6EF6,
-                    ).withOpacity(isSelected ? 0.35 : 0.15),
-                    blurRadius: isSelected ? 16 : 8,
-                    spreadRadius: 1,
-                  ),
-                  BoxShadow(
-                    color: isSelected
-                        ? const Color(0xFF7B6EF6).withValues(alpha: 0.3)
-                        : Colors.white.withValues(alpha: 0.6),
-                    blurRadius: 0,
-                    spreadRadius: 2,
-                  ),
-                ],
-              ),
-              child: Center(
-                child: Text(
-                  '',
-                  style: const TextStyle(
+            child: Center(
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 280),
+                curve: Curves.easeOutCubic,
+                width: isSelected ? 30 : 24,
+                height: isSelected ? 30 : 24,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isSelected
+                      ? const Color(0xFFFF6A3D)
+                      : const Color(0xFF8B5CF6).withValues(alpha: 0.9),
+                  border: Border.all(
                     color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
+                    width: 2.2,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: (isSelected
+                              ? const Color(0xFFFF6A3D)
+                              : const Color(0xFF8B5CF6))
+                          .withValues(alpha: isSelected ? 0.6 : 0.35),
+                      blurRadius: isSelected ? 10 : 6,
+                      spreadRadius: isSelected ? 2 : 1,
+                    ),
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.25),
+                      blurRadius: 5,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: Container(
+                    width: isSelected ? 8 : 6,
+                    height: isSelected ? 8 : 6,
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                    ),
                   ),
                 ),
               ),
@@ -1355,61 +1436,67 @@ class _InteractiveVocabularyScreenState
   /// Uses normalized coordinates directly (assumes container is the display area)
   List<Widget> _buildVocabularyDotsFallback(
     double containerWidth,
-    double containerHeight,
-  ) {
+    double containerHeight, {
+    double topMargin = 0,
+  }) {
+    final availableHeight = (containerHeight - topMargin).clamp(100.0, containerHeight);
     return _vocabularyDots.map((dot) {
       final isSelected = _selectedWordIds.contains(dot.id);
 
       // Use normalized coordinates directly (0-1 range mapped to container)
       final displayedX = dot.x * containerWidth;
-      final displayedY = dot.y * containerHeight;
+      final displayedY = topMargin + (dot.y * availableHeight);
 
-      const dotSize = 34.0;
+      const dotSize = 38.0;
 
       return Positioned(
         left: displayedX - dotSize / 2,
         top: displayedY - dotSize / 2,
         child: GestureDetector(
           onTap: () => _showWordOverlay(dot),
-          child: Container(
+          behavior: HitTestBehavior.opaque,
+          child: SizedBox(
             width: dotSize,
             height: dotSize,
-            padding: const EdgeInsets.all(8),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 280),
-              curve: Curves.easeOutCubic,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: isSelected
-                    ? const Color(0xFF7B6EF6).withValues(alpha: 0.7)
-                    : Colors.white.withValues(alpha: 0.6),
-                border: Border.all(
-                  color: isSelected ? const Color(0xFF7B6EF6) : Colors.white,
-                  width: 3,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF7B6EF6)
-                        .withValues(alpha: isSelected ? 0.35 : 0.15),
-                    blurRadius: isSelected ? 16 : 8,
-                    spreadRadius: 1,
-                  ),
-                  BoxShadow(
-                    color: isSelected
-                        ? const Color(0xFF7B6EF6).withValues(alpha: 0.3)
-                        : Colors.white.withValues(alpha: 0.6),
-                    blurRadius: 0,
-                    spreadRadius: 2,
-                  ),
-                ],
-              ),
-              child: const Center(
-                child: Text(
-                  '',
-                  style: TextStyle(
+            child: Center(
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 280),
+                curve: Curves.easeOutCubic,
+                width: isSelected ? 30 : 24,
+                height: isSelected ? 30 : 24,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isSelected
+                      ? const Color(0xFFFF6A3D)
+                      : const Color(0xFF8B5CF6).withValues(alpha: 0.9),
+                  border: Border.all(
                     color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
+                    width: 2.2,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: (isSelected
+                              ? const Color(0xFFFF6A3D)
+                              : const Color(0xFF8B5CF6))
+                          .withValues(alpha: isSelected ? 0.6 : 0.35),
+                      blurRadius: isSelected ? 10 : 6,
+                      spreadRadius: isSelected ? 2 : 1,
+                    ),
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.25),
+                      blurRadius: 5,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: Container(
+                    width: isSelected ? 8 : 6,
+                    height: isSelected ? 8 : 6,
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                    ),
                   ),
                 ),
               ),
@@ -1668,11 +1755,18 @@ class _InteractiveVocabularyScreenState
                 onPressed: _isRegenerating
                     ? null
                     : () => _showCombinedContextSelector(),
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('Context'),
+                icon: const Icon(Icons.edit_outlined, size: 16),
+                label: Text(
+                  'Edit Context',
+                  style: GoogleFonts.lexend(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
                 style: TextButton.styleFrom(
                   foregroundColor:
-                      _isRegenerating ? Colors.grey : const Color(0xFF6C63FF),
+                      _isRegenerating ? Colors.grey : const Color(0xFF7C5CFC),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 ),
               ),
             ],
@@ -2777,14 +2871,16 @@ class _WordDetailCard extends StatelessWidget {
                       style: GoogleFonts.lexend(
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
-                        color: const Color(0xFF6C63FF),
+                        color: const Color(0xFF7C5CFC),
                       ),
                     ),
+                    const SizedBox(height: 2),
                     Text(
-                      '${dot.partOfSpeech} • ${dot.thaiTranslation}',
+                      dot.thaiTranslation,
                       style: GoogleFonts.lexend(
                         fontSize: 14,
-                        color: Colors.grey[600],
+                        fontWeight: FontWeight.w400,
+                        color: const Color(0xFF6B7280),
                       ),
                     ),
                   ],
@@ -2920,12 +3016,19 @@ class _WordDetailCard extends StatelessWidget {
                 onPressed: isRegenerating || isSentenceRegenerating
                     ? null
                     : onContextTap,
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('Context'),
+                icon: const Icon(Icons.edit_outlined, size: 16),
+                label: Text(
+                  'Edit Context',
+                  style: GoogleFonts.lexend(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
                 style: TextButton.styleFrom(
                   foregroundColor: isRegenerating || isSentenceRegenerating
                       ? Colors.grey
-                      : const Color(0xFF6C63FF),
+                      : const Color(0xFF7C5CFC),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 ),
               ),
             ],
