@@ -612,6 +612,10 @@ class _InteractiveVocabularyScreenState
   }
 
   Widget _buildCombinedSentenceToggle() {
+    if (_selectedWordIds.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       child: GestureDetector(
@@ -1086,14 +1090,14 @@ class _InteractiveVocabularyScreenState
                             SliverToBoxAdapter(
                                 child: _buildSelectedWordsChips()),
 
-                            // Combined Sentence Toggle
-                            SliverToBoxAdapter(
-                                child: _buildCombinedSentenceToggle()),
-
-                            // Combined Sentence Display
-                            SliverToBoxAdapter(
-                              child: _buildCombinedSentenceDisplay(),
-                            ),
+                            // Combined Sentence Toggle & Display (Only when words are selected)
+                            if (_selectedWordIds.isNotEmpty) ...[
+                              SliverToBoxAdapter(
+                                  child: _buildCombinedSentenceToggle()),
+                              SliverToBoxAdapter(
+                                child: _buildCombinedSentenceDisplay(),
+                              ),
+                            ],
 
                             // Word Details / Empty State
                             // Hide individual word cards when combined mode is ON

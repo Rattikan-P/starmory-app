@@ -408,7 +408,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
 
   Widget _buildHeader() {
     return SizedBox(
-      height: 52,
+      height: 56,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -416,6 +416,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   'My Progress',
@@ -423,6 +424,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                     fontSize: 26,
                     fontWeight: FontWeight.w800,
                     letterSpacing: -0.5,
+                    height: 1.15,
                     color: const Color(0xFF221F33),
                   ),
                 ),
@@ -432,6 +434,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                   style: GoogleFonts.lexend(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w400,
+                    height: 1.2,
                     color: const Color(0xFF9892A6),
                   ),
                   maxLines: 1,

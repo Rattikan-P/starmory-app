@@ -127,7 +127,7 @@ class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserv
 
   Widget _buildHeader(UserState userState) {
     return SizedBox(
-      height: 52,
+      height: 56,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -135,6 +135,7 @@ class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserv
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   'Daily Review',
@@ -142,6 +143,7 @@ class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserv
                     fontSize: 26,
                     fontWeight: FontWeight.w800,
                     letterSpacing: -0.5,
+                    height: 1.15,
                     color: const Color(0xFF221F33),
                   ),
                 ),
@@ -151,6 +153,7 @@ class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserv
                   style: GoogleFonts.lexend(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w400,
+                    height: 1.2,
                     color: const Color(0xFF9892A6),
                   ),
                   maxLines: 1,

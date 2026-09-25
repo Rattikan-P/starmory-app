@@ -213,11 +213,11 @@ class _ScrapbookDetailSheet extends StatelessWidget {
                     color: const Color(0xFF1F2937),
                   ),
                 ),
-                if (scrapbooks.length > 1)
+                if (scrapbooks.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(top: 3),
                     child: Text(
-                      '${scrapbooks.length} memories saved on this day',
+                      '${scrapbooks.length} ${scrapbooks.length == 1 ? 'memory' : 'memories'} saved on this day',
                       style: GoogleFonts.lexend(
                         fontSize: 12,
                         color: const Color(0xFF6B7280),
