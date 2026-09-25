@@ -285,9 +285,9 @@ class _ReviewSessionPageState extends ConsumerState<ReviewSessionPage> {
                               color: const Color(0xFFE5E7EB), width: 1.0),
                         ),
                         child: const Icon(
-                          Icons.chevron_left_rounded,
-                          size: 26,
-                          color: Color(0xFF221F33),
+                          Icons.arrow_back_ios_new_rounded,
+                          size: 20,
+                          color: Color(0xFF1F2937),
                         ),
                       ),
                     ),

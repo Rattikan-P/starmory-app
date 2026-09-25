@@ -30,8 +30,8 @@ class TermsOfServicePage extends StatelessWidget {
                           ],
                         ),
                         child: IconButton(
-                          icon: const Icon(Icons.arrow_back_ios_rounded,
-                            color: Color(0xFF1f2937), size: 20),
+                          icon: const Icon(Icons.arrow_back_ios_new_rounded,
+                            color: Color(0xFF1F2937), size: 20),
                           onPressed: () => Navigator.pop(context),
                         ),
                       ),

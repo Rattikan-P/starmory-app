@@ -455,7 +455,7 @@ class _InteractiveVocabularyScreenState
           child: Center(
             child: _appBarCircleButton(
               icon: Icons.arrow_back_ios_new_rounded,
-              iconSize: 18,
+              iconSize: 20,
               onTap: () => Navigator.pop(context),
             ),
           ),
@@ -871,7 +871,7 @@ class _InteractiveVocabularyScreenState
                           children: [
                             OutlinedButton.icon(
                               onPressed: () => Navigator.pop(context),
-                              icon: const Icon(Icons.arrow_back),
+                              icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
                               label: const Text('Go Back'),
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: const Color(0xFF8B5CF6),
@@ -3320,7 +3320,7 @@ class _ContextSelectorScreenState extends State<ContextSelectorScreen> {
                   child: Icon(
                     Icons.arrow_back_ios_new_rounded,
                     color: Color(0xFF1F2937),
-                    size: 18,
+                    size: 20,
                   ),
                 ),
               ),
@@ -3839,7 +3839,7 @@ class _CombinedContextSelectorScreenState
                   child: Icon(
                     Icons.arrow_back_ios_new_rounded,
                     color: Color(0xFF1F2937),
-                    size: 18,
+                    size: 20,
                   ),
                 ),
               ),

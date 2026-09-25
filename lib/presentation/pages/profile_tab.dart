@@ -1753,8 +1753,9 @@ class _NotLoggedInViewState extends ConsumerState<_NotLoggedInView> {
                             ),
                             child: IconButton(
                               icon: const Icon(
-                                Icons.arrow_back,
-                                color: Color(0xFF1f2937),
+                                Icons.arrow_back_ios_new_rounded,
+                                color: Color(0xFF1F2937),
+                                size: 20,
                               ),
                               onPressed: () => Navigator.pop(context),
                             ),
@@ -2063,8 +2064,9 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
                             ),
                             child: IconButton(
                               icon: const Icon(
-                                Icons.arrow_back,
-                                color: Color(0xFF1f2937),
+                                Icons.arrow_back_ios_new_rounded,
+                                color: Color(0xFF1F2937),
+                                size: 20,
                               ),
                               onPressed: () => Navigator.pop(context),
                             ),

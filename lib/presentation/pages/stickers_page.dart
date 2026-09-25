@@ -55,7 +55,7 @@ class _StickersPageState extends ConsumerState<StickersPage> {
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF221F33)),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF1F2937), size: 20),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(

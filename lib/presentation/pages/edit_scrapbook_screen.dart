@@ -669,7 +669,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
       child: Row(
         children: [
           _TopBarButton(
-            icon: Icons.arrow_back_rounded,
+            icon: Icons.arrow_back_ios_new_rounded,
             onTap: () async {
               final shouldPop = await _onWillPop();
               if (shouldPop && mounted) {
@@ -5517,7 +5517,7 @@ class _TopBarButtonState extends State<_TopBarButton> {
             child: Icon(
               widget.icon,
               color: const Color(0xFF1F2937),
-              size: 18,
+              size: 20,
             ),
           ),
         ),

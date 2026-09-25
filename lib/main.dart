@@ -95,6 +95,10 @@ class _MyAppState extends ConsumerState<MyApp> {
           brightness: Brightness.light,
         ),
         useMaterial3: true,
+        actionIconTheme: ActionIconThemeData(
+          backButtonIconBuilder: (context) =>
+              const Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: Color(0xFF1F2937)),
+        ),
         textTheme: GoogleFonts.notoSansThaiTextTheme(
           GoogleFonts.poppinsTextTheme(ThemeData.light().textTheme),
         ),
@@ -105,6 +109,10 @@ class _MyAppState extends ConsumerState<MyApp> {
           brightness: Brightness.dark,
         ),
         useMaterial3: true,
+        actionIconTheme: ActionIconThemeData(
+          backButtonIconBuilder: (context) =>
+              const Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: Color(0xFF1F2937)),
+        ),
         textTheme: GoogleFonts.notoSansThaiTextTheme(
           GoogleFonts.poppinsTextTheme(ThemeData.dark().textTheme),
         ),
