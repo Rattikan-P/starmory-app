@@ -1035,7 +1035,6 @@ class VocabularyNotifier extends StateNotifier<VocabularyState> {
 
       // Auto-backfill: check if any scrapbooks contain vocabulary words not yet in local storage
       // Only run auto-backfill if we already have local vocabularies or if user is in guest mode
-      // (prevents creating fake backfilled cards during login/cloud sync when local storage is temporarily empty)
       if (vocabularies.isNotEmpty || !_syncService.isLoggedIn) {
         try {
           final scrapbooks = await _hiveService.getAllScrapbooks();
@@ -1082,6 +1081,28 @@ class VocabularyNotifier extends StateNotifier<VocabularyState> {
         }
       }
 
+      // ⭐ Deduplicate loaded vocabularies by normalized word (keep earliest entry)
+      final uniqueMap = <String, VocabularyModel>{};
+      final duplicateIds = <String>[];
+
+      for (final v in vocabularies) {
+        final key = v.word.trim().toLowerCase();
+        if (!uniqueMap.containsKey(key)) {
+          uniqueMap[key] = v;
+        } else {
+          duplicateIds.add(v.id);
+        }
+      }
+
+      if (duplicateIds.isNotEmpty) {
+        print('🧹 [VocabularyNotifier] Deduplicating ${duplicateIds.length} existing duplicate vocabularies...');
+        for (final dupId in duplicateIds) {
+          await _hiveService.deleteVocabulary(dupId);
+          await _hiveService.deleteWordCard(dupId);
+        }
+        vocabularies = uniqueMap.values.toList();
+      }
+
       state = VocabularyState(vocabularies: vocabularies);
     } catch (e) {
       state = VocabularyState(error: e.toString());
@@ -1090,6 +1111,16 @@ class VocabularyNotifier extends StateNotifier<VocabularyState> {
 
   Future<void> addVocabulary(VocabularyModel vocabulary) async {
     try {
+      final normWord = vocabulary.word.trim().toLowerCase();
+      final exists = state.vocabularies.any(
+        (v) => v.word.trim().toLowerCase() == normWord,
+      );
+
+      if (exists) {
+        print('ℹ️ [VocabularyNotifier] Word "$normWord" already exists in collection. Skipping duplicate.');
+        return;
+      }
+
       // Always save to local storage
       await _hiveService.saveVocabulary(vocabulary);
 
@@ -1097,9 +1128,8 @@ class VocabularyNotifier extends StateNotifier<VocabularyState> {
       if (_syncService.isLoggedIn) {
         await _syncService.saveToCloud(vocabulary);
         print('✅ Vocabulary synced to cloud: ${vocabulary.word}');
-        // Note: word_card is created automatically by database trigger
       } else {
-        // Guest mode: manually create word card (no trigger in Hive)
+        // Guest mode: manually create word card
         await _reviewService.createCard(vocabulary.id);
         print('✅ Word card created: ${vocabulary.word}');
       }
@@ -1119,7 +1149,20 @@ class VocabularyNotifier extends StateNotifier<VocabularyState> {
   Future<void> addVocabularies(List<VocabularyModel> vocabularies) async {
     if (vocabularies.isEmpty) return;
     try {
+      final addedVocabs = <VocabularyModel>[];
+      final currentVocabs = List<VocabularyModel>.from(state.vocabularies);
+      final existingWords = currentVocabs.map((v) => v.word.trim().toLowerCase()).toSet();
+
       for (final vocabulary in vocabularies) {
+        final normWord = vocabulary.word.trim().toLowerCase();
+        if (existingWords.contains(normWord)) {
+          print('ℹ️ [VocabularyNotifier] Word "$normWord" already exists in collection. Skipping duplicate.');
+          continue;
+        }
+
+        existingWords.add(normWord);
+        addedVocabs.add(vocabulary);
+
         await _hiveService.saveVocabulary(vocabulary);
         if (_syncService.isLoggedIn) {
           await _syncService.saveToCloud(vocabulary);
@@ -1130,11 +1173,11 @@ class VocabularyNotifier extends StateNotifier<VocabularyState> {
         }
       }
 
-      final existingIds = vocabularies.map((v) => v.id).toSet();
-      final currentFiltered = state.vocabularies.where((v) => !existingIds.contains(v.id)).toList();
-      state = VocabularyState(
-        vocabularies: [...currentFiltered, ...vocabularies],
-      );
+      if (addedVocabs.isNotEmpty) {
+        state = VocabularyState(
+          vocabularies: [...state.vocabularies, ...addedVocabs],
+        );
+      }
     } catch (e) {
       state = VocabularyState(
         vocabularies: state.vocabularies,

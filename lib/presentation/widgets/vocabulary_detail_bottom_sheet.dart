@@ -1,13 +1,16 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../data/models/vocabulary_model.dart';
 import '../../data/services/dictionary_service.dart';
 import '../../data/services/tts_service.dart';
+import '../providers/scrapbook_provider.dart';
 
 // Vocabulary Detail Bottom Sheet - Shows word details from dictionary API
-class VocabularyDetailBottomSheet extends StatefulWidget {
+class VocabularyDetailBottomSheet extends ConsumerStatefulWidget {
   final VocabularyModel vocabulary;
   final DictionaryService dictionaryService;
   final List<VocabularyModel> allVocabularies;
@@ -20,12 +23,12 @@ class VocabularyDetailBottomSheet extends StatefulWidget {
   });
 
   @override
-  State<VocabularyDetailBottomSheet> createState() =>
+  ConsumerState<VocabularyDetailBottomSheet> createState() =>
       _VocabularyDetailBottomSheetState();
 }
 
 class _VocabularyDetailBottomSheetState
-    extends State<VocabularyDetailBottomSheet> {
+    extends ConsumerState<VocabularyDetailBottomSheet> {
   DictionaryEntry? _dictionaryEntry;
   DictionaryEntry? _twinDictionaryEntry; // Dictionary entry for twin word
   bool _isLoading = true;
@@ -625,42 +628,151 @@ class _VocabularyDetailBottomSheetState
   }
 
   Widget _buildOriginalVocabInfo() {
+    final scrapbookState = ref.watch(scrapbookStateProvider);
+    final normWord = widget.vocabulary.word.trim().toLowerCase();
+    final matchingScrapbooks = scrapbookState.scrapbooks.where((sb) {
+      return sb.vocabularyWords.any((w) => w.word.trim().toLowerCase() == normWord);
+    }).toList();
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: const Color(0xFFF9FAFB),
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Your Vocabulary',
-            style: GoogleFonts.lexend(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: const Color(0xFF8B5CF6),
-            ),
+          Row(
+            children: [
+              Text(
+                'YOUR VOCABULARY',
+                style: GoogleFonts.lexend(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF8B5CF6),
+                  letterSpacing: 1.2,
+                ),
+              ),
+              if (matchingScrapbooks.length > 1) ...[
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEDE9FE),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '${matchingScrapbooks.length} memories',
+                    style: GoogleFonts.lexend(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF7C3AED),
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ),
           const SizedBox(height: 8),
           Text(
             widget.vocabulary.word,
             style: GoogleFonts.lexend(
-              fontSize: 16,
+              fontSize: 18,
               fontWeight: FontWeight.w700,
-              color: const Color(0xFF1f2937),
+              color: const Color(0xFF1F2937),
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 2),
           Text(
             widget.vocabulary.thaiTranslation,
             style: GoogleFonts.lexend(
               fontSize: 14,
               fontWeight: FontWeight.w500,
-              color: const Color(0xFF6b7280),
+              color: const Color(0xFF6B7280),
             ),
           ),
-          if (widget.vocabulary.englishSentence.isNotEmpty) ...[
+
+          if (matchingScrapbooks.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            const Divider(height: 1, color: Color(0xFFE5E7EB)),
+            const SizedBox(height: 10),
+            Text(
+              'Captured In Scrapbooks:',
+              style: GoogleFonts.lexend(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF4B5563),
+              ),
+            ),
+            const SizedBox(height: 8),
+            ...matchingScrapbooks.map((sb) {
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFEDE9FE)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (sb.imagePath.isNotEmpty)
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: sb.imagePath.startsWith('http')
+                            ? Image.network(
+                                sb.imagePath,
+                                width: 44,
+                                height: 44,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => const Icon(Icons.image, size: 24, color: Colors.grey),
+                              )
+                            : Image.file(
+                                File(sb.imagePath),
+                                width: 44,
+                                height: 44,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => const Icon(Icons.image, size: 24, color: Colors.grey),
+                              ),
+                      ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (sb.englishSentence.isNotEmpty)
+                            Text(
+                              sb.englishSentence,
+                              style: GoogleFonts.lexend(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w500,
+                                color: const Color(0xFF374151),
+                                fontStyle: FontStyle.italic,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          if (sb.thaiSentence.isNotEmpty)
+                            Text(
+                              sb.thaiSentence,
+                              style: GoogleFonts.lexend(
+                                fontSize: 11.5,
+                                color: const Color(0xFF6B7280),
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ] else if (widget.vocabulary.englishSentence.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(
               widget.vocabulary.englishSentence,

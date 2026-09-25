@@ -240,13 +240,23 @@ class VocabularySyncService {
       // Fetch cloud vocabularies
       final cloudVocabs = await fetchFromCloud();
 
-      // Create map for quick lookup by ID
-      final cloudMap = {for (var v in cloudVocabs) v.id: v};
+      // Deduplicate cloud vocabularies by word
+      final uniqueCloudVocabs = <VocabularyModel>[];
+      final seenCloudWords = <String>{};
+      for (final v in cloudVocabs) {
+        final key = v.word.trim().toLowerCase();
+        if (!seenCloudWords.contains(key)) {
+          seenCloudWords.add(key);
+          uniqueCloudVocabs.add(v);
+        }
+      }
 
-      // Add local vocabularies that don't exist in cloud
+      // Add local vocabularies that don't exist in cloud (by normalized word)
       final localOnlyVocabs = <VocabularyModel>[];
       for (final localVocab in localVocabs) {
-        if (!cloudMap.containsKey(localVocab.id)) {
+        final key = localVocab.word.trim().toLowerCase();
+        if (!seenCloudWords.contains(key)) {
+          seenCloudWords.add(key);
           localOnlyVocabs.add(localVocab);
         }
       }
@@ -254,14 +264,22 @@ class VocabularySyncService {
       // Batch upload local-only vocabularies to cloud
       if (localOnlyVocabs.isNotEmpty) {
         await batchUpload(localOnlyVocabs);
-        // Re-fetch fresh list from cloud so all items have updated cloud URLs & IDs
         final updatedCloudVocabs = await fetchFromCloud();
-        updatedCloudVocabs.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-        return updatedCloudVocabs;
+        final finalUnique = <VocabularyModel>[];
+        final finalSeen = <String>{};
+        for (final v in updatedCloudVocabs) {
+          final key = v.word.trim().toLowerCase();
+          if (!finalSeen.contains(key)) {
+            finalSeen.add(key);
+            finalUnique.add(v);
+          }
+        }
+        finalUnique.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        return finalUnique;
       }
 
-      cloudVocabs.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      return cloudVocabs;
+      uniqueCloudVocabs.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return uniqueCloudVocabs;
     } catch (e) {
       return localVocabs;
     }
