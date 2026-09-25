@@ -4496,8 +4496,12 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
             .read(vocabularyStateProvider.notifier)
             .addVocabularies(updatedVocabs);
         ref.invalidate(reviewStateProvider);
+      }
 
-        // Update streak when acquiring vocabulary
+      // Only count streak when saving a newly created scrapbook (after pressing "Create Scrapbook").
+      // Editing an existing scrapbook (กด save เดี่ยวๆ) does not count streak.
+      final isNewScrapbookFromCreate = widget.scrapbookId == null;
+      if (isNewScrapbookFromCreate) {
         final streakNotifier = ref.read(streakProvider.notifier);
         await streakNotifier.recordVocabularyAcquired();
       }

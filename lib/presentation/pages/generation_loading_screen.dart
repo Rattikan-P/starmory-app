@@ -410,10 +410,6 @@ class _GenerationLoadingScreenState
     final authQuotaNotifier = ref.read(authQuotaProvider.notifier);
     await authQuotaNotifier.recordQuotaUsage(imageId: widget.imagePath);
 
-    // Record streak & learning activity when vocabulary is generated
-    final streakNotifier = ref.read(streakProvider.notifier);
-    await streakNotifier.recordVocabularyAcquired();
-
     if (!mounted) return;
 
     Navigator.pushReplacement(
