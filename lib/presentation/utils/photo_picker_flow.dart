@@ -1,12 +1,14 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import '../../core/utils/safe_image_picker.dart';
 import '../pages/image_preview_screen.dart';
 
 /// Shared image-selection flow used wherever users can add a new photo.
@@ -120,6 +122,7 @@ class PhotoPickerFlow {
   }
 
   static Future<void> pickAndPreview(BuildContext context, ImageSource source) async {
+    if (SafeImagePicker.isPicking) return;
     try {
       final permission = source == ImageSource.camera
           ? await Permission.camera.request()
@@ -129,7 +132,7 @@ class PhotoPickerFlow {
         return;
       }
 
-      final image = await ImagePicker().pickImage(
+      final image = await SafeImagePicker.pickImage(
         source: source,
         maxWidth: 800,
         maxHeight: 800,
@@ -153,6 +156,11 @@ class PhotoPickerFlow {
         context,
         MaterialPageRoute(builder: (_) => ImagePreviewScreen(imagePath: permanentPath)),
       );
+    } on PlatformException catch (error) {
+      if (error.code == 'already_active') return;
+      if (context.mounted) {
+        _showErrorDialog(context, 'Error', 'Failed to pick image: ${error.message ?? error.toString()}');
+      }
     } catch (error) {
       if (context.mounted) {
         _showErrorDialog(context, 'Error', 'Failed to pick image: $error');

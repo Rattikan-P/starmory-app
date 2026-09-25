@@ -1,11 +1,13 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../../core/utils/safe_image_picker.dart';
 import '../../constants/app_defaults.dart';
 import '../../utils/snackbar_helper.dart';
 import '../providers/auth_provider.dart' as auth;
@@ -2339,73 +2341,84 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
     BuildContext context,
     ImageSource source,
   ) async {
-    // Request permissions before opening camera/gallery
-    if (source == ImageSource.camera) {
-      final cameraStatus = await Permission.camera.request();
-      if (!cameraStatus.isGranted) {
+    if (SafeImagePicker.isPicking) return;
+    try {
+      // Request permissions before opening camera/gallery
+      if (source == ImageSource.camera) {
+        final cameraStatus = await Permission.camera.request();
+        if (!cameraStatus.isGranted) {
+          if (context.mounted) {
+            _showPermissionDialog(context, 'Camera');
+          }
+          return;
+        }
+      } else if (source == ImageSource.gallery) {
+        final photoStatus = await Permission.photos.request();
+        if (!photoStatus.isGranted) {
+          if (context.mounted) {
+            _showPermissionDialog(context, 'Photo Library');
+          }
+          return;
+        }
+      }
+
+      final pickedFile = await SafeImagePicker.pickImage(
+        source: source,
+        maxWidth: 512,
+        maxHeight: 512,
+        imageQuality: 85,
+      );
+
+      if (pickedFile == null) return;
+      if (!context.mounted) return;
+
+      // Validate file format - only JPEG and PNG supported
+      final pathLower = pickedFile.path.toLowerCase();
+      if (pathLower.endsWith('.gif') ||
+          pathLower.endsWith('.webp') ||
+          pathLower.endsWith('.bmp') ||
+          pickedFile.mimeType == 'image/gif' ||
+          pickedFile.mimeType == 'image/webp' ||
+          pickedFile.mimeType == 'image/bmp') {
         if (context.mounted) {
-          _showPermissionDialog(context, 'Camera');
+          _showUnsupportedFormatDialog(context);
         }
         return;
       }
-    } else if (source == ImageSource.gallery) {
-      final photoStatus = await Permission.photos.request();
-      if (!photoStatus.isGranted) {
-        if (context.mounted) {
-          _showPermissionDialog(context, 'Photo Library');
-        }
-        return;
-      }
-    }
 
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(
-      source: source,
-      maxWidth: 512,
-      maxHeight: 512,
-      imageQuality: 85,
-    );
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
 
-    if (pickedFile == null) return;
-    if (!context.mounted) return;
+      final imageFile = File(pickedFile.path);
+      final repository = ref.read(profileRepositoryProvider);
+      final result = await repository.uploadProfilePhoto(imageFile, source);
 
-    // Validate file format - only JPEG and PNG supported
-    final pathLower = pickedFile.path.toLowerCase();
-    if (pathLower.endsWith('.gif') ||
-        pathLower.endsWith('.webp') ||
-        pathLower.endsWith('.bmp') ||
-        pickedFile.mimeType == 'image/gif' ||
-        pickedFile.mimeType == 'image/webp' ||
-        pickedFile.mimeType == 'image/bmp') {
       if (context.mounted) {
-        _showUnsupportedFormatDialog(context);
-      }
-      return;
-    }
-
-    // Show loading indicator
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(child: CircularProgressIndicator()),
-    );
-
-    final imageFile = File(pickedFile.path);
-    final repository = ref.read(profileRepositoryProvider);
-    final result = await repository.uploadProfilePhoto(imageFile, source);
-
-    if (context.mounted) {
-      Navigator.of(context).pop();
-      if (result.success) {
-        SnackBarHelper.success(context, AlertMessages.changesSaved);
-        _fetchUserData();
-        // Wait for database update to complete, then refresh userState
-        await Future.delayed(const Duration(milliseconds: 500));
-        if (mounted) {
-          await ref.read(userStateProvider.notifier).refreshUserFromSupabase();
+        Navigator.of(context).pop();
+        if (result.success) {
+          SnackBarHelper.success(context, AlertMessages.changesSaved);
+          _fetchUserData();
+          // Wait for database update to complete, then refresh userState
+          await Future.delayed(const Duration(milliseconds: 500));
+          if (mounted) {
+            await ref.read(userStateProvider.notifier).refreshUserFromSupabase();
+          }
+        } else {
+          SnackBarHelper.error(context, result.error ?? AlertMessages.saveFailed);
         }
-      } else {
-        SnackBarHelper.error(context, result.error ?? AlertMessages.saveFailed);
+      }
+    } on PlatformException catch (e) {
+      if (e.code == 'already_active') return;
+      if (context.mounted) {
+        SnackBarHelper.error(context, 'Failed to pick image: ${e.message ?? e.toString()}');
+      }
+    } catch (e) {
+      if (context.mounted) {
+        SnackBarHelper.error(context, 'Failed to pick image: ${e.toString()}');
       }
     }
   }

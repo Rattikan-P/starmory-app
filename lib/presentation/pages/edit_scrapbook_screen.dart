@@ -10,6 +10,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path_pkg;
+import '../../core/utils/safe_image_picker.dart';
 import '../providers/scrapbook_provider.dart';
 import '../providers/providers.dart';
 import '../../data/models/scrapbook_model.dart';
@@ -59,7 +60,6 @@ class EditScrapbookScreen extends ConsumerStatefulWidget {
 }
 
 class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
-  final ImagePicker _imagePicker = ImagePicker();
   final GlobalKey _canvasAreaKey = GlobalKey();
   final GlobalKey _toolbarKey = GlobalKey();
   final LayerLink _canvasLayerLink = LayerLink();
@@ -4218,6 +4218,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
   }
 
   Future<void> _pickNewPhoto() async {
+    if (SafeImagePicker.isPicking) return;
     try {
       final photoStatus = await Permission.photos.request();
       if (!photoStatus.isGranted) {
@@ -4225,7 +4226,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
         return;
       }
 
-      final XFile? image = await _imagePicker.pickImage(
+      final XFile? image = await SafeImagePicker.pickImage(
         source: ImageSource.gallery,
         maxWidth: 800,
         maxHeight: 800,
@@ -4259,6 +4260,9 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
           }
         }
       }
+    } on PlatformException catch (e) {
+      if (e.code == 'already_active') return;
+      _showErrorDialog('Error', 'Failed to pick image: ${e.message ?? e.toString()}');
     } catch (e) {
       _showErrorDialog('Error', 'Failed to pick image: ${e.toString()}');
     }

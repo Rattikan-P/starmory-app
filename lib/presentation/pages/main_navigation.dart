@@ -1,12 +1,14 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import 'package:permission_handler/permission_handler.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../core/utils/safe_image_picker.dart';
 import 'home_tab.dart';
 import 'review_tab.dart';
 import 'scrapbook_tab.dart';
@@ -27,7 +29,6 @@ class MainNavigationScreen extends ConsumerStatefulWidget {
 }
 
 class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
-  final ImagePicker _imagePicker = ImagePicker();
   final List<Widget> _tabs = const [
     HomeTab(),
     ReviewTab(),
@@ -210,6 +211,8 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
   }
 
   Future<void> _pickImage(ImageSource source) async {
+    if (SafeImagePicker.isPicking) return;
+
     final user = ref.read(userStateProvider).user;
     if (user != null && !user.canGenerate) {
       _showQuotaLimitDialog(user.isGuest);
@@ -231,7 +234,7 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
         }
       }
 
-      final XFile? image = await _imagePicker.pickImage(
+      final XFile? image = await SafeImagePicker.pickImage(
         source: source,
         maxWidth: 800,
         maxHeight: 800,
@@ -261,6 +264,9 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
           ),
         );
       }
+    } on PlatformException catch (e) {
+      if (e.code == 'already_active') return;
+      _showErrorDialog('Error', 'Failed to pick image: ${e.message ?? e.toString()}');
     } catch (e) {
       _showErrorDialog('Error', 'Failed to pick image: ${e.toString()}');
     }
