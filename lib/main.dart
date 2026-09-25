@@ -9,6 +9,7 @@ import 'data/services/app_state_service.dart';
 import 'presentation/providers/providers.dart';
 import 'presentation/pages/main_navigation.dart';
 import 'presentation/pages/onboarding_page.dart';
+import 'presentation/pages/splash_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -75,8 +76,12 @@ class _MyAppState extends ConsumerState<MyApp> {
   }
 
   Future<void> _checkOnboarding() async {
-    // เช็คครั้งเดียวตอนเริ่มแอป
-    final completed = await widget.appStateService.isOnboardingCompleted();
+    // เช็คครั้งเดียวตอนเริ่มแอป พร้อมหน่วงเวลาขั้นต่ำเพื่อให้เห็น Splash Screen ชัดเจนและสมูท
+    final results = await Future.wait([
+      widget.appStateService.isOnboardingCompleted(),
+      Future.delayed(const Duration(milliseconds: 1500)),
+    ]);
+    final completed = results[0] as bool;
     if (mounted) {
       setState(() => _onboardingCompleted = completed);
     }
@@ -88,7 +93,7 @@ class _MyAppState extends ConsumerState<MyApp> {
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Starmory - Personalized Vocabulary Learning',
+      title: 'Starmory',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF6C63FF),
@@ -128,15 +133,20 @@ class _MyAppState extends ConsumerState<MyApp> {
       return InitializationErrorScreen(error: initializationState.error!);
     }
 
-    // Show loading while checking onboarding
+    Widget currentScreen;
+    // Show splash screen while loading and checking onboarding
     if (_onboardingCompleted == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      currentScreen = const SplashScreen(key: ValueKey('splash'));
+    } else if (_onboardingCompleted!) {
+      currentScreen = const MainNavigationScreen(key: ValueKey('main_nav'));
+    } else {
+      currentScreen = const OnboardingPage(key: ValueKey('onboarding'));
     }
 
-    // Show onboarding or main navigation
-    return _onboardingCompleted!
-        ? const MainNavigationScreen()
-        : const OnboardingPage();
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 400),
+      child: currentScreen,
+    );
   }
 }
 

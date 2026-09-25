@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.example" "\0"
-            VALUE "FileDescription", "starmory_app" "\0"
+            VALUE "FileDescription", "Starmory" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "starmory_app" "\0"
+            VALUE "InternalName", "Starmory" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 com.example. All rights reserved." "\0"
             VALUE "OriginalFilename", "starmory_app.exe" "\0"
-            VALUE "ProductName", "starmory_app" "\0"
+            VALUE "ProductName", "Starmory" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END
