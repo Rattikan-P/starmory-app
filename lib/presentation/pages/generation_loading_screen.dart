@@ -136,7 +136,8 @@ class _GenerationLoadingScreenState
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.star_rounded, color: const Color(0xFF8b5cf6), size: 20),
+                    Icon(Icons.star_rounded,
+                        color: const Color(0xFF8b5cf6), size: 20),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -169,7 +170,8 @@ class _GenerationLoadingScreenState
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               ),
               child: Text(
                 'Sign Up Free',
@@ -182,7 +184,8 @@ class _GenerationLoadingScreenState
           TextButton(
             onPressed: () {
               Navigator.pop(context); // Close dialog
-              Navigator.popUntil(context, (route) => route.isFirst); // Go to home
+              Navigator.popUntil(
+                  context, (route) => route.isFirst); // Go to home
             },
             style: TextButton.styleFrom(
               foregroundColor: const Color(0xFF6b7280),
@@ -233,17 +236,20 @@ class _GenerationLoadingScreenState
       if (mounted) setState(() => _currentPhase = 2);
 
       // Actual API call with timeout to prevent indefinite hanging
-      final result = await geminiService.extractVocabulary(
+      final result = await geminiService
+          .extractVocabulary(
         imageData: imageData,
         level: widget.cefrLevel,
         category: 'Daily Life',
         englishVariant: widget.englishVariant,
         excludeWords: widget.excludeWords,
         isRegenerate: widget.isRegenerate,
-      ).timeout(
+      )
+          .timeout(
         const Duration(seconds: 90), // 90 second timeout
         onTimeout: () {
-          throw TimeoutException('AI processing timed out. Please check your connection and try again.');
+          throw TimeoutException(
+              'AI processing timed out. Please check your connection and try again.');
         },
       );
 
@@ -255,25 +261,30 @@ class _GenerationLoadingScreenState
         final words = result.vocabList.map((item) => item.word).toList();
         final tones = ['describe']; // Default tone
 
-        final sentencesResult = await geminiService.generateSentences(
-          imageData: imageData,  // Send image for contextually relevant sentences
+        final sentencesResult = await geminiService
+            .generateSentences(
+          imageData:
+              imageData, // Send image for contextually relevant sentences
           words: words,
           level: widget.cefrLevel,
           tones: tones,
           category: result.category,
           combined: false, // Generate individual sentences initially
           englishVariant: widget.englishVariant,
-        ).timeout(
+        )
+            .timeout(
           const Duration(seconds: 60), // 60 second timeout for sentences
           onTimeout: () {
-            throw TimeoutException('Sentence generation timed out. Please try again.');
+            throw TimeoutException(
+                'Sentence generation timed out. Please try again.');
           },
         );
 
         if (mounted) {
           // Attach generated sentences to each vocabulary item
           final vocabListWithSentences = result.vocabList.map((item) {
-            final sentenceData = sentencesResult.results[item.word]?['describe'];
+            final sentenceData =
+                sentencesResult.results[item.word]?['describe'];
             if (sentenceData != null) {
               return item.withSentences(sentenceData.text, sentenceData.thai);
             }
@@ -297,7 +308,8 @@ class _GenerationLoadingScreenState
       } else if (mounted) {
         // No vocabulary found - show error
         setState(() => _isProcessing = false);
-        _handleImageError('A1', 'No vocabulary found in this image. Please try another photo with clearer objects.');
+        _handleImageError('A1',
+            'No vocabulary found in this image. Please try another photo with clearer objects.');
       }
     } on _ImageAnalysisException catch (e) {
       if (mounted) {
@@ -311,7 +323,8 @@ class _GenerationLoadingScreenState
         setState(() {
           _isProcessing = false;
         });
-        _handleNetworkError('Request timed out. Please check your connection and try again.');
+        _handleNetworkError(
+            'Request timed out. Please check your connection and try again.');
       }
     } catch (e) {
       if (mounted) {
@@ -330,7 +343,8 @@ class _GenerationLoadingScreenState
           setState(() {
             _isProcessing = false;
           });
-          _handleNetworkError('Starmory needs a rest today 😴\nNew lessons will be ready again tomorrow!');
+          _handleNetworkError(
+              'Starmory needs a rest today 😴\nNew lessons will be ready again tomorrow!');
           return;
         }
 
@@ -343,7 +357,9 @@ class _GenerationLoadingScreenState
           });
           // Extract the friendly message from AIServiceFailure
           final friendlyMessage = errorStr.contains('AIServiceFailure')
-              ? errorStr.replaceAll('Exception: AIServiceFailure: ', '').replaceAll('AIServiceFailure: ', '')
+              ? errorStr
+                  .replaceAll('Exception: AIServiceFailure: ', '')
+                  .replaceAll('AIServiceFailure: ', '')
               : 'AI service is temporarily busy 😅\nPlease wait a moment and try again!';
           _handleNetworkError(friendlyMessage);
           return;
@@ -358,7 +374,8 @@ class _GenerationLoadingScreenState
           setState(() {
             _isProcessing = false;
           });
-          _handleNetworkError('AI service is temporarily busy 😅\nPlease wait a moment and try again!');
+          _handleNetworkError(
+              'AI service is temporarily busy 😅\nPlease wait a moment and try again!');
           return;
         }
 
@@ -502,7 +519,9 @@ class _GenerationLoadingScreenState
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(
-                isQuotaMessage ? Icons.bedtime_rounded : Icons.cloud_off_rounded,
+                isQuotaMessage
+                    ? Icons.bedtime_rounded
+                    : Icons.cloud_off_rounded,
                 color: isQuotaMessage ? Colors.purple : Colors.red,
                 size: 20,
               ),
@@ -560,6 +579,42 @@ class _GenerationLoadingScreenState
     'Done!',
   ];
 
+  Widget _buildAnimatedPhaseList() {
+    const double itemHeight = 36.0;
+    const double containerHeight = itemHeight * 3;
+    final targetOffset = -(_currentPhase - 1) * itemHeight;
+
+    return SizedBox(
+      height: containerHeight,
+      child: ClipRect(
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 450),
+          curve: Curves.easeInOutCubic,
+          transform: Matrix4.translationValues(0, targetOffset, 0),
+          child: OverflowBox(
+            minHeight: 0,
+            maxHeight: double.infinity,
+            alignment: Alignment.topCenter,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Top empty slot (Line 1 is empty when _currentPhase == 1)
+                const SizedBox(height: itemHeight),
+                for (int i = 0; i < _phases.length; i++)
+                  SizedBox(
+                    height: itemHeight,
+                    child: Center(child: _buildPhaseItem(i)),
+                  ),
+                // Bottom empty slot
+                const SizedBox(height: itemHeight),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildPhaseItem(int index) {
     final phaseNum = index + 1;
     final isCurrent = _currentPhase == phaseNum;
@@ -575,7 +630,7 @@ class _GenerationLoadingScreenState
         scale: isCurrent ? 1.08 : 0.92,
         alignment: Alignment.center,
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 3),
+          padding: const EdgeInsets.symmetric(vertical: 2),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
@@ -745,7 +800,8 @@ class _GenerationLoadingScreenState
                                   decoration: BoxDecoration(
                                     boxShadow: [
                                       BoxShadow(
-                                        color: const Color(0xFFFF6A3D).withValues(alpha: 0.8),
+                                        color: const Color(0xFFFF6A3D)
+                                            .withValues(alpha: 0.8),
                                         blurRadius: 8,
                                         spreadRadius: 2,
                                       ),
@@ -776,13 +832,7 @@ class _GenerationLoadingScreenState
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       // Animated Phase List
-                      Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: List.generate(
-                          _phases.length,
-                          (index) => _buildPhaseItem(index),
-                        ),
-                      ),
+                      _buildAnimatedPhaseList(),
                       const SizedBox(height: 20),
 
                       // Translucent Pill Badge "This may take a few seconds."
@@ -865,21 +915,21 @@ class _ScannerReticlePainter extends CustomPainter {
       ..lineTo(w, l);
     canvas.drawPath(trPath, paint);
 
-    // Bottom-Left Corner
-    final blPath = Path()
-      ..moveTo(0, h - l)
-      ..lineTo(0, h - r)
-      ..arcToPoint(Offset(r, h), radius: Radius.circular(r))
-      ..lineTo(l, h);
-    canvas.drawPath(blPath, paint);
-
     // Bottom-Right Corner
     final brPath = Path()
-      ..moveTo(w - l, h)
-      ..lineTo(w - r, h)
-      ..arcToPoint(Offset(w, h - r), radius: Radius.circular(r))
-      ..lineTo(w, h - l);
+      ..moveTo(w, h - l)
+      ..lineTo(w, h - r)
+      ..arcToPoint(Offset(w - r, h), radius: Radius.circular(r))
+      ..lineTo(w - l, h);
     canvas.drawPath(brPath, paint);
+
+    // Bottom-Left Corner
+    final blPath = Path()
+      ..moveTo(l, h)
+      ..lineTo(r, h)
+      ..arcToPoint(Offset(0, h - r), radius: Radius.circular(r))
+      ..lineTo(0, h - l);
+    canvas.drawPath(blPath, paint);
   }
 
   @override
