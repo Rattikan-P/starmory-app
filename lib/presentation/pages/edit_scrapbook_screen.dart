@@ -135,9 +135,6 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
   // Canvas size for positioning calculations
   Size? _canvasSize;
 
-  // Touch sandbox extension (pixels beyond canvas edge for touch targets)
-  static const double _touchSandbox = 100.0;
-
   // Available emojis for selection
   static const List<String> _availableEmojis = [
     // Happy and playful
@@ -748,16 +745,19 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
   }
 
   Widget _buildScrapbookCanvas() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: DesignTokens.spacingLarge,
-      ),
-      child: CompositedTransformTarget(
-        link: _canvasLayerLink,
-        child: SizedBox(
-          key: _canvasAreaKey,
-          height: DesignTokens.scrapbookCanvasHeight,
-          child: _buildPolaroidFrame(),
+    return CompositedTransformTarget(
+      link: _canvasLayerLink,
+      child: SizedBox(
+        width: double.infinity,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: DesignTokens.spacingLarge,
+          ),
+          child: SizedBox(
+            key: _canvasAreaKey,
+            height: DesignTokens.scrapbookCanvasHeight,
+            child: _buildPolaroidFrame(),
+          ),
         ),
       ),
     );
@@ -903,22 +903,19 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
         showWhenUnlinked: false,
         targetAnchor: Alignment.topLeft,
         followerAnchor: Alignment.topLeft,
-        child: Transform.translate(
-          offset: const Offset(-_touchSandbox, -_touchSandbox),
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              // Emoji overlay (centered in canvas)
-              _buildEmojiSelector(),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            // Emoji overlay (centered in canvas)
+            _buildEmojiSelector(),
 
-              // Draggable items follow the persistent bring-to-front order.
-              ..._buildDraggableItems(),
+            // Draggable items follow the persistent bring-to-front order.
+            ..._buildDraggableItems(),
 
-              // Controls live in their own overlay so their complete hit
-              // targets are not clipped by the selected item's bounds.
-              _buildSelectedControlOverlay(),
-            ],
-          ),
+            // Controls live in their own overlay so their complete hit
+            // targets are not clipped by the selected item's bounds.
+            _buildSelectedControlOverlay(),
+          ],
         ),
       ),
     );
@@ -987,11 +984,10 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
 
   /// Build emoji selector button
   Widget _buildEmojiSelector() {
-    const touchSandbox = _touchSandbox;
-    const emojiLeft = touchSandbox +
+    final emojiLeft = DesignTokens.spacingLarge +
         ((DesignTokens.scrapbookCanvasWidth - DesignTokens.emojiButtonSize) /
             2);
-    const emojiTop = touchSandbox + DesignTokens.spacingLarge;
+    const emojiTop = DesignTokens.spacingLarge;
 
     return Positioned(
       left: emojiLeft,
@@ -1043,9 +1039,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     if (_canvasSize == null) return const SizedBox.shrink();
 
     // Calculate actual position based on canvas size
-    // Add touchSandbox offset to position relative to canvas, not touch sandbox
-    final left = _touchSandbox + (overlay.x * _canvasSize!.width);
-    final top = _touchSandbox + (overlay.y * _canvasSize!.height);
+    final left = DesignTokens.spacingLarge + (overlay.x * _canvasSize!.width);
+    final top = overlay.y * _canvasSize!.height;
 
     // Base size (before scaling)
     final baseWidth = overlay.width != null
@@ -1346,9 +1341,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     if (_canvasSize == null) return const SizedBox.shrink();
 
     // Calculate actual position based on canvas size
-    // Add touchSandbox offset to position relative to canvas, not touch sandbox
-    final left = _touchSandbox + (sticker.x * _canvasSize!.width);
-    final top = _touchSandbox + (sticker.y * _canvasSize!.height);
+    final left = DesignTokens.spacingLarge + (sticker.x * _canvasSize!.width);
+    final top = sticker.y * _canvasSize!.height;
 
     // Base sticker size (100x100) scaled by sticker.scale
     final baseSize = 100.0;
@@ -1698,9 +1692,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     if (_canvasSize == null) return const SizedBox.shrink();
 
     // Calculate actual position and size based on canvas size
-    // Add touchSandbox offset to position relative to canvas, not touch sandbox
-    final left = _touchSandbox + (photo.x * _canvasSize!.width);
-    final top = _touchSandbox + (photo.y * _canvasSize!.height);
+    final left = DesignTokens.spacingLarge + (photo.x * _canvasSize!.width);
+    final top = photo.y * _canvasSize!.height;
     final width = photo.width * _canvasSize!.width;
     final height = photo.height * _canvasSize!.height;
 
@@ -2807,7 +2800,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
-                        borderSide: const BorderSide(color: Color(0xFF8B5CF6), width: 1.5),
+                        borderSide: const BorderSide(
+                            color: Color(0xFF8B5CF6), width: 1.5),
                       ),
                       contentPadding: const EdgeInsets.all(14),
                     ),
@@ -3000,8 +2994,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                     color: isSelected
                         ? const Color(0xFFEDE9FE)
                         : const Color(0xFFF9FAFB),
-                    borderRadius:
-                        BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color: isSelected
                           ? const Color(0xFF8B5CF6)
@@ -3013,7 +3006,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                     font['name'],
                     style: _getFontStyle(font['family']).copyWith(
                       fontSize: 13,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                      fontWeight:
+                          isSelected ? FontWeight.w600 : FontWeight.w500,
                       color: isSelected
                           ? const Color(0xFF7C3AED)
                           : const Color(0xFF4B5563),
@@ -3053,8 +3047,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                     height: 38,
                     decoration: BoxDecoration(
                       color: Color(color),
-                      borderRadius:
-                          BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(10),
                       border: Border.all(
                         color: isSelected
                             ? const Color(0xFF8B5CF6)
@@ -3074,7 +3067,9 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                     ),
                     child: isSelected
                         ? Icon(Icons.check_rounded,
-                            color: color == 0xFFFFFFFF ? const Color(0xFF8B5CF6) : Colors.white,
+                            color: color == 0xFFFFFFFF
+                                ? const Color(0xFF8B5CF6)
+                                : Colors.white,
                             size: 18)
                         : null,
                   ),
@@ -3113,9 +3108,10 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                     width: 38,
                     height: 38,
                     decoration: BoxDecoration(
-                      color: color != null ? Color(color) : const Color(0xFFF9FAFB),
-                      borderRadius:
-                          BorderRadius.circular(10),
+                      color: color != null
+                          ? Color(color)
+                          : const Color(0xFFF9FAFB),
+                      borderRadius: BorderRadius.circular(10),
                       border: Border.all(
                         color: isSelected
                             ? const Color(0xFF8B5CF6)
@@ -3138,7 +3134,9 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                             size: 18, color: Color(0xFF9CA3AF))
                         : isSelected
                             ? Icon(Icons.check_rounded,
-                                color: color == 0xFFFFFFFF ? const Color(0xFF8B5CF6) : Colors.white,
+                                color: color == 0xFFFFFFFF
+                                    ? const Color(0xFF8B5CF6)
+                                    : Colors.white,
                                 size: 18)
                             : null,
                   ),
@@ -3301,9 +3299,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
           color: isSelected ? const Color(0xFFEDE9FE) : const Color(0xFFF9FAFB),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: isSelected
-                ? const Color(0xFF8B5CF6)
-                : const Color(0xFFE5E7EB),
+            color:
+                isSelected ? const Color(0xFF8B5CF6) : const Color(0xFFE5E7EB),
             width: isSelected ? 1.5 : 1,
           ),
         ),
@@ -3473,8 +3470,11 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                       font['name'],
                       style: GoogleFonts.lexend(
                         fontSize: 14,
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                        color: isSelected ? const Color(0xFF7C3AED) : const Color(0xFF1F2937),
+                        fontWeight:
+                            isSelected ? FontWeight.w600 : FontWeight.w500,
+                        color: isSelected
+                            ? const Color(0xFF7C3AED)
+                            : const Color(0xFF1F2937),
                       ),
                     ),
                     subtitle: Text(
@@ -3634,7 +3634,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                         boxShadow: isSelected
                             ? [
                                 BoxShadow(
-                                  color: const Color(0xFF8B5CF6).withValues(alpha: 0.35),
+                                  color: const Color(0xFF8B5CF6)
+                                      .withValues(alpha: 0.35),
                                   blurRadius: 6,
                                   offset: const Offset(0, 2),
                                 ),
@@ -3644,7 +3645,9 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                       child: isSelected
                           ? Icon(
                               Icons.check_rounded,
-                              color: color == 0xFFFFFFFF ? const Color(0xFF8B5CF6) : Colors.white,
+                              color: color == 0xFFFFFFFF
+                                  ? const Color(0xFF8B5CF6)
+                                  : Colors.white,
                               size: 18,
                             )
                           : null,
@@ -3737,8 +3740,9 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                     },
                     child: Container(
                       decoration: BoxDecoration(
-                        color:
-                            color != null ? Color(color) : const Color(0xFFF9FAFB),
+                        color: color != null
+                            ? Color(color)
+                            : const Color(0xFFF9FAFB),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                           color: isSelected
@@ -3749,7 +3753,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                         boxShadow: isSelected
                             ? [
                                 BoxShadow(
-                                  color: const Color(0xFF8B5CF6).withValues(alpha: 0.35),
+                                  color: const Color(0xFF8B5CF6)
+                                      .withValues(alpha: 0.35),
                                   blurRadius: 6,
                                   offset: const Offset(0, 2),
                                 ),
@@ -3765,7 +3770,9 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                           : isSelected
                               ? Icon(
                                   Icons.check_rounded,
-                                  color: color == 0xFFFFFFFF ? const Color(0xFF8B5CF6) : Colors.white,
+                                  color: color == 0xFFFFFFFF
+                                      ? const Color(0xFF8B5CF6)
+                                      : Colors.white,
                                   size: 18,
                                 )
                               : null,
@@ -4395,7 +4402,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                           boxShadow: [
                             if (isSelected)
                               BoxShadow(
-                                color: const Color(0xFF8B5CF6).withValues(alpha: 0.35),
+                                color: const Color(0xFF8B5CF6)
+                                    .withValues(alpha: 0.35),
                                 blurRadius: 6,
                                 offset: const Offset(0, 2),
                               ),
@@ -4404,7 +4412,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                         child: isSelected
                             ? Icon(
                                 Icons.check_rounded,
-                                color: option.color == 0xFFFFFFFF || option.color == 0xFFF9FAFB
+                                color: option.color == 0xFFFFFFFF ||
+                                        option.color == 0xFFF9FAFB
                                     ? const Color(0xFF8B5CF6)
                                     : Colors.white,
                                 size: 18,
@@ -4979,8 +4988,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
       if (index == -1) return const SizedBox.shrink();
       final item = _textOverlays[index];
       center = Offset(
-        _touchSandbox + (item.x * _canvasSize!.width),
-        _touchSandbox + (item.y * _canvasSize!.height),
+        DesignTokens.spacingLarge + (item.x * _canvasSize!.width),
+        item.y * _canvasSize!.height,
       );
       final baseHeight = 50.0;
       final baseWidth = item.width != null
@@ -4994,8 +5003,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
       if (index == -1) return const SizedBox.shrink();
       final item = _stickers[index];
       center = Offset(
-        _touchSandbox + (item.x * _canvasSize!.width),
-        _touchSandbox + (item.y * _canvasSize!.height),
+        DesignTokens.spacingLarge + (item.x * _canvasSize!.width),
+        item.y * _canvasSize!.height,
       );
       final size = 100.0 * item.scale;
       itemSize = Size.square(size);
@@ -5007,8 +5016,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
       if (index == -1) return const SizedBox.shrink();
       final item = _additionalPhotos[index];
       center = Offset(
-        _touchSandbox + (item.x * _canvasSize!.width),
-        _touchSandbox + (item.y * _canvasSize!.height),
+        DesignTokens.spacingLarge + (item.x * _canvasSize!.width),
+        item.y * _canvasSize!.height,
       );
       itemSize = Size(
         item.width * _canvasSize!.width,
@@ -5567,7 +5576,9 @@ class _SaveButtonState extends State<_SaveButton> {
           padding: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
             color: isEnabled
-                ? (_isPressed ? const Color(0xFF7C3AED) : const Color(0xFF8B5CF6))
+                ? (_isPressed
+                    ? const Color(0xFF7C3AED)
+                    : const Color(0xFF8B5CF6))
                 : const Color(0xFFE5E7EB),
             borderRadius: BorderRadius.circular(20),
             boxShadow: isEnabled
@@ -5602,13 +5613,17 @@ class _SaveButtonState extends State<_SaveButton> {
                         Icon(
                           Icons.check_rounded,
                           size: 18,
-                          color: isEnabled ? Colors.white : const Color(0xFF9CA3AF),
+                          color: isEnabled
+                              ? Colors.white
+                              : const Color(0xFF9CA3AF),
                         ),
                         const SizedBox(width: 5),
                         Text(
                           'Save',
                           style: GoogleFonts.lexend(
-                            color: isEnabled ? Colors.white : const Color(0xFF9CA3AF),
+                            color: isEnabled
+                                ? Colors.white
+                                : const Color(0xFF9CA3AF),
                             fontWeight: FontWeight.w600,
                             fontSize: 13.5,
                           ),
