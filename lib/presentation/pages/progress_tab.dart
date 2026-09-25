@@ -1931,13 +1931,14 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => PhotosGalleryPage(photoEntries: photoEntries),
+        builder: (_) => PhotosGalleryPage(
+          photoEntries: photoEntries,
+          allVocabularies: allVocabularies,
+        ),
       ),
     );
   }
 }
-
-
 
 // Photo entry model (groups vocabularies by image)
 class PhotoEntry {
@@ -1953,8 +1954,13 @@ class PhotoEntry {
 // Photos Gallery Page
 class PhotosGalleryPage extends StatelessWidget {
   final List<PhotoEntry> photoEntries;
+  final List<VocabularyModel> allVocabularies;
 
-  const PhotosGalleryPage({super.key, required this.photoEntries});
+  const PhotosGalleryPage({
+    super.key,
+    required this.photoEntries,
+    this.allVocabularies = const [],
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1980,23 +1986,23 @@ class PhotosGalleryPage extends StatelessWidget {
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16),
-            child: GridView.builder(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                childAspectRatio: 1,
-              ),
-              itemCount: photoEntries.length,
-              itemBuilder: (context, index) {
-                final entry = photoEntries[index];
-                return _buildPhotoCard(context, entry);
-              },
+          child: GridView.builder(
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              childAspectRatio: 1,
             ),
+            itemCount: photoEntries.length,
+            itemBuilder: (context, index) {
+              final entry = photoEntries[index];
+              return _buildPhotoCard(context, entry);
+            },
           ),
         ),
-      );
-    }
+      ),
+    );
+  }
 
   Widget _buildPhotoCard(BuildContext context, PhotoEntry entry) {
     final wordCount = entry.vocabularies.length;
@@ -2008,7 +2014,10 @@ class PhotosGalleryPage extends StatelessWidget {
           context: context,
           isScrollControlled: true,
           backgroundColor: Colors.transparent,
-          builder: (context) => PhotoWordsBottomSheet(photoEntry: entry),
+          builder: (context) => PhotoWordsBottomSheet(
+            photoEntry: entry,
+            allVocabularies: allVocabularies,
+          ),
         );
       },
       borderRadius: BorderRadius.circular(18),
@@ -2159,16 +2168,25 @@ class PhotosGalleryPage extends StatelessWidget {
   }
 }
 
-// Photo Words Bottom Sheet - shows all words for a specific photo
-class PhotoWordsBottomSheet extends StatelessWidget {
+// Photo Words Bottom Sheet - shows all words and sentences for a specific photo
+class PhotoWordsBottomSheet extends ConsumerWidget {
   final PhotoEntry photoEntry;
+  final List<VocabularyModel> allVocabularies;
 
-  const PhotoWordsBottomSheet({super.key, required this.photoEntry});
+  const PhotoWordsBottomSheet({
+    super.key,
+    required this.photoEntry,
+    this.allVocabularies = const [],
+  });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final allVocabs = allVocabularies.isNotEmpty
+        ? allVocabularies
+        : ref.watch(vocabularyStateProvider).vocabularies;
+
     return Container(
-      height: MediaQuery.of(context).size.height * 0.8,
+      height: MediaQuery.of(context).size.height * 0.85,
       decoration: const BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
@@ -2195,60 +2213,9 @@ class PhotoWordsBottomSheet extends StatelessWidget {
 
           // Header
           Padding(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.fromLTRB(20, 16, 16, 12),
             child: Row(
               children: [
-                Container(
-                  width: 52,
-                  height: 52,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: const Color(0xFFEBE6FC),
-                      width: 1,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF7C5CFC).withValues(alpha: 0.12),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(14),
-                    child: photoEntry.imageUrl.startsWith('http://') || photoEntry.imageUrl.startsWith('https://')
-                        ? Image.network(
-                            photoEntry.imageUrl,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              return Container(
-                                color: const Color(0xFFF4EEFF),
-                                child: const Icon(
-                                  Icons.broken_image,
-                                  size: 24,
-                                  color: Color(0xFF7C5CFC),
-                                ),
-                              );
-                            },
-                          )
-                        : Image.file(
-                            File(photoEntry.imageUrl),
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              return Container(
-                                color: const Color(0xFFF4EEFF),
-                                child: const Icon(
-                                  Icons.broken_image,
-                                  size: 24,
-                                  color: Color(0xFF7C5CFC),
-                                ),
-                              );
-                            },
-                          ),
-                  ),
-                ),
-                const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -2263,10 +2230,11 @@ class PhotoWordsBottomSheet extends StatelessWidget {
                           color: const Color(0xFF221F33),
                         ),
                       ),
+                      const SizedBox(height: 2),
                       Text(
                         photoEntry.vocabularies.length == 1
-                            ? 'Collected vocabulary item'
-                            : 'All words using this photo',
+                            ? photoEntry.vocabularies.first.thaiTranslation
+                            : 'Words captured in this photo',
                         style: GoogleFonts.lexend(
                           fontSize: 13,
                           fontWeight: FontWeight.w400,
@@ -2277,7 +2245,7 @@ class PhotoWordsBottomSheet extends StatelessWidget {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close_rounded, color: Color(0xFF9892A6)),
+                  icon: const Icon(Icons.close_rounded, color: Color(0xFF9892A6), size: 24),
                   onPressed: () => Navigator.pop(context),
                 ),
               ],
@@ -2290,16 +2258,66 @@ class PhotoWordsBottomSheet extends StatelessWidget {
             child: Divider(height: 1, color: Color(0xFFEBE6FC)),
           ),
 
-          // Words list
+          // Content List (Photo preview + Unified Vocab and Sentence cards)
           Expanded(
-            child: ListView.separated(
-              padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
-              itemCount: photoEntry.vocabularies.length,
-              separatorBuilder: (context, index) => const SizedBox(height: 12),
-              itemBuilder: (context, index) {
-                final vocab = photoEntry.vocabularies[index];
-                return _buildWordCard(context, vocab);
-              },
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+              children: [
+                // Photo Preview
+                _buildPhotoPreview(context),
+
+                const SizedBox(height: 16),
+
+                // Cards for each vocabulary
+                ...photoEntry.vocabularies.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final vocab = entry.value;
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (photoEntry.vocabularies.length > 1) ...[
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF4EEFF),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: const Color(0xFFE2DBFD),
+                                      width: 0.8,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    'Word ${index + 1} of ${photoEntry.vocabularies.length}',
+                                    style: GoogleFonts.lexend(
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: const Color(0xFF7C5CFC),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Container(
+                                    height: 1,
+                                    color: const Color(0xFFEBE6FC),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        _buildWordCard(context, vocab, allVocabs),
+                      ],
+                    ),
+                  );
+                }),
+              ],
             ),
           ),
         ],
@@ -2307,87 +2325,393 @@ class PhotoWordsBottomSheet extends StatelessWidget {
     );
   }
 
-  Widget _buildWordCard(BuildContext context, VocabularyModel vocab) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: const Color(0xFFEBE6FC),
-          width: 1.2,
+  Widget _buildPhotoPreview(BuildContext context) {
+    return GestureDetector(
+      onTap: () => _showFullScreenImage(context, photoEntry.imageUrl),
+      child: Container(
+        width: double.infinity,
+        height: 200,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: const Color(0xFFEBE6FC),
+            width: 1.2,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF7C5CFC).withValues(alpha: 0.08),
+              blurRadius: 16,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF7C5CFC).withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Word
-          Text(
-            vocab.word,
-            style: GoogleFonts.lexend(
-              fontSize: 17.5,
-              fontWeight: FontWeight.w700,
-              color: const Color(0xFF221F33),
-            ),
-          ),
-          const SizedBox(height: 4),
-          // Thai translation
-          Text(
-            vocab.thaiTranslation,
-            style: GoogleFonts.lexend(
-              fontSize: 14.5,
-              fontWeight: FontWeight.w500,
-              color: const Color(0xFF655D80),
-            ),
-          ),
-          // Example sentence
-          if (vocab.englishSentence.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF4EEFF),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: const Color(0xFFE2DBFD),
-                  width: 0.8,
-                ),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Padding(
-                    padding: EdgeInsets.only(top: 2),
-                    child: Icon(
-                      Icons.format_quote_rounded,
-                      color: Color(0xFF7C5CFC),
-                      size: 16,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              _buildImageWidget(photoEntry.imageUrl, fit: BoxFit.cover),
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                height: 50,
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.bottomCenter,
+                      end: Alignment.topCenter,
+                      colors: [
+                        Colors.black.withValues(alpha: 0.45),
+                        Colors.transparent,
+                      ],
                     ),
                   ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      vocab.englishSentence,
-                      style: GoogleFonts.lexend(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w400,
-                        color: const Color(0xFF4C3E72),
+                ),
+              ),
+              Positioned(
+                bottom: 10,
+                right: 12,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.55),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.fullscreen_rounded,
+                        size: 15,
+                        color: Colors.white,
                       ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'View full photo',
+                        style: GoogleFonts.lexend(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWordCard(
+    BuildContext context,
+    VocabularyModel vocab,
+    List<VocabularyModel> allVocabs,
+  ) {
+    final hasSentence = vocab.englishSentence.isNotEmpty || vocab.thaiSentence.isNotEmpty;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _openVocabularyDetail(context, vocab, allVocabs),
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: const Color(0xFFEBE6FC),
+              width: 1.2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF7C5CFC).withValues(alpha: 0.07),
+                blurRadius: 14,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Top tag row: Badges + Chevron
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF4EEFF),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: const Color(0xFFE2DBFD),
+                        width: 0.8,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.translate_rounded,
+                          size: 13,
+                          color: Color(0xFF7C5CFC),
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          'VOCAB',
+                          style: GoogleFonts.lexend(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF7C5CFC),
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (vocab.partOfSpeech.isNotEmpty) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF9FAFB),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: const Color(0xFFE5E7EB),
+                          width: 0.8,
+                        ),
+                      ),
+                      child: Text(
+                        vocab.partOfSpeech,
+                        style: GoogleFonts.lexend(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: const Color(0xFF6B7280),
+                        ),
+                      ),
+                    ),
+                  ],
+                  if (vocab.cefrLevel.isNotEmpty) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF3C7),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        vocab.cefrLevel,
+                        style: GoogleFonts.lexend(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFFD97706),
+                        ),
+                      ),
+                    ),
+                  ],
+                  const Spacer(),
+                  Container(
+                    width: 28,
+                    height: 28,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFF4EEFF),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      size: 12,
+                      color: Color(0xFF7C5CFC),
                     ),
                   ),
                 ],
               ),
+
+              const SizedBox(height: 12),
+
+              // Word
+              Text(
+                vocab.word,
+                style: GoogleFonts.lexend(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF221F33),
+                ),
+              ),
+              const SizedBox(height: 4),
+              // Thai translation
+              Text(
+                vocab.thaiTranslation,
+                style: GoogleFonts.lexend(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                  color: const Color(0xFF655D80),
+                ),
+              ),
+
+              // Sentence block inside the same card
+              if (hasSentence) ...[
+                const SizedBox(height: 14),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8F6FF),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: const Color(0xFFEBE6FC),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.only(top: 2),
+                        child: Icon(
+                          Icons.format_quote_rounded,
+                          size: 16,
+                          color: Color(0xFF7C5CFC),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (vocab.englishSentence.isNotEmpty)
+                              Text(
+                                vocab.englishSentence,
+                                style: GoogleFonts.lexend(
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w500,
+                                  color: const Color(0xFF332952),
+                                  height: 1.45,
+                                ),
+                              ),
+                            if (vocab.thaiSentence.isNotEmpty) ...[
+                              if (vocab.englishSentence.isNotEmpty)
+                                const SizedBox(height: 4),
+                              Text(
+                                vocab.thaiSentence,
+                                style: GoogleFonts.lexend(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w400,
+                                  color: const Color(0xFF655D80),
+                                  height: 1.4,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openVocabularyDetail(
+    BuildContext context,
+    VocabularyModel vocab,
+    List<VocabularyModel> allVocabs,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => VocabularyDetailBottomSheet(
+        vocabulary: vocab,
+        dictionaryService: DictionaryService(),
+        allVocabularies: allVocabs,
+      ),
+    );
+  }
+
+  Widget _buildImageWidget(
+    String imageUrl, {
+    BoxFit fit = BoxFit.cover,
+    double? width,
+    double? height,
+  }) {
+    final isNetwork = imageUrl.startsWith('http://') || imageUrl.startsWith('https://');
+    if (isNetwork) {
+      return Image.network(
+        imageUrl,
+        width: width,
+        height: height,
+        fit: fit,
+        errorBuilder: (context, error, stackTrace) => Container(
+          width: width,
+          height: height,
+          color: const Color(0xFFF4EEFF),
+          child: const Icon(
+            Icons.broken_image,
+            size: 32,
+            color: Color(0xFF7C5CFC),
+          ),
+        ),
+      );
+    } else {
+      return Image.file(
+        File(imageUrl),
+        width: width,
+        height: height,
+        fit: fit,
+        errorBuilder: (context, error, stackTrace) => Container(
+          width: width,
+          height: height,
+          color: const Color(0xFFF4EEFF),
+          child: const Icon(
+            Icons.broken_image,
+            size: 32,
+            color: Color(0xFF7C5CFC),
+          ),
+        ),
+      );
+    }
+  }
+
+  void _showFullScreenImage(BuildContext context, String imageUrl) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(12),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            InteractiveViewer(
+              clipBehavior: Clip.none,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: _buildImageWidget(imageUrl, fit: BoxFit.contain),
+              ),
+            ),
+            Positioned(
+              top: 10,
+              right: 10,
+              child: CircleAvatar(
+                backgroundColor: Colors.black.withValues(alpha: 0.6),
+                radius: 18,
+                child: IconButton(
+                  padding: EdgeInsets.zero,
+                  icon: const Icon(Icons.close, color: Colors.white, size: 20),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ),
             ),
           ],
-        ],
+        ),
       ),
     );
   }
 }
+
