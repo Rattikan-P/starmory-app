@@ -4499,7 +4499,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
         await ref
             .read(vocabularyStateProvider.notifier)
             .addVocabularies(updatedVocabs);
-        ref.invalidate(reviewStateProvider);
+        await ref.read(reviewStateProvider.notifier).loadSession();
       }
 
       // Only count streak when saving a newly created scrapbook (after pressing "Create Scrapbook").

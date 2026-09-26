@@ -2500,8 +2500,12 @@ class _InteractiveVocabularyScreenState
           .read(vocabularyStateProvider.notifier)
           .addVocabulary(vocabulary);
 
-      // Refresh review session to show newly added card
-      ref.invalidate(reviewStateProvider);
+    }
+
+    // Refresh after all selected words are saved. Invalidating the provider
+    // leaves the replacement notifier in its initial loading state forever.
+    if (selectedDots.isNotEmpty) {
+      await ref.read(reviewStateProvider.notifier).loadSession();
     }
 
     // Check if widget is still mounted before updating streak
