@@ -39,14 +39,14 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
     OnboardingItem(
       glowColor: Color(0xFFD98FB4),
       imageAsset: 'assets/images/2MinutesaDay_mascot.png',
-      imageScale: 1.25,
+      imageScale: 1.30,
       title: '2 Minutes a Day',
       description: 'One word a day is enough.\nNo guilt, no pressure, just progress.',
     ),
     OnboardingItem(
       glowColor: Color(0xFFFFC629),
       imageAsset: 'assets/images/CollectYourStars_mascot.png',
-      imageScale: 1.0,
+      imageScale: 0.95,
       title: 'Collect Your Stars',
       description: 'Coffee, cats, views.\nEvery little moment is a new star.',
     ),
@@ -532,13 +532,13 @@ class _AuthOptionsSheet extends StatelessWidget {
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       padding: EdgeInsets.only(
-        left: 28,
-        right: 28,
-        top: 28,
-        bottom: 28 + keyboardHeight,
+        left: 24,
+        right: 24,
+        top: 16,
+        bottom: 20 + keyboardHeight,
       ),
       child: SingleChildScrollView(
         child: Column(
@@ -546,41 +546,41 @@ class _AuthOptionsSheet extends StatelessWidget {
           children: [
             // Handle bar
             Container(
-              width: 48,
+              width: 42,
               height: 5,
               decoration: BoxDecoration(
-                color: const Color(0xFFd1d5db),
+                color: const Color(0xFFD1D5DB),
                 borderRadius: BorderRadius.circular(3),
               ),
             ),
-            const SizedBox(height: 28),
+            const SizedBox(height: 18),
 
             // Header
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.star, size: 20, color: Color(0xFFc4b5fd)),
+                const Icon(Icons.star, size: 16, color: Color(0xFF8B5CF6)),
                 const SizedBox(width: 8),
                 Text(
                   'Sign in or create account',
                   style: GoogleFonts.lexend(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w400,
-                    color: const Color(0xFF1f2937),
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: DesignTokens.textPrimary,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
             Text(
               'Choose your preferred method',
               style: GoogleFonts.lexend(
                 fontSize: 14,
                 fontWeight: FontWeight.w400,
-                color: const Color(0xFF9ca3af),
+                color: DesignTokens.textMuted,
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 18),
 
             // Reusable AuthForm
             AuthForm(

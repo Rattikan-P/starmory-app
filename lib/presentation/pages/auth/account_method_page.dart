@@ -11,6 +11,7 @@ import '../onboarding_page.dart';
 import '../language_selection_page.dart';
 import 'otp_verification_page.dart' show OtpVerificationPage;
 import '../../../constants/app_defaults.dart';
+import '../../../constants/design_tokens.dart';
 import '../../../presentation/providers/providers.dart' show hiveServiceProvider, vocabularySyncServiceProvider, userStateProvider, scrapbookStateProvider, vocabularyStateProvider;
 import '../../../presentation/providers/streak_provider.dart' show streakProvider;
 
@@ -796,13 +797,13 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       padding: EdgeInsets.only(
-        left: 28,
-        right: 28,
-        top: 28,
-        bottom: 28 + keyboardHeight,
+        left: 24,
+        right: 24,
+        top: 16,
+        bottom: 20 + keyboardHeight,
       ),
       child: SingleChildScrollView(
         child: Column(
@@ -810,42 +811,42 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
           children: [
             // Handle bar
             Container(
-              width: 48,
+              width: 42,
               height: 5,
               decoration: BoxDecoration(
-                color: const Color(0xFFd1d5db),
+                color: const Color(0xFFD1D5DB),
                 borderRadius: BorderRadius.circular(3),
               ),
             ),
-            const SizedBox(height: 28),
+            const SizedBox(height: 18),
 
             // Header
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.star, size: 20, color: Color(0xFFc4b5fd)),
+                const Icon(Icons.star, size: 16, color: Color(0xFF8B5CF6)),
                 const SizedBox(width: 8),
                 Text(
                   'Create an account',
                   style: GoogleFonts.lexend(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w400,
-                    color: const Color(0xFF1f2937),
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: DesignTokens.textPrimary,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
 
             Text(
               'Continue with your progress',
               style: GoogleFonts.lexend(
                 fontSize: 14,
                 fontWeight: FontWeight.w400,
-                color: const Color(0xFF9ca3af),
+                color: DesignTokens.textMuted,
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 18),
 
             // Reusable AuthForm
             AuthForm(

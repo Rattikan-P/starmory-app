@@ -8,7 +8,6 @@ import '../../../data/services/auth_service.dart';
 import '../../../data/services/merge_service.dart';
 import '../../../utils/snackbar_helper.dart';
 import '../../../presentation/widgets/otp_keypad.dart';
-import '../../widgets/galaxy_screen_background.dart';
 import '../language_selection_page.dart';
 import '../main_navigation.dart';
 import '../onboarding_page.dart' show onboardingServiceProvider;
@@ -496,23 +495,20 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
       context: context,
       barrierDismissible: false,
       builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         child: Container(
-          padding: const EdgeInsets.all(24),
+          constraints: const BoxConstraints(maxWidth: 360),
+          padding: const EdgeInsets.fromLTRB(22, 26, 22, 20),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Colors.white,
-                const Color(0xFFf8f9ff),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(20),
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(28),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF8b5cf6).withValues(alpha: 0.15),
-                blurRadius: 30,
+                color: const Color(0xFF7C5CFC).withValues(alpha: 0.16),
+                blurRadius: 28,
                 offset: const Offset(0, 10),
               ),
             ],
@@ -524,36 +520,29 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
               Container(
                 width: 60,
                 height: 60,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Color(0xFFfbbf24),
-                      Color(0xFFf59e0b),
-                    ],
-                  ),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFFFF1CC),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
                   Icons.warning_rounded,
-                  color: Colors.white,
-                  size: 32,
+                  color: Color(0xFFFFB91F),
+                  size: 30,
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 18),
 
               // Title
               Text(
                 'Too many attempts',
                 style: GoogleFonts.lexend(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF1f2937),
+                  fontSize: 18.5,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF221F33),
                 ),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 16),
 
               // Subtitle
               Text(
@@ -561,18 +550,19 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
                 style: GoogleFonts.lexend(
                   fontSize: 14,
                   fontWeight: FontWeight.w400,
-                  color: const Color(0xFF6b7280),
+                  color: const Color(0xFF221F33),
+                  height: 1.45,
                 ),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
 
               // Buttons
               Row(
                 children: [
                   Expanded(
                     child: SizedBox(
-                      height: 48,
+                      height: 50,
                       child: OutlinedButton(
                         onPressed: () {
                           Navigator.pop(context);
@@ -581,20 +571,20 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
                           _clearOtp();
                         },
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF9ca3af),
+                          foregroundColor: const Color(0xFF9CA3AF),
                           side: BorderSide(
-                            color: const Color(0xFF9ca3af).withValues(alpha: 0.3),
-                            width: 1.5,
+                            color: const Color(0xFFE8E0FF),
+                            width: 1,
                           ),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(25),
                           ),
                         ),
                         child: Text(
                           'Try again',
                           style: GoogleFonts.lexend(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
+                            fontSize: 15.5,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                       ),
@@ -603,47 +593,28 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: SizedBox(
-                      height: 48,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              Color(0xFF60a5fa),
-                              Color(0xFFa78bfa),
-                            ],
+                      height: 50,
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          Navigator.pop(context);
+                          // Reset attempts, clear input, and request new OTP
+                          setState(() => _failedAttempts = 0);
+                          _clearOtp();
+                          await _resendOtp();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFFFB91F),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(25),
                           ),
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFFa78bfa).withValues(alpha: 0.4),
-                              blurRadius: 15,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
                         ),
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: () async {
-                              Navigator.pop(context);
-                              // Reset attempts, clear input, and request new OTP
-                              setState(() => _failedAttempts = 0);
-                              _clearOtp();
-                              await _resendOtp();
-                            },
-                            borderRadius: BorderRadius.circular(12),
-                            child: const Center(
-                              child: Text(
-                                'New code',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
+                        child: Text(
+                          'New code',
+                          style: GoogleFonts.lexend(
+                            fontSize: 15.5,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                       ),
@@ -1053,257 +1024,201 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => _buildOtpReferenceLayout();
+
+  Widget _buildOtpReferenceLayout() {
     return Scaffold(
+      backgroundColor: Colors.white,
       resizeToAvoidBottomInset: false,
       body: Stack(
         children: [
-          GalaxyScreenBackground(
-            child: SafeArea(
-              child: Column(
-                children: [
-                  // Fixed card content - not scrollable
-                  Expanded(
-                    child: Center(
-                      child: SingleChildScrollView(
-                        physics: const NeverScrollableScrollPhysics(),
-                        padding: const EdgeInsets.only(top: 60, bottom: 16, left: 24, right: 24),
+          SafeArea(
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(22),
+                      onTap: () => Navigator.pop(context),
                       child: Container(
-                        constraints: const BoxConstraints(maxWidth: 400),
-                        padding: const EdgeInsets.all(20),
+                        width: 40,
+                        height: 40,
                         decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(24),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.05),
-                              blurRadius: 20,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
+                          shape: BoxShape.circle,
+                          color: const Color(0xFFF3F4F6),
+                          border: Border.all(
+                            color: const Color(0xFFE5E7EB),
+                            width: 1,
+                          ),
                         ),
-                        child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-
-                          // Icon
-                          Center(
-                            child: Container(
-                              width: 70,
-                              height: 70,
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [
-                                    Color(0xFF60a5fa),
-                                    Color(0xFFa78bfa),
-                                  ],
-                                ),
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: const Color(0xFFa78bfa).withValues(alpha: 0.3),
-                                    blurRadius: 20,
-                                    offset: const Offset(0, 8),
-                                  ),
-                                ],
-                              ),
-                              child: const Icon(
-                                Icons.email_outlined,
-                                size: 36,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-
-                          // Title
-                          Text(
-                            'Check your email',
-                            style: GoogleFonts.lexend(
-                              fontSize: 24,
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xFF1f2937),
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 6),
-
-                          // Subtitle
-                          Text(
-                            'We sent a 6-digit code to',
-                            style: GoogleFonts.lexend(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w400,
-                              color: const Color(0xFF6b7280),
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            widget.email,
-                            style: GoogleFonts.lexend(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                              color: const Color(0xFF8b5cf6),
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 20),
-
-                          // OTP Fields
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: List.generate(6, (index) {
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 3),
-                                child: SizedBox(
-                                  width: 40,
-                                  height: 52,
-                                  child: IgnorePointer(
-                                    child: TextField(
-                                      controller: _otpControllers[index],
-                                      focusNode: _focusNodes[index],
-                                      keyboardType: TextInputType.number,
-                                      readOnly: true,
-                                      showCursor: true,
-                                      textAlign: TextAlign.center,
-                                      style: GoogleFonts.lexend(
-                                        fontSize: 22,
-                                        fontWeight: FontWeight.w600,
-                                        color: const Color(0xFF1f2937),
-                                        height: 1.0,
-                                      ),
-                                      inputFormatters: [
-                                        FilteringTextInputFormatter.digitsOnly,
-                                        LengthLimitingTextInputFormatter(1),
-                                      ],
-                                      decoration: InputDecoration(
-                                        counterText: '',
-                                        contentPadding: const EdgeInsets.symmetric(vertical: 14),
-                                        filled: true,
-                                        fillColor: const Color(0xFFF3F4F6),
-                                        border: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(12),
-                                          borderSide: BorderSide.none,
-                                        ),
-                                        enabledBorder: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(12),
-                                          borderSide: BorderSide.none,
-                                        ),
-                                        focusedBorder: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(12),
-                                          borderSide: const BorderSide(
-                                            color: Color(0xFFa78bfa),
-                                            width: 2,
-                                          ),
-                                        ),
-                                      ),
-                                      onChanged: (value) =>
-                                          _onOtpChanged(index, value),
-                                    ),
-                                  ),
-                                ),
-                              );
-                            }),
-                          ),
-                          const SizedBox(height: 24),
-
-                          // Resend Section
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                "Didn't receive? ",
-                                style: GoogleFonts.lexend(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w400,
-                                  color: const Color(0xFF6b7280),
-                                ),
-                              ),
-                              TextButton(
-                                onPressed: _countdown == 0 && !_isResending
-                                    ? _resendOtp
-                                    : null,
-                                style: TextButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                                ),
-                                child: _isResending
-                                    ? const SizedBox(
-                                        height: 14,
-                                        width: 14,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: Color(0xFF8b5cf6),
-                                        ),
-                                      )
-                                    : Text(
-                                        _countdown > 0
-                                            ? 'Resend in $_countdown s'
-                                            : 'Resend',
-                                        style: GoogleFonts.lexend(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w500,
-                                          color: const Color(0xFF8b5cf6),
-                                        ),
-                                      ),
-                              ),
-                            ],
-                          ),
-                        ],
+                        child: const Icon(
+                          Icons.arrow_back_ios_new_rounded,
+                          size: 20,
+                          color: Color(0xFF1F2937),
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-              // Custom Numeric Keypad - Inside card
-              OtpKeypad(
-                enabled: !_isLoading,
-                onNumberPressed: _onNumberPressed,
-                onBackspacePressed: _onBackspacePressed,
-              ),
-            ],
-          ),
-        ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 58),
+                        Image.asset(
+                          'assets/images/otp_mascot.png',
+                          width: 104,
+                          height: 64,
+                          fit: BoxFit.contain,
+                        ),
+                        const SizedBox(height: 22),
+                        Text(
+                          'Check your email',
+                          style: GoogleFonts.lexend(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF25252B),
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'We sent a 6-digit code to',
+                          style: GoogleFonts.lexend(
+                            fontSize: 14,
+                            color: const Color(0xFF929299),
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        Text(
+                          widget.email,
+                          style: GoogleFonts.lexend(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xFF8953F6),
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 30),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: List.generate(6, (index) {
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 5),
+                              child: SizedBox(
+                                width: 40,
+                                height: 42,
+                                child: IgnorePointer(
+                                  child: TextField(
+                                    controller: _otpControllers[index],
+                                    focusNode: _focusNodes[index],
+                                    keyboardType: TextInputType.number,
+                                    readOnly: true,
+                                    showCursor: false,
+                                    textAlign: TextAlign.center,
+                                    style: GoogleFonts.lexend(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w600,
+                                      color: const Color(0xFF25252B),
+                                    ),
+                                    inputFormatters: [
+                                      FilteringTextInputFormatter.digitsOnly,
+                                      LengthLimitingTextInputFormatter(1),
+                                    ],
+                                    decoration: InputDecoration(
+                                      counterText: '',
+                                      contentPadding: EdgeInsets.zero,
+                                      filled: true,
+                                      fillColor: Colors.white,
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(6),
+                                        borderSide: const BorderSide(color: Color(0xFFDDD6FE)),
+                                      ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(6),
+                                        borderSide: const BorderSide(color: Color(0xFFDDD6FE)),
+                                      ),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(6),
+                                        borderSide: const BorderSide(
+                                          color: Color(0xFF8953F6),
+                                          width: 1.4,
+                                        ),
+                                      ),
+                                    ),
+                                    onChanged: (value) => _onOtpChanged(index, value),
+                                  ),
+                                ),
+                              ),
+                            );
+                          }),
+                        ),
+                        const SizedBox(height: 24),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              "Didn't receive?",
+                              style: GoogleFonts.lexend(
+                                fontSize: 14,
+                                color: const Color(0xFF929299),
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: _countdown == 0 && !_isResending ? _resendOtp : null,
+                              style: TextButton.styleFrom(
+                                padding: const EdgeInsets.only(left: 8),
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                              child: _isResending
+                                  ? const SizedBox(
+                                      height: 14,
+                                      width: 14,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Color(0xFF8953F6),
+                                      ),
+                                    )
+                                  : Text(
+                                      _countdown > 0 ? 'Resend in $_countdown s' : 'Resend',
+                                      style: GoogleFonts.lexend(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                        color: const Color(0xFF8953F6),
+                                      ),
+                                    ),
+                            ),
+                          ],
+                        ),
+                        const Spacer(),
+                      ],
+                    ),
+                  ),
+                ),
+                OtpKeypad(
+                  enabled: !_isLoading,
+                  onNumberPressed: _onNumberPressed,
+                  onBackspacePressed: _onBackspacePressed,
+                ),
+                const SizedBox(height: 12),
+              ],
+            ),
           ),
           if (_isLoading)
             Container(
               color: Colors.white.withValues(alpha: 0.8),
               child: const Center(
-                child: CircularProgressIndicator(
-                  color: Color(0xFFa78bfa),
-                ),
+                child: CircularProgressIndicator(color: Color(0xFF8953F6)),
               ),
             ),
-          // Back button - positioned at the end for highest z-index
-          Positioned(
-            top: 16,
-            left: 16,
-            child: SafeArea(
-              bottom: false,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.9),
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.08),
-                      blurRadius: 12,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: IconButton(
-                  icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF1F2937), size: 20),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ),
-            ),
-          ),
         ],
       ),
     );
   }
+
+
 }
