@@ -6,12 +6,14 @@ class StreakData {
   final int longestStreak;
   final int shieldsAvailable;
   final DateTime? lastActivityDate;
+  final DateTime? streakStateUpdatedAt;
 
   StreakData({
     required this.currentStreak,
     required this.longestStreak,
     required this.shieldsAvailable,
     this.lastActivityDate,
+    this.streakStateUpdatedAt,
   });
 
   factory StreakData.fromMap(Map<String, dynamic> map) {
@@ -21,6 +23,9 @@ class StreakData {
       shieldsAvailable: map['shields_available'] as int? ?? 0,
       lastActivityDate: map['last_activity_date'] != null
           ? DateTime.parse(map['last_activity_date'] as String)
+          : null,
+      streakStateUpdatedAt: map['streak_state_updated_at'] != null
+          ? DateTime.parse(map['streak_state_updated_at'] as String)
           : null,
     );
   }
@@ -59,6 +64,7 @@ class StreakData {
       'longest_streak': longestStreak,
       'shields_available': shieldsAvailable,
       'last_activity_date': lastActivityDate?.toIso8601String(),
+      'streak_state_updated_at': streakStateUpdatedAt?.toIso8601String(),
     };
   }
 
@@ -69,7 +75,8 @@ class StreakData {
         other.currentStreak == currentStreak &&
         other.longestStreak == longestStreak &&
         other.shieldsAvailable == shieldsAvailable &&
-        other.lastActivityDate == lastActivityDate;
+        other.lastActivityDate == lastActivityDate &&
+        other.streakStateUpdatedAt == streakStateUpdatedAt;
   }
 
   @override
@@ -78,6 +85,7 @@ class StreakData {
         longestStreak,
         shieldsAvailable,
         lastActivityDate,
+        streakStateUpdatedAt,
       );
 }
 
@@ -90,11 +98,8 @@ class StreakService {
     final user = _client.auth.currentUser;
     if (user == null) return null;
 
-    final response = await _client
-        .from('users')
-        .select()
-        .eq('id', user.id)
-        .maybeSingle();
+    final response =
+        await _client.from('users').select().eq('id', user.id).maybeSingle();
 
     if (response == null) return null;
 
@@ -103,11 +108,8 @@ class StreakService {
 
   /// Get streak data for a specific user (admin/debug use)
   Future<StreakData?> getStreakDataForUser(String userId) async {
-    final response = await _client
-        .from('users')
-        .select()
-        .eq('id', userId)
-        .maybeSingle();
+    final response =
+        await _client.from('users').select().eq('id', userId).maybeSingle();
 
     if (response == null) return null;
 
@@ -120,6 +122,8 @@ class StreakService {
     int? longestStreak,
     int? shieldsAvailable,
     DateTime? lastActivityDate,
+    DateTime? streakStateUpdatedAt,
+    bool clearLastActivityDate = false,
   }) async {
     final user = _client.auth.currentUser;
     if (user == null) return false;
@@ -127,15 +131,21 @@ class StreakService {
     final updates = <String, dynamic>{};
     if (currentStreak != null) updates['current_streak'] = currentStreak;
     if (longestStreak != null) updates['longest_streak'] = longestStreak;
-    if (shieldsAvailable != null) updates['shields_available'] = shieldsAvailable;
-    if (lastActivityDate != null) {
-      updates['last_activity_date'] = lastActivityDate.toIso8601String();
+    if (shieldsAvailable != null)
+      updates['shields_available'] = shieldsAvailable;
+    if (streakStateUpdatedAt != null) {
+      updates['streak_state_updated_at'] =
+          streakStateUpdatedAt.toUtc().toIso8601String();
+    }
+    if (clearLastActivityDate) {
+      updates['last_activity_date'] = null;
+    } else if (lastActivityDate != null) {
+      final month = lastActivityDate.month.toString().padLeft(2, '0');
+      final day = lastActivityDate.day.toString().padLeft(2, '0');
+      updates['last_activity_date'] = '${lastActivityDate.year}-$month-$day';
     }
 
-    final error = await _client
-        .from('users')
-        .update(updates)
-        .eq('id', user.id);
+    final error = await _client.from('users').update(updates).eq('id', user.id);
 
     return error == null;
   }
@@ -186,12 +196,10 @@ class StreakService {
     // Update last activity date to today
     final today = DateTime.now().toIso8601String().split('T')[0];
 
-    final error = await _client
-        .from('users')
-        .update({
-          'last_activity_date': today,
-        })
-        .eq('id', user.id);
+    final error = await _client.from('users').update({
+      'last_activity_date': today,
+      'streak_state_updated_at': DateTime.now().toUtc().toIso8601String(),
+    }).eq('id', user.id);
 
     return error == null;
   }
@@ -200,7 +208,8 @@ class StreakService {
   Future<bool> resetStreak() async {
     return await updateStreakData(
       currentStreak: 0,
-      lastActivityDate: null,
+      streakStateUpdatedAt: DateTime.now(),
+      clearLastActivityDate: true,
     );
   }
 
@@ -215,7 +224,8 @@ class StreakService {
       return false;
     }
 
-    print('   [StreakService] Current: streak=${current.currentStreak}, lastActivity=${current.lastActivityDate}');
+    print(
+        '   [StreakService] Current: streak=${current.currentStreak}, lastActivity=${current.lastActivityDate}');
 
     // No activity date - nothing to check
     if (current.lastActivityDate == null) {
@@ -240,7 +250,8 @@ class StreakService {
     // Check if user has enough shields to cover missed days
     final missedDays = daysDifference - 1;
     if (current.shieldsAvailable >= missedDays) {
-      print('🛡️ [StreakService] Protected by shields ($missedDays missed, ${current.shieldsAvailable} shields available)');
+      print(
+          '🛡️ [StreakService] Protected by shields ($missedDays missed, ${current.shieldsAvailable} shields available)');
       return false;
     }
 
@@ -248,7 +259,7 @@ class StreakService {
     return await updateStreakData(
       currentStreak: 0,
       shieldsAvailable: 0,
-      lastActivityDate: null,
+      streakStateUpdatedAt: DateTime.now(),
     );
   }
 
@@ -259,6 +270,7 @@ class StreakService {
       longestStreak: streakValue,
       shieldsAvailable: shields,
       lastActivityDate: DateTime.now(),
+      streakStateUpdatedAt: DateTime.now(),
     );
   }
 }

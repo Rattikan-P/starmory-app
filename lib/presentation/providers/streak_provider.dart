@@ -18,7 +18,9 @@ final appStateServiceProvider = Provider<AppStateService>((ref) {
 /// Streak data provider - fetches and caches streak data
 /// Works for both registered (cloud) and guest (local) users
 class StreakNotifier extends StateNotifier<StreakData?> {
-  StreakNotifier(this._service, this._appStateService, this._userNotifier, this._ref) : super(null) {
+  StreakNotifier(
+      this._service, this._appStateService, this._userNotifier, this._ref)
+      : super(null) {
     _init();
   }
 
@@ -34,20 +36,24 @@ class StreakNotifier extends StateNotifier<StreakData?> {
     int? lastStreak;
     int? lastShields;
     DateTime? lastActivity;
+    DateTime? lastStateUpdate;
     _userStateSubscription = _userNotifier.stream.listen((userState) {
       final user = userState.user;
       final userId = user?.id;
       final streak = user?.currentStreak;
       final shields = user?.shields;
       final activity = user?.lastStreakActivityDate;
+      final stateUpdate = user?.streakStateUpdatedAt;
       if (userId != lastUserId ||
           streak != lastStreak ||
           shields != lastShields ||
-          activity != lastActivity) {
+          activity != lastActivity ||
+          stateUpdate != lastStateUpdate) {
         lastUserId = userId;
         lastStreak = streak;
         lastShields = shields;
         lastActivity = activity;
+        lastStateUpdate = stateUpdate;
         if (!_userStateSubscription!.isPaused) {
           refresh();
         }
@@ -77,7 +83,8 @@ class StreakNotifier extends StateNotifier<StreakData?> {
       // Guest - load from UserModel
       print('🟢 [Streak] Loading guest streak from UserModel...');
       _loadFromUserModel(currentUser);
-      print('✅ [Streak] Guest streak loaded: streak=${state?.currentStreak ?? 0}');
+      print(
+          '✅ [Streak] Guest streak loaded: streak=${state?.currentStreak ?? 0}');
       return;
     }
 
@@ -88,7 +95,8 @@ class StreakNotifier extends StateNotifier<StreakData?> {
       print('🔵 [Streak] Loading registered user streak from cloud...');
       try {
         final streakData = await _service.getStreakData();
-        print('✅ [Streak] Cloud streak loaded: streak=${streakData?.currentStreak ?? 0}');
+        print(
+            '✅ [Streak] Cloud streak loaded: streak=${streakData?.currentStreak ?? 0}');
         if (state != streakData) {
           state = streakData;
         }
@@ -110,6 +118,7 @@ class StreakNotifier extends StateNotifier<StreakData?> {
       shieldsAvailable: user.shields,
       longestStreak: user.longestStreak,
       lastActivityDate: user.lastStreakActivityDate,
+      streakStateUpdatedAt: user.streakStateUpdatedAt,
     );
     if (state != newData) {
       state = newData;
@@ -125,7 +134,8 @@ class StreakNotifier extends StateNotifier<StreakData?> {
       return false;
     }
 
-    print('📝 [Streak] updateAfterActivity() called - isGuest=${currentUser.isGuest}');
+    print(
+        '📝 [Streak] updateAfterActivity() called - isGuest=${currentUser.isGuest}');
 
     if (currentUser.isGuest) {
       // Guest - increment streak in UserModel (SSOT)
@@ -133,29 +143,12 @@ class StreakNotifier extends StateNotifier<StreakData?> {
       final updatedUser = currentUser.incrementStreak();
       await _userNotifier.updateUser(updatedUser);
       _loadFromUserModel(updatedUser);
-      print('✅ [Guest Streak] Updated UserModel: streak=${updatedUser.currentStreak}, shields=${updatedUser.shields}');
+      print(
+          '✅ [Guest Streak] Updated UserModel: streak=${updatedUser.currentStreak}, shields=${updatedUser.shields}');
       return true;
     } else {
-      // Registered user:
-      // 1. Calculate streak update using UserModel logic
-      print('🔵 [Cloud Streak] Updating registered user streak...');
-      final updatedUser = currentUser.incrementStreak();
-      await _userNotifier.updateUser(updatedUser);
-      _loadFromUserModel(updatedUser);
-
-      // 2. Update cloud (Supabase) users table
-      try {
-        final success = await _service.updateStreakData(
-          currentStreak: updatedUser.currentStreak,
-          longestStreak: updatedUser.longestStreak,
-          shieldsAvailable: updatedUser.shields,
-          lastActivityDate: updatedUser.lastStreakActivityDate,
-        );
-        print('🔵 [Cloud Streak] Updated Supabase users table: success=$success, streak=${updatedUser.currentStreak}, shields=${updatedUser.shields}');
-      } catch (e) {
-        print('⚠️ [Cloud Streak] Failed to update cloud streak: $e');
-      }
-
+      // Registered activity triggers update the streak in Supabase.
+      // Refresh after the trigger instead of writing a second, potentially stale value.
       await refresh();
       return true;
     }
@@ -174,10 +167,12 @@ class StreakNotifier extends StateNotifier<StreakData?> {
       // Guest - update UserModel
       final updatedUser = currentUser.copyWith(
         currentStreak: currentStreak ?? currentUser.currentStreak,
-        longestStreak: currentStreak != null && currentStreak > currentUser.longestStreak
-            ? currentStreak
-            : currentUser.longestStreak,
+        longestStreak:
+            currentStreak != null && currentStreak > currentUser.longestStreak
+                ? currentStreak
+                : currentUser.longestStreak,
         shields: shieldsAvailable ?? currentUser.shields,
+        streakStateUpdatedAt: DateTime.now(),
       );
       await _userNotifier.updateUser(updatedUser);
       _loadFromUserModel(updatedUser);
@@ -187,6 +182,7 @@ class StreakNotifier extends StateNotifier<StreakData?> {
       final success = await _service.updateStreakData(
         currentStreak: currentStreak,
         shieldsAvailable: shieldsAvailable,
+        streakStateUpdatedAt: DateTime.now(),
       );
       if (success) await refresh();
       return success;
@@ -250,7 +246,8 @@ class StreakNotifier extends StateNotifier<StreakData?> {
         currentStreak: 0,
         longestStreak: 0,
         shields: 0,
-        lastStreakActivityDate: null,
+        clearLastStreakActivityDate: true,
+        streakStateUpdatedAt: DateTime.now(),
       );
       await _userNotifier.updateUser(updatedUser);
       _loadFromUserModel(updatedUser);
@@ -284,9 +281,12 @@ class StreakNotifier extends StateNotifier<StreakData?> {
       final today = DateTime.now();
       final updatedUser = currentUser.copyWith(
         currentStreak: value,
-        longestStreak: value > currentUser.longestStreak ? value : currentUser.longestStreak,
+        longestStreak: value > currentUser.longestStreak
+            ? value
+            : currentUser.longestStreak,
         shields: calculatedShields,
         lastStreakActivityDate: today,
+        streakStateUpdatedAt: today,
       );
       await _userNotifier.updateUser(updatedUser);
       _loadFromUserModel(updatedUser);
@@ -296,6 +296,8 @@ class StreakNotifier extends StateNotifier<StreakData?> {
       final success = await _service.updateStreakData(
         currentStreak: value,
         shieldsAvailable: calculatedShields,
+        lastActivityDate: DateTime.now(),
+        streakStateUpdatedAt: DateTime.now(),
       );
       if (success) await refresh();
       return success;
@@ -303,61 +305,103 @@ class StreakNotifier extends StateNotifier<StreakData?> {
   }
 
   /// Migrate guest streak to cloud (when user registers)
-  /// Uses MAX logic: keeps the better streak between guest and existing
-  Future<bool> migrateGuestStreakToCloud() async {
-    final guestData = await _appStateService.getGuestStreakDataForMigration();
+  /// Keeps the streak from the most recently active side; same-day ties use max.
+  Future<bool> migrateGuestStreakToCloud({
+    Map<String, dynamic>? guestStreakSnapshot,
+  }) async {
+    final legacyGuestData =
+        await _appStateService.getGuestStreakDataForMigration();
+    final guestStreak = guestStreakSnapshot?['currentStreak'] as int? ??
+        legacyGuestData['current_streak'] as int? ??
+        0;
+    final guestLongest = guestStreakSnapshot?['longestStreak'] as int? ??
+        legacyGuestData['longest_streak'] as int? ??
+        0;
+    final guestShields = guestStreakSnapshot?['shields'] as int? ??
+        legacyGuestData['shields_available'] as int? ??
+        0;
+    final snapshotDate = guestStreakSnapshot?['lastStreakActivityDate'];
+    final guestLastDate = snapshotDate is DateTime
+        ? snapshotDate
+        : snapshotDate is String
+            ? DateTime.tryParse(snapshotDate)
+            : legacyGuestData['last_activity_date'] is String
+                ? DateTime.tryParse(
+                    legacyGuestData['last_activity_date'] as String)
+                : null;
+    final snapshotStateTime = guestStreakSnapshot?['streakStateUpdatedAt'];
+    final guestStateUpdatedAt = _parseDateTime(snapshotStateTime) ??
+        guestLastDate ??
+        (guestStreak > 0 ? guestLastDate : null);
 
     // Only migrate if there's actual data
-    if (guestData['current_streak'] == 0 &&
-        guestData['shields_available'] == 0) {
+    if (guestStreak == 0 &&
+        guestLongest == 0 &&
+        guestShields == 0 &&
+        guestLastDate == null &&
+        guestStateUpdatedAt == null) {
       return true; // Nothing to migrate
     }
 
     // Get existing streak from cloud to compare
     final existingStreak = await _service.getStreakData();
 
-    // Use MAX logic: choose the better value between guest and existing
-    final guestStreak = guestData['current_streak'] as int? ?? 0;
-    final guestShields = guestData['shields_available'] as int? ?? 0;
-    final guestLastDate = guestData['last_activity_date'] != null
-        ? DateTime.parse(guestData['last_activity_date'] as String)
-        : null;
-
     int finalStreak = guestStreak;
+    int finalLongest = guestLongest;
     int finalShields = guestShields;
     DateTime? finalLastDate = guestLastDate;
+    DateTime? finalStateUpdatedAt = guestStateUpdatedAt;
 
     if (existingStreak != null) {
-      // Use MAX for streak (keep the better achievement)
-      finalStreak = guestStreak > existingStreak.currentStreak
-          ? guestStreak
-          : existingStreak.currentStreak;
+      final guestStateTime = guestStateUpdatedAt ?? _activityDay(guestLastDate);
+      final serverStateTime = existingStreak.streakStateUpdatedAt ??
+          _activityDay(existingStreak.lastActivityDate);
 
-      // Use MAX for shields (keep more shields)
+      if (guestStateTime == null && serverStateTime == null) {
+        finalStreak = guestStreak > existingStreak.currentStreak
+            ? guestStreak
+            : existingStreak.currentStreak;
+      } else if (serverStateTime == null ||
+          (guestStateTime != null && guestStateTime.isAfter(serverStateTime))) {
+        finalStreak = guestStreak;
+        finalLastDate = guestLastDate;
+        finalStateUpdatedAt = guestStateTime;
+      } else if (guestStateTime == null ||
+          serverStateTime.isAfter(guestStateTime)) {
+        finalStreak = existingStreak.currentStreak;
+        finalLastDate = existingStreak.lastActivityDate;
+        finalStateUpdatedAt = serverStateTime;
+      } else {
+        finalStreak = guestStreak > existingStreak.currentStreak
+            ? guestStreak
+            : existingStreak.currentStreak;
+        finalStateUpdatedAt = guestStateTime;
+        finalLastDate = guestLastDate ?? existingStreak.lastActivityDate;
+      }
+
+      // Longest streak and shields are non-additive records/resources.
       finalShields = guestShields > existingStreak.shieldsAvailable
           ? guestShields
           : existingStreak.shieldsAvailable;
+      finalLongest = guestLongest > existingStreak.longestStreak
+          ? guestLongest
+          : existingStreak.longestStreak;
 
-      // Use the most recent activity date
-      if (existingStreak.lastActivityDate != null) {
-        if (guestLastDate == null) {
-          finalLastDate = existingStreak.lastActivityDate;
-        } else {
-          finalLastDate = guestLastDate.isAfter(existingStreak.lastActivityDate!)
-              ? guestLastDate
-              : existingStreak.lastActivityDate;
-        }
-      }
-
-      print('🔄 [Streak Migration] Guest: streak=$guestStreak, shields=$guestShields');
-      print('🔄 [Streak Migration] Existing: streak=${existingStreak.currentStreak}, shields=${existingStreak.shieldsAvailable}');
-      print('✅ [Streak Migration] Final: streak=$finalStreak, shields=$finalShields');
+      print(
+          '🔄 [Streak Migration] Guest: streak=$guestStreak, shields=$guestShields');
+      print(
+          '🔄 [Streak Migration] Existing: streak=${existingStreak.currentStreak}, shields=${existingStreak.shieldsAvailable}');
+      print(
+          '✅ [Streak Migration] Final: streak=$finalStreak, shields=$finalShields');
     }
 
     final success = await _service.updateStreakData(
       currentStreak: finalStreak,
+      longestStreak: finalLongest,
       shieldsAvailable: finalShields,
       lastActivityDate: finalLastDate,
+      streakStateUpdatedAt: finalStateUpdatedAt ?? DateTime.now(),
+      clearLastActivityDate: finalLastDate == null,
     );
 
     if (success) {
@@ -369,13 +413,23 @@ class StreakNotifier extends StateNotifier<StreakData?> {
     return success;
   }
 
+  DateTime? _activityDay(DateTime? date) =>
+      date == null ? null : DateTime(date.year, date.month, date.day);
+
+  DateTime? _parseDateTime(dynamic value) {
+    if (value is DateTime) return value;
+    if (value is String) return DateTime.tryParse(value);
+    return null;
+  }
+
   /// Check if user has already acquired vocabulary today
   /// Returns true if last activity date is today
   Future<bool> hasAcquiredVocabularyToday() async {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final currentUser = _userNotifier.state.user;
-    final lastActivity = state?.lastActivityDate ?? currentUser?.lastStreakActivityDate;
+    final lastActivity =
+        state?.lastActivityDate ?? currentUser?.lastStreakActivityDate;
 
     if (lastActivity == null) return false;
 
@@ -390,7 +444,9 @@ class StreakNotifier extends StateNotifier<StreakData?> {
     print('📝 [Streak] recordVocabularyAcquired() called');
 
     // Also record activity for Badge tracking (Night Owl / Morning Nova, etc.)
-    await _ref.read(badgeProvider.notifier).recordActivity(ActivityType.generateVocab);
+    await _ref
+        .read(badgeProvider.notifier)
+        .recordActivity(ActivityType.generateVocab);
 
     // Check if already acquired vocabulary today
     if (await hasAcquiredVocabularyToday()) {
@@ -461,7 +517,8 @@ class StreakNotifier extends StateNotifier<StreakData?> {
         : (state?.shieldsAvailable ?? currentUser.shields);
 
     if (currentShields >= missedDays) {
-      print('🛡️ [Streak] Inactivity protected by shields ($currentShields available, $missedDays needed)');
+      print(
+          '🛡️ [Streak] Inactivity protected by shields ($currentShields available, $missedDays needed)');
       return;
     }
 
@@ -472,7 +529,7 @@ class StreakNotifier extends StateNotifier<StreakData?> {
       final updatedUser = currentUser.copyWith(
         currentStreak: 0,
         shields: 0,
-        lastStreakActivityDate: null,
+        streakStateUpdatedAt: DateTime.now(),
       );
       await _userNotifier.updateUser(updatedUser);
       _loadFromUserModel(updatedUser);
@@ -480,12 +537,12 @@ class StreakNotifier extends StateNotifier<StreakData?> {
       await _service.updateStreakData(
         currentStreak: 0,
         shieldsAvailable: 0,
-        lastActivityDate: null,
+        streakStateUpdatedAt: DateTime.now(),
       );
       final updatedUser = currentUser.copyWith(
         currentStreak: 0,
         shields: 0,
-        lastStreakActivityDate: null,
+        streakStateUpdatedAt: DateTime.now(),
       );
       await _userNotifier.updateUser(updatedUser);
       await refresh();
@@ -495,7 +552,8 @@ class StreakNotifier extends StateNotifier<StreakData?> {
 }
 
 /// Streak notifier provider
-final streakProvider = StateNotifierProvider<StreakNotifier, StreakData?>((ref) {
+final streakProvider =
+    StateNotifierProvider<StreakNotifier, StreakData?>((ref) {
   final service = ref.watch(streakServiceProvider);
   final appStateService = ref.watch(appStateServiceProvider);
   final userNotifier = ref.watch(userStateProvider.notifier);
@@ -527,11 +585,11 @@ final streakStatusProvider = Provider<StreakStatus>((ref) {
 
 /// Streak status enum
 enum StreakStatus {
-  unknown,    // Data not loaded
-  inactive,   // No streak (0 days)
-  active,     // Streak ongoing
-  atRisk,     // Missed day but has shields
-  broken,     // Streak broken
+  unknown, // Data not loaded
+  inactive, // No streak (0 days)
+  active, // Streak ongoing
+  atRisk, // Missed day but has shields
+  broken, // Streak broken
 }
 
 extension StreakStatusExtension on StreakStatus {

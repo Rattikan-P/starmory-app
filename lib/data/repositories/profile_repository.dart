@@ -101,8 +101,7 @@ class ProfileRepository {
       // Update database
       await client
           .from('users')
-          .update({'display_name': name})
-          .eq('id', userId);
+          .update({'display_name': name}).eq('id', userId);
 
       return Result.success(null);
     } catch (e) {
@@ -119,7 +118,8 @@ class ProfileRepository {
   ///
   /// Returns Result.success() if upload succeeds
   /// Returns Result.failure() with error message if validation fails or upload fails
-  Future<Result<void>> uploadProfilePhoto(File imageFile, ImageSource source) async {
+  Future<Result<void>> uploadProfilePhoto(
+      File imageFile, ImageSource source) async {
     try {
       final client = _supabaseClient;
       final userId = client.auth.currentUser?.id;
@@ -159,7 +159,8 @@ class ProfileRepository {
       // Delete old avatar if exists (with different extension)
       try {
         final currentUser = client.auth.currentUser;
-        final oldAvatarUrl = currentUser?.userMetadata?['avatar_url'] as String?;
+        final oldAvatarUrl =
+            currentUser?.userMetadata?['avatar_url'] as String?;
         if (oldAvatarUrl != null) {
           final urlWithoutParams = oldAvatarUrl.split('?').first;
           final oldFileName = urlWithoutParams.split('/').last;
@@ -178,9 +179,7 @@ class ProfileRepository {
 
       // Upload new photo
       final fileBytes = await imageFile.readAsBytes();
-      await client.storage
-          .from('avatars')
-          .uploadBinary(
+      await client.storage.from('avatars').uploadBinary(
             newFileName,
             fileBytes,
             fileOptions: FileOptions(
@@ -202,8 +201,7 @@ class ProfileRepository {
       // Update database
       await client
           .from('users')
-          .update({'avatar_url': avatarUrl})
-          .eq('id', userId);
+          .update({'avatar_url': avatarUrl}).eq('id', userId);
 
       return Result.success(null);
     } catch (e) {
@@ -227,7 +225,8 @@ class ProfileRepository {
         return Result.failure('User not authenticated');
       }
 
-      final currentAvatarUrl = client.auth.currentUser?.userMetadata?['avatar_url'] as String?;
+      final currentAvatarUrl =
+          client.auth.currentUser?.userMetadata?['avatar_url'] as String?;
 
       // Delete from storage
       if (currentAvatarUrl != null) {
@@ -278,8 +277,7 @@ class ProfileRepository {
         final client = _supabaseClient;
         await client
             .from('users')
-            .update({'language_level': level})
-            .eq('id', user.id);
+            .update({'language_level': level}).eq('id', user.id);
       }
 
       return Result.success(null);
@@ -313,8 +311,7 @@ class ProfileRepository {
         final client = _supabaseClient;
         await client
             .from('users')
-            .update({'english_variant': variant})
-            .eq('id', user.id);
+            .update({'english_variant': variant}).eq('id', user.id);
       }
 
       return Result.success(null);
@@ -369,7 +366,8 @@ class ProfileRepository {
       try {
         await _streakService.resetStreak();
       } catch (e) {
-        return Result.failure('Progress reset. Streak reset failed. Please try again.');
+        return Result.failure(
+            'Progress reset. Streak reset failed. Please try again.');
       }
 
       // Preserve quota and preferences
@@ -377,6 +375,7 @@ class ProfileRepository {
       final freshGuest = UserModel.createGuest().copyWith(
         preferences: user.preferences,
         quotaManager: currentQuota,
+        streakStateUpdatedAt: DateTime.now(),
       );
 
       await _hiveService.saveUser(freshGuest);
@@ -407,7 +406,8 @@ class ProfileRepository {
       await _streakService.resetStreak();
     } catch (e) {
       // Vocabulary cleared but streak failed
-      return Result.failure('Progress reset. Streak reset failed. Please try again.');
+      return Result.failure(
+          'Progress reset. Streak reset failed. Please try again.');
     }
 
     // Return user with reset streak (cloud streak was reset above)
@@ -415,7 +415,8 @@ class ProfileRepository {
       currentStreak: 0,
       longestStreak: 0,
       shields: 0,
-      lastStreakActivityDate: null,
+      clearLastStreakActivityDate: true,
+      streakStateUpdatedAt: DateTime.now(),
     );
     await _hiveService.saveUser(updatedUser);
 
@@ -451,7 +452,8 @@ class ProfileRepository {
       }
 
       // Generate CSV and share
-      final exportResult = await CsvExportHelper.exportVocabularyToCsv(vocabularyList);
+      final exportResult =
+          await CsvExportHelper.exportVocabularyToCsv(vocabularyList);
 
       // Check if user dismissed the share sheet
       if (exportResult.dismissed) {
@@ -460,7 +462,8 @@ class ProfileRepository {
 
       // Check if export failed
       if (!exportResult.success) {
-        return Result.failure(exportResult.error ?? 'Failed to export vocabulary.');
+        return Result.failure(
+            exportResult.error ?? 'Failed to export vocabulary.');
       }
 
       // Success - user shared the file

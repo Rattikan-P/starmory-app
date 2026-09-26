@@ -12,8 +12,15 @@ import '../language_selection_page.dart';
 import '../main_navigation.dart';
 import '../onboarding_page.dart' show onboardingServiceProvider;
 import '../../../constants/app_defaults.dart';
-import '../../../presentation/providers/providers.dart' show hiveServiceProvider, vocabularySyncServiceProvider, userStateProvider, scrapbookStateProvider, vocabularyStateProvider;
-import '../../../presentation/providers/streak_provider.dart' show streakProvider;
+import '../../../presentation/providers/providers.dart'
+    show
+        hiveServiceProvider,
+        vocabularySyncServiceProvider,
+        userStateProvider,
+        scrapbookStateProvider,
+        vocabularyStateProvider;
+import '../../../presentation/providers/streak_provider.dart'
+    show streakProvider;
 
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
 
@@ -22,6 +29,7 @@ class OtpVerificationPage extends ConsumerStatefulWidget {
   final String? displayName;
   final String? languageLevel;
   final String? englishVariant;
+  final Map<String, dynamic>? guestStreakSnapshot;
   final bool isGuestCreatingAccount;
 
   const OtpVerificationPage({
@@ -30,6 +38,7 @@ class OtpVerificationPage extends ConsumerStatefulWidget {
     this.displayName,
     this.languageLevel,
     this.englishVariant,
+    this.guestStreakSnapshot,
     this.isGuestCreatingAccount = false,
   });
 
@@ -56,6 +65,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
         .map((part) => part[0].toUpperCase() + part.substring(1))
         .join(' ');
   }
+
   final List<FocusNode> _focusNodes = List.generate(6, (index) => FocusNode());
 
   bool _isLoading = false;
@@ -108,14 +118,16 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
       final authService = ref.read(authServiceProvider);
       await authService.sendOtp(widget.email);
       if (mounted) {
-        SnackBarHelper.success(context, AlertMessages.otpSent, showAboveKeyboard: true);
+        SnackBarHelper.success(context, AlertMessages.otpSent,
+            showAboveKeyboard: true);
         _startCountdown();
         // Reset failed attempts when requesting new OTP
         setState(() => _failedAttempts = 0);
       }
     } catch (e) {
       if (mounted) {
-        SnackBarHelper.error(context, AlertMessages.otpSendFailed, showAboveKeyboard: true);
+        SnackBarHelper.error(context, AlertMessages.otpSendFailed,
+            showAboveKeyboard: true);
       }
     } finally {
       if (mounted) setState(() => _isResending = false);
@@ -147,8 +159,13 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
       bool? shouldMerge;
       if (!isNewUser) {
         // Existing user → เช็คว่ามี guest data ไหม
-        final hasGuestData = widget.languageLevel != null || widget.englishVariant != null;
-
+        final hasGuestData = widget.languageLevel != null ||
+            widget.englishVariant != null ||
+            (widget.guestStreakSnapshot?['currentStreak'] as int? ?? 0) > 0 ||
+            (widget.guestStreakSnapshot?['longestStreak'] as int? ?? 0) > 0 ||
+            (widget.guestStreakSnapshot?['shields'] as int? ?? 0) > 0 ||
+            widget.guestStreakSnapshot?['lastStreakActivityDate'] != null ||
+            widget.guestStreakSnapshot?['streakStateUpdatedAt'] != null;
         if (hasGuestData && widget.isGuestCreatingAccount) {
           // แสดง dialog ถามว่าต้องการ merge ไหม
           if (!mounted) return;
@@ -167,28 +184,50 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
               final localVocabs = await hiveService.getAllVocabulary();
 
               final guestData = <String, dynamic>{
-                'currentStreak': guestStreakData?.currentStreak ?? 0,
-                'longestStreak': guestStreakData?.longestStreak ?? 0,
-                'lastStreakActivityDate': guestStreakData?.lastActivityDate?.toIso8601String(),
+                'currentStreak': widget.guestStreakSnapshot?['currentStreak'] ??
+                    guestStreakData?.currentStreak ??
+                    0,
+                'longestStreak': widget.guestStreakSnapshot?['longestStreak'] ??
+                    guestStreakData?.longestStreak ??
+                    0,
+                'lastStreakActivityDate':
+                    widget.guestStreakSnapshot?['lastStreakActivityDate'] ??
+                        guestStreakData?.lastActivityDate?.toIso8601String(),
+                'streakStateUpdatedAt': widget
+                        .guestStreakSnapshot?['streakStateUpdatedAt'] ??
+                    guestStreakData?.streakStateUpdatedAt?.toIso8601String(),
+                'shields': widget.guestStreakSnapshot?['shields'] ??
+                    guestStreakData?.shieldsAvailable ??
+                    0,
                 'vocabulary': localVocabs,
               };
 
-              print('📦 [OTP Login] Guest data: streak=${guestStreakData?.currentStreak ?? 0}, vocab=${localVocabs.length}');
+              print(
+                  '📦 [OTP Login] Guest data: streak=${guestStreakData?.currentStreak ?? 0}, vocab=${localVocabs.length}');
 
               // 2. Get server data from Supabase
               final serverUserData = await client
                   .from('users')
-                  .select('id, current_streak, longest_streak, last_activity_date')
+                  .select(
+                      'id, current_streak, longest_streak, shields_available, last_activity_date, streak_state_updated_at')
                   .eq('id', user!.id)
                   .maybeSingle();
 
-              final serverData = serverUserData != null ? <String, dynamic>{
-                'currentStreak': serverUserData['current_streak'] ?? 0,
-                'longestStreak': serverUserData['longest_streak'] ?? 0,
-                'lastStreakActivityDate': serverUserData['last_activity_date']?.toString(),
-              } : null;
+              final serverData = serverUserData != null
+                  ? <String, dynamic>{
+                      'current_streak': serverUserData['current_streak'] ?? 0,
+                      'longest_streak': serverUserData['longest_streak'] ?? 0,
+                      'shields_available':
+                          serverUserData['shields_available'] ?? 0,
+                      'last_activity_date':
+                          serverUserData['last_activity_date']?.toString(),
+                      'streak_state_updated_at':
+                          serverUserData['streak_state_updated_at']?.toString(),
+                    }
+                  : null;
 
-              print('☁️ [OTP Login] Server data: ${serverData != null ? "found" : "not found"}');
+              print(
+                  '☁️ [OTP Login] Server data: ${serverData != null ? "found" : "not found"}');
 
               // 3. Use MergeService to calculate merged result
               final mergeService = MergeService();
@@ -215,35 +254,63 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
               final vocabSyncService = ref.read(vocabularySyncServiceProvider);
               if (localVocabs.isNotEmpty) {
                 print('☁️ [OTP Login] Merging vocabulary to cloud...');
-                final syncedVocabs = await vocabSyncService.mergeWithCloud(localVocabs);
+                final syncedVocabs =
+                    await vocabSyncService.mergeWithCloud(localVocabs);
                 // Clear local and save merged result
                 await hiveService.clearAllVocabulary();
                 for (final vocab in syncedVocabs) {
                   await hiveService.saveVocabulary(vocab);
                 }
-                print('✅ [OTP Login] Vocabulary synced and saved locally: ${syncedVocabs.length} total');
+                print(
+                    '✅ [OTP Login] Vocabulary synced and saved locally: ${syncedVocabs.length} total');
               }
 
               // 4b2. Upload guest scrapbooks to cloud
               try {
                 print('☁️ [OTP Login] Syncing guest scrapbooks to cloud...');
-                await ref.read(scrapbookStateProvider.notifier).syncGuestScrapbooksToCloud();
+                await ref
+                    .read(scrapbookStateProvider.notifier)
+                    .syncGuestScrapbooksToCloud();
                 print('✅ [OTP Login] Guest scrapbooks synced to cloud');
               } catch (e) {
-                print('⚠️ [OTP Login] Failed to sync guest scrapbooks to cloud: $e');
+                print(
+                    '⚠️ [OTP Login] Failed to sync guest scrapbooks to cloud: $e');
               }
 
               // 4c. Update merged streak to cloud
-              final mergedStreak = mergeResult.mergedData['currentStreak'] as int? ?? 0;
-              final mergedLongest = mergeResult.mergedData['longestStreak'] as int? ?? 0;
-              final mergedLastActivity = mergeResult.mergedData['lastStreakActivityDate'] as String?;
+              final mergedStreak =
+                  mergeResult.mergedData['current_streak'] as int? ?? 0;
+              final mergedLongest =
+                  mergeResult.mergedData['longest_streak'] as int? ?? 0;
+              final mergedShields =
+                  mergeResult.mergedData['shields_available'] as int? ?? 0;
+              final mergedLastActivity =
+                  mergeResult.mergedData['last_activity_date'];
+              final lastActivityDate = mergedLastActivity is DateTime
+                  ? mergedLastActivity.toIso8601String().split('T').first
+                  : mergedLastActivity is String
+                      ? mergedLastActivity.split('T').first
+                      : null;
+              final mergedStateUpdated =
+                  mergeResult.mergedData['streak_state_updated_at'];
+              final stateUpdatedAt = mergedStateUpdated is DateTime
+                  ? mergedStateUpdated.toUtc().toIso8601String()
+                  : mergedStateUpdated is String
+                      ? DateTime.tryParse(mergedStateUpdated)
+                          ?.toUtc()
+                          .toIso8601String()
+                      : null;
 
-              print('📊 [OTP Login] Writing merged streak to cloud: current=$mergedStreak, longest=$mergedLongest');
+              print(
+                  '📊 [OTP Login] Writing merged streak to cloud: current=$mergedStreak, longest=$mergedLongest');
 
               await client.from('users').update({
                 'current_streak': mergedStreak,
                 'longest_streak': mergedLongest,
-                if (mergedLastActivity != null) 'last_activity_date': mergedLastActivity,
+                'shields_available': mergedShields,
+                'last_activity_date': lastActivityDate,
+                if (stateUpdatedAt != null)
+                  'streak_state_updated_at': stateUpdatedAt,
               }).eq('id', user.id);
 
               print('✅ [OTP Login] Streak merged and updated to cloud');
@@ -257,13 +324,15 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
               print('❌ [OTP Login] Merge failed: $e');
               setState(() => _isLoading = false);
               if (mounted) {
-                SnackBarHelper.error(context, AlertMessages.serviceUnavailable, showAboveKeyboard: true);
+                SnackBarHelper.error(context, AlertMessages.serviceUnavailable,
+                    showAboveKeyboard: true);
               }
               return; // Stay on page
             }
           } else {
             // User chose "No" / "Keep my account" → Clear local guest data
-            print('ℹ️ [OTP Login] User chose to keep original server data - clearing guest data');
+            print(
+                'ℹ️ [OTP Login] User chose to keep original server data - clearing guest data');
             try {
               final hiveService = ref.read(hiveServiceProvider);
               await hiveService.clearAllVocabulary();
@@ -280,18 +349,23 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
             final currentUser = ref.read(userStateProvider).user;
             if (currentUser != null) {
               final supabaseUser = Supabase.instance.client.auth.currentUser;
-              final cloudLevel = supabaseUser?.userMetadata?['language_level'] as String?;
-              final cloudVariant = supabaseUser?.userMetadata?['english_variant'] as String?;
+              final cloudLevel =
+                  supabaseUser?.userMetadata?['language_level'] as String?;
+              final cloudVariant =
+                  supabaseUser?.userMetadata?['english_variant'] as String?;
 
               final updatedUser = currentUser.copyWith(
                 preferences: {
                   ...currentUser.preferences,
-                  'defaultCefrLevel': cloudLevel ?? currentUser.preferences['defaultCefrLevel'],
-                  'languageVariant': cloudVariant ?? currentUser.preferences['languageVariant'],
+                  'defaultCefrLevel':
+                      cloudLevel ?? currentUser.preferences['defaultCefrLevel'],
+                  'languageVariant': cloudVariant ??
+                      currentUser.preferences['languageVariant'],
                 },
               );
               await userNotifier.updateUser(updatedUser);
-              print('✅ [OTP Login] Synced UserModel with cloud preferences: level=$cloudLevel, variant=$cloudVariant (merged: $shouldMerge)');
+              print(
+                  '✅ [OTP Login] Synced UserModel with cloud preferences: level=$cloudLevel, variant=$cloudVariant (merged: $shouldMerge)');
             }
           } catch (e) {
             print('⚠️ [OTP Login] Failed to sync UserModel: $e');
@@ -299,7 +373,13 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
         }
       } else if (isNewUser && user != null) {
         // New user flow
-        final hasExplicitData = widget.languageLevel != null || widget.englishVariant != null;
+        final hasExplicitData = widget.languageLevel != null ||
+            widget.englishVariant != null ||
+            (widget.guestStreakSnapshot?['currentStreak'] as int? ?? 0) > 0 ||
+            (widget.guestStreakSnapshot?['longestStreak'] as int? ?? 0) > 0 ||
+            (widget.guestStreakSnapshot?['shields'] as int? ?? 0) > 0 ||
+            widget.guestStreakSnapshot?['lastStreakActivityDate'] != null ||
+            widget.guestStreakSnapshot?['streakStateUpdatedAt'] != null;
 
         if (hasExplicitData) {
           // มีข้อมูลจาก guest creating account → ใช้เลย
@@ -309,8 +389,10 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
               userId: user.id,
               email: widget.email,
               displayName: widget.displayName ?? _getDisplayNameFromEmail(),
-              languageLevel: widget.languageLevel ?? AppDefaults.defaultLanguageLevel,
-              englishVariant: widget.englishVariant ?? AppDefaults.defaultEnglishVariant,
+              languageLevel:
+                  widget.languageLevel ?? AppDefaults.defaultLanguageLevel,
+              englishVariant:
+                  widget.englishVariant ?? AppDefaults.defaultEnglishVariant,
               termsVersion: preferenceService.getCurrentTermsVersion(),
             );
 
@@ -320,13 +402,15 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
             try {
               final localVocabs = await hiveService.getAllVocabulary();
               if (localVocabs.isNotEmpty) {
-                final uploadedCount = await vocabSyncService.batchUpload(localVocabs);
+                final uploadedCount =
+                    await vocabSyncService.batchUpload(localVocabs);
                 // Only clear local vocabularies after successful upload of ALL items
                 if (uploadedCount == localVocabs.length) {
                   await hiveService.clearAllVocabulary();
                 } else {
                   // Partial upload failed - keep local data for retry
-                  print('⚠️ [OTP Login] Partial upload: $uploadedCount/${localVocabs.length}');
+                  print(
+                      '⚠️ [OTP Login] Partial upload: $uploadedCount/${localVocabs.length}');
                 }
               }
             } catch (e) {
@@ -337,7 +421,9 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
             // Upload guest scrapbooks to cloud
             try {
               print('🔄 [OTP Login] Uploading guest scrapbooks to cloud...');
-              await ref.read(scrapbookStateProvider.notifier).syncGuestScrapbooksToCloud();
+              await ref
+                  .read(scrapbookStateProvider.notifier)
+                  .syncGuestScrapbooksToCloud();
               print('✅ [OTP Login] Guest scrapbooks uploaded to cloud');
             } catch (e) {
               print('⚠️ [OTP Login] Guest scrapbooks upload failed: $e');
@@ -347,7 +433,9 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
             try {
               print('🔄 [OTP Login] Migrating guest streak...');
               final streakNotifier = ref.read(streakProvider.notifier);
-              final migrated = await streakNotifier.migrateGuestStreakToCloud();
+              final migrated = await streakNotifier.migrateGuestStreakToCloud(
+                guestStreakSnapshot: widget.guestStreakSnapshot,
+              );
               if (migrated) {
                 print('✅ [OTP Login] Streak migrated successfully');
                 // Refresh local state from cloud after migration
@@ -364,7 +452,8 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
             // E3: Service unavailable when saving preferences
             setState(() => _isLoading = false);
             if (mounted) {
-              SnackBarHelper.error(context, AlertMessages.serviceUnavailable, showAboveKeyboard: true);
+              SnackBarHelper.error(context, AlertMessages.serviceUnavailable,
+                  showAboveKeyboard: true);
             }
             return; // Stay on page
           }
@@ -396,8 +485,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
       if (user != null) {
         await Supabase.instance.client
             .from('users')
-            .update({'onboarding_completed': true})
-            .eq('id', user.id);
+            .update({'onboarding_completed': true}).eq('id', user.id);
       }
 
       // Post-auth data sync & state refresh
@@ -443,9 +531,11 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
 
       // Show different message for existing vs new users
       if (!isNewUser) {
-        SnackBarHelper.success(context, AlertMessages.welcomeBack, showAboveKeyboard: true);
+        SnackBarHelper.success(context, AlertMessages.welcomeBack,
+            showAboveKeyboard: true);
       } else {
-        SnackBarHelper.success(context, AlertMessages.welcomeToApp, showAboveKeyboard: true);
+        SnackBarHelper.success(context, AlertMessages.welcomeToApp,
+            showAboveKeyboard: true);
       }
 
       // Reset failed attempts on success
@@ -462,8 +552,8 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
       if (mounted) {
         // Check if it's a Supabase exception with status code
         final isOtpInvalid = e.toString().contains('403') ||
-                          e.toString().contains('Invalid OTP') ||
-                          e.toString().contains('expired');
+            e.toString().contains('Invalid OTP') ||
+            e.toString().contains('expired');
 
         if (isOtpInvalid) {
           // Invalid or expired OTP
@@ -474,13 +564,15 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
             _showAttemptLimitDialog(context);
           } else {
             // Show normal error message for first 2 attempts
-            SnackBarHelper.error(context, AlertMessages.otpInvalid, showAboveKeyboard: true);
+            SnackBarHelper.error(context, AlertMessages.otpInvalid,
+                showAboveKeyboard: true);
             _clearOtp();
           }
         } else {
           // Service unavailable, network error, or other errors
           // Don't increment failed attempts for service errors
-          SnackBarHelper.error(context, AlertMessages.serviceUnavailable, showAboveKeyboard: true);
+          SnackBarHelper.error(context, AlertMessages.serviceUnavailable,
+              showAboveKeyboard: true);
           _clearOtp();
         }
       }
@@ -741,7 +833,8 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
         child: GestureDetector(
           onTap: () => Navigator.pop(context, false), // Tap outside = No
           child: Dialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
             child: Container(
               constraints: const BoxConstraints(maxWidth: 340),
               padding: const EdgeInsets.all(20),
@@ -767,242 +860,248 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                  // Icon with glow effect
-                  Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          Color(0xFFf472b6), // Soft pink
-                          Color(0xFF60a5fa), // Soft blue
-                        ],
-                      ),
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFFf472b6).withValues(alpha: 0.3),
-                          blurRadius: 20,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.merge_rounded,
-                      color: Colors.white,
-                      size: 40,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Title
-                  Text(
-                    'Account already exists',
-                    style: GoogleFonts.lexend(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF1f2937),
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 8),
-
-                  // Subtitle
-                  Text(
-                    'This email already has an account.',
-                    style: GoogleFonts.lexend(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w400,
-                      color: const Color(0xFF6b7280),
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Guest preferences card
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          const Color(0xFFf3f4f6),
-                          const Color(0xFFe8f0ff).withValues(alpha: 0.5),
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: const Color(0xFF8b5cf6).withValues(alpha: 0.1),
-                        width: 1,
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              width: 32,
-                              height: 32,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF8b5cf6).withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Icon(
-                                Icons.person_outline,
-                                color: Color(0xFF8b5cf6),
-                                size: 18,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Text(
-                              'Your guest preferences',
-                              style: GoogleFonts.lexend(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xFF8b5cf6),
-                              ),
-                            ),
+                    // Icon with glow effect
+                    Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Color(0xFFf472b6), // Soft pink
+                            Color(0xFF60a5fa), // Soft blue
                           ],
                         ),
-                        const SizedBox(height: 12),
-                        if (widget.languageLevel != null)
-                          Padding(
-                            padding: const EdgeInsets.only(left: 8, bottom: 6),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 6,
-                                  height: 6,
-                                  decoration: const BoxDecoration(
-                                    color: Color(0xFF8b5cf6),
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    'Language Level: ${widget.languageLevel}',
-                                    style: GoogleFonts.lexend(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w400,
-                                      color: const Color(0xFF4b5563),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color:
+                                const Color(0xFFf472b6).withValues(alpha: 0.3),
+                            blurRadius: 20,
+                            offset: const Offset(0, 8),
                           ),
-                        if (widget.englishVariant != null)
-                          Padding(
-                            padding: const EdgeInsets.only(left: 8),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 6,
-                                  height: 6,
-                                  decoration: const BoxDecoration(
-                                    color: Color(0xFF8b5cf6),
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    'English Variant: ${widget.englishVariant}',
-                                    style: GoogleFonts.lexend(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w400,
-                                      color: const Color(0xFF4b5563),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                      ],
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.merge_rounded,
+                        color: Colors.white,
+                        size: 40,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 20),
+                    const SizedBox(height: 24),
 
-                  // Question
-                  Text(
-                    'Merge your guest progress with this account?',
-                    style: GoogleFonts.lexend(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: const Color(0xFF6b7280),
+                    // Title
+                    Text(
+                      'Account already exists',
+                      style: GoogleFonts.lexend(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF1f2937),
+                      ),
+                      textAlign: TextAlign.center,
                     ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 24),
+                    const SizedBox(height: 8),
 
-                  // Buttons
-                  Row(
-                    children: [
-                      Expanded(
-                        child: SizedBox(
-                          height: 50,
-                          child: OutlinedButton(
-                            onPressed: () => Navigator.pop(context, false),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: const Color(0xFF9ca3af),
-                              side: BorderSide(
-                                color: const Color(0xFF9ca3af).withValues(alpha: 0.3),
-                                width: 1.5,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                            ),
-                            child: Text(
-                              'Keep my account',
-                              style: GoogleFonts.lexend(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
+                    // Subtitle
+                    Text(
+                      'This email already has an account.',
+                      style: GoogleFonts.lexend(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w400,
+                        color: const Color(0xFF6b7280),
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Guest preferences card
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            const Color(0xFFf3f4f6),
+                            const Color(0xFFe8f0ff).withValues(alpha: 0.5),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: const Color(0xFF8b5cf6).withValues(alpha: 0.1),
+                          width: 1,
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: SizedBox(
-                          height: 50,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  Color(0xFF60a5fa),
-                                  Color(0xFFa78bfa),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 32,
+                                height: 32,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF8b5cf6)
+                                      .withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(
+                                  Icons.person_outline,
+                                  color: Color(0xFF8b5cf6),
+                                  size: 18,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Text(
+                                'Your guest preferences',
+                                style: GoogleFonts.lexend(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xFF8b5cf6),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          if (widget.languageLevel != null)
+                            Padding(
+                              padding:
+                                  const EdgeInsets.only(left: 8, bottom: 6),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 6,
+                                    height: 6,
+                                    decoration: const BoxDecoration(
+                                      color: Color(0xFF8b5cf6),
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'Language Level: ${widget.languageLevel}',
+                                      style: GoogleFonts.lexend(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w400,
+                                        color: const Color(0xFF4b5563),
+                                      ),
+                                    ),
+                                  ),
                                 ],
                               ),
-                              borderRadius: BorderRadius.circular(14),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: const Color(0xFFa78bfa).withValues(alpha: 0.4),
-                                  blurRadius: 15,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
                             ),
-                            child: Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                onTap: () => Navigator.pop(context, true),
+                          if (widget.englishVariant != null)
+                            Padding(
+                              padding: const EdgeInsets.only(left: 8),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 6,
+                                    height: 6,
+                                    decoration: const BoxDecoration(
+                                      color: Color(0xFF8b5cf6),
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'English Variant: ${widget.englishVariant}',
+                                      style: GoogleFonts.lexend(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w400,
+                                        color: const Color(0xFF4b5563),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Question
+                    Text(
+                      'Merge your guest progress with this account?',
+                      style: GoogleFonts.lexend(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: const Color(0xFF6b7280),
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Buttons
+                    Row(
+                      children: [
+                        Expanded(
+                          child: SizedBox(
+                            height: 50,
+                            child: OutlinedButton(
+                              onPressed: () => Navigator.pop(context, false),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: const Color(0xFF9ca3af),
+                                side: BorderSide(
+                                  color: const Color(0xFF9ca3af)
+                                      .withValues(alpha: 0.3),
+                                  width: 1.5,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                              ),
+                              child: Text(
+                                'Keep my account',
+                                style: GoogleFonts.lexend(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: SizedBox(
+                            height: 50,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    Color(0xFF60a5fa),
+                                    Color(0xFFa78bfa),
+                                  ],
+                                ),
                                 borderRadius: BorderRadius.circular(14),
-                                child: const Center(
-                                  child: Text(
-                                    'Combine my data',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFFa78bfa)
+                                        .withValues(alpha: 0.4),
+                                    blurRadius: 15,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: () => Navigator.pop(context, true),
+                                  borderRadius: BorderRadius.circular(14),
+                                  child: const Center(
+                                    child: Text(
+                                      'Combine my data',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -1010,15 +1109,14 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
                             ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                ],
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
         ),
-      ),
       ),
     );
   }
@@ -1107,7 +1205,8 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: List.generate(6, (index) {
                             return Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 5),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 5),
                               child: SizedBox(
                                 width: 40,
                                 height: 42,
@@ -1135,11 +1234,13 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
                                       fillColor: Colors.white,
                                       border: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(6),
-                                        borderSide: const BorderSide(color: Color(0xFFDDD6FE)),
+                                        borderSide: const BorderSide(
+                                            color: Color(0xFFDDD6FE)),
                                       ),
                                       enabledBorder: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(6),
-                                        borderSide: const BorderSide(color: Color(0xFFDDD6FE)),
+                                        borderSide: const BorderSide(
+                                            color: Color(0xFFDDD6FE)),
                                       ),
                                       focusedBorder: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(6),
@@ -1149,7 +1250,8 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
                                         ),
                                       ),
                                     ),
-                                    onChanged: (value) => _onOtpChanged(index, value),
+                                    onChanged: (value) =>
+                                        _onOtpChanged(index, value),
                                   ),
                                 ),
                               ),
@@ -1168,7 +1270,9 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
                               ),
                             ),
                             TextButton(
-                              onPressed: _countdown == 0 && !_isResending ? _resendOtp : null,
+                              onPressed: _countdown == 0 && !_isResending
+                                  ? _resendOtp
+                                  : null,
                               style: TextButton.styleFrom(
                                 padding: const EdgeInsets.only(left: 8),
                                 minimumSize: Size.zero,
@@ -1184,7 +1288,9 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
                                       ),
                                     )
                                   : Text(
-                                      _countdown > 0 ? 'Resend in $_countdown s' : 'Resend',
+                                      _countdown > 0
+                                          ? 'Resend in $_countdown s'
+                                          : 'Resend',
                                       style: GoogleFonts.lexend(
                                         fontSize: 14,
                                         fontWeight: FontWeight.w500,
@@ -1219,6 +1325,4 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
       ),
     );
   }
-
-
 }

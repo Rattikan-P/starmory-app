@@ -16,6 +16,8 @@ class UserModel extends Equatable {
   final int longestStreak;
   final int shields; // streak shields (freeze protection)
   final DateTime? lastStreakActivityDate; // last date user did streak activity
+  final DateTime?
+      streakStateUpdatedAt; // when current streak state last changed
   final List<String> badges;
   final List<String> stickers;
   final QuotaManager quotaManager;
@@ -34,6 +36,7 @@ class UserModel extends Equatable {
     this.longestStreak = 0,
     this.shields = 0,
     this.lastStreakActivityDate,
+    this.streakStateUpdatedAt,
     this.badges = const [],
     this.stickers = const ['doodle'],
     required this.quotaManager,
@@ -98,10 +101,12 @@ class UserModel extends Equatable {
 
   /// Update streak
   UserModel updateStreak(int newStreak) {
-    final newLongestStreak = newStreak > longestStreak ? newStreak : longestStreak;
+    final newLongestStreak =
+        newStreak > longestStreak ? newStreak : longestStreak;
     return copyWith(
       currentStreak: newStreak,
       longestStreak: newLongestStreak,
+      streakStateUpdatedAt: DateTime.now(),
     );
   }
 
@@ -112,8 +117,10 @@ class UserModel extends Equatable {
     final today = DateTime(now.year, now.month, now.day);
 
     print('🔥 [Streak] incrementStreak() called');
-    print('   Current: streak=$currentStreak, longest=$longestStreak, shields=$shields');
-    print('   Last activity: ${lastStreakActivityDate?.toIso8601String().split('T')[0] ?? "null"}');
+    print(
+        '   Current: streak=$currentStreak, longest=$longestStreak, shields=$shields');
+    print(
+        '   Last activity: ${lastStreakActivityDate?.toIso8601String().split('T')[0] ?? "null"}');
 
     // First activity ever
     if (lastStreakActivityDate == null) {
@@ -122,6 +129,7 @@ class UserModel extends Equatable {
         currentStreak: 1,
         longestStreak: longestStreak < 1 ? 1 : longestStreak,
         lastStreakActivityDate: now,
+        streakStateUpdatedAt: now,
       );
     }
 
@@ -134,13 +142,14 @@ class UserModel extends Equatable {
     // Already did activity today
     if (daysDifference == 0) {
       print('   ℹ️ Already updated today → no change');
-      return this;
+      return copyWith(streakStateUpdatedAt: now);
     }
 
     // Consecutive day (yesterday -> today, daysDifference == 1)
     if (daysDifference == 1) {
       final newStreak = currentStreak + 1;
-      final newLongestStreak = newStreak > longestStreak ? newStreak : longestStreak;
+      final newLongestStreak =
+          newStreak > longestStreak ? newStreak : longestStreak;
 
       int newShields = shields;
       if (newStreak % 7 == 0 && newStreak > currentStreak) {
@@ -153,6 +162,7 @@ class UserModel extends Equatable {
         longestStreak: newLongestStreak,
         shields: newShields,
         lastStreakActivityDate: now,
+        streakStateUpdatedAt: now,
       );
     }
 
@@ -161,13 +171,16 @@ class UserModel extends Equatable {
       if (shields > 0) {
         final newShields = shields - 1;
         final newStreak = currentStreak + 1;
-        final newLongestStreak = newStreak > longestStreak ? newStreak : longestStreak;
-        print('   🛡️ Protected by shield! → streak=$newStreak, shields=$newShields');
+        final newLongestStreak =
+            newStreak > longestStreak ? newStreak : longestStreak;
+        print(
+            '   🛡️ Protected by shield! → streak=$newStreak, shields=$newShields');
         return copyWith(
           currentStreak: newStreak,
           longestStreak: newLongestStreak,
           shields: newShields,
           lastStreakActivityDate: now,
+          streakStateUpdatedAt: now,
         );
       } else {
         print('   💀 Missed 1 day without shields → streak reset to 1');
@@ -175,6 +188,7 @@ class UserModel extends Equatable {
           currentStreak: 1,
           shields: shields,
           lastStreakActivityDate: now,
+          streakStateUpdatedAt: now,
         );
       }
     }
@@ -184,20 +198,25 @@ class UserModel extends Equatable {
     if (shields >= missedDays) {
       final newShields = shields - missedDays;
       final newStreak = currentStreak + 1;
-      final newLongestStreak = newStreak > longestStreak ? newStreak : longestStreak;
-      print('   🛡️ Protected by $missedDays shields! → streak=$newStreak, shields=$newShields');
+      final newLongestStreak =
+          newStreak > longestStreak ? newStreak : longestStreak;
+      print(
+          '   🛡️ Protected by $missedDays shields! → streak=$newStreak, shields=$newShields');
       return copyWith(
         currentStreak: newStreak,
         longestStreak: newLongestStreak,
         shields: newShields,
         lastStreakActivityDate: now,
+        streakStateUpdatedAt: now,
       );
     } else {
-      print('   💀 Missed $missedDays days (insufficient shields) → streak reset to 1');
+      print(
+          '   💀 Missed $missedDays days (insufficient shields) → streak reset to 1');
       return copyWith(
         currentStreak: 1,
         shields: 0,
         lastStreakActivityDate: now,
+        streakStateUpdatedAt: now,
       );
     }
   }
@@ -217,7 +236,8 @@ class UserModel extends Equatable {
   bool get hasDoneStreakActivityToday {
     if (lastStreakActivityDate == null) return false;
     final today = DateTime.now().toIso8601String().split('T')[0];
-    final lastActivityStr = lastStreakActivityDate!.toIso8601String().split('T')[0];
+    final lastActivityStr =
+        lastStreakActivityDate!.toIso8601String().split('T')[0];
     return lastActivityStr == today;
   }
 
@@ -257,11 +277,13 @@ class UserModel extends Equatable {
 
   /// Get language level from preferences
   String get languageLevel =>
-      getPreference<String>('defaultCefrLevel') ?? AppDefaults.defaultLanguageLevel;
+      getPreference<String>('defaultCefrLevel') ??
+      AppDefaults.defaultLanguageLevel;
 
   /// Get english variant from preferences
   String get englishVariant =>
-      getPreference<String>('languageVariant') ?? AppDefaults.defaultEnglishVariant;
+      getPreference<String>('languageVariant') ??
+      AppDefaults.defaultEnglishVariant;
 
   /// Check if user can generate more content
   bool get canGenerate => quotaManager.canGenerate();
@@ -282,6 +304,8 @@ class UserModel extends Equatable {
     int? longestStreak,
     int? shields,
     DateTime? lastStreakActivityDate,
+    DateTime? streakStateUpdatedAt,
+    bool clearLastStreakActivityDate = false,
     List<String>? badges,
     List<String>? stickers,
     QuotaManager? quotaManager,
@@ -299,7 +323,10 @@ class UserModel extends Equatable {
       currentStreak: currentStreak ?? this.currentStreak,
       longestStreak: longestStreak ?? this.longestStreak,
       shields: shields ?? this.shields,
-      lastStreakActivityDate: lastStreakActivityDate ?? this.lastStreakActivityDate,
+      lastStreakActivityDate: clearLastStreakActivityDate
+          ? null
+          : lastStreakActivityDate ?? this.lastStreakActivityDate,
+      streakStateUpdatedAt: streakStateUpdatedAt ?? this.streakStateUpdatedAt,
       badges: badges ?? this.badges,
       stickers: stickers ?? this.stickers,
       quotaManager: quotaManager ?? this.quotaManager,
@@ -322,6 +349,7 @@ class UserModel extends Equatable {
       'longestStreak': longestStreak,
       'shields': shields,
       'lastStreakActivityDate': lastStreakActivityDate?.toIso8601String(),
+      'streakStateUpdatedAt': streakStateUpdatedAt?.toIso8601String(),
       'badges': badges,
       'stickers': stickers,
       'quotaManager': quotaManager.toJson(),
@@ -347,6 +375,9 @@ class UserModel extends Equatable {
       shields: json['shields'] as int? ?? 0,
       lastStreakActivityDate: json['lastStreakActivityDate'] != null
           ? DateTime.parse(json['lastStreakActivityDate'] as String)
+          : null,
+      streakStateUpdatedAt: json['streakStateUpdatedAt'] != null
+          ? DateTime.parse(json['streakStateUpdatedAt'] as String)
           : null,
       badges: (json['badges'] as List<dynamic>?)?.cast<String>() ?? [],
       stickers: () {
@@ -376,6 +407,7 @@ class UserModel extends Equatable {
         longestStreak,
         shields,
         lastStreakActivityDate,
+        streakStateUpdatedAt,
         badges,
         stickers,
         quotaManager,

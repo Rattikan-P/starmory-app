@@ -12,8 +12,15 @@ import '../language_selection_page.dart';
 import 'otp_verification_page.dart' show OtpVerificationPage;
 import '../../../constants/app_defaults.dart';
 import '../../../constants/design_tokens.dart';
-import '../../../presentation/providers/providers.dart' show hiveServiceProvider, vocabularySyncServiceProvider, userStateProvider, scrapbookStateProvider, vocabularyStateProvider;
-import '../../../presentation/providers/streak_provider.dart' show streakProvider;
+import '../../../presentation/providers/providers.dart'
+    show
+        hiveServiceProvider,
+        vocabularySyncServiceProvider,
+        userStateProvider,
+        scrapbookStateProvider,
+        vocabularyStateProvider;
+import '../../../presentation/providers/streak_provider.dart'
+    show streakProvider;
 
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
 
@@ -55,13 +62,33 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
       final currentUserBeforeAuth = ref.read(userStateProvider).user;
       final guestLevel = currentUserBeforeAuth?.languageLevel;
       final guestVariant = currentUserBeforeAuth?.englishVariant;
+      final guestStreakSnapshot = currentUserBeforeAuth == null
+          ? null
+          : <String, dynamic>{
+              'currentStreak': currentUserBeforeAuth.currentStreak,
+              'longestStreak': currentUserBeforeAuth.longestStreak,
+              'shields': currentUserBeforeAuth.shields,
+              'lastStreakActivityDate': currentUserBeforeAuth
+                  .lastStreakActivityDate
+                  ?.toIso8601String(),
+              'streakStateUpdatedAt':
+                  currentUserBeforeAuth.streakStateUpdatedAt?.toIso8601String(),
+            };
 
       // Check if user has non-default preferences (has guest data)
       final hasGuestData = currentUserBeforeAuth != null &&
-          (currentUserBeforeAuth.languageLevel != AppDefaults.defaultLanguageLevel ||
-           currentUserBeforeAuth.englishVariant != AppDefaults.defaultEnglishVariant);
+          (currentUserBeforeAuth.languageLevel !=
+                  AppDefaults.defaultLanguageLevel ||
+              currentUserBeforeAuth.englishVariant !=
+                  AppDefaults.defaultEnglishVariant ||
+              currentUserBeforeAuth.currentStreak > 0 ||
+              currentUserBeforeAuth.longestStreak > 0 ||
+              currentUserBeforeAuth.shields > 0 ||
+              currentUserBeforeAuth.lastStreakActivityDate != null ||
+              currentUserBeforeAuth.streakStateUpdatedAt != null);
 
-      debugPrint('📝 Guest preferences captured BEFORE auth: level=$guestLevel, variant=$guestVariant, hasData=$hasGuestData');
+      debugPrint(
+          '📝 Guest preferences captured BEFORE auth: level=$guestLevel, variant=$guestVariant, hasData=$hasGuestData');
 
       final authService = AuthService();
       // force ถาม account ใหม่ตอน guest สร้าง account
@@ -90,8 +117,8 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
       // Get display name from Google metadata (if available), otherwise fallback to email
       final user = client.auth.currentUser;
       final userEmail = user?.email;
-      String? displayName = user?.userMetadata?['full_name']
-                          ?? user?.userMetadata?['name'];
+      String? displayName =
+          user?.userMetadata?['full_name'] ?? user?.userMetadata?['name'];
 
       // Fallback: extract name from email (e.g., john.smith@gmail.com → John Smith)
       if (displayName == null && userEmail != null) {
@@ -105,7 +132,8 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
       }
 
       // Auto-accept terms
-      await preferenceService.setTermsVersion(preferenceService.getCurrentTermsVersion());
+      await preferenceService
+          .setTermsVersion(preferenceService.getCurrentTermsVersion());
 
       final userData = await client
           .from('users')
@@ -164,13 +192,15 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
           try {
             final localVocabs = await hiveService.getAllVocabulary();
             if (localVocabs.isNotEmpty) {
-              final uploadedCount = await vocabSyncService.batchUpload(localVocabs);
+              final uploadedCount =
+                  await vocabSyncService.batchUpload(localVocabs);
               // Only clear local vocabularies after successful upload of ALL items
               if (uploadedCount == localVocabs.length) {
                 await hiveService.clearAllVocabulary();
               } else {
                 // Partial upload failed - keep local data for retry
-                print('⚠️ [Google Login] Partial upload: $uploadedCount/${localVocabs.length}');
+                print(
+                    '⚠️ [Google Login] Partial upload: $uploadedCount/${localVocabs.length}');
               }
             }
           } catch (e) {
@@ -181,7 +211,9 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
           // Upload guest scrapbooks to cloud
           try {
             print('🔄 [Google Login] Uploading guest scrapbooks to cloud...');
-            await ref.read(scrapbookStateProvider.notifier).syncGuestScrapbooksToCloud();
+            await ref
+                .read(scrapbookStateProvider.notifier)
+                .syncGuestScrapbooksToCloud();
             print('✅ [Google Login] Guest scrapbooks uploaded to cloud');
           } catch (e) {
             print('⚠️ [Google Login] Guest scrapbooks upload failed: $e');
@@ -191,7 +223,9 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
           try {
             print('🔄 [Google Login] Migrating guest streak...');
             final streakNotifier = ref.read(streakProvider.notifier);
-            final migrated = await streakNotifier.migrateGuestStreakToCloud();
+            final migrated = await streakNotifier.migrateGuestStreakToCloud(
+              guestStreakSnapshot: guestStreakSnapshot,
+            );
             if (migrated) {
               print('✅ [Google Login] Streak migrated successfully');
               // Refresh local state from cloud after migration
@@ -208,8 +242,7 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
           // set onboarding_completed
           await client
               .from('users')
-              .update({'onboarding_completed': true})
-              .eq('id', userId);
+              .update({'onboarding_completed': true}).eq('id', userId);
         } catch (e) {
           // E3: Service unavailable when saving preferences
           if (context.mounted) {
@@ -222,7 +255,8 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
         if (hasGuestData) {
           // แสดง dialog ถามว่าต้องการ merge ไหม
           if (!context.mounted) return;
-          shouldMerge = await _showMergeDialog(context, guestLevel, guestVariant);
+          shouldMerge =
+              await _showMergeDialog(context, guestLevel, guestVariant);
 
           if (shouldMerge == true) {
             // User เลือก merge → ใช้ MergeService เพื่อ merge ข้อมูล
@@ -235,29 +269,51 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
               final localVocabs = await hiveService.getAllVocabulary();
 
               final guestData = <String, dynamic>{
-                'currentStreak': guestStreakData?.currentStreak ?? 0,
-                'longestStreak': guestStreakData?.longestStreak ?? 0,
-                'lastStreakActivityDate': guestStreakData?.lastActivityDate?.toIso8601String(),
-                'shields': guestStreakData?.shieldsAvailable ?? 0,
+                'currentStreak': guestStreakSnapshot?['currentStreak'] ??
+                    guestStreakData?.currentStreak ??
+                    0,
+                'longestStreak': guestStreakSnapshot?['longestStreak'] ??
+                    guestStreakData?.longestStreak ??
+                    0,
+                'lastStreakActivityDate':
+                    guestStreakSnapshot?['lastStreakActivityDate'] ??
+                        guestStreakData?.lastActivityDate?.toIso8601String(),
+                'streakStateUpdatedAt':
+                    guestStreakSnapshot?['streakStateUpdatedAt'] ??
+                        guestStreakData?.streakStateUpdatedAt
+                            ?.toIso8601String(),
+                'shields': guestStreakSnapshot?['shields'] ??
+                    guestStreakData?.shieldsAvailable ??
+                    0,
                 'vocabulary': localVocabs,
               };
 
-              print('📦 [Google Login] Guest data: streak=${guestStreakData?.currentStreak ?? 0}, vocab=${localVocabs.length}');
+              print(
+                  '📦 [Google Login] Guest data: streak=${guestStreakData?.currentStreak ?? 0}, vocab=${localVocabs.length}');
 
               // 2. Get server data from Supabase
               final serverUserData = await client
                   .from('users')
-                  .select('id, current_streak, longest_streak, last_activity_date')
+                  .select(
+                      'id, current_streak, longest_streak, shields_available, last_activity_date, streak_state_updated_at')
                   .eq('id', userId)
                   .maybeSingle();
 
-              final serverData = serverUserData != null ? <String, dynamic>{
-                'currentStreak': serverUserData['current_streak'] ?? 0,
-                'longestStreak': serverUserData['longest_streak'] ?? 0,
-                'lastStreakActivityDate': serverUserData['last_activity_date']?.toString(),
-              } : null;
+              final serverData = serverUserData != null
+                  ? <String, dynamic>{
+                      'current_streak': serverUserData['current_streak'] ?? 0,
+                      'longest_streak': serverUserData['longest_streak'] ?? 0,
+                      'shields_available':
+                          serverUserData['shields_available'] ?? 0,
+                      'last_activity_date':
+                          serverUserData['last_activity_date']?.toString(),
+                      'streak_state_updated_at':
+                          serverUserData['streak_state_updated_at']?.toString(),
+                    }
+                  : null;
 
-              print('☁️ [Google Login] Server data: ${serverData != null ? "found" : "not found"}');
+              print(
+                  '☁️ [Google Login] Server data: ${serverData != null ? "found" : "not found"}');
 
               // 3. Use MergeService to calculate merged result
               final mergeService = MergeService();
@@ -275,7 +331,8 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
                 userId: userId,
                 email: client.auth.currentUser?.email ?? '',
                 displayName: displayName,
-                languageLevel: guestLevel, // For existing users, server wins in merge config, but we merge guest choice on dialog click
+                languageLevel:
+                    guestLevel, // For existing users, server wins in merge config, but we merge guest choice on dialog click
                 englishVariant: guestVariant,
                 termsVersion: preferenceService.getCurrentTermsVersion(),
               );
@@ -284,35 +341,63 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
               final vocabSyncService = ref.read(vocabularySyncServiceProvider);
               if (localVocabs.isNotEmpty) {
                 print('☁️ [Google Login] Merging vocabulary to cloud...');
-                final syncedVocabs = await vocabSyncService.mergeWithCloud(localVocabs);
+                final syncedVocabs =
+                    await vocabSyncService.mergeWithCloud(localVocabs);
                 // Clear local and save merged result
                 await hiveService.clearAllVocabulary();
                 for (final vocab in syncedVocabs) {
                   await hiveService.saveVocabulary(vocab);
                 }
-                print('✅ [Google Login] Vocabulary synced and saved locally: ${syncedVocabs.length} total');
+                print(
+                    '✅ [Google Login] Vocabulary synced and saved locally: ${syncedVocabs.length} total');
               }
 
               // 4b2. Upload guest scrapbooks to cloud
               try {
                 print('☁️ [Google Login] Syncing guest scrapbooks to cloud...');
-                await ref.read(scrapbookStateProvider.notifier).syncGuestScrapbooksToCloud();
+                await ref
+                    .read(scrapbookStateProvider.notifier)
+                    .syncGuestScrapbooksToCloud();
                 print('✅ [Google Login] Guest scrapbooks synced to cloud');
               } catch (e) {
-                print('⚠️ [Google Login] Failed to sync guest scrapbooks to cloud: $e');
+                print(
+                    '⚠️ [Google Login] Failed to sync guest scrapbooks to cloud: $e');
               }
 
               // 4c. Update merged streak to cloud
-              final mergedStreak = mergeResult.mergedData['currentStreak'] as int? ?? 0;
-              final mergedLongest = mergeResult.mergedData['longestStreak'] as int? ?? 0;
-              final mergedLastActivity = mergeResult.mergedData['lastStreakActivityDate'] as String?;
+              final mergedStreak =
+                  mergeResult.mergedData['current_streak'] as int? ?? 0;
+              final mergedLongest =
+                  mergeResult.mergedData['longest_streak'] as int? ?? 0;
+              final mergedShields =
+                  mergeResult.mergedData['shields_available'] as int? ?? 0;
+              final mergedLastActivity =
+                  mergeResult.mergedData['last_activity_date'];
+              final lastActivityDate = mergedLastActivity is DateTime
+                  ? mergedLastActivity.toIso8601String().split('T').first
+                  : mergedLastActivity is String
+                      ? mergedLastActivity.split('T').first
+                      : null;
+              final mergedStateUpdated =
+                  mergeResult.mergedData['streak_state_updated_at'];
+              final stateUpdatedAt = mergedStateUpdated is DateTime
+                  ? mergedStateUpdated.toUtc().toIso8601String()
+                  : mergedStateUpdated is String
+                      ? DateTime.tryParse(mergedStateUpdated)
+                          ?.toUtc()
+                          .toIso8601String()
+                      : null;
 
-              print('📊 [Google Login] Writing merged streak to cloud: current=$mergedStreak, longest=$mergedLongest');
+              print(
+                  '📊 [Google Login] Writing merged streak to cloud: current=$mergedStreak, longest=$mergedLongest');
 
               await client.from('users').update({
                 'current_streak': mergedStreak,
                 'longest_streak': mergedLongest,
-                if (mergedLastActivity != null) 'last_activity_date': mergedLastActivity,
+                'shields_available': mergedShields,
+                'last_activity_date': lastActivityDate,
+                if (stateUpdatedAt != null)
+                  'streak_state_updated_at': stateUpdatedAt,
               }).eq('id', userId);
 
               print('✅ [Google Login] Streak merged and updated to cloud');
@@ -327,18 +412,35 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
               final currentUser = ref.read(userStateProvider).user;
               if (currentUser != null) {
                 final supabaseUser = client.auth.currentUser;
-                final mergedLevel = supabaseUser?.userMetadata?["language_level"] as String?;
-                final mergedVariant = supabaseUser?.userMetadata?["english_variant"] as String?;
+                final mergedLevel =
+                    supabaseUser?.userMetadata?["language_level"] as String?;
+                final mergedVariant =
+                    supabaseUser?.userMetadata?["english_variant"] as String?;
 
                 final updatedUser = currentUser.copyWith(
+                  currentStreak: mergedStreak,
+                  longestStreak: mergedLongest,
+                  shields: mergedShields,
+                  lastStreakActivityDate: lastActivityDate == null
+                      ? currentUser.lastStreakActivityDate
+                      : DateTime.tryParse(lastActivityDate),
+                  clearLastStreakActivityDate: lastActivityDate == null,
+                  streakStateUpdatedAt: mergedStateUpdated is DateTime
+                      ? mergedStateUpdated
+                      : mergedStateUpdated is String
+                          ? DateTime.tryParse(mergedStateUpdated)
+                          : currentUser.streakStateUpdatedAt,
                   preferences: {
                     ...currentUser.preferences,
-                    "defaultCefrLevel": mergedLevel ?? currentUser.preferences["defaultCefrLevel"],
-                    "languageVariant": mergedVariant ?? currentUser.preferences["languageVariant"],
+                    "defaultCefrLevel": mergedLevel ??
+                        currentUser.preferences["defaultCefrLevel"],
+                    "languageVariant": mergedVariant ??
+                        currentUser.preferences["languageVariant"],
                   },
                 );
                 await userNotifier.updateUser(updatedUser);
-                print("✅ [Google Login] Refreshed UserModel with merged preferences: level=$mergedLevel, variant=$mergedVariant");
+                print(
+                    "✅ [Google Login] Refreshed UserModel with merged preferences: level=$mergedLevel, variant=$mergedVariant");
               }
             } catch (e) {
               // E3: Service unavailable when merging preferences
@@ -350,7 +452,8 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
             }
           } else {
             // User chose "No" / "Keep my account" → Clear local guest data
-            print('ℹ️ [Google Login] User chose to keep original server data - clearing guest data');
+            print(
+                'ℹ️ [Google Login] User chose to keep original server data - clearing guest data');
             try {
               final hiveService = ref.read(hiveServiceProvider);
               await hiveService.clearAllVocabulary();
@@ -372,7 +475,8 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
       if (shouldMerge == false) {
         // User explicitly chose NOT to merge guest data -> load cloud-only data
         try {
-          print('☁️ [Google Login] Loading cloud-only data (no guest merge)...');
+          print(
+              '☁️ [Google Login] Loading cloud-only data (no guest merge)...');
           final hiveService = ref.read(hiveServiceProvider);
           final vocabSyncService = ref.read(vocabularySyncServiceProvider);
 
@@ -448,8 +552,20 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
       final currentUser = ref.read(userStateProvider).user;
       final guestLevel = currentUser?.languageLevel;
       final guestVariant = currentUser?.englishVariant;
+      final guestStreakSnapshot = currentUser == null
+          ? null
+          : <String, dynamic>{
+              'currentStreak': currentUser.currentStreak,
+              'longestStreak': currentUser.longestStreak,
+              'shields': currentUser.shields,
+              'lastStreakActivityDate':
+                  currentUser.lastStreakActivityDate?.toIso8601String(),
+              'streakStateUpdatedAt':
+                  currentUser.streakStateUpdatedAt?.toIso8601String(),
+            };
 
-      debugPrint('📝 Guest preferences captured for email flow: level=$guestLevel, variant=$guestVariant');
+      debugPrint(
+          '📝 Guest preferences captured for email flow: level=$guestLevel, variant=$guestVariant');
 
       // Send OTP first, then navigate
       final authService = ref.read(authServiceProvider);
@@ -473,6 +589,7 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
               displayName: null,
               languageLevel: guestLevel,
               englishVariant: guestVariant,
+              guestStreakSnapshot: guestStreakSnapshot,
               isGuestCreatingAccount: true,
             ),
           ),
@@ -508,7 +625,8 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
         child: GestureDetector(
           onTap: () => Navigator.pop(context, false), // Tap outside = No
           child: Dialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
             child: Container(
               constraints: const BoxConstraints(maxWidth: 340),
               padding: const EdgeInsets.all(20),
@@ -534,242 +652,248 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                  // Icon with glow effect
-                  Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          Color(0xFFf472b6), // Soft pink
-                          Color(0xFF60a5fa), // Soft blue
-                        ],
-                      ),
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFFf472b6).withValues(alpha: 0.3),
-                          blurRadius: 20,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.merge_rounded,
-                      color: Colors.white,
-                      size: 40,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Title
-                  Text(
-                    'Account already exists',
-                    style: GoogleFonts.lexend(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF1f2937),
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 8),
-
-                  // Subtitle
-                  Text(
-                    'This email already has an account.',
-                    style: GoogleFonts.lexend(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w400,
-                      color: const Color(0xFF6b7280),
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Guest preferences card
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          const Color(0xFFf3f4f6),
-                          const Color(0xFFe8f0ff).withValues(alpha: 0.5),
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: const Color(0xFF8b5cf6).withValues(alpha: 0.1),
-                        width: 1,
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              width: 32,
-                              height: 32,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF8b5cf6).withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Icon(
-                                Icons.person_outline,
-                                color: Color(0xFF8b5cf6),
-                                size: 18,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Text(
-                              'Your guest preferences',
-                              style: GoogleFonts.lexend(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xFF8b5cf6),
-                              ),
-                            ),
+                    // Icon with glow effect
+                    Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Color(0xFFf472b6), // Soft pink
+                            Color(0xFF60a5fa), // Soft blue
                           ],
                         ),
-                        const SizedBox(height: 12),
-                        if (guestLevel != null)
-                          Padding(
-                            padding: const EdgeInsets.only(left: 8, bottom: 6),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 6,
-                                  height: 6,
-                                  decoration: const BoxDecoration(
-                                    color: Color(0xFF8b5cf6),
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    'Language Level: $guestLevel',
-                                    style: GoogleFonts.lexend(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w400,
-                                      color: const Color(0xFF4b5563),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color:
+                                const Color(0xFFf472b6).withValues(alpha: 0.3),
+                            blurRadius: 20,
+                            offset: const Offset(0, 8),
                           ),
-                        if (guestVariant != null)
-                          Padding(
-                            padding: const EdgeInsets.only(left: 8),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 6,
-                                  height: 6,
-                                  decoration: const BoxDecoration(
-                                    color: Color(0xFF8b5cf6),
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    'English Variant: $guestVariant',
-                                    style: GoogleFonts.lexend(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w400,
-                                      color: const Color(0xFF4b5563),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                      ],
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.merge_rounded,
+                        color: Colors.white,
+                        size: 40,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 20),
+                    const SizedBox(height: 24),
 
-                  // Question
-                  Text(
-                    'Merge your guest progress with this account?',
-                    style: GoogleFonts.lexend(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: const Color(0xFF6b7280),
+                    // Title
+                    Text(
+                      'Account already exists',
+                      style: GoogleFonts.lexend(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF1f2937),
+                      ),
+                      textAlign: TextAlign.center,
                     ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 24),
+                    const SizedBox(height: 8),
 
-                  // Buttons
-                  Row(
-                    children: [
-                      Expanded(
-                        child: SizedBox(
-                          height: 50,
-                          child: OutlinedButton(
-                            onPressed: () => Navigator.pop(context, false),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: const Color(0xFF9ca3af),
-                              side: BorderSide(
-                                color: const Color(0xFF9ca3af).withValues(alpha: 0.3),
-                                width: 1.5,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                            ),
-                            child: Text(
-                              'Keep my account',
-                              style: GoogleFonts.lexend(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
+                    // Subtitle
+                    Text(
+                      'This email already has an account.',
+                      style: GoogleFonts.lexend(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w400,
+                        color: const Color(0xFF6b7280),
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Guest preferences card
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            const Color(0xFFf3f4f6),
+                            const Color(0xFFe8f0ff).withValues(alpha: 0.5),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: const Color(0xFF8b5cf6).withValues(alpha: 0.1),
+                          width: 1,
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: SizedBox(
-                          height: 50,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  Color(0xFF60a5fa),
-                                  Color(0xFFa78bfa),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 32,
+                                height: 32,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF8b5cf6)
+                                      .withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(
+                                  Icons.person_outline,
+                                  color: Color(0xFF8b5cf6),
+                                  size: 18,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Text(
+                                'Your guest preferences',
+                                style: GoogleFonts.lexend(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xFF8b5cf6),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          if (guestLevel != null)
+                            Padding(
+                              padding:
+                                  const EdgeInsets.only(left: 8, bottom: 6),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 6,
+                                    height: 6,
+                                    decoration: const BoxDecoration(
+                                      color: Color(0xFF8b5cf6),
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'Language Level: $guestLevel',
+                                      style: GoogleFonts.lexend(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w400,
+                                        color: const Color(0xFF4b5563),
+                                      ),
+                                    ),
+                                  ),
                                 ],
                               ),
-                              borderRadius: BorderRadius.circular(14),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: const Color(0xFFa78bfa).withValues(alpha: 0.4),
-                                  blurRadius: 15,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
                             ),
-                            child: Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                onTap: () => Navigator.pop(context, true),
+                          if (guestVariant != null)
+                            Padding(
+                              padding: const EdgeInsets.only(left: 8),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 6,
+                                    height: 6,
+                                    decoration: const BoxDecoration(
+                                      color: Color(0xFF8b5cf6),
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'English Variant: $guestVariant',
+                                      style: GoogleFonts.lexend(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w400,
+                                        color: const Color(0xFF4b5563),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Question
+                    Text(
+                      'Merge your guest progress with this account?',
+                      style: GoogleFonts.lexend(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: const Color(0xFF6b7280),
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Buttons
+                    Row(
+                      children: [
+                        Expanded(
+                          child: SizedBox(
+                            height: 50,
+                            child: OutlinedButton(
+                              onPressed: () => Navigator.pop(context, false),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: const Color(0xFF9ca3af),
+                                side: BorderSide(
+                                  color: const Color(0xFF9ca3af)
+                                      .withValues(alpha: 0.3),
+                                  width: 1.5,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                              ),
+                              child: Text(
+                                'Keep my account',
+                                style: GoogleFonts.lexend(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: SizedBox(
+                            height: 50,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    Color(0xFF60a5fa),
+                                    Color(0xFFa78bfa),
+                                  ],
+                                ),
                                 borderRadius: BorderRadius.circular(14),
-                                child: const Center(
-                                  child: Text(
-                                    'Combine my data',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFFa78bfa)
+                                        .withValues(alpha: 0.4),
+                                    blurRadius: 15,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: () => Navigator.pop(context, true),
+                                  borderRadius: BorderRadius.circular(14),
+                                  child: const Center(
+                                    child: Text(
+                                      'Combine my data',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -777,15 +901,14 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
                             ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                ],
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
         ),
-      ),
       ),
     );
   }
