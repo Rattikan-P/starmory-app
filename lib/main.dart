@@ -3,13 +3,24 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:home_widget/home_widget.dart';
 
 import 'core/config/app_constants.dart';
+import 'core/services/widget_service.dart';
 import 'data/services/app_state_service.dart';
 import 'presentation/providers/providers.dart';
 import 'presentation/pages/main_navigation.dart';
 import 'presentation/pages/onboarding_page.dart';
 import 'presentation/pages/splash_screen.dart';
+
+/// Top-level background callback — called by WorkManager via home_widget
+/// when the periodic refresh fires. Must be top-level (not inside a class).
+@pragma('vm:entry-point')
+Future<void> widgetBackgroundCallback(Uri? uri) async {
+  // Background task: just push empty state — full refresh happens on app open.
+  // For a richer background refresh, initialize Hive and call WidgetService here.
+  // Keeping it minimal prevents battery drain.
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,6 +33,7 @@ void main() async {
   await appStateService.init();
 
   // Initialize Supabase (auto-handles JWT session persistence)
+  // ignore: deprecated_member_use
   await Supabase.initialize(
     url: dotenv.env['SUPABASE_URL'] ?? '',
     anonKey: dotenv.env['SUPABASE_ANON_KEY'] ?? '',
@@ -30,6 +42,10 @@ void main() async {
   // Pre-resolve onboarding status before runApp so first frame goes directly to the app
   final onboardingCompleted = await appStateService.isOnboardingCompleted();
 
+  // Initialize Home Screen Widget bridge
+  await WidgetService.initialize();
+  // Register interactivity callback so WorkManager can trigger widget updates
+  HomeWidget.registerInteractivityCallback(widgetBackgroundCallback);
   runApp(
     ProviderScope(
       overrides: [

@@ -56,6 +56,51 @@ class _ScrapbookTabState extends ConsumerState<ScrapbookTab> {
     );
   }
 
+  Future<void> _openDeepLinkedScrapbook(
+    String scrapbookId, {
+    String? word,
+  }) async {
+    var scrapbooks = ref.read(scrapbookStateProvider).scrapbooks;
+    if (!scrapbooks.any((entry) => entry.id == scrapbookId)) {
+      await ref.read(scrapbookStateProvider.notifier).refresh();
+      if (!mounted) return;
+      scrapbooks = ref.read(scrapbookStateProvider).scrapbooks;
+    }
+
+    var match = scrapbooks.where((entry) => entry.id == scrapbookId).firstOrNull;
+    if (match == null) {
+      final vocabularies = ref.read(vocabularyStateProvider).vocabularies;
+      final vocabulary = vocabularies
+          .where((entry) => entry.id == scrapbookId)
+          .firstOrNull;
+
+      final searchWord = word ?? vocabulary?.word;
+      if (searchWord != null && searchWord.trim().isNotEmpty) {
+        final normalizedWord = searchWord.trim().toLowerCase();
+        final relatedScrapbooks = scrapbooks.where(
+          (entry) => entry.vocabularyWords.any(
+            (word) => word.word.trim().toLowerCase() == normalizedWord,
+          ),
+        );
+
+        // Prefer the scrapbook whose source photo is the same as the vocab image.
+        match = relatedScrapbooks
+            .where((entry) => entry.imagePath == vocabulary?.imageUrl)
+            .firstOrNull ??
+            relatedScrapbooks.firstOrNull;
+      }
+    }
+    if (match == null || !mounted) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('This scrapbook could not be found')),
+        );
+      }
+      return;
+    }
+    await showScrapbookDetailSheet(context, scrapbooks: [match]);
+  }
+
   @override
   Widget build(BuildContext context) {
     // Listen for scroll to top signal from tab navigation
@@ -64,6 +109,21 @@ class _ScrapbookTabState extends ConsumerState<ScrapbookTab> {
       (previous, next) {
         if (previous != next) {
           _scrollToTop();
+        }
+      },
+    );
+    ref.listen<int>(
+      navigationProvider.select((s) => s.scrapbookDeepLinkTrigger),
+      (previous, next) {
+        if (previous != next && next > 0) {
+          final navigation = ref.read(navigationProvider);
+          final scrapbookId = navigation.scrapbookDeepLinkId;
+          if (scrapbookId != null) {
+            _openDeepLinkedScrapbook(
+              scrapbookId,
+              word: navigation.scrapbookDeepLinkWord,
+            );
+          }
         }
       },
     );

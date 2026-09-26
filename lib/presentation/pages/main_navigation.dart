@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:home_widget/home_widget.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
@@ -36,12 +38,74 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
     ProgressTab(),
   ];
 
+  // Widget deep link subscription
+  StreamSubscription? _widgetClickSubscription;
+
   @override
   void initState() {
     super.initState();
+    _listenToWidgetTaps();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _syncOnAppOpen();
+      // Also handle the launch URI if the app was cold-started from widget tap
+      _handleInitialWidgetUri();
     });
+  }
+
+  @override
+  void dispose() {
+    _widgetClickSubscription?.cancel();
+    super.dispose();
+  }
+
+  /// Listen to widget tap events while app is in foreground/background.
+  void _listenToWidgetTaps() {
+    _widgetClickSubscription = HomeWidget.widgetClicked.listen(
+      (Uri? uri) => _routeWidgetDeepLink(uri),
+      onError: (_) {}, // ignore errors — widget taps are non-critical
+    );
+  }
+
+  /// Handle the URI that launched the app cold (app was not in memory).
+  Future<void> _handleInitialWidgetUri() async {
+    try {
+      final uri = await HomeWidget.initiallyLaunchedFromHomeWidget();
+      if (uri != null) _routeWidgetDeepLink(uri);
+    } catch (_) {}
+  }
+
+  /// Route a starmory:// deep link to the correct tab or action.
+  ///
+  /// starmory://review             → Review tab (index 1)
+  /// starmory://camera             → Camera modal (same as FAB + camera)
+  /// starmory://scrapbook/{vocabId}→ Scrapbook tab (index 2)
+  void _routeWidgetDeepLink(Uri? uri) {
+    if (uri == null || !mounted) return;
+
+    final host = uri.host; // "review", "camera", "scrapbook"
+    final segments = uri.pathSegments; // e.g. ["abc123"] for scrapbook/{id}
+
+    switch (host) {
+      case 'review':
+        ref.read(navigationProvider.notifier).goReview();
+        break;
+
+      case 'camera':
+        // Navigate to review tab first so we're on a stable screen,
+        // then open the camera modal after a frame
+        ref.read(navigationProvider.notifier).goReview();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _pickImage(ImageSource.camera);
+        });
+        break;
+
+      case 'scrapbook':
+        ref.read(navigationProvider.notifier).goScrapbook(
+              scrapbookId: segments.isEmpty ? null : segments.first,
+              scrapbookWord: uri.queryParameters['word'],
+            );
+        break;
+    }
   }
 
   Future<void> _syncOnAppOpen() async {
