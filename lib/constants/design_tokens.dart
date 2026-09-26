@@ -47,6 +47,11 @@ class DesignTokens {
   /// Success colors
   static const Color success = Colors.green;
 
+  // ============= Component Sizes =============
+
+  /// Height shared by the Review and Progress hero banners.
+  static const double reviewProgressBannerHeight = 184.0;
+
   // ============= Control Handle Colors =============
 
   /// Delete handle color (red)

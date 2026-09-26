@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
+import '../../constants/design_tokens.dart';
 import '../../utils/topic_categories.dart';
 import 'review_session_page.dart';
 import 'profile_tab.dart';
@@ -481,9 +483,11 @@ class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserv
   }
 
   Widget _buildHeroCard(int dueCount) {
+    final dueCountLabel = _formatDueCount(dueCount);
+
     return Container(
       width: double.infinity,
-      height: 152,
+      height: DesignTokens.reviewProgressBannerHeight,
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [
@@ -604,8 +608,8 @@ class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserv
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
-                      width: 96,
-                      height: 96,
+                      width: 120,
+                      height: 120,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: Colors.white,
@@ -622,9 +626,9 @@ class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserv
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            '$dueCount',
+                            dueCountLabel,
                             style: GoogleFonts.lexend(
-                              fontSize: 42,
+                              fontSize: _dueCountFontSize(dueCount),
                               height: 1.0,
                               fontWeight: FontWeight.w800,
                               letterSpacing: -1.0,
@@ -635,7 +639,7 @@ class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserv
                           Text(
                             'words',
                             style: GoogleFonts.lexend(
-                              fontSize: 12,
+                              fontSize: 13,
                               fontWeight: FontWeight.w600,
                               color: const Color(0xFF6B647E),
                             ),
@@ -647,7 +651,7 @@ class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserv
                     Text(
                       'ready to review',
                       style: GoogleFonts.lexend(
-                        fontSize: 12,
+                        fontSize: 13,
                         fontWeight: FontWeight.w600,
                         color: const Color(0xFF63564A),
                       ),
@@ -659,27 +663,42 @@ class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserv
 
             // Right Side: Mascot Character Illustration
             Positioned(
-              right: 8,
-              bottom: 0,
-              top: 4,
-              child: Image.asset(
-                'assets/images/review_mascot.png',
-                fit: BoxFit.contain,
-                errorBuilder: (context, error, stackTrace) {
-                  return const Center(
-                    child: Icon(
-                      Icons.auto_awesome,
-                      size: 64,
-                      color: Color(0xFF7C5CFC),
-                    ),
-                  );
-                },
+              right: 12,
+              bottom: 12,
+              child: SizedBox(
+                width: 152,
+                height: 152,
+                child: Image.asset(
+                  'assets/images/review_mascot.png',
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) {
+                    return const Center(
+                      child: Icon(
+                        Icons.auto_awesome,
+                        size: 64,
+                        color: Color(0xFF7C5CFC),
+                      ),
+                    );
+                  },
+                ),
               ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  String _formatDueCount(int count) {
+    if (count < 1000) return '$count';
+    return NumberFormat.compact(locale: 'en').format(count).toLowerCase();
+  }
+
+  double _dueCountFontSize(int count) {
+    if (count >= 1000) return 32;
+    if (count >= 100) return 38;
+    if (count >= 10) return 44;
+    return 48;
   }
 
   Widget _buildHowItWorksCard() {

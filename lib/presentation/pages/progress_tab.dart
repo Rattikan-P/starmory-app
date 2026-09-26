@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart' hide Badge;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../constants/design_tokens.dart';
 import '../../data/models/vocabulary_model.dart';
 import '../../data/services/dictionary_service.dart';
 import '../../utils/topic_categories.dart';
@@ -468,6 +469,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
 
     return Container(
       width: double.infinity,
+      height: DesignTokens.reviewProgressBannerHeight,
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [
@@ -522,6 +524,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
               padding: const EdgeInsets.all(20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   // Top Row: Stars count & label (vertically centered & aligned)
                   Row(
