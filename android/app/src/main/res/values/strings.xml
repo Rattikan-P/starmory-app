@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Starmory</string>
+    <string name="widget_description">Personal Vocab Widget — shows the word you\'re about to forget</string>
+</resources>

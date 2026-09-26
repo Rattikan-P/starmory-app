@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/word_card_model.dart';
 import '../../data/services/review_service.dart';
 import '../../core/utils/fsrs_helper.dart';
+import '../../core/services/widget_service.dart';
 import 'providers.dart';
 
 // Flag to track if streak has been updated in current session
@@ -163,6 +164,9 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
         previousCardState: null,
         currentTopicFilter: topicFilter, // Save current topic filter
       );
+
+      // Update home screen widget with next due card
+      WidgetService.updateWidgetWithDueCard(_reviewService).ignore();
     } catch (e) {
       state = ReviewState(
         isLoading: false,
@@ -195,9 +199,9 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
       // For registered users, this is handled by database trigger
       if (!_hasUpdatedStreakThisSession) {
         if (_recordLearningActivity != null) {
-          await _recordLearningActivity!();
+          await _recordLearningActivity();
         } else if (_ref != null) {
-          final streakNotifier = _ref!.read(streakProvider.notifier);
+          final streakNotifier = _ref.read(streakProvider.notifier);
           await streakNotifier.recordLearningActivity();
         }
         _hasUpdatedStreakThisSession = true;
@@ -205,7 +209,7 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
 
       // Record review activity for Badge system
       if (_ref != null) {
-        await _ref!.read(badgeProvider.notifier).recordActivity(ActivityType.review);
+        await _ref.read(badgeProvider.notifier).recordActivity(ActivityType.review);
       }
 
       final totalReviews = state.totalReviewsCompleted + 1;
@@ -230,6 +234,9 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
       await _reviewService.saveUserStats(
         totalReviewsCompleted: totalReviews,
       );
+
+      // Update home screen widget with next due card after each review
+      WidgetService.updateWidgetWithDueCard(_reviewService).ignore();
     } catch (e) {
       print('❌ [SwipeCard] Error: $e');
       state = state.copyWith(error: e.toString());

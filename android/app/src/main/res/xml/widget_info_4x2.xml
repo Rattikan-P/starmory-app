@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Widget metadata for the 4×2 Standard Vocab Widget.
+  minWidth/minHeight = ~4 columns × 2 rows on standard Android grid (74dp per cell).
+  updatePeriodMillis = 0 means we handle updates manually (better battery life).
+-->
+<appwidget-provider
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="250dp"
+    android:minHeight="110dp"
+    android:minResizeWidth="180dp"
+    android:minResizeHeight="80dp"
+    android:maxResizeWidth="400dp"
+    android:maxResizeHeight="200dp"
+    android:targetCellWidth="4"
+    android:targetCellHeight="2"
+    android:updatePeriodMillis="0"
+    android:initialLayout="@layout/widget_vocab_4x2"
+    android:previewImage="@drawable/widget_preview"
+    android:widgetCategory="home_screen"
+    android:resizeMode="horizontal|vertical"
+    android:description="@string/widget_description" />
