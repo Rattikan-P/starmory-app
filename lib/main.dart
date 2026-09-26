@@ -27,20 +27,31 @@ void main() async {
     anonKey: dotenv.env['SUPABASE_ANON_KEY'] ?? '',
   );
 
+  // Pre-resolve onboarding status before runApp so first frame goes directly to the app
+  final onboardingCompleted = await appStateService.isOnboardingCompleted();
+
   runApp(
     ProviderScope(
       overrides: [
         onboardingServiceProvider.overrideWithValue(appStateService),
       ],
-      child: MyApp(appStateService: appStateService),
+      child: MyApp(
+        appStateService: appStateService,
+        initialOnboardingCompleted: onboardingCompleted,
+      ),
     ),
   );
 }
 
 class MyApp extends ConsumerStatefulWidget {
   final AppStateService appStateService;
+  final bool? initialOnboardingCompleted;
 
-  const MyApp({super.key, required this.appStateService});
+  const MyApp({
+    super.key,
+    required this.appStateService,
+    this.initialOnboardingCompleted,
+  });
 
   @override
   ConsumerState<MyApp> createState() => _MyAppState();
@@ -52,6 +63,7 @@ class _MyAppState extends ConsumerState<MyApp> {
   @override
   void initState() {
     super.initState();
+    _onboardingCompleted = widget.initialOnboardingCompleted;
     _initializeApp();
   }
 
@@ -64,26 +76,19 @@ class _MyAppState extends ConsumerState<MyApp> {
       final hiveService = ref.read(hiveServiceProvider);
       await hiveService.initialize();
 
-      // Check onboarding status
-      _checkOnboarding();
+      // Check onboarding status if not pre-resolved
+      if (_onboardingCompleted == null) {
+        final completed = await widget.appStateService.isOnboardingCompleted();
+        if (mounted) {
+          setState(() => _onboardingCompleted = completed);
+        }
+      }
 
       ref.read(appInitializationProvider.notifier).state = AppInitialization.initialized;
     } catch (e) {
       ref.read(appInitializationProvider.notifier).state =
           AppInitialization(isInitialized: false, error: e.toString());
       debugPrint('Failed to initialize app: $e');
-    }
-  }
-
-  Future<void> _checkOnboarding() async {
-    // เช็คครั้งเดียวตอนเริ่มแอป พร้อมหน่วงเวลาขั้นต่ำเพื่อให้เห็น Splash Screen ชัดเจนและสมูท
-    final results = await Future.wait([
-      widget.appStateService.isOnboardingCompleted(),
-      Future.delayed(const Duration(milliseconds: 1500)),
-    ]);
-    final completed = results[0] as bool;
-    if (mounted) {
-      setState(() => _onboardingCompleted = completed);
     }
   }
 

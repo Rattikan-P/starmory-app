@@ -20,9 +20,9 @@ class SplashScreen extends StatelessWidget {
         backgroundColor: backgroundColor,
         body: Center(
           child: Image.asset(
-            'assets/images/Starmory_logo.png',
-            width: 200,
-            height: 200,
+            'assets/images/Starmory_logo_text.png',
+            width: 240,
+            height: 240,
             fit: BoxFit.contain,
           ),
         ),
