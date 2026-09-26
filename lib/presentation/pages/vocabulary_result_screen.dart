@@ -196,15 +196,30 @@ class VocabularyResultScreen extends ConsumerWidget {
 
   void _saveVocabulary(BuildContext context, WidgetRef ref) async {
     final notifier = ref.read(vocabularyStateProvider.notifier);
+    final normalizedWord = vocabulary.word.trim().toLowerCase();
+    final alreadyInCollection = ref
+        .read(vocabularyStateProvider)
+        .vocabularies
+        .any((item) => item.word.trim().toLowerCase() == normalizedWord);
+
     // Wait for vocabulary to be saved to cloud first (trigger needs to fire)
     await notifier.addVocabulary(vocabulary);
 
-    // Refresh review session to show newly added card
-    ref.invalidate(reviewStateProvider);
+    // Refresh the existing notifier. Invalidating it recreates it with
+    // isLoading=true, but nothing would start the new session load.
+    await ref.read(reviewStateProvider.notifier).loadSession();
 
     // Update streak when saving vocabulary (only once per day)
     final streakNotifier = ref.read(streakProvider.notifier);
     await streakNotifier.recordVocabularyAcquired();
+
+    if (!context.mounted) return;
+
+    // Evaluate rewards while this route is mounted so newly unlocked badges
+    // appear before navigating back to Home.
+    if (!alreadyInCollection) {
+      await RewardUnlockHelper.checkAndShowUnlocks(context, ref);
+    }
 
     if (!context.mounted) return;
 
@@ -221,9 +236,6 @@ class VocabularyResultScreen extends ConsumerWidget {
         duration: const Duration(seconds: 2),
       ),
     );
-
-    // Signal Home screen to trigger reward celebrations once landed
-    ref.read(pendingRewardCheckProvider.notifier).state = true;
 
     // Navigate back to home
     if (!context.mounted) return;

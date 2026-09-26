@@ -312,7 +312,6 @@ class BadgeController extends StateNotifier<BadgeState> {
   }
 
   void _syncWithUser(dynamic user) {
-    _pendingBadgesToCelebrate.clear();
     final rawStats = user.preferences['badge_stats'] as Map<String, dynamic>?;
     final stats = BadgeStats.fromMap(rawStats);
     final userBadges = Set<String>.from(user.badges);
@@ -339,6 +338,17 @@ class BadgeController extends StateNotifier<BadgeState> {
       unlockedCount: updatedBadges.where((b) => !b.isLocked).length,
       stats: stats,
     );
+  }
+
+  Future<void> showPendingUnlocks(BuildContext context) async {
+    if (!context.mounted || _pendingBadgesToCelebrate.isEmpty) return;
+
+    final pending = List<Badge>.from(_pendingBadgesToCelebrate);
+    _pendingBadgesToCelebrate.clear();
+    for (final badge in pending) {
+      if (!context.mounted) break;
+      await BadgeUnlockDialog.show(context, badge: badge);
+    }
   }
 
   void _initializeBadges() {
@@ -730,9 +740,32 @@ class BadgeController extends StateNotifier<BadgeState> {
       latestUnlockedBadge: newlyUnlocked.isNotEmpty ? newlyUnlocked.last : state.latestUnlockedBadge,
     );
 
-    if (newlyUnlocked.isNotEmpty && context != null && context.mounted) {
+    if (newlyUnlocked.isNotEmpty && (context == null || !context.mounted)) {
       for (final badge in newlyUnlocked) {
-        await BadgeUnlockDialog.show(context, badge: badge);
+        if (!_pendingBadgesToCelebrate.any((item) => item.id == badge.id)) {
+          _pendingBadgesToCelebrate.add(badge);
+        }
+      }
+    }
+
+    if (context != null && context.mounted) {
+      final badgesToCelebrate = <Badge>[];
+      for (final badge in _pendingBadgesToCelebrate) {
+        if (!badgesToCelebrate.any((item) => item.id == badge.id)) {
+          badgesToCelebrate.add(badge);
+        }
+      }
+      for (final badge in newlyUnlocked) {
+        if (!badgesToCelebrate.any((item) => item.id == badge.id)) {
+          badgesToCelebrate.add(badge);
+        }
+      }
+      _pendingBadgesToCelebrate.clear();
+
+      for (final badge in badgesToCelebrate) {
+        if (context.mounted) {
+          await BadgeUnlockDialog.show(context, badge: badge);
+        }
       }
     }
 

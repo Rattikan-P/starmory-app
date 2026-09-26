@@ -37,8 +37,8 @@ class _HomeTabState extends ConsumerState<HomeTab>
   void initState() {
     super.initState();
     // Refresh user data when home page is opened
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _refreshUserData();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _refreshUserData();
       _checkPendingRewards();
     });
   }
@@ -68,14 +68,24 @@ class _HomeTabState extends ConsumerState<HomeTab>
   }
 
   void _checkPendingRewards() {
-    if (ref.read(pendingRewardCheckProvider)) {
+    final hasPendingRewardCheck = ref.read(pendingRewardCheckProvider);
+    if (hasPendingRewardCheck) {
       ref.read(pendingRewardCheckProvider.notifier).state = false;
-      Future.delayed(const Duration(milliseconds: 300), () {
-        if (mounted && context.mounted) {
-          RewardUnlockHelper.checkAndShowUnlocks(context, ref);
-        }
-      });
     }
+
+    // Activity badges need a BuildContext to show their queued unlock dialog.
+    // Only reevaluate badge eligibility when a flow explicitly requested it.
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (mounted && context.mounted) {
+        if (hasPendingRewardCheck) {
+          RewardUnlockHelper.checkAndShowUnlocks(context, ref);
+        } else {
+          ref
+              .read(badgeStateProvider.notifier)
+              .showPendingUnlocks(context);
+        }
+      }
+    });
   }
 
   // Daily motivational quotes
