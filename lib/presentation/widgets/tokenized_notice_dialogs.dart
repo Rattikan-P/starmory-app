@@ -76,6 +76,33 @@ Future<void> showTokenizedErrorDialog(
   );
 }
 
+/// Standard dialog for account or data requests that fail on the backend.
+Future<void> showSupabaseRequestErrorDialog(BuildContext context) {
+  return showTokenizedErrorDialog(
+    context,
+    title: 'Account Request Failed',
+    message:
+        'We couldn’t complete your account request right now. Please try again in a moment.',
+    icon: Icons.cloud_off_rounded,
+  );
+}
+
+/// A Gemini provider quota is separate from the user's daily generation limit.
+Future<void> showGeminiQuotaErrorDialog(
+  BuildContext context, {
+  VoidCallback? onOk,
+}) {
+  return showTokenizedErrorDialog(
+    context,
+    title: 'Learning Service Limit Reached',
+    message:
+        'The learning service has reached its current usage limit. Please try again later.',
+    icon: Icons.hourglass_bottom_rounded,
+    accentColor: DesignTokens.dialogWarning,
+    onOk: onOk,
+  );
+}
+
 /// Shared tokenized dialog for errors that need retry/cancel actions.
 Future<void> showTokenizedActionDialog(
   BuildContext context, {
@@ -292,7 +319,9 @@ Future<void> showDailyLimitReachedDialog(
                 color: DesignTokens.dialogTitleColor,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(
+              height: DesignTokens.dialogCompactTitleBodySpacing,
+            ),
             Text(
               "You've reached your 15 daily generations. Come back tomorrow for more!",
               textAlign: TextAlign.center,
@@ -355,7 +384,9 @@ Future<void> showFreeTrialLimitDialog(
                 color: DesignTokens.dialogTitleColor,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(
+              height: DesignTokens.dialogCompactTitleBodySpacing,
+            ),
             Text(
               "You've used all your guest generations.\nSign up to get 15 daily generations!",
               textAlign: TextAlign.center,
@@ -371,7 +402,10 @@ Future<void> showFreeTrialLimitDialog(
               padding: const EdgeInsets.all(DesignTokens.spacingMedium),
               decoration: BoxDecoration(
                 border: Border.all(
-                    color: DesignTokens.dialogDisabledActionBorderColor),
+                  color: DesignTokens.dialogAccentBorderColor(
+                    DesignTokens.dialogWarning,
+                  ),
+                ),
                 borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
               ),
               child: Row(

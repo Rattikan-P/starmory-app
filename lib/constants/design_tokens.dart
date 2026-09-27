@@ -25,6 +25,7 @@ class DesignTokens {
   /// Brand, account, and user-management dialogs.
   static const int dialogBrandValue = 0xFF8957F5;
   static const Color dialogBrand = Color(dialogBrandValue);
+  static const Color dialogBrandTint = Color(0xFFF1EDFF);
 
   /// Warning, rate-limit, caution, and user-guidance dialogs.
   static const int dialogWarningValue = 0xFFFFBF29;
@@ -34,6 +35,12 @@ class DesignTokens {
   /// Critical, system-error, and danger dialogs.
   static const int dialogDangerValue = 0xFFE44F54;
   static const Color dialogDanger = Color(dialogDangerValue);
+
+  /// Shared opacity for semantic-color borders inside dialogs.
+  static const double dialogAccentBorderOpacity = 0.35;
+
+  static Color dialogAccentBorderColor(Color accent) =>
+      accent.withValues(alpha: dialogAccentBorderOpacity);
 
   // ============= Text Colors =============
 
@@ -90,6 +97,8 @@ class DesignTokens {
   static const double dialogButtonRadius = 25.0;
   static const double dialogButtonFontSize = 15.5;
   static const double dialogTitleBodySpacing = 16.0;
+  /// Compact gap used between a dialog title and its supporting message.
+  static const double dialogCompactTitleBodySpacing = 8.0;
   static const double dialogIconTitleSpacing = 18.0;
   static const double dialogActionsSpacing = 24.0;
   static const Color dialogTitleColor = textPrimary;

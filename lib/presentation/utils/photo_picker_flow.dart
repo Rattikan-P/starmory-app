@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../../core/utils/safe_image_picker.dart';
+import '../../core/utils/image_picker_error_message.dart';
 import '../widgets/permission_required_dialog.dart';
 import '../pages/image_preview_screen.dart';
 import '../widgets/tokenized_notice_dialogs.dart';
@@ -179,11 +180,12 @@ class PhotoPickerFlow {
       if (error.code == 'already_active') return;
       if (context.mounted) {
         _showErrorDialog(context, 'Error',
-            'Failed to pick image: ${error.message ?? error.toString()}');
+            ImagePickerErrorMessage.failedToPick(error.message ?? error));
       }
     } catch (error) {
       if (context.mounted) {
-        _showErrorDialog(context, 'Error', 'Failed to pick image: $error');
+        _showErrorDialog(
+            context, 'Error', ImagePickerErrorMessage.failedToPick(error));
       }
     }
   }

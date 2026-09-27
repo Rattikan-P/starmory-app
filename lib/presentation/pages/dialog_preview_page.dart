@@ -13,10 +13,13 @@ class DialogPreviewPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final previews = <_DialogPreviewItem>[
-      _DialogPreviewItem('Free Trial Limit', 'Guest quota · Home / Generation', () {
+      _DialogPreviewItem('Free Trial Limit', 'Guest quota · Home / Generation',
+          () {
         showFreeTrialLimitDialog(context, onSignUp: () {});
       }),
-      _DialogPreviewItem('Daily Limit Reached', 'Registered quota · Home / Generation',
+      _DialogPreviewItem(
+          'Daily Limit Reached',
+          'Registered quota · Home / Generation',
           () => showDailyLimitReachedDialog(context)),
       _DialogPreviewItem('Camera Permission', 'Permission popup',
           () => showPermissionRequiredDialog(context, 'Camera')),
@@ -61,6 +64,17 @@ class DialogPreviewPage extends StatelessWidget {
           context,
           title: 'Error',
           message: 'Failed to pick image: Unable to open the selected photo.',
+          icon: Icons.photo_library_outlined,
+        );
+      }),
+      _DialogPreviewItem(
+          'Permission Request In Progress', 'Image picker permission error',
+          () {
+        showTokenizedErrorDialog(
+          context,
+          title: 'Error',
+          message:
+              'Failed to pick image: A permission request is already in progress. Please wait a moment, then try again.',
           icon: Icons.photo_library_outlined,
         );
       }),
@@ -127,6 +141,20 @@ class DialogPreviewPage extends StatelessWidget {
           icon: Icons.error_outline_rounded,
         );
       }),
+      _DialogPreviewItem('Gemini API Quota', 'Generation provider limit',
+          () => showGeminiQuotaErrorDialog(context)),
+      _DialogPreviewItem('Gemini Sentence Request Failed', 'Vocabulary screen',
+          () {
+        showTokenizedErrorDialog(
+          context,
+          title: 'Connection Error',
+          message:
+              'We couldn’t generate sentences right now. Please check your connection and try again.',
+          icon: Icons.cloud_off_rounded,
+        );
+      }),
+      _DialogPreviewItem('Supabase Request Failed', 'Account data sync',
+          () => showSupabaseRequestErrorDialog(context)),
     ];
 
     return Scaffold(

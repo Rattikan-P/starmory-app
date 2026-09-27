@@ -301,12 +301,14 @@ void _showStreakInfoDialog(
               ),
               const SizedBox(height: DesignTokens.dialogActionsSpacing),
               Container(
-                padding: const EdgeInsets.all(DesignTokens.spacingLarge),
+                padding: const EdgeInsets.all(DesignTokens.spacingMedium),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(DesignTokens.radiusLarge),
                   border: Border.all(
-                    color: DesignTokens.dialogInfo.withValues(alpha: 0.35),
+                    color: DesignTokens.dialogAccentBorderColor(
+                      DesignTokens.dialogInfo,
+                    ),
                   ),
                 ),
                 child: Column(children: items),

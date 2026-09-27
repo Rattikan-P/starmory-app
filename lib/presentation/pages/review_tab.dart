@@ -269,7 +269,7 @@ class _ReviewTabState extends ConsumerState<ReviewTab>
                       ),
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF7C5CFC),
+                      backgroundColor: DesignTokens.dialogDanger,
                       foregroundColor: Colors.white,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
@@ -702,10 +702,10 @@ class _ReviewTabState extends ConsumerState<ReviewTab>
             // Right Side: Mascot Character Illustration
             Positioned(
               right: 12,
-              bottom: 12,
+              bottom: 4,
               child: SizedBox(
-                width: 152,
-                height: 152,
+                width: 172,
+                height: 172,
                 child: Image.asset(
                   'assets/images/review_mascot.png',
                   fit: BoxFit.contain,
@@ -955,7 +955,7 @@ class _ReviewTabState extends ConsumerState<ReviewTab>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Top Lavender Circle with Question Mark Icon
+              // Review card with a four-point sparkle.
               Container(
                 width: 60,
                 height: 60,
@@ -963,11 +963,23 @@ class _ReviewTabState extends ConsumerState<ReviewTab>
                   color: DesignTokens.dialogInfoTint,
                   shape: BoxShape.circle,
                 ),
-                child: const Center(
-                  child: Icon(
-                    Icons.question_mark_rounded,
-                    size: 32,
-                    color: DesignTokens.dialogInfo,
+                child: Center(
+                  child: Container(
+                    width: 32,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: DesignTokens.dialogInfo,
+                        width: 2,
+                      ),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Center(
+                      child: CustomPaint(
+                        size: Size(18, 18),
+                        painter: _FourPointStarPainter(DesignTokens.dialogInfo),
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -1054,10 +1066,11 @@ class _ReviewTabState extends ConsumerState<ReviewTab>
               customBorder: const CircleBorder(),
               onTap: () => _showSettingsBottomSheet(context),
               child: const Center(
-                child: Icon(
-                  Icons.tune_rounded,
-                  color: Color(0xFF7C5CFC),
-                  size: 24,
+                child: CustomPaint(
+                  size: Size(26, 26),
+                  painter: _CustomReviewTuneIconPainter(
+                    Color(0xFF7C5CFC),
+                  ),
                 ),
               ),
             ),
@@ -1792,4 +1805,62 @@ class _ReviewTabState extends ConsumerState<ReviewTab>
       ),
     );
   }
+}
+
+class _FourPointStarPainter extends CustomPainter {
+  final Color color;
+
+  const _FourPointStarPainter(this.color);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final scale = size.width / 24;
+    final path = Path()
+      ..moveTo(12, 1)
+      ..cubicTo(13.5, 8.5, 15.5, 10.5, 23, 12)
+      ..cubicTo(15.5, 13.5, 13.5, 15.5, 12, 23)
+      ..cubicTo(10.5, 15.5, 8.5, 13.5, 1, 12)
+      ..cubicTo(8.5, 10.5, 10.5, 8.5, 12, 1)
+      ..close();
+
+    canvas.save();
+    canvas.scale(scale);
+    canvas.drawPath(path, Paint()..color = color);
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_FourPointStarPainter oldDelegate) =>
+      oldDelegate.color != color;
+}
+
+class _CustomReviewTuneIconPainter extends CustomPainter {
+  final Color color;
+
+  const _CustomReviewTuneIconPainter(this.color);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final scale = size.width / 26;
+    final stroke = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.8
+      ..strokeCap = StrokeCap.round;
+
+    canvas.save();
+    canvas.scale(scale);
+
+    // Two adjustment rails with hollow knobs on opposite sides.
+    canvas.drawLine(const Offset(10, 7), const Offset(22, 7), stroke);
+    canvas.drawCircle(const Offset(6, 7), 4.2, stroke);
+    canvas.drawLine(const Offset(4, 19), const Offset(16, 19), stroke);
+    canvas.drawCircle(const Offset(20, 19), 4.2, stroke);
+
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_CustomReviewTuneIconPainter oldDelegate) =>
+      oldDelegate.color != color;
 }

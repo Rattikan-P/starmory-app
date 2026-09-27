@@ -8,6 +8,7 @@ import '../../../constants/design_tokens.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../data/services/merge_service.dart';
 import '../../../utils/snackbar_helper.dart';
+import '../../widgets/tokenized_notice_dialogs.dart';
 import '../../../presentation/widgets/otp_keypad.dart';
 import '../language_selection_page.dart';
 import '../main_navigation.dart';
@@ -359,8 +360,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
               print('❌ [OTP Login] Merge failed: $e');
               setState(() => _isLoading = false);
               if (mounted) {
-                SnackBarHelper.error(context, AlertMessages.serviceUnavailable,
-                    showAboveKeyboard: true);
+                showSupabaseRequestErrorDialog(context);
               }
               return; // Stay on page
             }
@@ -491,8 +491,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
             // E3: Service unavailable when saving preferences
             setState(() => _isLoading = false);
             if (mounted) {
-              SnackBarHelper.error(context, AlertMessages.serviceUnavailable,
-                  showAboveKeyboard: true);
+              showSupabaseRequestErrorDialog(context);
             }
             return; // Stay on page
           }
@@ -610,8 +609,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
         } else {
           // Service unavailable, network error, or other errors
           // Don't increment failed attempts for service errors
-          SnackBarHelper.error(context, AlertMessages.serviceUnavailable,
-              showAboveKeyboard: true);
+          showSupabaseRequestErrorDialog(context);
           _clearOtp();
         }
       }
@@ -908,7 +906,8 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: DesignTokens.dialogBrand.withValues(alpha: 0.3),
+                            color:
+                                DesignTokens.dialogBrand.withValues(alpha: 0.3),
                             blurRadius: 20,
                             offset: const Offset(0, 8),
                           ),

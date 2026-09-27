@@ -10,6 +10,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import '../../core/utils/safe_image_picker.dart';
+import '../../core/utils/image_picker_error_message.dart';
 import '../../constants/design_tokens.dart';
 import '../providers/providers.dart';
 import '../../data/models/scrapbook_model.dart';
@@ -668,9 +669,9 @@ class _HomeTabState extends ConsumerState<HomeTab>
     } on PlatformException catch (e) {
       if (e.code == 'already_active') return;
       _showErrorDialog(
-          'Error', 'Failed to pick image: ${e.message ?? e.toString()}');
+          'Error', ImagePickerErrorMessage.failedToPick(e.message ?? e));
     } catch (e) {
-      _showErrorDialog('Error', 'Failed to pick image: ${e.toString()}');
+      _showErrorDialog('Error', ImagePickerErrorMessage.failedToPick(e));
     }
   }
 

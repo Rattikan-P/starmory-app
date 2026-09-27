@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../data/services/merge_service.dart';
 import '../../../utils/snackbar_helper.dart';
+import '../../widgets/tokenized_notice_dialogs.dart';
 import '../../widgets/auth_widgets.dart';
 import '../main_navigation.dart';
 import '../onboarding_page.dart';
@@ -251,7 +252,7 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
         } catch (e) {
           // E3: Service unavailable when saving preferences
           if (context.mounted) {
-            SnackBarHelper.error(context, AlertMessages.serviceUnavailable);
+            showSupabaseRequestErrorDialog(context);
           }
           return; // Stay on page, user can retry
         }
@@ -470,7 +471,7 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
               // E3: Service unavailable when merging preferences
               print('❌ [Google Login] Merge failed: $e');
               if (context.mounted) {
-                SnackBarHelper.error(context, AlertMessages.serviceUnavailable);
+                showSupabaseRequestErrorDialog(context);
               }
               return; // Stay on page, user can retry
             }
@@ -688,7 +689,8 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: DesignTokens.dialogBrand.withValues(alpha: 0.3),
+                            color:
+                                DesignTokens.dialogBrand.withValues(alpha: 0.3),
                             blurRadius: 20,
                             offset: const Offset(0, 8),
                           ),

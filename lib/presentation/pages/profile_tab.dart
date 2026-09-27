@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/utils/safe_image_picker.dart';
+import '../../core/utils/image_picker_error_message.dart';
 import '../../constants/app_defaults.dart';
 import '../../constants/design_tokens.dart';
 import '../../utils/snackbar_helper.dart';
@@ -2429,12 +2430,32 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
     } on PlatformException catch (e) {
       if (e.code == 'already_active') return;
       if (context.mounted) {
-        SnackBarHelper.error(
-            context, 'Failed to pick image: ${e.message ?? e.toString()}');
+        final error = e.message ?? e;
+        if (ImagePickerErrorMessage.isPermissionRequestAlreadyRunning(error)) {
+          showTokenizedErrorDialog(
+            context,
+            title: 'Error',
+            message: ImagePickerErrorMessage.failedToPick(error),
+            icon: Icons.photo_library_outlined,
+          );
+        } else {
+          SnackBarHelper.error(
+              context, 'Failed to pick image: ${e.message ?? e.toString()}');
+        }
       }
     } catch (e) {
       if (context.mounted) {
-        SnackBarHelper.error(context, 'Failed to pick image: ${e.toString()}');
+        if (ImagePickerErrorMessage.isPermissionRequestAlreadyRunning(e)) {
+          showTokenizedErrorDialog(
+            context,
+            title: 'Error',
+            message: ImagePickerErrorMessage.failedToPick(e),
+            icon: Icons.photo_library_outlined,
+          );
+        } else {
+          SnackBarHelper.error(
+              context, ImagePickerErrorMessage.failedToPick(e));
+        }
       }
     }
   }

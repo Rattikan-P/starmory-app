@@ -9,6 +9,7 @@ import 'package:path/path.dart' as path;
 import 'package:permission_handler/permission_handler.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/utils/safe_image_picker.dart';
+import '../../core/utils/image_picker_error_message.dart';
 import 'home_tab.dart';
 import 'review_tab.dart';
 import 'scrapbook_tab.dart';
@@ -277,9 +278,9 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
     } on PlatformException catch (e) {
       if (e.code == 'already_active') return;
       _showErrorDialog(
-          'Error', 'Failed to pick image: ${e.message ?? e.toString()}');
+          'Error', ImagePickerErrorMessage.failedToPick(e.message ?? e));
     } catch (e) {
-      _showErrorDialog('Error', 'Failed to pick image: ${e.toString()}');
+      _showErrorDialog('Error', ImagePickerErrorMessage.failedToPick(e));
     }
   }
 

@@ -224,18 +224,18 @@ class _GenerationLoadingScreenState
 
         debugPrint('[Generation] Request failed: $errorStr');
 
-        // Handle QuotaExceededFailure with a friendly message (don't mention quota/backend limit)
+        // Gemini's provider quota is separate from the user's daily quota.
         if (errorStr.contains('QuotaExceededFailure') ||
             errorStr.contains('Starmory needs a rest') ||
             errorStrLower.contains('quota exceeded') ||
             errorStrLower.contains('please check your plan and billing')) {
-          // debugPrint('✅ Showing friendly quota message to userrrrrr');
-
           setState(() {
             _isProcessing = false;
           });
-          _handleNetworkError(
-              'Starmory needs a rest today 😴\nNew lessons will be ready again tomorrow!');
+          showGeminiQuotaErrorDialog(
+            context,
+            onOk: () => Navigator.popUntil(context, (route) => route.isFirst),
+          );
           return;
         }
 
@@ -337,29 +337,25 @@ class _GenerationLoadingScreenState
 
     // Keep backend/configuration details out of user-facing copy.
     final errorLower = error.toLowerCase();
-    final isQuotaMessage = errorLower.contains('quota') ||
-        errorLower.contains('rate limit') ||
-        errorLower.contains('starmory needs a rest');
-    final friendlyMessage = isQuotaMessage
-        ? 'You have reached today\'s generation limit. Please come back tomorrow.'
-        : errorLower.contains('timeout') || errorLower.contains('timed out')
-            ? 'Request timed out. Please check your connection and try again.'
-            : errorLower.contains('network') ||
-                    errorLower.contains('connection') ||
-                    errorLower.contains('socketexception') ||
-                    errorLower.contains('host lookup') ||
-                    errorLower.contains('handshakeexception')
-                ? 'We could not connect. Please check your internet and try again.'
-                : errorLower.contains('api key') ||
-                        errorLower.contains('notinitializederror') ||
-                        errorLower.contains('instance of')
-                    ? 'The learning service is not available right now. Please try again later.'
-                    : errorLower.contains('temporarily busy') ||
-                            errorLower.contains('high demand') ||
-                            errorLower.contains('unavailable') ||
-                            errorLower.contains('503')
-                        ? 'The learning service is busy right now. Please try again in a moment.'
-                        : 'We could not create your lesson right now. Please try again.';
+    final friendlyMessage = errorLower.contains('timeout') ||
+            errorLower.contains('timed out')
+        ? 'Request timed out. Please check your connection and try again.'
+        : errorLower.contains('network') ||
+                errorLower.contains('connection') ||
+                errorLower.contains('socketexception') ||
+                errorLower.contains('host lookup') ||
+                errorLower.contains('handshakeexception')
+            ? 'We could not connect. Please check your internet and try again.'
+            : errorLower.contains('api key') ||
+                    errorLower.contains('notinitializederror') ||
+                    errorLower.contains('instance of')
+                ? 'The learning service is not available right now. Please try again later.'
+                : errorLower.contains('temporarily busy') ||
+                        errorLower.contains('high demand') ||
+                        errorLower.contains('unavailable') ||
+                        errorLower.contains('503')
+                    ? 'The learning service is busy right now. Please try again in a moment.'
+                    : 'We could not create your lesson right now. Please try again.';
     final isTimeout =
         errorLower.contains('timeout') || errorLower.contains('timed out');
     final isConnection = errorLower.contains('network') ||
@@ -374,26 +370,21 @@ class _GenerationLoadingScreenState
         errorLower.contains('high demand') ||
         errorLower.contains('unavailable') ||
         errorLower.contains('503');
-    final accent =
-        isQuotaMessage ? DesignTokens.dialogWarning : DesignTokens.dialogDanger;
-    final icon = isQuotaMessage
-        ? Icons.hourglass_bottom_rounded
-        : isTimeout
-            ? Icons.timer_off_rounded
-            : isConnection
-                ? Icons.cloud_off_rounded
-                : isServiceSetup
-                    ? Icons.settings_rounded
-                    : isServiceBusy
-                        ? Icons.cloud_queue_rounded
-                        : Icons.error_outline_rounded;
+    final icon = isTimeout
+        ? Icons.timer_off_rounded
+        : isConnection
+            ? Icons.cloud_off_rounded
+            : isServiceSetup
+                ? Icons.settings_rounded
+                : isServiceBusy
+                    ? Icons.cloud_queue_rounded
+                    : Icons.error_outline_rounded;
 
     showTokenizedErrorDialog(
       context,
-      title: isQuotaMessage ? 'Daily Limit Reached' : 'Connection Error',
+      title: 'Connection Error',
       message: friendlyMessage,
       icon: icon,
-      accentColor: accent,
       onOk: () => Navigator.popUntil(context, (route) => route.isFirst),
     );
   }

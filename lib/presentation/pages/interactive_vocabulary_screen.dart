@@ -353,6 +353,7 @@ class _InteractiveVocabularyScreenState
       debugPrint('📝 Using fallback sentences instead');
       // Use fallback sentences on error
       _applyFallbackSentences();
+      _showSentenceGenerationError();
     }
   }
 
@@ -1992,13 +1993,7 @@ class _InteractiveVocabularyScreenState
         ),
       );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('✗ Failed to update ${dot.word}. Please try again.'),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 2),
-        ),
-      );
+      _showSentenceGenerationError();
     }
   }
 
@@ -2043,12 +2038,7 @@ class _InteractiveVocabularyScreenState
         ),
       );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('✗ Failed to update some words. Please try again.'),
-          backgroundColor: Colors.orange,
-        ),
-      );
+      _showSentenceGenerationError();
     }
   }
 
@@ -2077,14 +2067,7 @@ class _InteractiveVocabularyScreenState
         ),
       );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-              '✗ Failed to generate new sentence for ${dot.word}. Please try again.'),
-          backgroundColor: Colors.orange,
-          duration: const Duration(seconds: 2),
-        ),
-      );
+      _showSentenceGenerationError();
     }
   }
 
@@ -2117,14 +2100,7 @@ class _InteractiveVocabularyScreenState
         ),
       );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-              '✗ Failed to generate new combined sentence. Please try again.'),
-          backgroundColor: Colors.orange,
-          duration: Duration(seconds: 2),
-        ),
-      );
+      _showSentenceGenerationError();
     }
   }
 
@@ -2600,6 +2576,18 @@ class _InteractiveVocabularyScreenState
 
     showDailyLimitReachedDialog(context);
   }
+
+  void _showSentenceGenerationError() {
+    if (!mounted) return;
+    showTokenizedErrorDialog(
+      context,
+      title: 'Connection Error',
+      message:
+          'We couldn’t generate sentences right now. Please check your connection and try again.',
+      icon: Icons.cloud_off_rounded,
+    );
+  }
+
   void _showCombinedContextSelector() {
     if (_selectedWordIds.isEmpty) return;
 
@@ -2650,13 +2638,7 @@ class _InteractiveVocabularyScreenState
         ),
       );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content:
-              Text('✗ Failed to update combined sentence. Please try again.'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _showSentenceGenerationError();
     }
   }
 
