@@ -536,15 +536,24 @@ class MergeService {
   }
 
   DateTime? _effectiveStreakStateTime(Map<String, dynamic> data) {
+    final currentStreak = int.tryParse(
+      (data['currentStreak'] ?? data['current_streak'] ?? '').toString(),
+    );
+    final lastActivity =
+        data['lastStreakActivityDate'] ?? data['last_activity_date'];
+
+    // A zero streak with no actual activity date is an empty/reset guest
+    // profile (for example after logout), not a newer learning state. Real
+    // streak expiry keeps the last activity date and must remain mergeable.
+    if (currentStreak == 0 && lastActivity == null) return null;
+
     final stateTime = _parseDateTime(
         data['streakStateUpdatedAt'] ?? data['streak_state_updated_at']);
     if (stateTime != null) return stateTime;
 
     // Older local records predate streak_state_updated_at. Use their actual
     // last activity date as a best-effort fallback until they are updated.
-    final legacyActivity =
-        data['lastStreakActivityDate'] ?? data['last_activity_date'];
-    return _parseActivityDay(legacyActivity);
+    return _parseActivityDay(lastActivity);
   }
 
   /// Get nested value from map using dot notation

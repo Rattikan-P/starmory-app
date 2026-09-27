@@ -16,6 +16,7 @@ import 'progress_tab.dart';
 import 'image_preview_screen.dart';
 import 'auth/account_method_page.dart';
 import '../widgets/permission_required_dialog.dart';
+import '../widgets/tokenized_notice_dialogs.dart';
 import '../providers/providers.dart';
 
 // Track last synced user ID to ensure syncing when switching accounts
@@ -26,7 +27,8 @@ class MainNavigationScreen extends ConsumerStatefulWidget {
   const MainNavigationScreen({super.key});
 
   @override
-  ConsumerState<MainNavigationScreen> createState() => _MainNavigationScreenState();
+  ConsumerState<MainNavigationScreen> createState() =>
+      _MainNavigationScreenState();
 }
 
 class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
@@ -56,7 +58,8 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
     }
 
     if (_lastSyncedUserId == currentUserId) {
-      print('ℹ️ [App Open] Skipping sync (already synced for user $currentUserId)');
+      print(
+          'ℹ️ [App Open] Skipping sync (already synced for user $currentUserId)');
       return;
     }
 
@@ -72,7 +75,8 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
       for (final vocab in syncedVocabs) {
         await hiveService.saveVocabulary(vocab);
       }
-      print('✅ [App Open] Sync complete! Total vocabularies: ${syncedVocabs.length}');
+      print(
+          '✅ [App Open] Sync complete! Total vocabularies: ${syncedVocabs.length}');
       await ref.read(vocabularyStateProvider.notifier).refresh();
 
       _lastSyncedUserId = currentUserId;
@@ -138,7 +142,8 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
                         borderRadius: BorderRadius.circular(30),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF7C3AED).withValues(alpha: 0.35),
+                            color:
+                                const Color(0xFF7C3AED).withValues(alpha: 0.35),
                             blurRadius: 10,
                             offset: const Offset(0, 4),
                           ),
@@ -147,7 +152,8 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 20),
+                          const Icon(Icons.camera_alt_rounded,
+                              color: Colors.white, size: 20),
                           const SizedBox(width: 8),
                           Text(
                             'Camera',
@@ -175,10 +181,12 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
                       decoration: BoxDecoration(
                         color: Colors.white.withValues(alpha: 0.88),
                         borderRadius: BorderRadius.circular(30),
-                        border: Border.all(color: const Color(0xFFDDD6FE), width: 1.5),
+                        border: Border.all(
+                            color: const Color(0xFFDDD6FE), width: 1.5),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
+                            color:
+                                const Color(0xFF8B5CF6).withValues(alpha: 0.08),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
@@ -187,7 +195,8 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(Icons.photo_library_outlined, color: Color(0xFF7C3AED), size: 20),
+                          const Icon(Icons.photo_library_outlined,
+                              color: Color(0xFF7C3AED), size: 20),
                           const SizedBox(width: 8),
                           Text(
                             'Gallery',
@@ -267,7 +276,8 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
       }
     } on PlatformException catch (e) {
       if (e.code == 'already_active') return;
-      _showErrorDialog('Error', 'Failed to pick image: ${e.message ?? e.toString()}');
+      _showErrorDialog(
+          'Error', 'Failed to pick image: ${e.message ?? e.toString()}');
     } catch (e) {
       _showErrorDialog('Error', 'Failed to pick image: ${e.toString()}');
     }
@@ -295,121 +305,15 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
   }
 
   void _showQuotaLimitDialog(bool isGuest) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: Colors.orange.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(
-                Icons.warning_amber_rounded,
-                color: Colors.orange,
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                isGuest ? 'Free Trial Limit' : 'Daily Limit Reached',
-                style: GoogleFonts.lexend(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF1F2937),
-                ),
-              ),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              isGuest
-                  ? "You've used all your guest generations. Sign up to get 15 daily generations!"
-                  : "You've reached your 15 daily generations. Come back tomorrow for more!",
-              style: GoogleFonts.lexend(
-                fontSize: 14,
-                fontWeight: FontWeight.w400,
-                color: const Color(0xFF6B7280),
-                height: 1.5,
-              ),
-            ),
-            if (isGuest) ...[
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF8B5CF6).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.star_rounded, color: Color(0xFF8B5CF6), size: 20),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        '15 generations everyday with free account!',
-                        style: GoogleFonts.lexend(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFF7C3AED),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ],
-        ),
-        actions: [
-          if (isGuest)
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                AccountMethodPage.show(context);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF8B5CF6),
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              ),
-              child: Text(
-                'Sign Up Free',
-                style: GoogleFonts.lexend(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFF6B7280),
-            ),
-            child: Text(
-              isGuest ? 'Later' : 'OK',
-              style: GoogleFonts.lexend(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+    if (isGuest) {
+      showFreeTrialLimitDialog(
+        context,
+        onSignUp: () => AccountMethodPage.show(context),
+      );
+      return;
+    }
+
+    showDailyLimitReachedDialog(context);
   }
 
   void _showPermissionDialog(String type) {
@@ -417,42 +321,16 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
   }
 
   void _showErrorDialog(String title, String message) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
-          title,
-          style: GoogleFonts.lexend(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: const Color(0xFF1F2937),
-          ),
-        ),
-        content: Text(
-          message,
-          style: GoogleFonts.lexend(
-            fontSize: 14,
-            fontWeight: FontWeight.w400,
-            color: const Color(0xFF6B7280),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFF8B5CF6),
-            ),
-            child: Text(
-              'OK',
-              style: GoogleFonts.lexend(
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        ],
-      ),
+    if (title == 'Unsupported Format') {
+      showUnsupportedFormatDialog(context);
+      return;
+    }
+
+    showTokenizedErrorDialog(
+      context,
+      title: title,
+      message: message,
+      icon: Icons.error_outline_rounded,
     );
   }
 

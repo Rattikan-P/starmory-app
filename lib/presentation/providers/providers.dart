@@ -401,8 +401,7 @@ class UserNotifier extends StateNotifier<UserState> {
         final serverLongestStreak =
             serverUserData?['longest_streak'] as int? ?? 0;
         final serverPreferences = <String, dynamic>{
-          'defaultCefrLevel':
-              languageLevel ?? AppDefaults.defaultLanguageLevel,
+          'defaultCefrLevel': languageLevel ?? AppDefaults.defaultLanguageLevel,
           'languageVariant':
               englishVariant ?? AppDefaults.defaultEnglishVariant,
         };
@@ -455,7 +454,8 @@ class UserNotifier extends StateNotifier<UserState> {
 
       await _hiveService.saveUser(registeredUser);
       if (!registeredUser.isGuest &&
-          (registeredUser.badges.isNotEmpty || registeredUser.stickers.isNotEmpty)) {
+          (registeredUser.badges.isNotEmpty ||
+              registeredUser.stickers.isNotEmpty)) {
         await Supabase.instance.client.auth.updateUser(
           UserAttributes(data: {
             'badges': registeredUser.badges,
@@ -639,7 +639,7 @@ class UserNotifier extends StateNotifier<UserState> {
           longestStreak: 0,
           shields: 0,
           clearLastStreakActivityDate: true,
-          streakStateUpdatedAt: DateTime.now(),
+          clearStreakStateUpdatedAt: true,
         );
         await _hiveService.saveUser(resetUser);
         state = UserState(user: resetUser);
@@ -674,7 +674,7 @@ class UserNotifier extends StateNotifier<UserState> {
         longestStreak: 0,
         shields: 0,
         clearLastStreakActivityDate: true,
-        streakStateUpdatedAt: DateTime.now(),
+        clearStreakStateUpdatedAt: true,
       );
       await _hiveService.saveUser(resetUser);
       return resetUser;

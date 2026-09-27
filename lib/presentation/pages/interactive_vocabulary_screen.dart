@@ -13,6 +13,7 @@ import '../../data/services/tts_service.dart';
 import 'generation_loading_screen.dart';
 import 'edit_scrapbook_screen.dart';
 import 'auth/account_method_page.dart';
+import '../widgets/tokenized_notice_dialogs.dart';
 import '../utils/reward_unlock_helper.dart';
 import 'dart:ui';
 
@@ -508,7 +509,8 @@ class _InteractiveVocabularyScreenState
           width: double.infinity,
           height: 54,
           child: ElevatedButton(
-            onPressed: _selectedWordIds.isEmpty ? null : _navigateToEditScrapbook,
+            onPressed:
+                _selectedWordIds.isEmpty ? null : _navigateToEditScrapbook,
             style: ElevatedButton.styleFrom(
               elevation: 4,
               shadowColor: const Color(0xFF8B5CF6).withValues(alpha: 0.35),
@@ -571,6 +573,7 @@ class _InteractiveVocabularyScreenState
       ),
     );
   }
+
   Future<void> _handleToggleCombinedSentence() async {
     final value = !_useCombinedSentence;
 
@@ -871,7 +874,8 @@ class _InteractiveVocabularyScreenState
                           children: [
                             OutlinedButton.icon(
                               onPressed: () => Navigator.pop(context),
-                              icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+                              icon: const Icon(Icons.arrow_back_ios_new_rounded,
+                                  size: 20),
                               label: const Text('Go Back'),
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: const Color(0xFF8B5CF6),
@@ -1037,94 +1041,95 @@ class _InteractiveVocabularyScreenState
                 minChildSize: minChildSize,
                 maxChildSize: maxChildSize,
                 builder: (context, scrollController) {
-                return ClipRRect(
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(32),
-                  ),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(
-                      sigmaX: 18,
-                      sigmaY: 18,
+                  return ClipRRect(
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(32),
                     ),
-                    child: GestureDetector(
-                      onTap: _selectedDotForOverlay != null
-                          ? _hideWordOverlay
-                          : null,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.82),
-                          borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(32),
-                          ),
-                          border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.6)),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF8B5CF6)
-                                  .withValues(alpha: 0.08),
-                              blurRadius: 30,
-                              offset: const Offset(0, -10),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(
+                        sigmaX: 18,
+                        sigmaY: 18,
+                      ),
+                      child: GestureDetector(
+                        onTap: _selectedDotForOverlay != null
+                            ? _hideWordOverlay
+                            : null,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.82),
+                            borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(32),
                             ),
-                          ],
-                        ),
-                        child: CustomScrollView(
-                          controller: scrollController,
-                          slivers: [
-                            // Drag Handle
-                            SliverToBoxAdapter(
-                              child: Center(
-                                child: Container(
-                                  margin:
-                                      const EdgeInsets.only(top: 12, bottom: 8),
-                                  width: 40,
-                                  height: 4,
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFDDD6FE),
-                                    borderRadius: BorderRadius.circular(99),
+                            border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.6)),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF8B5CF6)
+                                    .withValues(alpha: 0.08),
+                                blurRadius: 30,
+                                offset: const Offset(0, -10),
+                              ),
+                            ],
+                          ),
+                          child: CustomScrollView(
+                            controller: scrollController,
+                            slivers: [
+                              // Drag Handle
+                              SliverToBoxAdapter(
+                                child: Center(
+                                  child: Container(
+                                    margin: const EdgeInsets.only(
+                                        top: 12, bottom: 8),
+                                    width: 40,
+                                    height: 4,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFDDD6FE),
+                                      borderRadius: BorderRadius.circular(99),
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
 
-                            // Selected Words Chips
-                            SliverToBoxAdapter(
-                                child: _buildSelectedWordsChips()),
+                              // Selected Words Chips
+                              SliverToBoxAdapter(
+                                  child: _buildSelectedWordsChips()),
 
-                            // Combined Sentence Toggle & Display (Only when words are selected)
-                            if (_selectedWordIds.isNotEmpty) ...[
+                              // Combined Sentence Toggle & Display (Only when words are selected)
+                              if (_selectedWordIds.isNotEmpty) ...[
+                                SliverToBoxAdapter(
+                                    child: _buildCombinedSentenceToggle()),
+                                SliverToBoxAdapter(
+                                  child: _buildCombinedSentenceDisplay(),
+                                ),
+                              ],
+
+                              // Word Details / Empty State
+                              // Hide individual word cards when combined mode is ON
+                              if (_selectedWordIds.isEmpty)
+                                _buildEmptyStateSliver(scrollController)
+                              else if (!_useCombinedSentence)
+                                _buildWordDetailsSliver(scrollController),
+
+                              // Bottom padding so content is never blocked by "Create Scrapbook" button
                               SliverToBoxAdapter(
-                                  child: _buildCombinedSentenceToggle()),
-                              SliverToBoxAdapter(
-                                child: _buildCombinedSentenceDisplay(),
+                                child: SizedBox(
+                                  height: 110 +
+                                      MediaQuery.of(context).padding.bottom,
+                                ),
                               ),
                             ],
-
-                            // Word Details / Empty State
-                            // Hide individual word cards when combined mode is ON
-                            if (_selectedWordIds.isEmpty)
-                              _buildEmptyStateSliver(scrollController)
-                            else if (!_useCombinedSentence)
-                              _buildWordDetailsSliver(scrollController),
-
-                            // Bottom padding so content is never blocked by "Create Scrapbook" button
-                            SliverToBoxAdapter(
-                              child: SizedBox(
-                                height: 110 + MediaQuery.of(context).padding.bottom,
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                );
-              },
-            ),
-          );
-        },
-      );
-    },
-  );
+                  );
+                },
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   /// Build word overlay popup near the dot
@@ -1729,8 +1734,8 @@ class _InteractiveVocabularyScreenState
                           IconButton(
                             icon: Icon(
                               _playingAudioId == 'combined_sentence'
-                                    ? Icons.stop_rounded
-                                    : Icons.volume_up_rounded,
+                                  ? Icons.stop_rounded
+                                  : Icons.volume_up_rounded,
                               size: 22,
                             ),
                             color: const Color(0xFF8B5CF6),
@@ -1780,7 +1785,8 @@ class _InteractiveVocabularyScreenState
                 style: TextButton.styleFrom(
                   foregroundColor:
                       _isRegenerating ? Colors.grey : const Color(0xFF8B5CF6),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 ),
               ),
             ],
@@ -2499,7 +2505,6 @@ class _InteractiveVocabularyScreenState
       await ref
           .read(vocabularyStateProvider.notifier)
           .addVocabulary(vocabulary);
-
     }
 
     // Refresh after all selected words are saved. Invalidating the provider
@@ -2585,124 +2590,16 @@ class _InteractiveVocabularyScreenState
   }
 
   void _showQuotaLimitDialog(bool isGuest) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: Colors.orange.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(
-                Icons.warning_amber_rounded,
-                color: Colors.orange,
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                isGuest ? 'Free Trial Limit' : 'Daily Limit Reached',
-                style: GoogleFonts.lexend(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF1f2937),
-                ),
-              ),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              isGuest
-                  ? "You've used all your guest generations. Sign up to get 15 daily generations!"
-                  : "You've reached your 15 daily generations. Come back tomorrow for more!",
-              style: GoogleFonts.lexend(
-                fontSize: 14,
-                fontWeight: FontWeight.w400,
-                color: const Color(0xFF6b7280),
-                height: 1.5,
-              ),
-            ),
-            if (isGuest) ...[
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF8b5cf6).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.star_rounded, color: Color(0xFF8b5cf6), size: 20),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        '15 generations everyday with free account!',
-                        style: GoogleFonts.lexend(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFF7c3aed),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ],
-        ),
-        actions: [
-          if (isGuest)
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                AccountMethodPage.show(context);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF8b5cf6),
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              ),
-              child: Text(
-                'Sign Up Free',
-                style: GoogleFonts.lexend(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFF6b7280),
-            ),
-            child: Text(
-              isGuest ? 'Later' : 'OK',
-              style: GoogleFonts.lexend(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+    if (isGuest) {
+      showFreeTrialLimitDialog(
+        context,
+        onSignUp: () => AccountMethodPage.show(context),
+      );
+      return;
+    }
 
-  /// Show context selector for combined sentences
+    showDailyLimitReachedDialog(context);
+  }
   void _showCombinedContextSelector() {
     if (_selectedWordIds.isEmpty) return;
 
@@ -3051,7 +2948,8 @@ class _WordDetailCard extends StatelessWidget {
                   foregroundColor: isRegenerating || isSentenceRegenerating
                       ? Colors.grey
                       : const Color(0xFF8B5CF6),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 ),
               ),
             ],
@@ -3469,8 +3367,7 @@ class _ContextSelectorScreenState extends State<ContextSelectorScreen> {
                 onPressed: _handleApply,
                 style: ElevatedButton.styleFrom(
                   elevation: 2,
-                  shadowColor:
-                      const Color(0xFF8B5CF6).withValues(alpha: 0.3),
+                  shadowColor: const Color(0xFF8B5CF6).withValues(alpha: 0.3),
                   backgroundColor: const Color(0xFF8B5CF6),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
@@ -3988,8 +3885,7 @@ class _CombinedContextSelectorScreenState
                 onPressed: _handleApply,
                 style: ElevatedButton.styleFrom(
                   elevation: 2,
-                  shadowColor:
-                      const Color(0xFF8B5CF6).withValues(alpha: 0.3),
+                  shadowColor: const Color(0xFF8B5CF6).withValues(alpha: 0.3),
                   backgroundColor: const Color(0xFF8B5CF6),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(

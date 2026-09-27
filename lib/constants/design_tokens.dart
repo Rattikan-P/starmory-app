@@ -20,6 +20,7 @@ class DesignTokens {
   /// Informational dialogs and permission prompts.
   static const int dialogInfoValue = 0xFF6DBAFC;
   static const Color dialogInfo = Color(dialogInfoValue);
+  static const Color dialogInfoTint = Color(0xFFE8F6FF);
 
   /// Brand, account, and user-management dialogs.
   static const int dialogBrandValue = 0xFF8957F5;
@@ -28,6 +29,7 @@ class DesignTokens {
   /// Warning, rate-limit, caution, and user-guidance dialogs.
   static const int dialogWarningValue = 0xFFFFBF29;
   static const Color dialogWarning = Color(dialogWarningValue);
+  static const Color dialogWarningTint = Color(0xFFFFF1CF);
 
   /// Critical, system-error, and danger dialogs.
   static const int dialogDangerValue = 0xFFE44F54;
@@ -55,8 +57,10 @@ class DesignTokens {
 
   /// Primary surface - White with opacity
   static const Color surfacePrimary = Colors.white;
-  static const Color surfacePrimary90 = Color(0xFFFFFFFF); // withValues(alpha: 0.9)
-  static const Color surfacePrimary80 = Color(0xFFFFFFFF); // withValues(alpha: 0.8)
+  static const Color surfacePrimary90 =
+      Color(0xFFFFFFFF); // withValues(alpha: 0.9)
+  static const Color surfacePrimary80 =
+      Color(0xFFFFFFFF); // withValues(alpha: 0.8)
 
   /// Error colors
   static const Color error = Colors.red;
@@ -97,26 +101,26 @@ class DesignTokens {
   /// App-wide defaults for Material dialogs. Explicit dialog-specific styles
   /// (for example semantic accent colors) can still override these defaults.
   static DialogThemeData get dialogTheme => DialogThemeData(
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(dialogRadius),
-    ),
-    insetPadding: const EdgeInsets.symmetric(
-      horizontal: dialogInsetHorizontal,
-      vertical: dialogInsetVertical,
-    ),
-    titleTextStyle: const TextStyle(
-      fontFamily: fontFamily,
-      fontSize: dialogTitleFontSize,
-      fontWeight: weightSemiBold,
-      color: dialogTitleColor,
-    ),
-    contentTextStyle: const TextStyle(
-      fontFamily: fontFamily,
-      fontSize: dialogBodyFontSize,
-      height: dialogBodyLineHeight,
-      color: dialogBodyColor,
-    ),
-  );
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(dialogRadius),
+        ),
+        insetPadding: const EdgeInsets.symmetric(
+          horizontal: dialogInsetHorizontal,
+          vertical: dialogInsetVertical,
+        ),
+        titleTextStyle: const TextStyle(
+          fontFamily: fontFamily,
+          fontSize: dialogTitleFontSize,
+          fontWeight: weightSemiBold,
+          color: dialogTitleColor,
+        ),
+        contentTextStyle: const TextStyle(
+          fontFamily: fontFamily,
+          fontSize: dialogBodyFontSize,
+          height: dialogBodyLineHeight,
+          color: dialogBodyColor,
+        ),
+      );
 
   // ============= Control Handle Colors =============
 

@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../constants/design_tokens.dart';
 import '../pages/profile_tab.dart';
 import '../providers/providers.dart';
 
@@ -26,13 +27,6 @@ class TopHeaderActions extends ConsumerWidget {
     }
   }
 
-  int _calculateMultiplier(int streak) {
-    if (streak >= 30) return 3;
-    if (streak >= 14) return 2;
-    if (streak >= 7) return 2;
-    return 1;
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final userState = ref.watch(userStateProvider);
@@ -45,7 +39,6 @@ class TopHeaderActions extends ConsumerWidget {
     final photoUrl = user?.photoUrl;
 
     final streakDays = streakData?.currentStreak ?? 0;
-    final multiplier = _calculateMultiplier(streakDays);
     final shields = streakData?.shieldsAvailable ?? 0;
 
     return SizedBox(
@@ -58,7 +51,7 @@ class TopHeaderActions extends ConsumerWidget {
           Material(
             color: Colors.transparent,
             child: InkWell(
-              onTap: () => showStreakInfoDialog(context, streakDays, multiplier),
+              onTap: () => showStreakInfoDialog(context, streakDays),
               borderRadius: BorderRadius.circular(10),
               child: Container(
                 height: 42,
@@ -82,24 +75,6 @@ class TopHeaderActions extends ConsumerWidget {
                         color: const Color(0xFF221F33),
                       ),
                     ),
-                    if (multiplier > 1) ...[
-                      const SizedBox(width: 2),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFF5722),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          '${multiplier}x',
-                          style: GoogleFonts.lexend(
-                            fontSize: 8.5,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ],
                   ],
                 ),
               ),
@@ -214,257 +189,149 @@ class TopHeaderActions extends ConsumerWidget {
 }
 
 /// Helper function to show Streak Info Dialog
-void showStreakInfoDialog(BuildContext context, int streakDays, int multiplier) {
-  showDialog(
-    context: context,
-    builder: (context) => Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-      child: Container(
-        padding: const EdgeInsets.all(22),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(28),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFFFF5722).withValues(alpha: 0.15),
-              blurRadius: 30,
-              offset: const Offset(0, 10),
-            ),
-          ],
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 76,
-                height: 76,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xFFFFB088), Color(0xFFFF5722)],
-                  ),
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFFFF5722).withValues(alpha: 0.3),
-                      blurRadius: 18,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.local_fire_department_rounded,
-                  color: Colors.white,
-                  size: 40,
-                ),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                '$streakDays Day Streak!',
-                style: GoogleFonts.lexend(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF221F33),
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 6),
-              Text(
-                multiplier > 1
-                    ? 'You are on a roll with a ${multiplier}x Streak Multiplier!'
-                    : 'Practice vocabulary daily to increase your streak & earn rewards.',
-                style: GoogleFonts.lexend(
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w400,
-                  color: const Color(0xFF655D80),
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFF7F2),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: const Color(0xFFFFE6D8),
-                    width: 1,
-                  ),
-                ),
-                child: Column(
-                  children: [
-                    _buildInfoItem(
-                      icon: Icons.auto_awesome_rounded,
-                      iconColor: const Color(0xFFFF5722),
-                      bgColor: const Color(0xFFFFECE0),
-                      title: 'Daily Habit',
-                      description: 'Take photos or review word cards every day',
-                    ),
-                    const SizedBox(height: 10),
-                    _buildInfoItem(
-                      icon: Icons.military_tech_rounded,
-                      iconColor: const Color(0xFFFF5722),
-                      bgColor: const Color(0xFFFFECE0),
-                      title: 'Bonus Multiplier',
-                      description: 'Reach 7+ days for 2x, and 30+ days for 3x boost',
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFF5722),
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                  child: Text(
-                    'Keep Learning!',
-                    style: GoogleFonts.lexend(
-                      color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+void showStreakInfoDialog(BuildContext context, int streakDays) {
+  _showStreakInfoDialog(
+    context,
+    icon: Icons.local_fire_department_rounded,
+    title: '$streakDays Day Streak!',
+    description: 'Practice vocabulary daily to keep your streak going.',
+    buttonLabel: 'Keep learning',
+    items: [
+      _buildInfoItem(
+        icon: Icons.calendar_month_rounded,
+        iconColor: DesignTokens.dialogInfo,
+        bgColor: DesignTokens.dialogInfoTint,
+        title: 'Daily Habit',
+        description: 'Take photos or review word cards every day',
       ),
-    ),
+    ],
   );
 }
 
 /// Helper function to show Shield Info Dialog
 void showShieldInfoDialog(BuildContext context, int shields) {
+  _showStreakInfoDialog(
+    context,
+    icon: Icons.shield_outlined,
+    title: '$shields Streak Shields',
+    description: 'Don\'t let a missed day break your streak.',
+    buttonLabel: 'Got it',
+    items: [
+      _buildInfoItem(
+        icon: Icons.shield_rounded,
+        shieldHeartIcon: true,
+        iconColor: DesignTokens.dialogInfo,
+        bgColor: DesignTokens.dialogInfoTint,
+        title: 'Shield Protection',
+        description: 'Each shield protects your streak for 1 missed day',
+      ),
+      const SizedBox(height: DesignTokens.spacingMedium),
+      _buildInfoItem(
+        icon: Icons.star_rounded,
+        iconColor: DesignTokens.dialogInfo,
+        bgColor: DesignTokens.dialogInfoTint,
+        title: 'Earn Shields',
+        description: 'Keep learning for 7 days to earn a new shield',
+      ),
+    ],
+  );
+}
+
+void _showStreakInfoDialog(
+  BuildContext context, {
+  required IconData icon,
+  required String title,
+  required String description,
+  required String buttonLabel,
+  required List<Widget> items,
+}) {
   showDialog(
     context: context,
     builder: (context) => Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-      child: Container(
-        padding: const EdgeInsets.all(22),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(28),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF7C5CFC).withValues(alpha: 0.15),
-              blurRadius: 30,
-              offset: const Offset(0, 10),
-            ),
-          ],
+      backgroundColor: DesignTokens.surfacePrimary,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(DesignTokens.dialogRadius),
+      ),
+      insetPadding: const EdgeInsets.symmetric(
+        horizontal: DesignTokens.dialogInsetHorizontal,
+        vertical: DesignTokens.dialogInsetVertical,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: DesignTokens.dialogPaddingHorizontal,
+          vertical: DesignTokens.dialogPaddingVertical,
         ),
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                width: 76,
-                height: 76,
+                width: DesignTokens.dialogIconSize + 10,
+                height: DesignTokens.dialogIconSize + 10,
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xFFFFB088), Color(0xFFFF5722)],
-                  ),
+                  color: DesignTokens.dialogInfoTint,
                   shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFFFF5722).withValues(alpha: 0.3),
-                      blurRadius: 18,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
                 ),
-                child: const Icon(
-                  Icons.shield_rounded,
-                  color: Colors.white,
+                child: Icon(
+                  icon,
+                  color: DesignTokens.dialogInfo,
                   size: 38,
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: DesignTokens.dialogIconTitleSpacing),
               Text(
-                'Streak Shields ($shields)',
-                style: GoogleFonts.lexend(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF221F33),
-                ),
+                title,
                 textAlign: TextAlign.center,
+                style: GoogleFonts.lexend(
+                  fontSize: DesignTokens.dialogTitleFontSize,
+                  fontWeight: DesignTokens.weightSemiBold,
+                  color: DesignTokens.dialogTitleColor,
+                ),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: DesignTokens.dialogTitleBodySpacing),
               Text(
-                'Don\'t let a missed day break your streak!',
-                style: GoogleFonts.lexend(
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w400,
-                  color: const Color(0xFF655D80),
-                ),
+                description,
                 textAlign: TextAlign.center,
+                style: GoogleFonts.lexend(
+                  fontSize: DesignTokens.dialogBodyFontSize,
+                  height: DesignTokens.dialogBodyLineHeight,
+                  fontWeight: DesignTokens.weightRegular,
+                  color: DesignTokens.dialogSupportingTextColor,
+                ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: DesignTokens.dialogActionsSpacing),
               Container(
-                padding: const EdgeInsets.all(14),
+                padding: const EdgeInsets.all(DesignTokens.spacingLarge),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF4EEFF),
-                  borderRadius: BorderRadius.circular(16),
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(DesignTokens.radiusLarge),
                   border: Border.all(
-                    color: const Color(0xFFE2DBFD),
-                    width: 1,
+                    color: DesignTokens.dialogInfo.withValues(alpha: 0.35),
                   ),
                 ),
-                child: Column(
-                  children: [
-                    _buildInfoItem(
-                      icon: Icons.shield_rounded,
-                      iconColor: const Color(0xFF7C5CFC),
-                      bgColor: const Color(0xFFF4EEFF),
-                      title: 'Shield Protection',
-                      description:
-                          'Each shield protects your streak for 1 missed day',
-                    ),
-                    const SizedBox(height: 10),
-                    _buildInfoItem(
-                      icon: Icons.star_rounded,
-                      iconColor: const Color(0xFF7C5CFC),
-                      bgColor: const Color(0xFFF4EEFF),
-                      title: 'Earn Shields',
-                      description:
-                          'Keep learning for 7 days to earn a new shield',
-                    ),
-                  ],
-                ),
+                child: Column(children: items),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: DesignTokens.dialogActionsSpacing),
               SizedBox(
                 width: double.infinity,
-                height: 48,
+                height: DesignTokens.dialogButtonHeight,
                 child: ElevatedButton(
                   onPressed: () => Navigator.pop(context),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF7C5CFC),
-                    foregroundColor: Colors.white,
+                    backgroundColor: DesignTokens.dialogInfo,
+                    foregroundColor: DesignTokens.textOnDark,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(
+                        DesignTokens.dialogButtonRadius,
+                      ),
                     ),
                   ),
                   child: Text(
-                    'Got it!',
+                    buttonLabel,
                     style: GoogleFonts.lexend(
-                      color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
+                      fontSize: DesignTokens.dialogButtonFontSize,
+                      fontWeight: DesignTokens.weightSemiBold,
                     ),
                   ),
                 ),
@@ -479,33 +346,28 @@ void showShieldInfoDialog(BuildContext context, int shields) {
 
 Widget _buildInfoItem({
   required IconData icon,
+  bool shieldHeartIcon = false,
   required Color iconColor,
   required Color bgColor,
   required String title,
   required String description,
 }) {
   return Container(
-    padding: const EdgeInsets.all(10),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
-      border: Border.all(
-        color: const Color(0xFFEBE6FC),
-        width: 1,
-      ),
-    ),
+    padding: const EdgeInsets.symmetric(vertical: DesignTokens.spacingSmall),
     child: Row(
       children: [
         Container(
-          width: 36,
-          height: 36,
+          width: 48,
+          height: 48,
           decoration: BoxDecoration(
             color: bgColor,
-            borderRadius: BorderRadius.circular(10),
+            shape: BoxShape.circle,
           ),
-          child: Icon(icon, size: 18, color: iconColor),
+          child: shieldHeartIcon
+              ? const _ShieldHeartIcon()
+              : Icon(icon, size: 24, color: iconColor),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: DesignTokens.spacingMedium),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -513,18 +375,18 @@ Widget _buildInfoItem({
               Text(
                 title,
                 style: GoogleFonts.lexend(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF221F33),
+                  fontSize: DesignTokens.dialogBodyFontSize,
+                  fontWeight: DesignTokens.weightSemiBold,
+                  color: DesignTokens.dialogInfo,
                 ),
               ),
-              const SizedBox(height: 2),
+              const SizedBox(height: DesignTokens.spacingBase),
               Text(
                 description,
                 style: GoogleFonts.lexend(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w400,
-                  color: const Color(0xFF655D80),
+                  fontSize: DesignTokens.fontSizeSmall,
+                  fontWeight: DesignTokens.weightRegular,
+                  color: DesignTokens.dialogSupportingTextColor,
                 ),
               ),
             ],
@@ -533,4 +395,31 @@ Widget _buildInfoItem({
       ],
     ),
   );
+}
+
+class _ShieldHeartIcon extends StatelessWidget {
+  const _ShieldHeartIcon();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 24,
+      height: 24,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          const Icon(
+            Icons.shield_rounded,
+            color: DesignTokens.dialogInfo,
+            size: 24,
+          ),
+          Icon(
+            Icons.favorite_rounded,
+            color: DesignTokens.dialogInfoTint,
+            size: 11,
+          ),
+        ],
+      ),
+    );
+  }
 }

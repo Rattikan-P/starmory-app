@@ -19,6 +19,7 @@ import '../../constants/design_tokens.dart';
 import '../../data/sticker_sets.dart';
 import '../utils/reward_unlock_helper.dart';
 import '../widgets/permission_required_dialog.dart';
+import '../widgets/tokenized_notice_dialogs.dart';
 
 /// Helper class for background color options
 class _BackgroundColorOption {
@@ -4263,7 +4264,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
       }
     } on PlatformException catch (e) {
       if (e.code == 'already_active') return;
-      _showErrorDialog('Error', 'Failed to pick image: ${e.message ?? e.toString()}');
+      _showErrorDialog(
+          'Error', 'Failed to pick image: ${e.message ?? e.toString()}');
     } catch (e) {
       _showErrorDialog('Error', 'Failed to pick image: ${e.toString()}');
     }
@@ -4580,43 +4582,11 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
   }
 
   void _showErrorDialog(String title, String message) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(DesignTokens.radiusXLarge),
-        ),
-        title: Text(
-          title,
-          style: GoogleFonts.lexend(
-            fontSize: DesignTokens.fontSizeTitle,
-            fontWeight: DesignTokens.weightSemiBold,
-            color: DesignTokens.textPrimary,
-          ),
-        ),
-        content: Text(
-          message,
-          style: GoogleFonts.lexend(
-            fontSize: DesignTokens.fontSizeBody,
-            fontWeight: DesignTokens.weightRegular,
-            color: DesignTokens.textSecondary,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            style: TextButton.styleFrom(
-              foregroundColor: DesignTokens.brandColor,
-            ),
-            child: Text(
-              'OK',
-              style: GoogleFonts.lexend(
-                fontWeight: DesignTokens.weightSemiBold,
-              ),
-            ),
-          ),
-        ],
-      ),
+    showTokenizedErrorDialog(
+      context,
+      title: title,
+      message: message,
+      icon: Icons.error_outline_rounded,
     );
   }
 

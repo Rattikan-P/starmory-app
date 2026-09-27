@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../constants/design_tokens.dart';
 import '../providers/providers.dart';
 import '../utils/reward_unlock_helper.dart';
 import '../widgets/review_card_widget.dart';
@@ -71,10 +72,13 @@ class _ReviewSessionPageState extends ConsumerState<ReviewSessionPage> {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(28),
-            border: Border.all(color: const Color(0xFFEBE6FC), width: 1.5),
+            border: Border.all(
+              color: DesignTokens.dialogWarning.withValues(alpha: 0.3),
+              width: 1.5,
+            ),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF7C5CFC).withValues(alpha: 0.16),
+                color: DesignTokens.dialogWarning.withValues(alpha: 0.16),
                 blurRadius: 28,
                 offset: const Offset(0, 10),
               ),
@@ -88,14 +92,14 @@ class _ReviewSessionPageState extends ConsumerState<ReviewSessionPage> {
                 width: 60,
                 height: 60,
                 decoration: const BoxDecoration(
-                  color: Color(0xFFF1EDFF),
+                  color: DesignTokens.dialogWarningTint,
                   shape: BoxShape.circle,
                 ),
                 child: const Center(
                   child: Icon(
                     Icons.pause_rounded,
                     size: 32,
-                    color: Color(0xFF7C5CFC),
+                    color: DesignTokens.dialogWarning,
                   ),
                 ),
               ),
@@ -122,7 +126,7 @@ class _ReviewSessionPageState extends ConsumerState<ReviewSessionPage> {
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: const Color(0xFFE5DCFF),
+                    color: DesignTokens.dialogWarning.withValues(alpha: 0.3),
                     width: 1.2,
                   ),
                 ),
@@ -169,7 +173,7 @@ class _ReviewSessionPageState extends ConsumerState<ReviewSessionPage> {
                 child: ElevatedButton(
                   onPressed: () => Navigator.pop(dialogContext, false),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF7C5CFC),
+                    backgroundColor: DesignTokens.dialogWarning,
                     foregroundColor: Colors.white,
                     elevation: 0,
                     shape: RoundedRectangleBorder(

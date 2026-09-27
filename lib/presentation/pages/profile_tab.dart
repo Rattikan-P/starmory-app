@@ -9,6 +9,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/utils/safe_image_picker.dart';
 import '../../constants/app_defaults.dart';
+import '../../constants/design_tokens.dart';
 import '../../utils/snackbar_helper.dart';
 import '../providers/auth_provider.dart' as auth;
 import '../providers/providers.dart';
@@ -23,6 +24,7 @@ import 'privacy_policy_page.dart';
 import 'terms_of_service_page.dart';
 import '../widgets/galaxy_screen_background.dart';
 import '../widgets/permission_required_dialog.dart';
+import '../widgets/tokenized_notice_dialogs.dart';
 import '../widgets/common/profile_widgets.dart';
 import '../widgets/badges_section.dart';
 
@@ -117,195 +119,195 @@ class _StreakSection extends ConsumerWidget {
     }
 
     return Container(
-        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
-              blurRadius: 20,
-              offset: const Offset(0, 4),
-            ),
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 10,
-              offset: const Offset(0, 2),
-            ),
-          ],
-          border: Border.all(
-            color: const Color(0xFFE2D1F9).withValues(alpha: 0.3),
-            width: 1,
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
           ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+        border: Border.all(
+          color: const Color(0xFFE2D1F9).withValues(alpha: 0.3),
+          width: 1,
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 18, 20, 10),
-              child: Row(
-                children: [
-                  Container(
-                    width: 4,
-                    height: 18,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 10),
+            child: Row(
+              children: [
+                Container(
+                  width: 4,
+                  height: 18,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Color(0xFFFF6B6B), Color(0xFFFF8E53)],
+                    ),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  'STREAK',
+                  style: GoogleFonts.lexend(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF8B5CF6),
+                    letterSpacing: 2,
+                  ),
+                ),
+                const Spacer(),
+                // Shield badge
+                GestureDetector(
+                  onTap: () => _showShieldInfoDialog(context),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [Color(0xFFFF6B6B), Color(0xFFFF8E53)],
-                      ),
-                      borderRadius: BorderRadius.circular(2),
+                      color: const Color(0xFFE2D1F9).withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    'STREAK',
-                    style: GoogleFonts.lexend(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF8B5CF6),
-                      letterSpacing: 2,
-                    ),
-                  ),
-                  const Spacer(),
-                  // Shield badge
-                  GestureDetector(
-                    onTap: () => _showShieldInfoDialog(context),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE2D1F9).withValues(alpha: 0.5),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Text('🛡️', style: TextStyle(fontSize: 12)),
-                          const SizedBox(width: 4),
-                          Text(
-                            '$shields',
-                            style: GoogleFonts.lexend(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: const Color(0xFF8B5CF6),
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          const Icon(
-                            Icons.info_outline,
-                            size: 12,
-                            color: Color(0xFF8B5CF6),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // Main content: Streak number and motivation message
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-              child: Row(
-                children: [
-                  // Big streak number with fire icon
-                  Icon(
-                    Icons.local_fire_department,
-                    size: 36,
-                    color: currentStreak == 0
-                        ? const Color(0xFF9CA3AF)
-                        : const Color(0xFFFF6B6B),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '$currentStreak',
-                    style: GoogleFonts.lexend(
-                      fontSize: 48,
-                      fontWeight: FontWeight.w700,
-                      color: currentStreak == 0
-                          ? const Color(0xFF9CA3AF)
-                          : const Color(0xFF1f2937),
-                      height: 1,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
+                        const Text('🛡️', style: TextStyle(fontSize: 12)),
+                        const SizedBox(width: 4),
                         Text(
-                          currentStreak == 1 ? 'day' : 'days',
+                          '$shields',
                           style: GoogleFonts.lexend(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: const Color(0xFF9CA3AF),
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          getMotivationMessage(),
-                          style: GoogleFonts.lexend(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: const Color(0xFF6B7280),
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        // Shield progress text
-                        Text(
-                          daysUntilShield == 0
-                              ? 'Shield earned! 🎉'
-                              : '$daysUntilShield ${daysUntilShield == 1 ? 'day' : 'days'} to next shield',
-                          style: GoogleFonts.lexend(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
                             color: const Color(0xFF8B5CF6),
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        // Progress bar
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(6),
-                          child: Stack(
-                            children: [
-                              // Background
-                              Container(
-                                height: 6,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFE5E7EB),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                              ),
-                              // Progress
-                              FractionallySizedBox(
-                                widthFactor: consecutiveDays / 7,
-                                child: Container(
-                                  height: 6,
-                                  decoration: BoxDecoration(
-                                    gradient: const LinearGradient(
-                                      colors: [
-                                        Color(0xFF8B5CF6),
-                                        Color(0xFF60A5FA),
-                                      ],
-                                    ),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
+                        const SizedBox(width: 4),
+                        const Icon(
+                          Icons.info_outline,
+                          size: 12,
+                          color: Color(0xFF8B5CF6),
                         ),
                       ],
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+          // Main content: Streak number and motivation message
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+            child: Row(
+              children: [
+                // Big streak number with fire icon
+                Icon(
+                  Icons.local_fire_department,
+                  size: 36,
+                  color: currentStreak == 0
+                      ? const Color(0xFF9CA3AF)
+                      : const Color(0xFFFF6B6B),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '$currentStreak',
+                  style: GoogleFonts.lexend(
+                    fontSize: 48,
+                    fontWeight: FontWeight.w700,
+                    color: currentStreak == 0
+                        ? const Color(0xFF9CA3AF)
+                        : const Color(0xFF1f2937),
+                    height: 1,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        currentStreak == 1 ? 'day' : 'days',
+                        style: GoogleFonts.lexend(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF9CA3AF),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        getMotivationMessage(),
+                        style: GoogleFonts.lexend(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: const Color(0xFF6B7280),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      // Shield progress text
+                      Text(
+                        daysUntilShield == 0
+                            ? 'Shield earned! 🎉'
+                            : '$daysUntilShield ${daysUntilShield == 1 ? 'day' : 'days'} to next shield',
+                        style: GoogleFonts.lexend(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: const Color(0xFF8B5CF6),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      // Progress bar
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: Stack(
+                          children: [
+                            // Background
+                            Container(
+                              height: 6,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFE5E7EB),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            ),
+                            // Progress
+                            FractionallySizedBox(
+                              widthFactor: consecutiveDays / 7,
+                              child: Container(
+                                height: 6,
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [
+                                      Color(0xFF8B5CF6),
+                                      Color(0xFF60A5FA),
+                                    ],
+                                  ),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -325,7 +327,7 @@ class _StreakSection extends ConsumerWidget {
             borderRadius: BorderRadius.circular(28),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF8b5cf6).withValues(alpha: 0.15),
+                color: DesignTokens.dialogInfo.withValues(alpha: 0.15),
                 blurRadius: 30,
                 offset: const Offset(0, 10),
               ),
@@ -342,12 +344,12 @@ class _StreakSection extends ConsumerWidget {
                     gradient: const LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: [Color(0xFF8B5CF6), Color(0xFF60a5fa)],
+                      colors: [DesignTokens.dialogInfoTint, DesignTokens.dialogInfo],
                     ),
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF8B5CF6).withValues(alpha: 0.3),
+                        color: DesignTokens.dialogInfo.withValues(alpha: 0.3),
                         blurRadius: 20,
                         offset: const Offset(0, 8),
                       ),
@@ -383,7 +385,7 @@ class _StreakSection extends ConsumerWidget {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFE2D1F9).withValues(alpha: 0.3),
+                    color: DesignTokens.dialogInfoTint,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Column(
@@ -413,12 +415,12 @@ class _StreakSection extends ConsumerWidget {
                       gradient: const LinearGradient(
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
-                        colors: [Color(0xFF8B5CF6), Color(0xFF60a5fa)],
+                        colors: [DesignTokens.dialogInfo, DesignTokens.dialogInfo],
                       ),
                       borderRadius: BorderRadius.circular(14),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF8B5CF6).withValues(alpha: 0.4),
+                          color: DesignTokens.dialogInfo.withValues(alpha: 0.4),
                           blurRadius: 15,
                           offset: const Offset(0, 4),
                         ),
@@ -462,10 +464,10 @@ class _StreakSection extends ConsumerWidget {
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: const Color(0xFFEDE9FE),
+            color: DesignTokens.dialogInfoTint,
             borderRadius: BorderRadius.circular(10),
           ),
-          child: Icon(icon, size: 20, color: const Color(0xFF5E3A8E)),
+          child: Icon(icon, size: 20, color: DesignTokens.dialogInfo),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -477,7 +479,7 @@ class _StreakSection extends ConsumerWidget {
                 style: GoogleFonts.lexend(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: const Color(0xFF5E3A8E),
+                  color: DesignTokens.dialogInfo,
                 ),
               ),
               const SizedBox(height: 2),
@@ -748,14 +750,21 @@ class _GuestDataSection extends ConsumerWidget {
                 if (context.mounted) {
                   if (result.success && result.data != null) {
                     // Update user state with fresh guest user
-                    await ref.read(userStateProvider.notifier).updateUser(result.data!);
+                    await ref
+                        .read(userStateProvider.notifier)
+                        .updateUser(result.data!);
                     // Refresh streak to update UI after reset
                     await ref.read(streakProvider.notifier).refresh();
                     SnackBarHelper.success(context, 'Learning progress reset');
-                  } else if (result.error?.contains('Streak reset failed') == true) {
-                    SnackBarHelper.warning(context, result.error ?? 'Reset failed. Please try again.');
+                  } else if (result.error?.contains('Streak reset failed') ==
+                      true) {
+                    SnackBarHelper.warning(context,
+                        result.error ?? 'Reset failed. Please try again.');
                   } else {
-                    SnackBarHelper.error(context, result.error ?? 'Failed to reset progress. Please try again.');
+                    SnackBarHelper.error(
+                        context,
+                        result.error ??
+                            'Failed to reset progress. Please try again.');
                   }
                 }
               }
@@ -776,9 +785,11 @@ class _GuestDataSection extends ConsumerWidget {
 
               if (context.mounted) {
                 if (result.success) {
-                  SnackBarHelper.success(context, 'Vocabulary exported (${result.data} words)');
+                  SnackBarHelper.success(
+                      context, 'Vocabulary exported (${result.data} words)');
                 } else if (result.error != 'Export cancelled.') {
-                  SnackBarHelper.info(context, result.error ?? 'No vocabulary to export yet');
+                  SnackBarHelper.info(
+                      context, result.error ?? 'No vocabulary to export yet');
                 }
               }
             },
@@ -807,7 +818,7 @@ class _ConfirmStartOverDialog extends StatelessWidget {
           borderRadius: BorderRadius.circular(28),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF8b5cf6).withValues(alpha: 0.15),
+              color: DesignTokens.dialogDanger.withValues(alpha: 0.15),
               blurRadius: 30,
               offset: const Offset(0, 10),
             ),
@@ -824,12 +835,12 @@ class _ConfirmStartOverDialog extends StatelessWidget {
                   gradient: const LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [Color(0xFFFF6B6B), Color(0xFFFF8E53)],
+                    colors: [DesignTokens.dialogDanger, DesignTokens.dialogDanger],
                   ),
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFFFF6B6B).withValues(alpha: 0.3),
+                      color: DesignTokens.dialogDanger.withValues(alpha: 0.3),
                       blurRadius: 20,
                       offset: const Offset(0, 8),
                     ),
@@ -865,7 +876,7 @@ class _ConfirmStartOverDialog extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFEE2E2).withValues(alpha: 0.3),
+                  color: DesignTokens.dialogDanger.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Column(
@@ -936,14 +947,12 @@ class _ConfirmStartOverDialog extends StatelessWidget {
                           gradient: const LinearGradient(
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
-                            colors: [Color(0xFFFF6B6B), Color(0xFFFF8E53)],
+                            colors: [DesignTokens.dialogDanger, DesignTokens.dialogDanger],
                           ),
                           borderRadius: BorderRadius.circular(14),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(
-                                0xFFFF6B6B,
-                              ).withValues(alpha: 0.4),
+                              color: DesignTokens.dialogDanger.withValues(alpha: 0.4),
                               blurRadius: 15,
                               offset: const Offset(0, 4),
                             ),
@@ -998,7 +1007,7 @@ class _ConfirmResetProgressDialog extends StatelessWidget {
           borderRadius: BorderRadius.circular(28),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF8b5cf6).withValues(alpha: 0.15),
+              color: DesignTokens.dialogDanger.withValues(alpha: 0.15),
               blurRadius: 30,
               offset: const Offset(0, 10),
             ),
@@ -1015,12 +1024,12 @@ class _ConfirmResetProgressDialog extends StatelessWidget {
                   gradient: const LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [Color(0xFFFF6B6B), Color(0xFFFF8E53)],
+                    colors: [DesignTokens.dialogDanger, DesignTokens.dialogDanger],
                   ),
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFFFF6B6B).withValues(alpha: 0.3),
+                      color: DesignTokens.dialogDanger.withValues(alpha: 0.3),
                       blurRadius: 20,
                       offset: const Offset(0, 8),
                     ),
@@ -1056,7 +1065,7 @@ class _ConfirmResetProgressDialog extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFEE2E2).withValues(alpha: 0.3),
+                  color: DesignTokens.dialogDanger.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Column(
@@ -1127,14 +1136,12 @@ class _ConfirmResetProgressDialog extends StatelessWidget {
                           gradient: const LinearGradient(
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
-                            colors: [Color(0xFFFF6B6B), Color(0xFFFF8E53)],
+                            colors: [DesignTokens.dialogDanger, DesignTokens.dialogDanger],
                           ),
                           borderRadius: BorderRadius.circular(14),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(
-                                0xFFFF6B6B,
-                              ).withValues(alpha: 0.4),
+                              color: DesignTokens.dialogDanger.withValues(alpha: 0.4),
                               blurRadius: 15,
                               offset: const Offset(0, 4),
                             ),
@@ -1251,15 +1258,22 @@ class _DataSection extends ConsumerWidget {
                 if (context.mounted) {
                   if (result.success && result.data != null) {
                     // Update user state with updated user
-                    await ref.read(userStateProvider.notifier).updateUser(result.data!);
+                    await ref
+                        .read(userStateProvider.notifier)
+                        .updateUser(result.data!);
                     // Refresh streak to update UI after reset
                     await ref.read(streakProvider.notifier).refresh();
                     SnackBarHelper.success(context, 'Learning progress reset');
-                  } else if (result.error?.contains('Streak reset failed') == true ||
-                             result.error?.contains('Cloud sync') == true) {
-                    SnackBarHelper.warning(context, result.error ?? 'Reset failed. Please try again.');
+                  } else if (result.error?.contains('Streak reset failed') ==
+                          true ||
+                      result.error?.contains('Cloud sync') == true) {
+                    SnackBarHelper.warning(context,
+                        result.error ?? 'Reset failed. Please try again.');
                   } else {
-                    SnackBarHelper.error(context, result.error ?? 'Failed to reset progress. Please try again.');
+                    SnackBarHelper.error(
+                        context,
+                        result.error ??
+                            'Failed to reset progress. Please try again.');
                   }
                 }
               }
@@ -1276,13 +1290,16 @@ class _DataSection extends ConsumerWidget {
             onTap: () async {
               print('🔘 Export Vocabulary button pressed (registered)');
               final repository = ref.read(profileRepositoryProvider);
-              final result = await repository.exportVocabulary(UserType.registered);
+              final result =
+                  await repository.exportVocabulary(UserType.registered);
 
               if (context.mounted) {
                 if (result.success) {
-                  SnackBarHelper.success(context, 'Vocabulary exported (${result.data} words)');
+                  SnackBarHelper.success(
+                      context, 'Vocabulary exported (${result.data} words)');
                 } else if (result.error != 'Export cancelled.') {
-                  SnackBarHelper.info(context, result.error ?? 'No vocabulary to export yet');
+                  SnackBarHelper.info(
+                      context, result.error ?? 'No vocabulary to export yet');
                 }
               }
             },
@@ -1303,7 +1320,8 @@ class _DataSection extends ConsumerWidget {
                 if (result.success) {
                   SnackBarHelper.success(context, 'Cache cleared successfully');
                 } else {
-                  SnackBarHelper.error(context, result.error ?? 'Failed to clear cache');
+                  SnackBarHelper.error(
+                      context, result.error ?? 'Failed to clear cache');
                 }
               }
             },
@@ -1732,246 +1750,243 @@ class _NotLoggedInViewState extends ConsumerState<_NotLoggedInView> {
     return Scaffold(
       body: GalaxyScreenBackground(
         child: Column(
-            children: [
-              // Guest Header
-              SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    children: [
-                      // Top bar with back button and Guest badge
-                      Row(
-                        children: [
-                          Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.06),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: IconButton(
-                              icon: const Icon(
-                                Icons.arrow_back_ios_new_rounded,
-                                color: Color(0xFF1F2937),
-                                size: 20,
+          children: [
+            // Guest Header
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  children: [
+                    // Top bar with back button and Guest badge
+                    Row(
+                      children: [
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.06),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
                               ),
-                              onPressed: () => Navigator.pop(context),
+                            ],
+                          ),
+                          child: IconButton(
+                            icon: const Icon(
+                              Icons.arrow_back_ios_new_rounded,
+                              color: Color(0xFF1F2937),
+                              size: 20,
+                            ),
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                        ),
+                        const Spacer(),
+                        // Guest User badge (moved here)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(
+                              0xFFE2D1F9,
+                            ).withValues(alpha: 0.5),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: const Color(
+                                0xFF8B5CF6,
+                              ).withValues(alpha: 0.2),
+                              width: 1,
                             ),
                           ),
-                          const Spacer(),
-                          // Guest User badge (moved here)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(
-                                0xFFE2D1F9,
-                              ).withValues(alpha: 0.5),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: const Color(
-                                  0xFF8B5CF6,
-                                ).withValues(alpha: 0.2),
-                                width: 1,
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.person_outline,
+                                size: 14,
+                                color: Color(0xFF1f2937),
                               ),
-                            ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.person_outline,
-                                  size: 14,
+                              SizedBox(width: 4),
+                              Text(
+                                'Guest User',
+                                style: TextStyle(
                                   color: Color(0xFF1f2937),
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 11,
                                 ),
-                                SizedBox(width: 4),
-                                Text(
-                                  'Guest User',
-                                  style: TextStyle(
-                                    color: Color(0xFF1f2937),
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 11,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Register Prompt Card
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.08),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.cloud_sync_outlined,
+                            size: 36,
+                            color: const Color(0xFF8B5CF6),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Save your progress',
+                            style: GoogleFonts.cormorantUnicase(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: const Color(0xFF1f2937),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Continue your journey anywhere',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: const Color(
+                                0xFF1f2937,
+                              ).withValues(alpha: 0.7),
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 16),
+                          // Consistent gradient button
+                          SizedBox(
+                            width: double.infinity,
+                            height: 50,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    Color(0xFF8B5CF6),
+                                    Color(0xFF60a5fa),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(14),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(
+                                      0xFF8B5CF6,
+                                    ).withValues(alpha: 0.4),
+                                    blurRadius: 15,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: () {
+                                    AccountMethodPage.show(context);
+                                  },
+                                  borderRadius: BorderRadius.circular(14),
+                                  child: const Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.person_add,
+                                        color: Colors.white,
+                                        size: 20,
+                                      ),
+                                      SizedBox(width: 8),
+                                      Text(
+                                        'Create Account',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                              ],
+                              ),
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 16),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                ),
+              ),
+            ),
 
-                      // Register Prompt Card
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.08),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          children: [
-                            Icon(
-                              Icons.cloud_sync_outlined,
-                              size: 36,
-                              color: const Color(0xFF8B5CF6),
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              'Save your progress',
-                              style: GoogleFonts.cormorantUnicase(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: const Color(0xFF1f2937),
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Continue your journey anywhere',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: const Color(
-                                  0xFF1f2937,
-                                ).withValues(alpha: 0.7),
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 16),
-                            // Consistent gradient button
-                            SizedBox(
-                              width: double.infinity,
-                              height: 50,
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  gradient: const LinearGradient(
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                    colors: [
-                                      Color(0xFF8B5CF6),
-                                      Color(0xFF60a5fa),
-                                    ],
-                                  ),
-                                  borderRadius: BorderRadius.circular(14),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: const Color(
-                                        0xFF8B5CF6,
-                                      ).withValues(alpha: 0.4),
-                                      blurRadius: 15,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ],
-                                ),
-                                child: Material(
-                                  color: Colors.transparent,
-                                  child: InkWell(
-                                    onTap: () {
-                                      AccountMethodPage.show(context);
-                                    },
-                                    borderRadius: BorderRadius.circular(14),
-                                    child: const Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Icon(
-                                          Icons.person_add,
-                                          color: Colors.white,
-                                          size: 20,
-                                        ),
-                                        SizedBox(width: 8),
-                                        Text(
-                                          'Create Account',
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 15,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+            // All Sections
+            Expanded(
+              child: Container(
+                clipBehavior: Clip.antiAlias,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(32),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.04),
+                      blurRadius: 20,
+                      offset: const Offset(0, -4),
+                    ),
+                  ],
+                ),
+                child: SingleChildScrollView(
+                  physics: const ClampingScrollPhysics(),
+                  padding: const EdgeInsets.only(top: 8, bottom: 40),
+                  child: Column(
+                    children: [
+                      // Streak Section
+                      const _StreakSection(),
+                      const SizedBox(height: 8),
+
+                      // Badges Section
+                      const BadgesSection(),
+                      const SizedBox(height: 8),
+
+                      // Preferences Section
+                      _PreferencesSection(
+                        languageLevel: _guestLanguageLevel ??
+                            AppDefaults.defaultLanguageLevel,
+                        englishVariant: _guestEnglishVariant ??
+                            AppDefaults.defaultEnglishVariant,
+                        isGuest: true,
+                        onPreferenceChanged: _loadGuestPreferences,
                       ),
-                      const SizedBox(height: 12),
+
+                      // Guest Data Section
+                      const _GuestDataSection(),
+
+                      // About Section
+                      const _AboutSection(),
+
+                      const SizedBox(height: 24),
                     ],
                   ),
                 ),
               ),
-
-              // All Sections
-              Expanded(
-                child: Container(
-                  clipBehavior: Clip.antiAlias,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(32),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.04),
-                        blurRadius: 20,
-                        offset: const Offset(0, -4),
-                      ),
-                    ],
-                  ),
-                  child: SingleChildScrollView(
-                    physics: const ClampingScrollPhysics(),
-                    padding: const EdgeInsets.only(top: 8, bottom: 40),
-                    child: Column(
-                      children: [
-                        // Streak Section
-                        const _StreakSection(),
-                        const SizedBox(height: 8),
-
-                        // Badges Section
-                        const BadgesSection(),
-                        const SizedBox(height: 8),
-
-                        // Preferences Section
-                        _PreferencesSection(
-                          languageLevel:
-                              _guestLanguageLevel ??
-                              AppDefaults.defaultLanguageLevel,
-                          englishVariant:
-                              _guestEnglishVariant ??
-                              AppDefaults.defaultEnglishVariant,
-                          isGuest: true,
-                          onPreferenceChanged: _loadGuestPreferences,
-                        ),
-
-                        // Guest Data Section
-                        const _GuestDataSection(),
-
-                        // About Section
-                        const _AboutSection(),
-
-                        const SizedBox(height: 24),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
-      );
+      ),
+    );
   }
 }
 
@@ -2009,23 +2024,19 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
   @override
   Widget build(BuildContext context) {
     // Fallback to metadata if data not loaded yet
-    final displayName =
-        _userData?['display_name'] ??
+    final displayName = _userData?['display_name'] ??
         widget.user.userMetadata?['display_name'] ??
         'User';
     final email = widget.user.email ?? '';
-    final languageLevel =
-        _userData?['language_level'] ??
+    final languageLevel = _userData?['language_level'] ??
         widget.user.userMetadata?['language_level'] ??
         AppDefaults.defaultLanguageLevel;
-    final englishVariant =
-        _userData?['english_variant'] ??
+    final englishVariant = _userData?['english_variant'] ??
         widget.user.userMetadata?['english_variant'] ??
         AppDefaults.defaultEnglishVariant;
 
     // Get avatar URL from database or Google (fallback)
-    final rawAvatarUrl =
-        _userData?['avatar_url'] ??
+    final rawAvatarUrl = _userData?['avatar_url'] ??
         widget.user.userMetadata?['avatar_url'] ??
         widget.user.userMetadata?['picture'];
 
@@ -2040,237 +2051,235 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
     return Scaffold(
       body: GalaxyScreenBackground(
         child: Column(
-            children: [
-              // Profile Header
-              SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 12,
-                  ),
-                  child: Column(
-                    children: [
-                      // Top bar with back and logout buttons
-                      Row(
+          children: [
+            // Profile Header
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
+                child: Column(
+                  children: [
+                    // Top bar with back and logout buttons
+                    Row(
+                      children: [
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.06),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: IconButton(
+                            icon: const Icon(
+                              Icons.arrow_back_ios_new_rounded,
+                              color: Color(0xFF1F2937),
+                              size: 20,
+                            ),
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                        ),
+                        const Spacer(),
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.06),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: IconButton(
+                            icon: const Icon(
+                              Icons.logout,
+                              color: Color(0xFF1f2937),
+                            ),
+                            onPressed: () => _showLogoutDialog(context, ref),
+                            tooltip: 'Logout',
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    // Avatar - clickable to change
+                    GestureDetector(
+                      onTap: () =>
+                          _showAvatarPicker(context, displayName, avatarUrl),
+                      child: Stack(
                         children: [
                           Container(
                             decoration: BoxDecoration(
                               color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
+                              shape: BoxShape.circle,
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.06),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 2),
+                                  color: Colors.black.withValues(alpha: 0.1),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 4),
                                 ),
                               ],
                             ),
-                            child: IconButton(
-                              icon: const Icon(
-                                Icons.arrow_back_ios_new_rounded,
-                                color: Color(0xFF1F2937),
-                                size: 20,
-                              ),
-                              onPressed: () => Navigator.pop(context),
+                            child: CircleAvatar(
+                              radius: 40,
+                              backgroundColor: Colors.white,
+                              backgroundImage: avatarUrl != null
+                                  ? NetworkImage(avatarUrl)
+                                  : null,
+                              child: avatarUrl == null
+                                  ? Text(
+                                      displayName.substring(0, 1).toUpperCase(),
+                                      style: const TextStyle(
+                                        fontSize: 28,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF8B5CF6),
+                                      ),
+                                    )
+                                  : null,
                             ),
                           ),
-                          const Spacer(),
-                          Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.06),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 2),
+                          // Edit icon overlay
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: Container(
+                              width: 28,
+                              height: 28,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF8B5CF6),
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: 2,
                                 ),
-                              ],
-                            ),
-                            child: IconButton(
-                              icon: const Icon(
-                                Icons.logout,
-                                color: Color(0xFF1f2937),
                               ),
-                              onPressed: () => _showLogoutDialog(context, ref),
-                              tooltip: 'Logout',
+                              child: const Icon(
+                                Icons.camera_alt,
+                                size: 14,
+                                color: Colors.white,
+                              ),
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 4),
-                      // Avatar - clickable to change
-                      GestureDetector(
-                        onTap: () =>
-                            _showAvatarPicker(context, displayName, avatarUrl),
-                        child: Stack(
-                          children: [
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.1),
-                                    blurRadius: 12,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
+                    ),
+                    const SizedBox(height: 12),
+                    // Name - clickable to edit
+                    GestureDetector(
+                      onTap: () =>
+                          _showDisplayNameDialog(context, ref, displayName),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              displayName.length > 11
+                                  ? '${displayName.substring(0, 11)}...'
+                                  : displayName,
+                              style: GoogleFonts.cormorantUnicase(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFF1f2937),
                               ),
-                              child: CircleAvatar(
-                                radius: 40,
-                                backgroundColor: Colors.white,
-                                backgroundImage: avatarUrl != null
-                                    ? NetworkImage(avatarUrl)
-                                    : null,
-                                child: avatarUrl == null
-                                    ? Text(
-                                        displayName
-                                            .substring(0, 1)
-                                            .toUpperCase(),
-                                        style: const TextStyle(
-                                          fontSize: 28,
-                                          fontWeight: FontWeight.bold,
-                                          color: Color(0xFF8B5CF6),
-                                        ),
-                                      )
-                                    : null,
-                              ),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                              textAlign: TextAlign.center,
                             ),
-                            // Edit icon overlay
-                            Positioned(
-                              bottom: 0,
-                              right: 0,
-                              child: Container(
-                                width: 28,
-                                height: 28,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF8B5CF6),
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: Colors.white,
-                                    width: 2,
-                                  ),
-                                ),
-                                child: const Icon(
-                                  Icons.camera_alt,
-                                  size: 14,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                          ),
+                          const SizedBox(width: 6),
+                          Icon(
+                            Icons.edit_outlined,
+                            size: 16,
+                            color: const Color(
+                              0xFF1f2937,
+                            ).withValues(alpha: 0.5),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 12),
-                      // Name - clickable to edit
-                      GestureDetector(
-                        onTap: () =>
-                            _showDisplayNameDialog(context, ref, displayName),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Flexible(
-                              child: Text(
-                                displayName.length > 11
-                                    ? '${displayName.substring(0, 11)}...'
-                                    : displayName,
-                                style: GoogleFonts.cormorantUnicase(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                  color: const Color(0xFF1f2937),
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                                maxLines: 1,
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Icon(
-                              Icons.edit_outlined,
-                              size: 16,
-                              color: const Color(
-                                0xFF1f2937,
-                              ).withValues(alpha: 0.5),
-                            ),
-                          ],
-                        ),
+                    ),
+                    const SizedBox(height: 2),
+                    // Email
+                    Text(
+                      email,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: const Color(0xFF1f2937).withValues(alpha: 0.7),
                       ),
-                      const SizedBox(height: 2),
-                      // Email
-                      Text(
-                        email,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: const Color(0xFF1f2937).withValues(alpha: 0.7),
-                        ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                ),
+              ),
+            ),
+
+            // All Sections
+            Expanded(
+              child: Container(
+                clipBehavior: Clip.antiAlias,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(32),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.04),
+                      blurRadius: 20,
+                      offset: const Offset(0, -4),
+                    ),
+                  ],
+                ),
+                child: SingleChildScrollView(
+                  physics: const ClampingScrollPhysics(),
+                  padding: const EdgeInsets.only(top: 8, bottom: 40),
+                  child: Column(
+                    children: [
+                      // Streak Section
+                      const _StreakSection(),
+                      const SizedBox(height: 8),
+
+                      // Badges Section
+                      const BadgesSection(),
+                      const SizedBox(height: 8),
+
+                      // Preferences Section
+                      _PreferencesSection(
+                        languageLevel: languageLevel,
+                        englishVariant: englishVariant,
+                        isGuest: false,
+                        onPreferenceChanged: _fetchUserData,
                       ),
-                      const SizedBox(height: 16),
+
+                      // Data Section
+                      const _DataSection(),
+
+                      // About Section
+                      const _AboutSection(),
+
+                      // Account Section (moved to bottom for safety)
+                      _AccountSection(
+                        onDeleteAccount: () =>
+                            _showDeleteAccountDialog(context, ref),
+                      ),
+
+                      const SizedBox(height: 24),
                     ],
                   ),
                 ),
               ),
-
-              // All Sections
-              Expanded(
-                child: Container(
-                  clipBehavior: Clip.antiAlias,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(32),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.04),
-                        blurRadius: 20,
-                        offset: const Offset(0, -4),
-                      ),
-                    ],
-                  ),
-                  child: SingleChildScrollView(
-                    physics: const ClampingScrollPhysics(),
-                    padding: const EdgeInsets.only(top: 8, bottom: 40),
-                    child: Column(
-                      children: [
-                        // Streak Section
-                        const _StreakSection(),
-                        const SizedBox(height: 8),
-
-                        // Badges Section
-                        const BadgesSection(),
-                        const SizedBox(height: 8),
-
-                        // Preferences Section
-                        _PreferencesSection(
-                          languageLevel: languageLevel,
-                          englishVariant: englishVariant,
-                          isGuest: false,
-                          onPreferenceChanged: _fetchUserData,
-                        ),
-
-                        // Data Section
-                        const _DataSection(),
-
-                        // About Section
-                        const _AboutSection(),
-
-                        // Account Section (moved to bottom for safety)
-                        _AccountSection(
-                          onDeleteAccount: () =>
-                              _showDeleteAccountDialog(context, ref),
-                        ),
-
-                        const SizedBox(height: 24),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
-      );
+      ),
+    );
   }
 
   Future<void> _showDisplayNameDialog(
@@ -2297,10 +2306,13 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
           if (updateResult.success) {
             SnackBarHelper.success(context, AlertMessages.changesSaved);
             // Refresh userState so home page shows updated name
-            await ref.read(userStateProvider.notifier).refreshUserFromSupabase();
+            await ref
+                .read(userStateProvider.notifier)
+                .refreshUserFromSupabase();
             _fetchUserData();
           } else {
-            SnackBarHelper.error(context, updateResult.error ?? AlertMessages.saveFailed);
+            SnackBarHelper.error(
+                context, updateResult.error ?? AlertMessages.saveFailed);
           }
         }
       }
@@ -2326,9 +2338,8 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
       if (result == 'remove') {
         await _removeAvatar(context);
       } else if (result == 'camera' || result == 'gallery') {
-        final ImageSource source = result == 'camera'
-            ? ImageSource.camera
-            : ImageSource.gallery;
+        final ImageSource source =
+            result == 'camera' ? ImageSource.camera : ImageSource.gallery;
         await _pickAndUploadAvatar(context, source);
       }
     } catch (e) {
@@ -2406,16 +2417,20 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
           // Wait for database update to complete, then refresh userState
           await Future.delayed(const Duration(milliseconds: 500));
           if (mounted) {
-            await ref.read(userStateProvider.notifier).refreshUserFromSupabase();
+            await ref
+                .read(userStateProvider.notifier)
+                .refreshUserFromSupabase();
           }
         } else {
-          SnackBarHelper.error(context, result.error ?? AlertMessages.saveFailed);
+          SnackBarHelper.error(
+              context, result.error ?? AlertMessages.saveFailed);
         }
       }
     } on PlatformException catch (e) {
       if (e.code == 'already_active') return;
       if (context.mounted) {
-        SnackBarHelper.error(context, 'Failed to pick image: ${e.message ?? e.toString()}');
+        SnackBarHelper.error(
+            context, 'Failed to pick image: ${e.message ?? e.toString()}');
       }
     } catch (e) {
       if (context.mounted) {
@@ -2460,7 +2475,7 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
             borderRadius: BorderRadius.circular(28),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF8b5cf6).withValues(alpha: 0.15),
+                color: DesignTokens.dialogBrand.withValues(alpha: 0.15),
                 blurRadius: 30,
                 offset: const Offset(0, 10),
               ),
@@ -2474,15 +2489,11 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
                   width: 80,
                   height: 80,
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [Color(0xFFf472b6), Color(0xFF60a5fa)],
-                    ),
+                    color: DesignTokens.dialogBrand,
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFFf472b6).withValues(alpha: 0.3),
+                        color: DesignTokens.dialogBrand.withValues(alpha: 0.3),
                         blurRadius: 20,
                         offset: const Offset(0, 8),
                       ),
@@ -2550,17 +2561,11 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
                         height: 50,
                         child: Container(
                           decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [Color(0xFF60a5fa), Color(0xFFa78bfa)],
-                            ),
+                            color: DesignTokens.dialogBrand,
                             borderRadius: BorderRadius.circular(14),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(
-                                  0xFFa78bfa,
-                                ).withValues(alpha: 0.4),
+                                color: DesignTokens.dialogBrand.withValues(alpha: 0.4),
                                 blurRadius: 15,
                                 offset: const Offset(0, 4),
                               ),
@@ -2683,7 +2688,7 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
             borderRadius: BorderRadius.circular(28),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF8b5cf6).withValues(alpha: 0.15),
+                color: DesignTokens.dialogDanger.withValues(alpha: 0.15),
                 blurRadius: 30,
                 offset: const Offset(0, 10),
               ),
@@ -2697,15 +2702,11 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
                   width: 80,
                   height: 80,
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [Color(0xFFef4444), Color(0xFFf97316)],
-                    ),
+                    color: DesignTokens.dialogDanger,
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFFef4444).withValues(alpha: 0.3),
+                        color: DesignTokens.dialogDanger.withValues(alpha: 0.3),
                         blurRadius: 20,
                         offset: const Offset(0, 8),
                       ),
@@ -2743,7 +2744,7 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
                   style: GoogleFonts.lexend(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
-                    color: const Color(0xFFef4444),
+                    color: DesignTokens.dialogDanger,
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -2783,17 +2784,11 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
                         height: 50,
                         child: Container(
                           decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [Color(0xFFef4444), Color(0xFFf97316)],
-                            ),
+                            color: DesignTokens.dialogDanger,
                             borderRadius: BorderRadius.circular(14),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(
-                                  0xFFef4444,
-                                ).withValues(alpha: 0.4),
+                                color: DesignTokens.dialogDanger.withValues(alpha: 0.4),
                                 blurRadius: 15,
                                 offset: const Offset(0, 4),
                               ),
@@ -2878,7 +2873,8 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
         print('🚪 Navigating to onboarding...');
         // Use captured navigator (with rootNavigator) to ensure navigation works
         navigator.pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const OnboardingPage(skipToAuth: true)),
+          MaterialPageRoute(
+              builder: (_) => const OnboardingPage(skipToAuth: true)),
           (route) => false,
         );
       } catch (e) {
@@ -2897,43 +2893,7 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
   }
 
   void _showUnsupportedFormatDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
-          'Unsupported Format',
-          style: GoogleFonts.lexend(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: const Color(0xFF1f2937),
-          ),
-        ),
-        content: Text(
-          'Only JPEG and PNG images are supported. Please select a different photo.',
-          style: GoogleFonts.lexend(
-            fontSize: 14,
-            fontWeight: FontWeight.w400,
-            color: const Color(0xFF6b7280),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFF8b5cf6),
-            ),
-            child: Text(
-              'OK',
-              style: GoogleFonts.lexend(
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+    showUnsupportedFormatDialog(context);
   }
 }
 

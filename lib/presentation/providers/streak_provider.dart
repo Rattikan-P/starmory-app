@@ -330,9 +330,9 @@ class StreakNotifier extends StateNotifier<StreakData?> {
                     legacyGuestData['last_activity_date'] as String)
                 : null;
     final snapshotStateTime = guestStreakSnapshot?['streakStateUpdatedAt'];
-    final guestStateUpdatedAt = _parseDateTime(snapshotStateTime) ??
-        guestLastDate ??
-        (guestStreak > 0 ? guestLastDate : null);
+    final guestStateUpdatedAt = guestStreak == 0 && guestLastDate == null
+        ? null
+        : _parseDateTime(snapshotStateTime) ?? guestLastDate;
 
     // Only migrate if there's actual data
     if (guestStreak == 0 &&

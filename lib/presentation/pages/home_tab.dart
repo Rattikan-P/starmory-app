@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
@@ -13,6 +14,7 @@ import '../../constants/design_tokens.dart';
 import '../providers/providers.dart';
 import '../../data/models/scrapbook_model.dart';
 import 'image_preview_screen.dart';
+import 'dialog_preview_page.dart';
 import 'edit_scrapbook_screen.dart';
 import 'auth/account_method_page.dart';
 import 'profile_tab.dart';
@@ -21,6 +23,7 @@ import '../widgets/scrapbook_detail_sheet.dart';
 import '../widgets/scrapbook_polaroid.dart';
 import '../widgets/top_header_actions.dart';
 import '../widgets/permission_required_dialog.dart';
+import '../widgets/tokenized_notice_dialogs.dart';
 
 /// Home Tab - Main screen with AI generation
 /// Redesigned to feel warm, welcoming, and pressure-free
@@ -82,9 +85,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
         if (hasPendingRewardCheck) {
           RewardUnlockHelper.checkAndShowUnlocks(context, ref);
         } else {
-          ref
-              .read(badgeStateProvider.notifier)
-              .showPendingUnlocks(context);
+          ref.read(badgeStateProvider.notifier).showPendingUnlocks(context);
         }
       }
     });
@@ -190,7 +191,8 @@ class _HomeTabState extends ConsumerState<HomeTab>
               // Recent Scrapbook
               _buildRecentScrapbook(context),
 
-              const SizedBox(height: 120), // Extra space at bottom for floating nav
+              const SizedBox(
+                  height: 120), // Extra space at bottom for floating nav
             ],
           ),
         ),
@@ -259,6 +261,18 @@ class _HomeTabState extends ConsumerState<HomeTab>
             ),
           ),
           const SizedBox(width: 8),
+          if (kDebugMode)
+            IconButton(
+              tooltip: 'Preview dialogs',
+              visualDensity: VisualDensity.compact,
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) => const DialogPreviewPage(),
+                ),
+              ),
+              icon: const Icon(Icons.preview_outlined),
+            ),
           // Top Header Actions (Streak + Shield + Profile Avatar)
           TopHeaderActions(
             onProfileTap: _openProfile,
@@ -358,7 +372,8 @@ class _HomeTabState extends ConsumerState<HomeTab>
                               borderRadius: BorderRadius.circular(30),
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(0xFF7C3AED).withValues(alpha: 0.35),
+                                  color: const Color(0xFF7C3AED)
+                                      .withValues(alpha: 0.35),
                                   blurRadius: 10,
                                   offset: const Offset(0, 4),
                                 ),
@@ -408,7 +423,8 @@ class _HomeTabState extends ConsumerState<HomeTab>
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
+                                  color: const Color(0xFF8B5CF6)
+                                      .withValues(alpha: 0.08),
                                   blurRadius: 8,
                                   offset: const Offset(0, 2),
                                 ),
@@ -459,7 +475,8 @@ class _HomeTabState extends ConsumerState<HomeTab>
     final totalLimit = quotaManager?.totalLimit ?? 3;
 
     final remainingGenerations = isGuest
-        ? (totalLimit - totalUsage).clamp(0, (dailyLimit - todayUsage).clamp(0, dailyLimit))
+        ? (totalLimit - totalUsage)
+            .clamp(0, (dailyLimit - todayUsage).clamp(0, dailyLimit))
         : (dailyLimit - todayUsage).clamp(0, dailyLimit);
 
     return Container(
@@ -566,7 +583,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
                   ),
                 ),
                 child: Text(
-                  'Sign in',
+                  'Sign up',
                   style: GoogleFonts.lexend(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
@@ -581,121 +598,15 @@ class _HomeTabState extends ConsumerState<HomeTab>
   }
 
   void _showQuotaLimitDialog(bool isGuest) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: Colors.orange.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(
-                Icons.warning_amber_rounded,
-                color: Colors.orange,
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                isGuest ? 'Free Trial Limit' : 'Daily Limit Reached',
-                style: GoogleFonts.lexend(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF1f2937),
-                ),
-              ),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              isGuest
-                  ? "You've used all your guest generations. Sign up to get 15 daily generations!"
-                  : "You've reached your 15 daily generations. Come back tomorrow for more!",
-              style: GoogleFonts.lexend(
-                fontSize: 14,
-                fontWeight: FontWeight.w400,
-                color: const Color(0xFF6b7280),
-                height: 1.5,
-              ),
-            ),
-            if (isGuest) ...[
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF8b5cf6).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.star_rounded, color: Color(0xFF8b5cf6), size: 20),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        '15 generations everyday with free account!',
-                        style: GoogleFonts.lexend(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFF7c3aed),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ],
-        ),
-        actions: [
-          if (isGuest)
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                AccountMethodPage.show(context);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF8b5cf6),
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              ),
-              child: Text(
-                'Sign Up Free',
-                style: GoogleFonts.lexend(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFF6b7280),
-            ),
-            child: Text(
-              isGuest ? 'Later' : 'OK',
-              style: GoogleFonts.lexend(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+    if (isGuest) {
+      showFreeTrialLimitDialog(
+        context,
+        onSignUp: () => AccountMethodPage.show(context),
+      );
+      return;
+    }
+
+    showDailyLimitReachedDialog(context);
   }
 
   Future<void> _pickImage(ImageSource source) async {
@@ -756,7 +667,8 @@ class _HomeTabState extends ConsumerState<HomeTab>
       }
     } on PlatformException catch (e) {
       if (e.code == 'already_active') return;
-      _showErrorDialog('Error', 'Failed to pick image: ${e.message ?? e.toString()}');
+      _showErrorDialog(
+          'Error', 'Failed to pick image: ${e.message ?? e.toString()}');
     } catch (e) {
       _showErrorDialog('Error', 'Failed to pick image: ${e.toString()}');
     }
@@ -799,42 +711,16 @@ class _HomeTabState extends ConsumerState<HomeTab>
   }
 
   void _showErrorDialog(String title, String message) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
-          title,
-          style: GoogleFonts.lexend(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: const Color(0xFF1f2937),
-          ),
-        ),
-        content: Text(
-          message,
-          style: GoogleFonts.lexend(
-            fontSize: 14,
-            fontWeight: FontWeight.w400,
-            color: const Color(0xFF6b7280),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFF8b5cf6),
-            ),
-            child: Text(
-              'OK',
-              style: GoogleFonts.lexend(
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        ],
-      ),
+    if (title == 'Unsupported Format') {
+      showUnsupportedFormatDialog(context);
+      return;
+    }
+
+    showTokenizedErrorDialog(
+      context,
+      title: title,
+      message: message,
+      icon: Icons.error_outline_rounded,
     );
   }
 
@@ -857,8 +743,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
               ),
             ),
             GestureDetector(
-              onTap: () =>
-                  ref.read(navigationProvider.notifier).goScrapbook(),
+              onTap: () => ref.read(navigationProvider.notifier).goScrapbook(),
               child: Text(
                 'See all',
                 style: GoogleFonts.lexend(
@@ -938,7 +823,8 @@ class _HomeTabState extends ConsumerState<HomeTab>
   }
 
   /// Horizontal list of scrapbook cards
-  Widget _buildScrapbookList(BuildContext context, List<ScrapbookModel> scrapbooks) {
+  Widget _buildScrapbookList(
+      BuildContext context, List<ScrapbookModel> scrapbooks) {
     return SizedBox(
       height: ScrapbookPolaroid.listExtent,
       child: ListView.separated(
@@ -954,7 +840,8 @@ class _HomeTabState extends ConsumerState<HomeTab>
     );
   }
 
-  Widget _buildScrapbookCard(BuildContext context, ScrapbookModel scrapbook, int index) {
+  Widget _buildScrapbookCard(
+      BuildContext context, ScrapbookModel scrapbook, int index) {
     final tiltAngle = index.isEven ? -0.018 : 0.018;
 
     if (MediaQuery.disableAnimationsOf(context)) {
@@ -994,7 +881,8 @@ class _HomeTabState extends ConsumerState<HomeTab>
     );
   }
 
-  Widget _buildLegacyScrapbookCardInteractive(BuildContext context, ScrapbookModel scrapbook) {
+  Widget _buildLegacyScrapbookCardInteractive(
+      BuildContext context, ScrapbookModel scrapbook) {
     final vocabCount = scrapbook.vocabularyWords.length;
 
     return GestureDetector(
@@ -1142,7 +1030,8 @@ class _HomeTabState extends ConsumerState<HomeTab>
     );
   }
 
-  void _showScrapbookBottomSheet(BuildContext context, ScrapbookModel scrapbook) {
+  void _showScrapbookBottomSheet(
+      BuildContext context, ScrapbookModel scrapbook) {
     showScrapbookDetailSheet(context, scrapbooks: [scrapbook]);
   }
 
@@ -1154,8 +1043,18 @@ class _HomeTabState extends ConsumerState<HomeTab>
 
   String _getMonthAbbreviation(int month) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
     ];
     return months[month - 1];
   }
@@ -1305,7 +1204,8 @@ class _ScrapbookDetailBottomSheet extends StatelessWidget {
           children: [
             // Image
             ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(16)),
               child: AspectRatio(
                 aspectRatio: 16 / 10,
                 child: scrapbook.imagePath.startsWith('http')
@@ -1315,7 +1215,8 @@ class _ScrapbookDetailBottomSheet extends StatelessWidget {
                         errorBuilder: (context, error, stackTrace) {
                           return Container(
                             color: Colors.grey.shade100,
-                            child: const Icon(Icons.broken_image, size: 48, color: Colors.grey),
+                            child: const Icon(Icons.broken_image,
+                                size: 48, color: Colors.grey),
                           );
                         },
                       )
@@ -1325,7 +1226,8 @@ class _ScrapbookDetailBottomSheet extends StatelessWidget {
                         errorBuilder: (context, error, stackTrace) {
                           return Container(
                             color: Colors.grey.shade100,
-                            child: const Icon(Icons.broken_image, size: 48, color: Colors.grey),
+                            child: const Icon(Icons.broken_image,
+                                size: 48, color: Colors.grey),
                           );
                         },
                       ),
@@ -1388,9 +1290,11 @@ class _ScrapbookDetailBottomSheet extends StatelessWidget {
                       runSpacing: 8,
                       children: scrapbook.vocabularyWords.map((word) {
                         return Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF8b5cf6).withValues(alpha: 0.08),
+                            color:
+                                const Color(0xFF8b5cf6).withValues(alpha: 0.08),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: RichText(
@@ -1406,7 +1310,8 @@ class _ScrapbookDetailBottomSheet extends StatelessWidget {
                                 ),
                                 const TextSpan(
                                   text: ' - ',
-                                  style: TextStyle(fontSize: 13, color: Color(0xFF6b7280)),
+                                  style: TextStyle(
+                                      fontSize: 13, color: Color(0xFF6b7280)),
                                 ),
                                 TextSpan(
                                   text: word.thaiTranslation,
@@ -1433,8 +1338,18 @@ class _ScrapbookDetailBottomSheet extends StatelessWidget {
 
   String _getMonthName(int month) {
     const months = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December'
     ];
     return months[month - 1];
   }

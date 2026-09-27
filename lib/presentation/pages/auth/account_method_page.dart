@@ -271,25 +271,25 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
               // 1. Collect guest data
               final hiveService = ref.read(hiveServiceProvider);
               final guestStreakData = ref.read(streakProvider);
+              final guestSnapshot = guestStreakSnapshot;
               final localVocabs = await hiveService.getAllVocabulary();
 
               final guestData = <String, dynamic>{
-                'currentStreak': guestStreakSnapshot?['currentStreak'] ??
-                    guestStreakData?.currentStreak ??
-                    0,
-                'longestStreak': guestStreakSnapshot?['longestStreak'] ??
-                    guestStreakData?.longestStreak ??
-                    0,
-                'lastStreakActivityDate':
-                    guestStreakSnapshot?['lastStreakActivityDate'] ??
-                        guestStreakData?.lastActivityDate?.toIso8601String(),
-                'streakStateUpdatedAt':
-                    guestStreakSnapshot?['streakStateUpdatedAt'] ??
-                        guestStreakData?.streakStateUpdatedAt
-                            ?.toIso8601String(),
-                'shields': guestStreakSnapshot?['shields'] ??
-                    guestStreakData?.shieldsAvailable ??
-                    0,
+                'currentStreak': guestSnapshot != null
+                    ? guestSnapshot['currentStreak'] ?? 0
+                    : guestStreakData?.currentStreak ?? 0,
+                'longestStreak': guestSnapshot != null
+                    ? guestSnapshot['longestStreak'] ?? 0
+                    : guestStreakData?.longestStreak ?? 0,
+                'lastStreakActivityDate': guestSnapshot != null
+                    ? guestSnapshot['lastStreakActivityDate']
+                    : guestStreakData?.lastActivityDate?.toIso8601String(),
+                'streakStateUpdatedAt': guestSnapshot != null
+                    ? guestSnapshot['streakStateUpdatedAt']
+                    : guestStreakData?.streakStateUpdatedAt?.toIso8601String(),
+                'shields': guestSnapshot != null
+                    ? guestSnapshot['shields'] ?? 0
+                    : guestStreakData?.shieldsAvailable ?? 0,
                 'badges': guestStreakSnapshot?['badges'] ??
                     currentUserBeforeAuth.badges ??
                     <String>[],
@@ -297,7 +297,7 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
               };
 
               print(
-                  '📦 [Google Login] Guest data: streak=${guestStreakData?.currentStreak ?? 0}, vocab=${localVocabs.length}');
+                  '📦 [Google Login] Guest data: streak=${guestData['currentStreak']}, lastActivity=${guestData['lastStreakActivityDate']}, stateUpdatedAt=${guestData['streakStateUpdatedAt']}, vocab=${localVocabs.length}');
 
               // 2. Get server data from Supabase
               final serverUserData = await client
@@ -317,8 +317,9 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
                           serverUserData['last_activity_date']?.toString(),
                       'streak_state_updated_at':
                           serverUserData['streak_state_updated_at']?.toString(),
-                      'badges': client.auth.currentUser?.userMetadata?['badges'] ??
-                          <String>[],
+                      'badges':
+                          client.auth.currentUser?.userMetadata?['badges'] ??
+                              <String>[],
                     }
                   : null;
 
@@ -333,6 +334,8 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
               );
 
               print('✅ [Google Login] Merge result: ${mergeResult.summary}');
+              print(
+                  '🔎 [Google Login] Streak merge values: guest=${guestData['currentStreak']} @ ${guestData['streakStateUpdatedAt'] ?? guestData['lastStreakActivityDate']}, server=${serverData?['current_streak']} @ ${serverData?['streak_state_updated_at'] ?? serverData?['last_activity_date']}, merged=${mergeResult.mergedData['current_streak']} @ ${mergeResult.mergedData['streak_state_updated_at'] ?? mergeResult.mergedData['last_activity_date']}');
 
               // 4. Apply merged data back to services
 
@@ -666,7 +669,7 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
                 borderRadius: BorderRadius.circular(28),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF8b5cf6).withValues(alpha: 0.15),
+                    color: DesignTokens.dialogBrand.withValues(alpha: 0.15),
                     blurRadius: 30,
                     offset: const Offset(0, 10),
                   ),
@@ -681,19 +684,11 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
                       width: 80,
                       height: 80,
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            Color(0xFFf472b6), // Soft pink
-                            Color(0xFF60a5fa), // Soft blue
-                          ],
-                        ),
+                        color: DesignTokens.dialogBrand,
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color:
-                                const Color(0xFFf472b6).withValues(alpha: 0.3),
+                            color: DesignTokens.dialogBrand.withValues(alpha: 0.3),
                             blurRadius: 20,
                             offset: const Offset(0, 8),
                           ),

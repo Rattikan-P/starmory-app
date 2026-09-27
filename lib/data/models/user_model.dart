@@ -306,6 +306,7 @@ class UserModel extends Equatable {
     DateTime? lastStreakActivityDate,
     DateTime? streakStateUpdatedAt,
     bool clearLastStreakActivityDate = false,
+    bool clearStreakStateUpdatedAt = false,
     List<String>? badges,
     List<String>? stickers,
     QuotaManager? quotaManager,
@@ -326,7 +327,9 @@ class UserModel extends Equatable {
       lastStreakActivityDate: clearLastStreakActivityDate
           ? null
           : lastStreakActivityDate ?? this.lastStreakActivityDate,
-      streakStateUpdatedAt: streakStateUpdatedAt ?? this.streakStateUpdatedAt,
+      streakStateUpdatedAt: clearStreakStateUpdatedAt
+          ? null
+          : streakStateUpdatedAt ?? this.streakStateUpdatedAt,
       badges: badges ?? this.badges,
       stickers: stickers ?? this.stickers,
       quotaManager: quotaManager ?? this.quotaManager,

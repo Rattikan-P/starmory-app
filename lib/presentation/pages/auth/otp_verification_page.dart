@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../constants/design_tokens.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../data/services/merge_service.dart';
 import '../../../utils/snackbar_helper.dart';
@@ -186,31 +187,31 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
               // 1. Collect guest data
               final hiveService = ref.read(hiveServiceProvider);
               final guestStreakData = ref.read(streakProvider);
+              final guestSnapshot = widget.guestStreakSnapshot;
               final localVocabs = await hiveService.getAllVocabulary();
 
               final guestData = <String, dynamic>{
-                'currentStreak': widget.guestStreakSnapshot?['currentStreak'] ??
-                    guestStreakData?.currentStreak ??
-                    0,
-                'longestStreak': widget.guestStreakSnapshot?['longestStreak'] ??
-                    guestStreakData?.longestStreak ??
-                    0,
-                'lastStreakActivityDate':
-                    widget.guestStreakSnapshot?['lastStreakActivityDate'] ??
-                        guestStreakData?.lastActivityDate?.toIso8601String(),
-                'streakStateUpdatedAt': widget
-                        .guestStreakSnapshot?['streakStateUpdatedAt'] ??
-                    guestStreakData?.streakStateUpdatedAt?.toIso8601String(),
-                'shields': widget.guestStreakSnapshot?['shields'] ??
-                    guestStreakData?.shieldsAvailable ??
-                    0,
-                'badges': widget.guestStreakSnapshot?['badges'] ??
-                    <String>[],
+                'currentStreak': guestSnapshot != null
+                    ? guestSnapshot['currentStreak'] ?? 0
+                    : guestStreakData?.currentStreak ?? 0,
+                'longestStreak': guestSnapshot != null
+                    ? guestSnapshot['longestStreak'] ?? 0
+                    : guestStreakData?.longestStreak ?? 0,
+                'lastStreakActivityDate': guestSnapshot != null
+                    ? guestSnapshot['lastStreakActivityDate']
+                    : guestStreakData?.lastActivityDate?.toIso8601String(),
+                'streakStateUpdatedAt': guestSnapshot != null
+                    ? guestSnapshot['streakStateUpdatedAt']
+                    : guestStreakData?.streakStateUpdatedAt?.toIso8601String(),
+                'shields': guestSnapshot != null
+                    ? guestSnapshot['shields'] ?? 0
+                    : guestStreakData?.shieldsAvailable ?? 0,
+                'badges': widget.guestStreakSnapshot?['badges'] ?? <String>[],
                 'vocabulary': localVocabs,
               };
 
               print(
-                  '📦 [OTP Login] Guest data: streak=${guestStreakData?.currentStreak ?? 0}, vocab=${localVocabs.length}');
+                  '📦 [OTP Login] Guest data: streak=${guestData['currentStreak']}, lastActivity=${guestData['lastStreakActivityDate']}, stateUpdatedAt=${guestData['streakStateUpdatedAt']}, vocab=${localVocabs.length}');
 
               // 2. Get server data from Supabase
               final serverUserData = await client
@@ -230,8 +231,9 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
                           serverUserData['last_activity_date']?.toString(),
                       'streak_state_updated_at':
                           serverUserData['streak_state_updated_at']?.toString(),
-                      'badges': client.auth.currentUser?.userMetadata?['badges'] ??
-                          <String>[],
+                      'badges':
+                          client.auth.currentUser?.userMetadata?['badges'] ??
+                              <String>[],
                     }
                   : null;
 
@@ -246,6 +248,8 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
               );
 
               print('✅ [OTP Login] Merge result: ${mergeResult.summary}');
+              print(
+                  '🔎 [OTP Login] Streak merge values: guest=${guestData['currentStreak']} @ ${guestData['streakStateUpdatedAt'] ?? guestData['lastStreakActivityDate']}, server=${serverData?['current_streak']} @ ${serverData?['streak_state_updated_at'] ?? serverData?['last_activity_date']}, merged=${mergeResult.mergedData['current_streak']} @ ${mergeResult.mergedData['streak_state_updated_at'] ?? mergeResult.mergedData['last_activity_date']}');
 
               // 4. Apply merged data back to services
 
@@ -634,7 +638,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
             borderRadius: BorderRadius.circular(28),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF7C5CFC).withValues(alpha: 0.16),
+                color: DesignTokens.dialogWarning.withValues(alpha: 0.16),
                 blurRadius: 28,
                 offset: const Offset(0, 10),
               ),
@@ -648,12 +652,12 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
                 width: 60,
                 height: 60,
                 decoration: const BoxDecoration(
-                  color: Color(0xFFFFF1CC),
+                  color: DesignTokens.dialogWarningTint,
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
                   Icons.warning_rounded,
-                  color: Color(0xFFFFB91F),
+                  color: DesignTokens.dialogWarning,
                   size: 30,
                 ),
               ),
@@ -730,7 +734,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
                           await _resendOtp();
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFFFB91F),
+                          backgroundColor: DesignTokens.dialogWarning,
                           foregroundColor: Colors.white,
                           elevation: 0,
                           shape: RoundedRectangleBorder(
@@ -885,7 +889,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
                 borderRadius: BorderRadius.circular(28),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF8b5cf6).withValues(alpha: 0.15),
+                    color: DesignTokens.dialogBrand.withValues(alpha: 0.15),
                     blurRadius: 30,
                     offset: const Offset(0, 10),
                   ),
@@ -900,19 +904,11 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
                       width: 80,
                       height: 80,
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            Color(0xFFf472b6), // Soft pink
-                            Color(0xFF60a5fa), // Soft blue
-                          ],
-                        ),
+                        color: DesignTokens.dialogBrand,
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color:
-                                const Color(0xFFf472b6).withValues(alpha: 0.3),
+                            color: DesignTokens.dialogBrand.withValues(alpha: 0.3),
                             blurRadius: 20,
                             offset: const Offset(0, 8),
                           ),
