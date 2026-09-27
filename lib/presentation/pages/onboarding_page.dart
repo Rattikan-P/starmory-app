@@ -312,7 +312,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                   duration: const Duration(milliseconds: 200),
                   margin: const EdgeInsets.symmetric(horizontal: 2),
                   width: _currentPage == index ? 22 : 5,
-                  height: 5,
+                  height: 6,
                   decoration: BoxDecoration(
                     color: _currentPage == index
                         ? DesignTokens.brandColor
