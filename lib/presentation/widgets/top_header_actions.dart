@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../constants/design_tokens.dart';
 import '../pages/profile_tab.dart';
 import '../providers/providers.dart';
@@ -97,8 +98,8 @@ class TopHeaderActions extends ConsumerWidget {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    const Icon(
-                      Icons.shield_rounded,
+                    const FaIcon(
+                      FontAwesomeIcons.shieldHalved,
                       size: 18,
                       color: Color(0xFFFF7A51),
                     ),
@@ -193,7 +194,7 @@ void showStreakInfoDialog(BuildContext context, int streakDays) {
   _showStreakInfoDialog(
     context,
     icon: Icons.local_fire_department_rounded,
-    title: '$streakDays Day Streak!',
+    title: '$streakDays Day Streak',
     description: 'Practice vocabulary daily to keep your streak going.',
     buttonLabel: 'Keep learning',
     items: [
@@ -213,6 +214,11 @@ void showShieldInfoDialog(BuildContext context, int shields) {
   _showStreakInfoDialog(
     context,
     icon: Icons.shield_outlined,
+    iconWidget: const FaIcon(
+      FontAwesomeIcons.shieldHalved,
+      color: DesignTokens.dialogInfo,
+      size: 38,
+    ),
     title: '$shields Streak Shields',
     description: 'Don\'t let a missed day break your streak.',
     buttonLabel: 'Got it',
@@ -240,6 +246,7 @@ void showShieldInfoDialog(BuildContext context, int shields) {
 void _showStreakInfoDialog(
   BuildContext context, {
   required IconData icon,
+  Widget? iconWidget,
   required String title,
   required String description,
   required String buttonLabel,
@@ -272,10 +279,13 @@ void _showStreakInfoDialog(
                   color: DesignTokens.dialogInfoTint,
                   shape: BoxShape.circle,
                 ),
-                child: Icon(
-                  icon,
-                  color: DesignTokens.dialogInfo,
-                  size: 38,
+                child: Center(
+                  child: iconWidget ??
+                      Icon(
+                        icon,
+                        color: DesignTokens.dialogInfo,
+                        size: 38,
+                      ),
                 ),
               ),
               const SizedBox(height: DesignTokens.dialogIconTitleSpacing),

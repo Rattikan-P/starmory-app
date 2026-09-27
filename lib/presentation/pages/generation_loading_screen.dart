@@ -371,13 +371,13 @@ class _GenerationLoadingScreenState
         errorLower.contains('unavailable') ||
         errorLower.contains('503');
     final icon = isTimeout
-        ? Icons.timer_off_rounded
+        ? Icons.access_time_rounded
         : isConnection
             ? Icons.cloud_off_rounded
             : isServiceSetup
                 ? Icons.settings_rounded
                 : isServiceBusy
-                    ? Icons.cloud_queue_rounded
+                    ? Icons.hourglass_empty_rounded
                     : Icons.error_outline_rounded;
 
     showTokenizedErrorDialog(

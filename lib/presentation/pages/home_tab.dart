@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -36,17 +37,51 @@ class HomeTab extends ConsumerStatefulWidget {
 }
 
 class _HomeTabState extends ConsumerState<HomeTab>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   final ScrollController _scrollController = ScrollController();
+  Timer? _quotaRefreshTimer;
+  bool _isRefreshingQuota = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _scheduleQuotaRefreshAtMidnight();
     // Refresh user data when home page is opened
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await _refreshUserData();
+      await _refreshQuota();
       _checkPendingRewards();
     });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_refreshQuota());
+      _scheduleQuotaRefreshAtMidnight();
+    }
+  }
+
+  void _scheduleQuotaRefreshAtMidnight() {
+    _quotaRefreshTimer?.cancel();
+    final now = DateTime.now();
+    final nextMidnight = DateTime(now.year, now.month, now.day + 1)
+        .add(const Duration(seconds: 1));
+    _quotaRefreshTimer = Timer(nextMidnight.difference(now), () async {
+      await _refreshQuota();
+      if (mounted) _scheduleQuotaRefreshAtMidnight();
+    });
+  }
+
+  Future<void> _refreshQuota() async {
+    if (_isRefreshingQuota) return;
+    _isRefreshingQuota = true;
+    try {
+      await _refreshUserData();
+      if (mounted) setState(() {});
+    } finally {
+      _isRefreshingQuota = false;
+    }
   }
 
   void _scrollToTop() {
@@ -123,6 +158,8 @@ class _HomeTabState extends ConsumerState<HomeTab>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _quotaRefreshTimer?.cancel();
     _scrollController.dispose();
     super.dispose();
   }
@@ -168,34 +205,47 @@ class _HomeTabState extends ConsumerState<HomeTab>
       backgroundColor: const Color(0xFFF9FAFC),
       body: SafeArea(
         bottom: false,
-        child: SingleChildScrollView(
-          controller: _scrollController,
-          padding: const EdgeInsets.fromLTRB(20, 14, 20, 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header with greeting and profile avatar
-              _buildHeader(context, userState),
+        child: Column(
+          children: [
+            // Keep the greeting and profile actions fixed while the content
+            // below can scroll and refresh independently.
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+              child: _buildHeader(context, userState),
+            ),
+            Expanded(
+              child: RefreshIndicator(
+                color: const Color(0xFF8957F5),
+                onRefresh: _refreshQuota,
+                child: SingleChildScrollView(
+                  controller: _scrollController,
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(20, 22, 20, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Hero Card with "Every photo hides a word you don't know yet."
+                      _buildHeroCard(context),
 
-              const SizedBox(height: 22),
+                      const SizedBox(height: 16),
 
-              // Hero Card with "Every photo hides a word you don't know yet."
-              _buildHeroCard(context),
+                      // Quota indicator card
+                      _buildQuotaCard(context),
 
-              const SizedBox(height: 16),
+                      const SizedBox(height: 24),
 
-              // Quota indicator card
-              _buildQuotaCard(context),
+                      // Recent Scrapbook
+                      _buildRecentScrapbook(context),
 
-              const SizedBox(height: 24),
-
-              // Recent Scrapbook
-              _buildRecentScrapbook(context),
-
-              const SizedBox(
-                  height: 120), // Extra space at bottom for floating nav
-            ],
-          ),
+                      const SizedBox(
+                        height: 120,
+                      ), // Extra space for floating nav
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -523,17 +523,17 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
           onTap: () {
             ref.read(navigationProvider.notifier).setIndex(index);
           },
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(26),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
             curve: Curves.easeInOut,
-            width: 64,
-            height: 48,
+            width: 70,
+            height: 52,
             padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 3),
             decoration: isSelected
                 ? BoxDecoration(
                     color: const Color(0xFFF1EEFF),
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(26),
                   )
                 : null,
             child: Column(

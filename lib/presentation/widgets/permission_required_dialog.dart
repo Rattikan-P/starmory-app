@@ -11,7 +11,7 @@ Future<void> showPermissionRequiredDialog(
 ) async {
   final isCamera = type == 'Camera';
   const accentColor = DesignTokens.dialogInfo;
-  const accentTint = Color(0xFFE7F6FF);
+  const accentTint = DesignTokens.dialogInfoTint;
 
   await showDialog<void>(
     context: context,
@@ -55,7 +55,7 @@ Future<void> showPermissionRequiredDialog(
               textAlign: TextAlign.center,
               style: GoogleFonts.lexend(
                 fontSize: DesignTokens.dialogTitleFontSize,
-                fontWeight: FontWeight.w700,
+                fontWeight: DesignTokens.weightSemiBold,
                 color: DesignTokens.dialogTitleColor,
               ),
             ),
@@ -93,7 +93,7 @@ Future<void> showPermissionRequiredDialog(
                         'Cancel',
                         style: GoogleFonts.lexend(
                           fontSize: DesignTokens.dialogButtonFontSize,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: DesignTokens.weightBold,
                         ),
                       ),
                     ),
@@ -122,7 +122,7 @@ Future<void> showPermissionRequiredDialog(
                         'Settings',
                         style: GoogleFonts.lexend(
                           fontSize: DesignTokens.dialogButtonFontSize,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: DesignTokens.weightBold,
                         ),
                       ),
                     ),

@@ -22,6 +22,8 @@ import '../utils/reward_unlock_helper.dart';
 import '../widgets/permission_required_dialog.dart';
 import '../widgets/tokenized_notice_dialogs.dart';
 
+const double _scrapbookTopBarHeight = 60;
+
 /// Helper class for background color options
 class _BackgroundColorOption {
   final int color;
@@ -502,79 +504,21 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
   Future<bool> _onWillPop() async {
     if (!_hasUnsavedChanges) return true;
 
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(DesignTokens.radiusXLarge),
-        ),
-        title: Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFF3E0),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(
-                Icons.warning_amber_rounded,
-                color: Color(0xFFFFA000),
-                size: 24,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                'Unsaved Changes',
-                style: GoogleFonts.lexend(
-                  fontSize: DesignTokens.fontSizeTitle,
-                  fontWeight: DesignTokens.weightSemiBold,
-                  color: DesignTokens.textPrimary,
-                ),
-              ),
-            ),
-          ],
-        ),
-        content: Text(
+    var shouldDiscard = false;
+    await showTokenizedActionDialog(
+      context,
+      title: 'Unsaved Changes',
+      message:
           'You have unsaved changes. Are you sure you want to leave without saving?',
-          style: GoogleFonts.lexend(
-            fontSize: DesignTokens.fontSizeBody,
-            fontWeight: DesignTokens.weightRegular,
-            color: DesignTokens.textSecondary,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(
-              'Keep Editing',
-              style: GoogleFonts.lexend(
-                color: DesignTokens.textSecondary,
-                fontWeight: DesignTokens.weightSemiBold,
-              ),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFEF4444),
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
-              ),
-            ),
-            child: Text(
-              'Discard',
-              style: GoogleFonts.lexend(
-                fontWeight: DesignTokens.weightSemiBold,
-              ),
-            ),
-          ),
-        ],
-      ),
+      icon: Icons.save_outlined,
+      accentColor: DesignTokens.dialogWarning,
+      accentTint: DesignTokens.dialogWarningTint,
+      secondaryLabel: 'Discard',
+      onSecondary: () => shouldDiscard = true,
+      primaryLabel: 'Keep Editing',
+      onPrimary: () => shouldDiscard = false,
     );
-    return result ?? false;
+    return shouldDiscard;
   }
 
   @override
@@ -603,8 +547,9 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
               // Main Content
               Column(
                 children: [
-                  // Top Bar
-                  _buildTopBar(),
+                  // Preserve the original top-bar space so the canvas and
+                  // scrapbook element coordinates stay in place.
+                  const SizedBox(height: _scrapbookTopBarHeight),
 
                   // Scrollable Content
                   Expanded(
@@ -648,6 +593,27 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
               // Element layer follows the canvas but can receive gestures
               // anywhere between the date and the bottom toolbar.
               _buildElementOverlay(),
+
+              // Keep navigation and save actions above draggable elements.
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: SizedBox(
+                  height: _scrapbookTopBarHeight,
+                  child: Stack(
+                    children: [
+                      const Positioned.fill(
+                        child: ColoredBox(color: Color(0xFFF9FAFC)),
+                      ),
+                      const Positioned.fill(
+                        child: CustomPaint(painter: _DotGridPainter()),
+                      ),
+                      _buildTopBar(),
+                    ],
+                  ),
+                ),
+              ),
 
               // Bottom Toolbar (Positioned at bottom)
               _buildBottomToolbar(),
@@ -901,24 +867,27 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     _canvasSize = const Size(canvasSize, canvasSize);
 
     return Positioned.fill(
-      child: CompositedTransformFollower(
-        link: _canvasLayerLink,
-        showWhenUnlinked: false,
-        targetAnchor: Alignment.topLeft,
-        followerAnchor: Alignment.topLeft,
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            // Emoji overlay (centered in canvas)
-            _buildEmojiSelector(),
+      child: ClipRect(
+        clipper: const _ProtectedTopBarClipper(_scrapbookTopBarHeight),
+        child: CompositedTransformFollower(
+          link: _canvasLayerLink,
+          showWhenUnlinked: false,
+          targetAnchor: Alignment.topLeft,
+          followerAnchor: Alignment.topLeft,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              // Emoji overlay (centered in canvas)
+              _buildEmojiSelector(),
 
-            // Draggable items follow the persistent bring-to-front order.
-            ..._buildDraggableItems(),
+              // Draggable items follow the persistent bring-to-front order.
+              ..._buildDraggableItems(),
 
-            // Controls live in their own overlay so their complete hit
-            // targets are not clipped by the selected item's bounds.
-            _buildSelectedControlOverlay(),
-          ],
+              // Controls live in their own overlay so their complete hit
+              // targets are not clipped by the selected item's bounds.
+              _buildSelectedControlOverlay(),
+            ],
+          ),
         ),
       ),
     );
@@ -2471,7 +2440,9 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
         key: _toolbarKey,
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
+          // The toolbar is taller and wider than a nav item, so use a larger
+          // radius to keep the same capsule-like silhouette.
+          borderRadius: BorderRadius.circular(32),
           border: Border.all(
             color: const Color(0xFFE5E7EB),
             width: 1,
@@ -2547,7 +2518,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
       label: '$label tool',
       selected: isSelected,
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(26),
         onTap: () {
           // Don't toggle selection - just highlight briefly then reset
           setState(() {
@@ -2573,7 +2544,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
           ),
           decoration: BoxDecoration(
             color: isSelected ? const Color(0xFFF5F3FF) : Colors.transparent,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(26),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -4587,7 +4558,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
       context,
       title: title,
       message: message,
-      icon: Icons.error_outline_rounded,
+      icon: Icons.image_not_supported_outlined,
     );
   }
 
@@ -5828,4 +5799,18 @@ class _DotGridPainter extends CustomPainter {
       oldDelegate.dotColor != dotColor ||
       oldDelegate.spacing != spacing ||
       oldDelegate.radius != radius;
+}
+
+class _ProtectedTopBarClipper extends CustomClipper<Rect> {
+  final double protectedHeight;
+
+  const _ProtectedTopBarClipper(this.protectedHeight);
+
+  @override
+  Rect getClip(Size size) =>
+      Rect.fromLTRB(0, protectedHeight, size.width, size.height);
+
+  @override
+  bool shouldReclip(_ProtectedTopBarClipper oldClipper) =>
+      oldClipper.protectedHeight != protectedHeight;
 }

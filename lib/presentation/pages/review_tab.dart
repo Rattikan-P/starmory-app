@@ -1066,12 +1066,7 @@ class _ReviewTabState extends ConsumerState<ReviewTab>
               customBorder: const CircleBorder(),
               onTap: () => _showSettingsBottomSheet(context),
               child: const Center(
-                child: CustomPaint(
-                  size: Size(26, 26),
-                  painter: _CustomReviewTuneIconPainter(
-                    Color(0xFF7C5CFC),
-                  ),
-                ),
+                child: _CustomReviewTuneIcon(color: Color(0xFF7C5CFC)),
               ),
             ),
           ),
@@ -1834,33 +1829,80 @@ class _FourPointStarPainter extends CustomPainter {
       oldDelegate.color != color;
 }
 
-class _CustomReviewTuneIconPainter extends CustomPainter {
+class _CustomReviewTuneIcon extends StatelessWidget {
   final Color color;
 
-  const _CustomReviewTuneIconPainter(this.color);
+  const _CustomReviewTuneIcon({required this.color});
 
   @override
-  void paint(Canvas canvas, Size size) {
-    final scale = size.width / 26;
-    final stroke = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.8
-      ..strokeCap = StrokeCap.round;
-
-    canvas.save();
-    canvas.scale(scale);
-
-    // Two adjustment rails with hollow knobs on opposite sides.
-    canvas.drawLine(const Offset(10, 7), const Offset(22, 7), stroke);
-    canvas.drawCircle(const Offset(6, 7), 4.2, stroke);
-    canvas.drawLine(const Offset(4, 19), const Offset(16, 19), stroke);
-    canvas.drawCircle(const Offset(20, 19), 4.2, stroke);
-
-    canvas.restore();
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 26,
+      height: 26,
+      child: Stack(
+        children: [
+          Positioned(
+            left: 10,
+            top: 4.5,
+            child: _TuneTrack(color: color, width: 16),
+          ),
+          Positioned(
+            left: 0,
+            top: 1,
+            child: _TuneKnob(color: color),
+          ),
+          Positioned(
+            left: 0,
+            top: 18.5,
+            child: _TuneTrack(color: color, width: 16),
+          ),
+          Positioned(
+            left: 16,
+            top: 15,
+            child: _TuneKnob(color: color),
+          ),
+        ],
+      ),
+    );
   }
+}
+
+class _TuneTrack extends StatelessWidget {
+  final Color color;
+  final double width;
+
+  const _TuneTrack({required this.color, required this.width});
 
   @override
-  bool shouldRepaint(_CustomReviewTuneIconPainter oldDelegate) =>
-      oldDelegate.color != color;
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: width,
+      height: 3,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(2),
+        ),
+      ),
+    );
+  }
+}
+
+class _TuneKnob extends StatelessWidget {
+  final Color color;
+
+  const _TuneKnob({required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 10,
+      height: 10,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        shape: BoxShape.circle,
+        border: Border.all(color: color, width: 2.5),
+      ),
+    );
+  }
 }

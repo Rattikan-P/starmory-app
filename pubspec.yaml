@@ -71,6 +71,7 @@ dependencies:
   audioplayers: ^6.1.0
 
   # UI Components
+  font_awesome_flutter: '>=10.9.1 <10.10.0'
   flutter_svg: ^2.0.16
   cached_network_image: ^3.4.1
   shimmer: ^3.0.0

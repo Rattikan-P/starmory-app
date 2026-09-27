@@ -109,7 +109,7 @@ class _ScrapbookTabState extends ConsumerState<ScrapbookTab> {
                               0,
                               24,
                               0,
-                              28 + MediaQuery.paddingOf(context).bottom,
+                              56 + MediaQuery.paddingOf(context).bottom,
                             ),
                             sliver: SliverToBoxAdapter(
                               child: _buildSelectedDay(scrapbookState),
@@ -180,7 +180,7 @@ class _ScrapbookTabState extends ConsumerState<ScrapbookTab> {
 
   Widget _buildCalendar(ScrapbookState state) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
@@ -216,9 +216,33 @@ class _ScrapbookTabState extends ConsumerState<ScrapbookTab> {
                 .getScrapbooksForDate(day)
                 .map((scrapbook) => scrapbook.id)
                 .toList(),
+            calendarBuilders: CalendarBuilders<String>(
+              markerBuilder: (context, day, events) {
+                if (events.isEmpty) return null;
+
+                final isSelected = isSameDay(
+                  _visuallySelectedDay ?? _selectedDay,
+                  day,
+                );
+
+                return Positioned(
+                  bottom: 1.5,
+                  child: Container(
+                    width: 5,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? const Color(0xFFFFBF29)
+                          : _calendarMarker,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                );
+              },
+            ),
             headerVisible: false,
             availableGestures: AvailableGestures.horizontalSwipe,
-            rowHeight: 44,
+            rowHeight: 48,
             daysOfWeekHeight: 34,
             calendarStyle: CalendarStyle(
               cellMargin: const EdgeInsets.all(3),
@@ -247,7 +271,7 @@ class _ScrapbookTabState extends ConsumerState<ScrapbookTab> {
               ),
               markerSize: 5,
               markersMaxCount: 1,
-              markerMargin: const EdgeInsets.only(top: 3),
+              markerMargin: EdgeInsets.zero,
               defaultTextStyle: _dayTextStyle(_ink),
               weekendTextStyle: _dayTextStyle(_ink),
               outsideTextStyle: _dayTextStyle(const Color(0xFF9CA3AF)),
@@ -531,10 +555,12 @@ class _MemoryStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 164,
+      height: 212,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
+        clipBehavior: Clip.none,
+        padding: const EdgeInsets.fromLTRB(0, 2, 20, 46),
         itemCount: entries.length,
         separatorBuilder: (context, index) => const SizedBox(width: 14),
         itemBuilder: (context, index) {

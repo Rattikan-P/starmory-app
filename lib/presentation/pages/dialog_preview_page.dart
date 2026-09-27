@@ -23,8 +23,23 @@ class DialogPreviewPage extends StatelessWidget {
           () => showDailyLimitReachedDialog(context)),
       _DialogPreviewItem('Camera Permission', 'Permission popup',
           () => showPermissionRequiredDialog(context, 'Camera')),
-      _DialogPreviewItem('Photo Library Permission', 'Permission popup',
+      _DialogPreviewItem(
+          'Scrapbook · Photo Library Permission', 'Edit scrapbook',
           () => showPermissionRequiredDialog(context, 'Photo Library')),
+      _DialogPreviewItem('Scrapbook · Unsaved Changes', 'Edit scrapbook',
+          () {
+        showTokenizedActionDialog(
+          context,
+          title: 'Unsaved Changes',
+          message:
+              'You have unsaved changes. Are you sure you want to leave without saving?',
+          icon: Icons.save_outlined,
+          accentColor: DesignTokens.dialogWarning,
+          accentTint: DesignTokens.dialogWarningTint,
+          secondaryLabel: 'Discard',
+          primaryLabel: 'Keep Editing',
+        );
+      }),
       _DialogPreviewItem('Streak Info', 'Info · blue tokens',
           () => showStreakInfoDialog(context, 0)),
       _DialogPreviewItem('Shield Info', 'Info · blue tokens',
@@ -59,7 +74,7 @@ class DialogPreviewPage extends StatelessWidget {
           primaryLabel: 'Try Again',
         );
       }),
-      _DialogPreviewItem('Photo Picker Error', 'Home / photo picker', () {
+      _DialogPreviewItem('Scrapbook · Photo Picker Error', 'Edit scrapbook', () {
         showTokenizedErrorDialog(
           context,
           title: 'Error',
@@ -78,7 +93,7 @@ class DialogPreviewPage extends StatelessWidget {
           icon: Icons.photo_library_outlined,
         );
       }),
-      _DialogPreviewItem('Photo Save Error', 'Edit scrapbook', () {
+      _DialogPreviewItem('Scrapbook · Photo Save Error', 'Edit scrapbook', () {
         showTokenizedErrorDialog(
           context,
           title: 'Error',
@@ -100,7 +115,7 @@ class DialogPreviewPage extends StatelessWidget {
           title: 'Connection Error',
           message:
               'Request timed out. Please check your connection and try again.',
-          icon: Icons.timer_off_rounded,
+          icon: Icons.access_time_rounded,
         );
       }),
       _DialogPreviewItem('Connection Error · Internet', 'Generation error', () {
@@ -129,7 +144,7 @@ class DialogPreviewPage extends StatelessWidget {
           title: 'Connection Error',
           message:
               'The learning service is busy right now. Please try again in a moment.',
-          icon: Icons.cloud_queue_rounded,
+          icon: Icons.hourglass_empty_rounded,
         );
       }),
       _DialogPreviewItem('Connection Error · Other', 'Generation error', () {
