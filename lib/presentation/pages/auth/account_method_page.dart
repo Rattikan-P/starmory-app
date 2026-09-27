@@ -17,10 +17,13 @@ import '../../../presentation/providers/providers.dart'
         hiveServiceProvider,
         vocabularySyncServiceProvider,
         userStateProvider,
+        badgeStateProvider,
         scrapbookStateProvider,
         vocabularyStateProvider;
 import '../../../presentation/providers/streak_provider.dart'
     show streakProvider;
+import '../../../presentation/utils/reward_unlock_helper.dart'
+    show pendingRewardCheckProvider;
 
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
 
@@ -73,6 +76,7 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
                   ?.toIso8601String(),
               'streakStateUpdatedAt':
                   currentUserBeforeAuth.streakStateUpdatedAt?.toIso8601String(),
+              'badges': currentUserBeforeAuth.badges,
             };
 
       // Check if user has non-default preferences (has guest data)
@@ -85,7 +89,8 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
               currentUserBeforeAuth.longestStreak > 0 ||
               currentUserBeforeAuth.shields > 0 ||
               currentUserBeforeAuth.lastStreakActivityDate != null ||
-              currentUserBeforeAuth.streakStateUpdatedAt != null);
+              currentUserBeforeAuth.streakStateUpdatedAt != null ||
+              currentUserBeforeAuth.badges.isNotEmpty);
 
       debugPrint(
           '📝 Guest preferences captured BEFORE auth: level=$guestLevel, variant=$guestVariant, hasData=$hasGuestData');
@@ -285,6 +290,9 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
                 'shields': guestStreakSnapshot?['shields'] ??
                     guestStreakData?.shieldsAvailable ??
                     0,
+                'badges': guestStreakSnapshot?['badges'] ??
+                    currentUserBeforeAuth.badges ??
+                    <String>[],
                 'vocabulary': localVocabs,
               };
 
@@ -309,6 +317,8 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
                           serverUserData['last_activity_date']?.toString(),
                       'streak_state_updated_at':
                           serverUserData['streak_state_updated_at']?.toString(),
+                      'badges': client.auth.currentUser?.userMetadata?['badges'] ??
+                          <String>[],
                     }
                   : null;
 
@@ -371,6 +381,12 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
                   mergeResult.mergedData['longest_streak'] as int? ?? 0;
               final mergedShields =
                   mergeResult.mergedData['shields_available'] as int? ?? 0;
+              final mergedBadgesValue = mergeResult.mergedData['badges'];
+              final mergedBadges = mergedBadgesValue is Set
+                  ? mergedBadgesValue.cast<String>().toList()
+                  : mergedBadgesValue is List
+                      ? mergedBadgesValue.cast<String>()
+                      : <String>[];
               final mergedLastActivity =
                   mergeResult.mergedData['last_activity_date'];
               final lastActivityDate = mergedLastActivity is DateTime
@@ -399,6 +415,9 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
                 if (stateUpdatedAt != null)
                   'streak_state_updated_at': stateUpdatedAt,
               }).eq('id', userId);
+              await client.auth.updateUser(
+                UserAttributes(data: {'badges': mergedBadges}),
+              );
 
               print('✅ [Google Login] Streak merged and updated to cloud');
 
@@ -421,6 +440,7 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
                   currentStreak: mergedStreak,
                   longestStreak: mergedLongest,
                   shields: mergedShields,
+                  badges: mergedBadges,
                   lastStreakActivityDate: lastActivityDate == null
                       ? currentUser.lastStreakActivityDate
                       : DateTime.tryParse(lastActivityDate),
@@ -432,6 +452,7 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
                           : currentUser.streakStateUpdatedAt,
                   preferences: {
                     ...currentUser.preferences,
+                    'badges': mergedBadges,
                     "defaultCefrLevel": mergedLevel ??
                         currentUser.preferences["defaultCefrLevel"],
                     "languageVariant": mergedVariant ??
@@ -452,6 +473,8 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
             }
           } else {
             // User chose "No" / "Keep my account" → Clear local guest data
+            ref.read(pendingRewardCheckProvider.notifier).state = false;
+            ref.read(badgeStateProvider.notifier).clearPendingUnlocks();
             print(
                 'ℹ️ [Google Login] User chose to keep original server data - clearing guest data');
             try {
@@ -562,6 +585,7 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
                   currentUser.lastStreakActivityDate?.toIso8601String(),
               'streakStateUpdatedAt':
                   currentUser.streakStateUpdatedAt?.toIso8601String(),
+              'badges': currentUser.badges,
             };
 
       debugPrint(

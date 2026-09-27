@@ -353,6 +353,8 @@ class UserNotifier extends StateNotifier<UserState> {
         final stickersList = stickersValue is Set
             ? stickersValue.toList()
             : (stickersValue is List ? stickersValue : <String>[]);
+        mergedPrefs['badges'] = badgesList.cast<String>();
+        mergedPrefs['stickers'] = stickersList.cast<String>();
 
         registeredUser = UserModel.createRegisteredUser(
           id: supabaseUser.id,
@@ -398,22 +400,23 @@ class UserNotifier extends StateNotifier<UserState> {
         final serverStreak = serverUserData?['current_streak'] as int? ?? 0;
         final serverLongestStreak =
             serverUserData?['longest_streak'] as int? ?? 0;
+        final serverPreferences = <String, dynamic>{
+          'defaultCefrLevel':
+              languageLevel ?? AppDefaults.defaultLanguageLevel,
+          'languageVariant':
+              englishVariant ?? AppDefaults.defaultEnglishVariant,
+        };
         final serverBadges =
-            (serverUserData?['badges'] as List<dynamic>?)?.cast<String>() ?? [];
+            (supabaseUser.userMetadata?['badges'] as List<dynamic>?)
+                    ?.cast<String>() ??
+                [];
         final serverStickers =
-            (serverUserData?['stickers'] as List<dynamic>?)?.cast<String>() ??
+            (supabaseUser.userMetadata?['stickers'] as List<dynamic>?)
+                    ?.cast<String>() ??
                 [];
         final serverWordsLearned =
             serverUserData?['total_words_learned'] as int? ?? 0;
         final serverShields = serverUserData?['shields_available'] as int? ?? 0;
-        final serverPreferences =
-            (serverUserData?['preferences'] as Map<String, dynamic>?) ??
-                {
-                  'defaultCefrLevel':
-                      languageLevel ?? AppDefaults.defaultLanguageLevel,
-                  'languageVariant':
-                      englishVariant ?? AppDefaults.defaultEnglishVariant,
-                };
         DateTime? serverLastActivity;
         if (serverUserData?['last_activity_date'] != null) {
           serverLastActivity = DateTime.tryParse(
@@ -451,6 +454,15 @@ class UserNotifier extends StateNotifier<UserState> {
       }
 
       await _hiveService.saveUser(registeredUser);
+      if (!registeredUser.isGuest &&
+          (registeredUser.badges.isNotEmpty || registeredUser.stickers.isNotEmpty)) {
+        await Supabase.instance.client.auth.updateUser(
+          UserAttributes(data: {
+            'badges': registeredUser.badges,
+            'stickers': registeredUser.stickers,
+          }),
+        );
+      }
       state = UserState(user: registeredUser);
       print('✅ Registered user saved: ${registeredUser.displayNameOrEmail}');
       print(
@@ -591,12 +603,12 @@ class UserNotifier extends StateNotifier<UserState> {
         final userId = client.auth.currentUser?.id;
         if (userId != null) {
           try {
-            await client.from('users').update({
-              'badges': user.badges,
-              'stickers': user.stickers,
-              'preferences': user.preferences,
-              'total_words_learned': user.totalWordsLearned,
-            }).eq('id', userId);
+            await client.auth.updateUser(
+              UserAttributes(data: {
+                'badges': user.badges,
+                'stickers': user.stickers,
+              }),
+            );
             print(
                 '✅ User badges/stickers synced to Supabase: badges=${user.badges.length}, stickers=${user.stickers.length}');
           } catch (e) {

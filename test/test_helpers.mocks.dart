@@ -4071,19 +4071,12 @@ class MockReviewService extends _i1.Mock implements _i13.ReviewService {
       ) as _i3.Future<_i11.UserStatsModel?>);
 
   @override
-  _i3.Future<void> saveUserStats({
-    required int? totalReviewsCompleted,
-    double? averageTimePerCard,
-  }) =>
+  _i3.Future<void> saveUserStats({required int? totalReviewsCompleted}) =>
       (super.noSuchMethod(
         Invocation.method(
           #saveUserStats,
           [],
-          {
-            #totalReviewsCompleted: totalReviewsCompleted,
-            if (averageTimePerCard != null)
-              #averageTimePerCard: averageTimePerCard,
-          },
+          {#totalReviewsCompleted: totalReviewsCompleted},
         ),
         returnValue: _i3.Future<void>.value(),
         returnValueForMissingStub: _i3.Future<void>.value(),
@@ -4099,26 +4092,6 @@ class MockReviewService extends _i1.Mock implements _i13.ReviewService {
         ),
         returnValue: _i3.Future<int>.value(0),
       ) as _i3.Future<int>);
-
-  @override
-  _i3.Future<List<_i9.WordCardModel>> getMoreCards({
-    int? batchSize = 5,
-    List<String>? excludeIds,
-    String? topicFilter,
-  }) =>
-      (super.noSuchMethod(
-        Invocation.method(
-          #getMoreCards,
-          [],
-          {
-            #batchSize: batchSize,
-            #excludeIds: excludeIds,
-            #topicFilter: topicFilter,
-          },
-        ),
-        returnValue:
-            _i3.Future<List<_i9.WordCardModel>>.value(<_i9.WordCardModel>[]),
-      ) as _i3.Future<List<_i9.WordCardModel>>);
 }
 
 /// A class which mocks [ProfileRepository].

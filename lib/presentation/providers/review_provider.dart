@@ -135,6 +135,18 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
         _recordLearningActivity = recordLearningActivity,
         super(const ReviewState(isLoading: true));
 
+  Future<int> _refreshRemainingDueCount() async {
+    try {
+      return await _reviewService.getRemainingDueCount(
+        topicFilter: state.currentTopicFilter,
+      );
+    } catch (e) {
+      // Keep the last known count if refreshing it fails after a saved rating.
+      print('⚠️ [Review] Failed to refresh remaining due count: $e');
+      return state.remainingDueCount;
+    }
+  }
+
   /// Load review session (due cards + new cards to fill batchSize)
   /// Optionally filter by topic
   Future<void> loadSession({String? topicFilter, int batchSize = 5}) async {
@@ -192,6 +204,7 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
 
       // Save to storage
       await _reviewService.updateCard(updatedCard);
+      final remainingDueCount = await _refreshRemainingDueCount();
 
       // Update streak for first review of the day (guest mode)
       // For registered users, this is handled by database trigger
@@ -230,6 +243,7 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
       // Auto-advance: Advance directly to next card
       state = state.copyWith(
         currentIndex: state.currentIndex + 1,
+        remainingDueCount: remainingDueCount,
         lastRating: remembered,
         reviewedCardIds: newReviewedIds,
         totalReviewsCompleted: totalReviews,
@@ -259,6 +273,7 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
 
       // Save restored card to storage
       await _reviewService.updateCard(restoredCard);
+      final remainingDueCount = await _refreshRemainingDueCount();
 
       // Remove card from reviewed set
       final newReviewedIds = Set<String>.from(state.reviewedCardIds);
@@ -277,6 +292,7 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
       // Update state with restored values
       state = state.copyWith(
         cards: updatedCards,
+        remainingDueCount: remainingDueCount,
         currentIndex: newIndex,
         canUndo: false,
         previousCardState: null,

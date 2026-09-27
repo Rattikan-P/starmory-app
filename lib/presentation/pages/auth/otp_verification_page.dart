@@ -17,10 +17,13 @@ import '../../../presentation/providers/providers.dart'
         hiveServiceProvider,
         vocabularySyncServiceProvider,
         userStateProvider,
+        badgeStateProvider,
         scrapbookStateProvider,
         vocabularyStateProvider;
 import '../../../presentation/providers/streak_provider.dart'
     show streakProvider;
+import '../../../presentation/utils/reward_unlock_helper.dart'
+    show pendingRewardCheckProvider;
 
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
 
@@ -165,7 +168,9 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
             (widget.guestStreakSnapshot?['longestStreak'] as int? ?? 0) > 0 ||
             (widget.guestStreakSnapshot?['shields'] as int? ?? 0) > 0 ||
             widget.guestStreakSnapshot?['lastStreakActivityDate'] != null ||
-            widget.guestStreakSnapshot?['streakStateUpdatedAt'] != null;
+            widget.guestStreakSnapshot?['streakStateUpdatedAt'] != null ||
+            (widget.guestStreakSnapshot?['badges'] as List?)?.isNotEmpty ==
+                true;
         if (hasGuestData && widget.isGuestCreatingAccount) {
           // แสดง dialog ถามว่าต้องการ merge ไหม
           if (!mounted) return;
@@ -199,6 +204,8 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
                 'shields': widget.guestStreakSnapshot?['shields'] ??
                     guestStreakData?.shieldsAvailable ??
                     0,
+                'badges': widget.guestStreakSnapshot?['badges'] ??
+                    <String>[],
                 'vocabulary': localVocabs,
               };
 
@@ -223,6 +230,8 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
                           serverUserData['last_activity_date']?.toString(),
                       'streak_state_updated_at':
                           serverUserData['streak_state_updated_at']?.toString(),
+                      'badges': client.auth.currentUser?.userMetadata?['badges'] ??
+                          <String>[],
                     }
                   : null;
 
@@ -284,6 +293,12 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
                   mergeResult.mergedData['longest_streak'] as int? ?? 0;
               final mergedShields =
                   mergeResult.mergedData['shields_available'] as int? ?? 0;
+              final mergedBadgesValue = mergeResult.mergedData['badges'];
+              final mergedBadges = mergedBadgesValue is Set
+                  ? mergedBadgesValue.cast<String>().toList()
+                  : mergedBadgesValue is List
+                      ? mergedBadgesValue.cast<String>()
+                      : <String>[];
               final mergedLastActivity =
                   mergeResult.mergedData['last_activity_date'];
               final lastActivityDate = mergedLastActivity is DateTime
@@ -312,6 +327,9 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
                 if (stateUpdatedAt != null)
                   'streak_state_updated_at': stateUpdatedAt,
               }).eq('id', user.id);
+              await client.auth.updateUser(
+                UserAttributes(data: {'badges': mergedBadges}),
+              );
 
               print('✅ [OTP Login] Streak merged and updated to cloud');
 
@@ -319,6 +337,19 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
               final streakNotifier = ref.read(streakProvider.notifier);
               await streakNotifier.refresh();
               print('✅ [OTP Login] Streak refreshed from cloud after merge');
+
+              final mergedUser = ref.read(userStateProvider).user;
+              if (mergedUser != null) {
+                await ref.read(userStateProvider.notifier).updateUser(
+                      mergedUser.copyWith(
+                        badges: mergedBadges,
+                        preferences: {
+                          ...mergedUser.preferences,
+                          'badges': mergedBadges,
+                        },
+                      ),
+                    );
+              }
             } catch (e) {
               // E3: Service unavailable when merging preferences
               print('❌ [OTP Login] Merge failed: $e');
@@ -331,6 +362,8 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
             }
           } else {
             // User chose "No" / "Keep my account" → Clear local guest data
+            ref.read(pendingRewardCheckProvider.notifier).state = false;
+            ref.read(badgeStateProvider.notifier).clearPendingUnlocks();
             print(
                 'ℹ️ [OTP Login] User chose to keep original server data - clearing guest data');
             try {
@@ -379,7 +412,9 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
             (widget.guestStreakSnapshot?['longestStreak'] as int? ?? 0) > 0 ||
             (widget.guestStreakSnapshot?['shields'] as int? ?? 0) > 0 ||
             widget.guestStreakSnapshot?['lastStreakActivityDate'] != null ||
-            widget.guestStreakSnapshot?['streakStateUpdatedAt'] != null;
+            widget.guestStreakSnapshot?['streakStateUpdatedAt'] != null ||
+            (widget.guestStreakSnapshot?['badges'] as List?)?.isNotEmpty ==
+                true;
 
         if (hasExplicitData) {
           // มีข้อมูลจาก guest creating account → ใช้เลย

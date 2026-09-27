@@ -50,5 +50,15 @@ void main() {
       expect(merge.mergedData['current_streak'], 1);
       expect(merge.mergedData['last_activity_date'], '2026-09-27');
     });
+
+    test('guest and registered badges are both retained after merge', () async {
+      final merge = await MergeService().mergeUserData(
+        {'badges': ['first_word', 'streak_3']},
+        {'badges': ['night_owl']},
+      );
+
+      expect(merge.mergedData['badges'],
+          {'first_word', 'streak_3', 'night_owl'});
+    });
   });
 }

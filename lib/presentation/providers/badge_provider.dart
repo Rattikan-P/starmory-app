@@ -291,6 +291,8 @@ class BadgeState {
 class BadgeController extends StateNotifier<BadgeState> {
   final Ref _ref;
   final List<Badge> _pendingBadgesToCelebrate = [];
+  String? _lastSyncedUserId;
+  bool? _lastSyncedUserWasGuest;
 
   BadgeController(this._ref) : super(BadgeState.initial()) {
     _initializeBadges();
@@ -312,6 +314,16 @@ class BadgeController extends StateNotifier<BadgeState> {
   }
 
   void _syncWithUser(dynamic user) {
+    final userId = user.id as String?;
+    final isGuest = user.isGuest as bool;
+    if (_lastSyncedUserId != null &&
+        (_lastSyncedUserId != userId || _lastSyncedUserWasGuest != isGuest)) {
+      // A guest's already-earned popup must not be replayed after account merge.
+      _pendingBadgesToCelebrate.clear();
+    }
+    _lastSyncedUserId = userId;
+    _lastSyncedUserWasGuest = isGuest;
+
     final rawStats = user.preferences['badge_stats'] as Map<String, dynamic>?;
     final stats = BadgeStats.fromMap(rawStats);
     final userBadges = Set<String>.from(user.badges);
@@ -350,6 +362,8 @@ class BadgeController extends StateNotifier<BadgeState> {
       await BadgeUnlockDialog.show(context, badge: badge);
     }
   }
+
+  void clearPendingUnlocks() => _pendingBadgesToCelebrate.clear();
 
   void _initializeBadges() {
     final badges = [
@@ -900,14 +914,6 @@ class BadgeController extends StateNotifier<BadgeState> {
         unlockedCount: updatedBadges.where((b) => !b.isLocked).length,
         latestUnlockedBadge: newlyUnlocked.last,
       );
-    }
-
-    if (newlyUnlocked.isNotEmpty && (context == null || !context.mounted)) {
-      for (final b in newlyUnlocked) {
-        if (!_pendingBadgesToCelebrate.any((item) => item.id == b.id)) {
-          _pendingBadgesToCelebrate.add(b);
-        }
-      }
     }
 
     if (context != null && context.mounted) {
