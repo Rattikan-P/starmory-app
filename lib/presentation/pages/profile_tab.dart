@@ -22,6 +22,7 @@ import 'auth/account_method_page.dart';
 import 'privacy_policy_page.dart';
 import 'terms_of_service_page.dart';
 import '../widgets/galaxy_screen_background.dart';
+import '../widgets/permission_required_dialog.dart';
 import '../widgets/common/profile_widgets.dart';
 import '../widgets/badges_section.dart';
 
@@ -2892,59 +2893,7 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
   }
 
   void _showPermissionDialog(BuildContext context, String type) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
-          '$type Permission Required',
-          style: GoogleFonts.lexend(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: const Color(0xFF1f2937),
-          ),
-        ),
-        content: Text(
-          'Please grant $type permission to continue.',
-          style: GoogleFonts.lexend(
-            fontSize: 14,
-            fontWeight: FontWeight.w400,
-            color: const Color(0xFF6b7280),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFF9ca3af),
-            ),
-            child: Text(
-              'Cancel',
-              style: GoogleFonts.lexend(
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: () {
-              openAppSettings();
-              Navigator.pop(context);
-            },
-            style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFF8b5cf6),
-            ),
-            child: Text(
-              'Settings',
-              style: GoogleFonts.lexend(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+    showPermissionRequiredDialog(context, type);
   }
 
   void _showUnsupportedFormatDialog(BuildContext context) {

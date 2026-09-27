@@ -15,6 +15,24 @@ class DesignTokens {
   static const int brandAccentValue = 0xFFC4B5FD;
   static const Color brandAccent = Color(brandAccentValue);
 
+  // ============= Dialog Semantic Colors =============
+
+  /// Informational dialogs and permission prompts.
+  static const int dialogInfoValue = 0xFF6DBAFC;
+  static const Color dialogInfo = Color(dialogInfoValue);
+
+  /// Brand, account, and user-management dialogs.
+  static const int dialogBrandValue = 0xFF8957F5;
+  static const Color dialogBrand = Color(dialogBrandValue);
+
+  /// Warning, rate-limit, caution, and user-guidance dialogs.
+  static const int dialogWarningValue = 0xFFFFBF29;
+  static const Color dialogWarning = Color(dialogWarningValue);
+
+  /// Critical, system-error, and danger dialogs.
+  static const int dialogDangerValue = 0xFFE44F54;
+  static const Color dialogDanger = Color(dialogDangerValue);
+
   // ============= Text Colors =============
 
   /// Primary text color - Dark gray
@@ -51,6 +69,54 @@ class DesignTokens {
 
   /// Height shared by the Review and Progress hero banners.
   static const double reviewProgressBannerHeight = 184.0;
+
+  // ============= Dialogs =============
+
+  /// Shared dimensions for app modal dialogs.
+  static const double dialogRadius = 28.0;
+  static const double dialogInsetHorizontal = 32.0;
+  static const double dialogInsetVertical = 24.0;
+  static const double dialogPaddingHorizontal = 24.0;
+  static const double dialogPaddingVertical = 26.0;
+  static const double dialogIconSize = 60.0;
+  static const double dialogTitleFontSize = 18.5;
+  static const double dialogBodyFontSize = 14.0;
+  static const double dialogBodyLineHeight = 1.45;
+  static const double dialogButtonHeight = 50.0;
+  static const double dialogButtonRadius = 25.0;
+  static const double dialogButtonFontSize = 15.5;
+  static const double dialogTitleBodySpacing = 16.0;
+  static const double dialogIconTitleSpacing = 18.0;
+  static const double dialogActionsSpacing = 24.0;
+  static const Color dialogTitleColor = textPrimary;
+  static const Color dialogBodyColor = textPrimary;
+  static const Color dialogSupportingTextColor = textSecondary;
+  static const Color dialogDisabledActionColor = textMuted;
+  static const Color dialogDisabledActionBorderColor = Color(0xFFE7DEFF);
+
+  /// App-wide defaults for Material dialogs. Explicit dialog-specific styles
+  /// (for example semantic accent colors) can still override these defaults.
+  static DialogThemeData get dialogTheme => DialogThemeData(
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(dialogRadius),
+    ),
+    insetPadding: const EdgeInsets.symmetric(
+      horizontal: dialogInsetHorizontal,
+      vertical: dialogInsetVertical,
+    ),
+    titleTextStyle: const TextStyle(
+      fontFamily: fontFamily,
+      fontSize: dialogTitleFontSize,
+      fontWeight: weightSemiBold,
+      color: dialogTitleColor,
+    ),
+    contentTextStyle: const TextStyle(
+      fontFamily: fontFamily,
+      fontSize: dialogBodyFontSize,
+      height: dialogBodyLineHeight,
+      color: dialogBodyColor,
+    ),
+  );
 
   // ============= Control Handle Colors =============
 

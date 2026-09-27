@@ -18,6 +18,7 @@ import '../../data/models/vocabulary_model.dart';
 import '../../constants/design_tokens.dart';
 import '../../data/sticker_sets.dart';
 import '../utils/reward_unlock_helper.dart';
+import '../widgets/permission_required_dialog.dart';
 
 /// Helper class for background color options
 class _BackgroundColorOption {
@@ -4575,56 +4576,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
   // ============= Helpers =============
 
   void _showPermissionDialog(String type) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(DesignTokens.radiusXLarge),
-        ),
-        title: Text(
-          '$type Permission Required',
-          style: GoogleFonts.lexend(
-            fontSize: DesignTokens.fontSizeTitle,
-            fontWeight: DesignTokens.weightSemiBold,
-            color: DesignTokens.textPrimary,
-          ),
-        ),
-        content: Text(
-          'Please grant $type permission to continue.',
-          style: GoogleFonts.lexend(
-            fontSize: DesignTokens.fontSizeBody,
-            fontWeight: DesignTokens.weightRegular,
-            color: DesignTokens.textSecondary,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Cancel',
-              style: GoogleFonts.lexend(
-                color: DesignTokens.textSecondary,
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              openAppSettings();
-            },
-            style: TextButton.styleFrom(
-              foregroundColor: DesignTokens.brandColor,
-            ),
-            child: Text(
-              'Settings',
-              style: GoogleFonts.lexend(
-                fontWeight: DesignTokens.weightSemiBold,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+    showPermissionRequiredDialog(context, type);
   }
 
   void _showErrorDialog(String title, String message) {

@@ -407,8 +407,11 @@ class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserv
                                     child: Row(
                                       mainAxisAlignment: MainAxisAlignment.center,
                                       children: [
-                                        const Icon(Icons.photo_library_rounded,
-                                            color: Color(0xFF7C5CFC), size: 20),
+                                        const Icon(
+                                          Icons.photo_library_outlined,
+                                          color: Color(0xFF7C3AED),
+                                          size: 20,
+                                        ),
                                         const SizedBox(width: 8),
                                         Text(
                                           'Gallery',

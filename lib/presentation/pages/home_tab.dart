@@ -9,6 +9,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import '../../core/utils/safe_image_picker.dart';
+import '../../constants/design_tokens.dart';
 import '../providers/providers.dart';
 import '../../data/models/scrapbook_model.dart';
 import 'image_preview_screen.dart';
@@ -19,6 +20,7 @@ import '../utils/reward_unlock_helper.dart';
 import '../widgets/scrapbook_detail_sheet.dart';
 import '../widgets/scrapbook_polaroid.dart';
 import '../widgets/top_header_actions.dart';
+import '../widgets/permission_required_dialog.dart';
 
 /// Home Tab - Main screen with AI generation
 /// Redesigned to feel warm, welcoming, and pressure-free
@@ -461,7 +463,10 @@ class _HomeTabState extends ConsumerState<HomeTab>
         : (dailyLimit - todayUsage).clamp(0, dailyLimit);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+      padding: EdgeInsets.symmetric(
+        horizontal: remainingGenerations == 0 && isGuest ? 14 : 18,
+        vertical: remainingGenerations == 0 && isGuest ? 10 : 14,
+      ),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
@@ -479,24 +484,39 @@ class _HomeTabState extends ConsumerState<HomeTab>
       ),
       child: Row(
         children: [
-          Container(
+          SizedBox(
             width: 44,
             height: 44,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: const Color(0xFF7C3AED),
-                width: 3,
+            child: TweenAnimationBuilder<double>(
+              tween: Tween<double>(
+                begin: 1,
+                end: (remainingGenerations / dailyLimit).clamp(0.0, 1.0),
               ),
-            ),
-            child: Center(
-              child: Text(
-                '$remainingGenerations',
-                style: GoogleFonts.lexend(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF1F2937),
-                ),
+              duration: const Duration(milliseconds: 350),
+              curve: Curves.easeOutCubic,
+              builder: (context, progress, _) => Stack(
+                fit: StackFit.expand,
+                children: [
+                  CircularProgressIndicator(
+                    value: progress,
+                    strokeWidth: 4,
+                    strokeCap: StrokeCap.round,
+                    backgroundColor: const Color(0xFFEDE9FE),
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                      Color(0xFF7C3AED),
+                    ),
+                  ),
+                  Center(
+                    child: Text(
+                      '$remainingGenerations',
+                      style: GoogleFonts.lexend(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF1F2937),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -508,16 +528,20 @@ class _HomeTabState extends ConsumerState<HomeTab>
                 Text(
                   '$remainingGenerations generation${remainingGenerations == 1 ? '' : 's'} left today',
                   style: GoogleFonts.lexend(
-                    fontSize: 15,
+                    fontSize: remainingGenerations == 0 && isGuest ? 12 : 15,
                     fontWeight: FontWeight.w600,
                     color: const Color(0xFF1F2937),
                   ),
                 ),
-                const SizedBox(height: 2),
+                SizedBox(height: remainingGenerations == 0 && isGuest ? 1 : 2),
                 Text(
-                  'Keep capturing memories',
+                  remainingGenerations == 0 && isGuest
+                      ? 'Sign in to create more memories'
+                      : 'Keep capturing memories',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.lexend(
-                    fontSize: 12,
+                    fontSize: remainingGenerations == 0 && isGuest ? 10 : 12,
                     fontWeight: FontWeight.w400,
                     color: const Color(0xFF9CA3AF),
                   ),
@@ -525,6 +549,32 @@ class _HomeTabState extends ConsumerState<HomeTab>
               ],
             ),
           ),
+          if (remainingGenerations == 0 && isGuest) ...[
+            const SizedBox(width: 10),
+            SizedBox(
+              height: 34,
+              child: ElevatedButton(
+                onPressed: () => AccountMethodPage.show(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF8957F5),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  minimumSize: const Size(72, 34),
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+                child: Text(
+                  'Sign in',
+                  style: GoogleFonts.lexend(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -745,59 +795,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
   }
 
   void _showPermissionDialog(String type) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
-          '$type Permission Required',
-          style: GoogleFonts.lexend(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: const Color(0xFF1f2937),
-          ),
-        ),
-        content: Text(
-          'Please grant $type permission to continue.',
-          style: GoogleFonts.lexend(
-            fontSize: 14,
-            fontWeight: FontWeight.w400,
-            color: const Color(0xFF6b7280),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFF9ca3af),
-            ),
-            child: Text(
-              'Cancel',
-              style: GoogleFonts.lexend(
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: () {
-              openAppSettings();
-              Navigator.pop(context);
-            },
-            style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFF8b5cf6),
-            ),
-            child: Text(
-              'Settings',
-              style: GoogleFonts.lexend(
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+    showPermissionRequiredDialog(context, type);
   }
 
   void _showErrorDialog(String title, String message) {

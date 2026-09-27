@@ -15,6 +15,7 @@ import 'scrapbook_tab.dart';
 import 'progress_tab.dart';
 import 'image_preview_screen.dart';
 import 'auth/account_method_page.dart';
+import '../widgets/permission_required_dialog.dart';
 import '../providers/providers.dart';
 
 // Track last synced user ID to ensure syncing when switching accounts
@@ -127,14 +128,14 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
                       Navigator.pop(context);
                       _pickImage(ImageSource.camera);
                     },
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(30),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 18),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
                           colors: [Color(0xFF8B5CF6), Color(0xFF7C3AED)],
                         ),
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(30),
                         boxShadow: [
                           BoxShadow(
                             color: const Color(0xFF7C3AED).withValues(alpha: 0.35),
@@ -146,7 +147,7 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 22),
+                          const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 20),
                           const SizedBox(width: 8),
                           Text(
                             'Camera',
@@ -161,19 +162,19 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: 12),
                 Expanded(
                   child: InkWell(
                     onTap: () {
                       Navigator.pop(context);
                       _pickImage(ImageSource.gallery);
                     },
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(30),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 18),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
                       decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
+                        color: Colors.white.withValues(alpha: 0.88),
+                        borderRadius: BorderRadius.circular(30),
                         border: Border.all(color: const Color(0xFFDDD6FE), width: 1.5),
                         boxShadow: [
                           BoxShadow(
@@ -186,7 +187,7 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(Icons.photo_library_outlined, color: Color(0xFF7C3AED), size: 22),
+                          const Icon(Icons.photo_library_outlined, color: Color(0xFF7C3AED), size: 20),
                           const SizedBox(width: 8),
                           Text(
                             'Gallery',
@@ -412,59 +413,7 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
   }
 
   void _showPermissionDialog(String type) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
-          '$type Permission Required',
-          style: GoogleFonts.lexend(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: const Color(0xFF1F2937),
-          ),
-        ),
-        content: Text(
-          'Please grant $type permission to continue.',
-          style: GoogleFonts.lexend(
-            fontSize: 14,
-            fontWeight: FontWeight.w400,
-            color: const Color(0xFF6B7280),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFF9CA3AF),
-            ),
-            child: Text(
-              'Cancel',
-              style: GoogleFonts.lexend(
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: () {
-              openAppSettings();
-              Navigator.pop(context);
-            },
-            style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFF8B5CF6),
-            ),
-            child: Text(
-              'Settings',
-              style: GoogleFonts.lexend(
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+    showPermissionRequiredDialog(context, type);
   }
 
   void _showErrorDialog(String title, String message) {

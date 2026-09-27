@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../../core/utils/safe_image_picker.dart';
+import '../widgets/permission_required_dialog.dart';
 import '../pages/image_preview_screen.dart';
 
 /// Shared image-selection flow used wherever users can add a new photo.
@@ -183,43 +184,7 @@ class PhotoPickerFlow {
   }
 
   static void _showPermissionDialog(BuildContext context, String type) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
-          '$type Permission Required',
-          style: GoogleFonts.lexend(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: const Color(0xFF1f2937),
-          ),
-        ),
-        content: Text(
-          'Please grant $type permission to continue.',
-          style: GoogleFonts.lexend(
-            fontSize: 14,
-            fontWeight: FontWeight.w400,
-            color: const Color(0xFF6b7280),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            style: TextButton.styleFrom(foregroundColor: const Color(0xFF9ca3af)),
-            child: Text('Cancel', style: GoogleFonts.lexend(fontSize: 15, fontWeight: FontWeight.w500)),
-          ),
-          TextButton(
-            onPressed: () {
-              openAppSettings();
-              Navigator.pop(context);
-            },
-            style: TextButton.styleFrom(foregroundColor: const Color(0xFF8b5cf6)),
-            child: Text('Settings', style: GoogleFonts.lexend(fontSize: 15, fontWeight: FontWeight.w500)),
-          ),
-        ],
-      ),
-    );
+    showPermissionRequiredDialog(context, type);
   }
 
   static void _showErrorDialog(BuildContext context, String title, String message) {

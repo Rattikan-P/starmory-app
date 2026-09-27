@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'constants/design_tokens.dart';
 import 'core/config/app_constants.dart';
 import 'data/services/app_state_service.dart';
 import 'presentation/providers/providers.dart';
@@ -105,6 +106,7 @@ class _MyAppState extends ConsumerState<MyApp> {
           brightness: Brightness.light,
         ),
         useMaterial3: true,
+        dialogTheme: DesignTokens.dialogTheme,
         actionIconTheme: ActionIconThemeData(
           backButtonIconBuilder: (context) =>
               const Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: Color(0xFF1F2937)),
@@ -119,6 +121,7 @@ class _MyAppState extends ConsumerState<MyApp> {
           brightness: Brightness.dark,
         ),
         useMaterial3: true,
+        dialogTheme: DesignTokens.dialogTheme,
         actionIconTheme: ActionIconThemeData(
           backButtonIconBuilder: (context) =>
               const Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: Color(0xFF1F2937)),
