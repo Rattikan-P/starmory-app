@@ -254,7 +254,7 @@ class BadgesSection extends ConsumerWidget {
                   width: 4,
                   height: 18,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF7C5CFC),
+                    color: const Color(0xFF8B5CF6),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -303,11 +303,19 @@ class BadgesSection extends ConsumerWidget {
                               color: const Color(0xFF7C5CFC),
                             ),
                           ),
-                          const SizedBox(width: 2),
-                          const Icon(
-                            Icons.arrow_forward_ios,
-                            size: 10,
-                            color: Color(0xFF7C5CFC),
+                          const SizedBox(width: 6),
+                          Container(
+                            width: 26,
+                            height: 26,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFF1F2F5),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.chevron_right_rounded,
+                              size: 20,
+                              color: Color(0xFF9CA3AF),
+                            ),
                           ),
                         ],
                       ),

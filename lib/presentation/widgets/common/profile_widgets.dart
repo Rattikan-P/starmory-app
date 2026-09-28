@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../../constants/design_tokens.dart';
 
 /// Compact list item widget used throughout profile sections
 /// Shows icon, title, value/subtitle, and optional divider with tap handler
@@ -51,9 +52,14 @@ class ProfileCompactItem extends StatelessWidget {
                     width: 40,
                     height: 40,
                     alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: iconBgColor ?? DesignTokens.dialogBrandTint,
+                      shape: BoxShape.circle,
+                    ),
                     child: iconText != null
                         ? Text(iconText!, style: const TextStyle(fontSize: 20))
-                        : Icon(icon, size: 24, color: const Color(0xFF1f2937)),
+                        : Icon(icon,
+                            size: 21, color: const Color(0xFF8957F5)),
                   ),
                   const SizedBox(width: 14),
                   Expanded(
@@ -62,50 +68,46 @@ class ProfileCompactItem extends StatelessWidget {
                       children: [
                         Text(
                           title,
-                          style: TextStyle(
-                            fontSize: useSubtitleMode ? 15 : 12,
-                            color: useSubtitleMode
-                                ? const Color(0xFF1f2937)
-                                : const Color(0xFF1f2937).withValues(alpha: 0.65),
-                            fontWeight: FontWeight.w600,
+                          style: GoogleFonts.lexend(
+                            fontSize: 14,
+                            color: DesignTokens.textPrimary,
+                            fontWeight: DesignTokens.weightSemiBold,
                           ),
                         ),
-                        if (useSubtitleMode)
+                        if (useSubtitleMode || value != null)
                           const SizedBox(height: 3),
                         if (useSubtitleMode)
                           Text(
                             subtitle!,
-                            style: TextStyle(
+                            style: GoogleFonts.lexend(
                               fontSize: 12,
-                              color: const Color(0xFF1f2937).withValues(alpha: 0.65),
+                              color: DesignTokens.textSecondary,
                             ),
                           )
-                        else ...[
-                          const SizedBox(height: 3),
-                          if (value != null)
-                            Text(
-                              value!,
-                              style: const TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF1f2937),
-                              ),
+                        else if (value != null)
+                          Text(
+                            value!,
+                            style: GoogleFonts.lexend(
+                              fontSize: 13,
+                              fontWeight: DesignTokens.weightMedium,
+                              color: DesignTokens.textSecondary,
                             ),
-                        ],
+                          ),
                       ],
                     ),
                   ),
                   // Animated chevron
                   Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(8),
+                    width: 26,
+                    height: 26,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFF1F2F5),
+                      shape: BoxShape.circle,
                     ),
-                    child: Icon(
-                      Icons.chevron_right,
-                      size: 18,
-                      color: const Color(0xFF8B5CF6),
+                    child: const Icon(
+                      Icons.chevron_right_rounded,
+                      size: 20,
+                      color: Color(0xFF9CA3AF),
                     ),
                   ),
                 ],
@@ -151,12 +153,12 @@ class ProfileConfirmInfoItem extends StatelessWidget {
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: bgColor ?? const Color(0xFFFEE2E2),
+            color: bgColor ?? DesignTokens.dialogDanger.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(
             icon,
-            color: const Color(0xFFDC2626),
+            color: DesignTokens.dialogDanger,
             size: 20,
           ),
         ),
@@ -170,7 +172,7 @@ class ProfileConfirmInfoItem extends StatelessWidget {
                 style: GoogleFonts.lexend(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: const Color(0xFFDC2626),
+                  color: DesignTokens.dialogDanger,
                 ),
               ),
               const SizedBox(height: 2),
@@ -179,7 +181,7 @@ class ProfileConfirmInfoItem extends StatelessWidget {
                 style: GoogleFonts.lexend(
                   fontSize: 12,
                   fontWeight: FontWeight.w400,
-                  color: const Color(0xFF6b7280),
+                  color: DesignTokens.textSecondary,
                 ),
               ),
             ],

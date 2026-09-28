@@ -3,8 +3,9 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../constants/design_tokens.dart';
 import '../widgets/permission_required_dialog.dart';
-import '../widgets/top_header_actions.dart';
+import '../widgets/streak_info_dialogs.dart';
 import '../widgets/tokenized_notice_dialogs.dart';
+import '../widgets/start_over_dialog_details.dart';
 
 /// Debug-only gallery for reviewing the app's production dialog components.
 class DialogPreviewPage extends StatelessWidget {
@@ -44,6 +45,43 @@ class DialogPreviewPage extends StatelessWidget {
           () => showStreakInfoDialog(context, 0)),
       _DialogPreviewItem('Shield Info', 'Info · blue tokens',
           () => showShieldInfoDialog(context, 0)),
+      _DialogPreviewItem(
+        'Logout Confirmation',
+        'Profile: mascot and outlined brand actions',
+        () => showTokenizedActionDialog(
+          context,
+          title: 'Logout',
+          message: 'Are you sure you want to log out?',
+          icon: Icons.logout_rounded,
+          iconWidget: Image.asset(
+            'assets/images/logout_mascot.png',
+            width: 75,
+            height: 75,
+          ),
+          secondaryLabel: 'Cancel',
+          primaryLabel: 'Logout',
+          accentColor: DesignTokens.dialogBrand,
+          accentTint: DesignTokens.dialogBrandTint,
+          primaryOutlined: true,
+          barrierDismissible: false,
+        ),
+      ),
+      _DialogPreviewItem('Start Over', 'Profile: reset progress and streak',
+          () {
+        showTokenizedActionDialog(
+          context,
+          title: 'Start Over',
+          message: 'This will reset your learning progress.',
+          icon: Icons.restart_alt_rounded,
+          content: const StartOverDialogDetails(),
+          contentBottomSpacing: DesignTokens.spacingMedium,
+          secondaryLabel: 'Cancel',
+          primaryLabel: 'Start Over',
+          accentColor: DesignTokens.dialogDanger,
+          accentTint: DesignTokens.dialogDangerTint,
+          primaryOutlined: true,
+        );
+      }),
       _DialogPreviewItem('Unsupported Format', 'Home picker',
           () => showUnsupportedFormatDialog(context)),
       _DialogPreviewItem(

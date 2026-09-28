@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../core/utils/safe_image_picker.dart';
 import '../../core/utils/image_picker_error_message.dart';
 import '../../constants/app_defaults.dart';
@@ -23,9 +24,10 @@ import 'english_variant_page.dart';
 import 'auth/account_method_page.dart';
 import 'privacy_policy_page.dart';
 import 'terms_of_service_page.dart';
-import '../widgets/galaxy_screen_background.dart';
 import '../widgets/permission_required_dialog.dart';
 import '../widgets/tokenized_notice_dialogs.dart';
+import '../widgets/start_over_dialog_details.dart';
+import '../widgets/streak_info_dialogs.dart';
 import '../widgets/common/profile_widgets.dart';
 import '../widgets/badges_section.dart';
 
@@ -42,6 +44,97 @@ final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
     supabaseClient: Supabase.instance.client,
   );
 });
+
+BoxDecoration _profileSectionDecoration() => BoxDecoration(
+      color: DesignTokens.surfacePrimary,
+      borderRadius: BorderRadius.circular(DesignTokens.radiusCircular),
+      border: Border.all(color: const Color(0xFFE5E7EB)),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.04),
+          blurRadius: 12,
+          offset: const Offset(0, 3),
+        ),
+      ],
+    );
+
+BoxDecoration _profileBackgroundDecoration() => const BoxDecoration(
+      gradient: DesignTokens.pageHeaderGradient,
+    );
+
+Future<bool> _showProfileConfirmation(
+  BuildContext context, {
+  required String title,
+  required String message,
+  required IconData icon,
+  required String confirmLabel,
+  Widget? iconWidget,
+  Widget? content,
+  TextAlign messageTextAlign = TextAlign.center,
+  double contentBottomSpacing = DesignTokens.dialogActionsSpacing,
+  Color accentColor = DesignTokens.dialogWarning,
+  Color? accentTint,
+  bool primaryOutlined = false,
+  bool barrierDismissible = true,
+}) async {
+  var confirmed = false;
+  await showTokenizedActionDialog(
+    context,
+    title: title,
+    message: message,
+    icon: icon,
+    iconWidget: iconWidget,
+    content: content,
+    messageTextAlign: messageTextAlign,
+    contentBottomSpacing: contentBottomSpacing,
+    primaryLabel: confirmLabel,
+    onPrimary: () => confirmed = true,
+    secondaryLabel: 'Cancel',
+    onSecondary: () => confirmed = false,
+    accentColor: accentColor,
+    accentTint: accentTint,
+    primaryOutlined: primaryOutlined,
+    barrierDismissible: barrierDismissible,
+  );
+  return confirmed;
+}
+
+class _ProfileHeaderIconButton extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onPressed;
+
+  const _ProfileHeaderIconButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: const Color(0xFFF3F4F6),
+        shape: const CircleBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onPressed,
+          child: SizedBox(
+            width: 40,
+            height: 40,
+            child: Icon(
+              icon,
+              size: 20,
+              color: DesignTokens.textPrimary,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class ProfileTab extends ConsumerStatefulWidget {
   const ProfileTab({super.key});
@@ -121,26 +214,7 @@ class _StreakSection extends ConsumerWidget {
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-        border: Border.all(
-          color: const Color(0xFFE2D1F9).withValues(alpha: 0.3),
-          width: 1,
-        ),
-      ),
+      decoration: _profileSectionDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -152,11 +226,7 @@ class _StreakSection extends ConsumerWidget {
                   width: 4,
                   height: 18,
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [Color(0xFFFF6B6B), Color(0xFFFF8E53)],
-                    ),
+                    color: DesignTokens.brandColor,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -173,34 +243,28 @@ class _StreakSection extends ConsumerWidget {
                 const Spacer(),
                 // Shield badge
                 GestureDetector(
-                  onTap: () => _showShieldInfoDialog(context),
+                  onTap: () => showShieldInfoDialog(context, shields),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
+                      horizontal: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFE2D1F9).withValues(alpha: 0.5),
+                      color: Colors.transparent,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text('🛡️', style: TextStyle(fontSize: 12)),
-                        const SizedBox(width: 4),
+                        const FaIcon(FontAwesomeIcons.shieldHalved,
+                            size: 18, color: Color(0xFFFF7A51)),
+                        const SizedBox(width: 2),
                         Text(
                           '$shields',
                           style: GoogleFonts.lexend(
-                            fontSize: 13,
+                            fontSize: 14,
                             fontWeight: FontWeight.w700,
-                            color: const Color(0xFF8B5CF6),
+                            color: const Color(0xFF221F33),
                           ),
-                        ),
-                        const SizedBox(width: 4),
-                        const Icon(
-                          Icons.info_outline,
-                          size: 12,
-                          color: Color(0xFF8B5CF6),
                         ),
                       ],
                     ),
@@ -212,290 +276,106 @@ class _StreakSection extends ConsumerWidget {
           // Main content: Streak number and motivation message
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-            child: Row(
-              children: [
-                // Big streak number with fire icon
-                Icon(
-                  Icons.local_fire_department,
-                  size: 36,
-                  color: currentStreak == 0
-                      ? const Color(0xFF9CA3AF)
-                      : const Color(0xFFFF6B6B),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  '$currentStreak',
-                  style: GoogleFonts.lexend(
-                    fontSize: 48,
-                    fontWeight: FontWeight.w700,
-                    color: currentStreak == 0
-                        ? const Color(0xFF9CA3AF)
-                        : const Color(0xFF1f2937),
-                    height: 1,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        currentStreak == 1 ? 'day' : 'days',
-                        style: GoogleFonts.lexend(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFF9CA3AF),
-                        ),
+            child: Material(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(12),
+              child: InkWell(
+                onTap: () => showStreakInfoDialog(context, currentStreak),
+                borderRadius: BorderRadius.circular(12),
+                child: Row(
+                  children: [
+                    // Big streak number with fire icon
+                    Icon(
+                      Icons.local_fire_department,
+                      size: 36,
+                      color: currentStreak == 0
+                          ? const Color(0xFF9CA3AF)
+                          : const Color(0xFFFF6B6B),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '$currentStreak',
+                      style: GoogleFonts.lexend(
+                        fontSize: 48,
+                        fontWeight: FontWeight.w700,
+                        color: currentStreak == 0
+                            ? const Color(0xFF9CA3AF)
+                            : const Color(0xFF1f2937),
+                        height: 1,
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        getMotivationMessage(),
-                        style: GoogleFonts.lexend(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: const Color(0xFF6B7280),
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      // Shield progress text
-                      Text(
-                        daysUntilShield == 0
-                            ? 'Shield earned! 🎉'
-                            : '$daysUntilShield ${daysUntilShield == 1 ? 'day' : 'days'} to next shield',
-                        style: GoogleFonts.lexend(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                          color: const Color(0xFF8B5CF6),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      // Progress bar
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(6),
-                        child: Stack(
-                          children: [
-                            // Background
-                            Container(
-                              height: 6,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFE5E7EB),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            currentStreak == 1 ? 'day' : 'days',
+                            style: GoogleFonts.lexend(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF9CA3AF),
                             ),
-                            // Progress
-                            FractionallySizedBox(
-                              widthFactor: consecutiveDays / 7,
-                              child: Container(
-                                height: 6,
-                                decoration: BoxDecoration(
-                                  gradient: const LinearGradient(
-                                    colors: [
-                                      Color(0xFF8B5CF6),
-                                      Color(0xFF60A5FA),
-                                    ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            getMotivationMessage(),
+                            style: GoogleFonts.lexend(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: const Color(0xFF6B7280),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          // Shield progress text
+                          Text(
+                            daysUntilShield == 0
+                                ? 'Shield earned! 🎉'
+                                : '$daysUntilShield ${daysUntilShield == 1 ? 'day' : 'days'} to next shield',
+                            style: GoogleFonts.lexend(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              color: const Color(0xFF8B5CF6),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          // Progress bar
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: Stack(
+                              children: [
+                                // Background
+                                Container(
+                                  height: 6,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFE5E7EB),
+                                    borderRadius: BorderRadius.circular(6),
                                   ),
-                                  borderRadius: BorderRadius.circular(6),
                                 ),
-                              ),
+                                // Progress
+                                FractionallySizedBox(
+                                  widthFactor: consecutiveDays / 7,
+                                  child: Container(
+                                    height: 6,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFF7A51),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         ],
       ),
-    );
-  }
-
-  void _showShieldInfoDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Colors.white, Color(0xFFf8f9ff)],
-            ),
-            borderRadius: BorderRadius.circular(28),
-            boxShadow: [
-              BoxShadow(
-                color: DesignTokens.dialogInfo.withValues(alpha: 0.15),
-                blurRadius: 30,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [DesignTokens.dialogInfoTint, DesignTokens.dialogInfo],
-                    ),
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: DesignTokens.dialogInfo.withValues(alpha: 0.3),
-                        blurRadius: 20,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.shield_rounded,
-                    color: Colors.white,
-                    size: 40,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  'Streak Shields',
-                  style: GoogleFonts.lexend(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFF1f2937),
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Don\'t let a missed day break your streak!',
-                  style: GoogleFonts.lexend(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
-                    color: const Color(0xFF6b7280),
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: DesignTokens.dialogInfoTint,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    children: [
-                      _buildShieldInfoItem(
-                        icon: Icons.shield_rounded,
-                        title: 'Shield Protection',
-                        description:
-                            'Each shield protects your streak for 1 missed day',
-                      ),
-                      const SizedBox(height: 12),
-                      _buildShieldInfoItem(
-                        icon: Icons.star_rounded,
-                        title: 'Earn Shields',
-                        description:
-                            'Keep learning for 7 days to earn a shield',
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [DesignTokens.dialogInfo, DesignTokens.dialogInfo],
-                      ),
-                      borderRadius: BorderRadius.circular(14),
-                      boxShadow: [
-                        BoxShadow(
-                          color: DesignTokens.dialogInfo.withValues(alpha: 0.4),
-                          blurRadius: 15,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: () => Navigator.pop(context),
-                        borderRadius: BorderRadius.circular(14),
-                        child: const Center(
-                          child: Text(
-                            'Got it!',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildShieldInfoItem({
-    required IconData icon,
-    required String title,
-    required String description,
-  }) {
-    return Row(
-      children: [
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: DesignTokens.dialogInfoTint,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(icon, size: 20, color: DesignTokens.dialogInfo),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: GoogleFonts.lexend(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: DesignTokens.dialogInfo,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                description,
-                style: GoogleFonts.lexend(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w400,
-                  color: const Color(0xFF6B7280),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }
@@ -564,26 +444,7 @@ class _PreferencesSectionState extends ConsumerState<_PreferencesSection> {
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-        border: Border.all(
-          color: const Color(0xFFE2D1F9).withValues(alpha: 0.3),
-          width: 1,
-        ),
-      ),
+      decoration: _profileSectionDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -596,11 +457,7 @@ class _PreferencesSectionState extends ConsumerState<_PreferencesSection> {
                   width: 4,
                   height: 18,
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [Color(0xFF8B5CF6), Color(0xFF60a5fa)],
-                    ),
+                    color: DesignTokens.brandColor,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -638,7 +495,7 @@ class _PreferencesSectionState extends ConsumerState<_PreferencesSection> {
               );
               widget.onPreferenceChanged?.call();
             },
-            iconBgColor: const Color(0xFFF3F4F6), // 🩶 Soft Gray (Minimal)
+            iconBgColor: DesignTokens.dialogBrandTint,
           ),
 
           // English Variant
@@ -662,7 +519,7 @@ class _PreferencesSectionState extends ConsumerState<_PreferencesSection> {
               );
               widget.onPreferenceChanged?.call();
             },
-            iconBgColor: const Color(0xFFF3F4F6), // 🩶 Soft Gray (Minimal)
+            iconBgColor: DesignTokens.dialogBrandTint,
           ),
         ],
       ),
@@ -678,26 +535,7 @@ class _GuestDataSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-        border: Border.all(
-          color: const Color(0xFFE2D1F9).withValues(alpha: 0.3),
-          width: 1,
-        ),
-      ),
+      decoration: _profileSectionDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -710,11 +548,7 @@ class _GuestDataSection extends ConsumerWidget {
                   width: 4,
                   height: 18,
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [Color(0xFF8B5CF6), Color(0xFF60a5fa)],
-                    ),
+                    color: DesignTokens.brandColor,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -739,9 +573,18 @@ class _GuestDataSection extends ConsumerWidget {
             subtitle: 'Reset learning progress (keep settings)',
             showDivider: true,
             onTap: () async {
-              final confirmed = await showDialog<bool>(
-                context: context,
-                builder: (context) => _ConfirmStartOverDialog(),
+              final confirmed = await _showProfileConfirmation(
+                context,
+                title: 'Start Over',
+                message:
+                    'This will reset your learning progress.',
+                icon: Icons.restart_alt_rounded,
+                confirmLabel: 'Start Over',
+                content: const StartOverDialogDetails(),
+                contentBottomSpacing: DesignTokens.spacingMedium,
+                accentColor: DesignTokens.dialogDanger,
+                accentTint: DesignTokens.dialogDangerTint,
+                primaryOutlined: true,
               );
 
               if (confirmed == true && context.mounted) {
@@ -770,7 +613,7 @@ class _GuestDataSection extends ConsumerWidget {
                 }
               }
             },
-            iconBgColor: const Color(0xFFF3F4F6), // 🩶 Soft Gray (Minimal)
+            iconBgColor: DesignTokens.dialogBrandTint,
           ),
 
           // Export Vocabulary
@@ -794,385 +637,9 @@ class _GuestDataSection extends ConsumerWidget {
                 }
               }
             },
-            iconBgColor: const Color(0xFFF3F4F6), // 🩶 Soft Gray (Minimal)
+            iconBgColor: DesignTokens.dialogBrandTint,
           ),
         ],
-      ),
-    );
-  }
-}
-
-// ==================== CONFIRM START OVER DIALOG ====================
-class _ConfirmStartOverDialog extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Colors.white, Color(0xFFf8f9ff)],
-          ),
-          borderRadius: BorderRadius.circular(28),
-          boxShadow: [
-            BoxShadow(
-              color: DesignTokens.dialogDanger.withValues(alpha: 0.15),
-              blurRadius: 30,
-              offset: const Offset(0, 10),
-            ),
-          ],
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [DesignTokens.dialogDanger, DesignTokens.dialogDanger],
-                  ),
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: DesignTokens.dialogDanger.withValues(alpha: 0.3),
-                      blurRadius: 20,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.refresh_rounded,
-                  color: Colors.white,
-                  size: 40,
-                ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'Start Over',
-                style: GoogleFonts.lexend(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF1f2937),
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'This will reset your learning progress.',
-                style: GoogleFonts.lexend(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w400,
-                  color: const Color(0xFF6b7280),
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: DesignTokens.dialogDanger.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  children: [
-                    ProfileConfirmInfoItem(
-                      icon: Icons.menu_book_rounded,
-                      title: 'Vocabulary Deleted',
-                      description: 'All saved words will be removed',
-                    ),
-                    const SizedBox(height: 12),
-                    ProfileConfirmInfoItem(
-                      icon: Icons.analytics_rounded,
-                      title: 'Progress Reset',
-                      description: 'Learning progress will be reset to zero',
-                    ),
-                    const SizedBox(height: 12),
-                    ProfileConfirmInfoItem(
-                      icon: Icons.local_fire_department_rounded,
-                      title: 'Streak Cleared',
-                      description: 'Your streak and shields will be reset',
-                    ),
-                    const SizedBox(height: 12),
-                    ProfileConfirmInfoItem(
-                      icon: Icons.lightbulb_rounded,
-                      title: 'Settings Kept',
-                      description:
-                          'Language level and variant will be preserved',
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Expanded(
-                    child: SizedBox(
-                      height: 50,
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.pop(context, false),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF9ca3af),
-                          side: BorderSide(
-                            color: const Color(
-                              0xFF9ca3af,
-                            ).withValues(alpha: 0.3),
-                            width: 1.5,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                        ),
-                        child: Text(
-                          'Cancel',
-                          style: GoogleFonts.lexend(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: SizedBox(
-                      height: 50,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [DesignTokens.dialogDanger, DesignTokens.dialogDanger],
-                          ),
-                          borderRadius: BorderRadius.circular(14),
-                          boxShadow: [
-                            BoxShadow(
-                              color: DesignTokens.dialogDanger.withValues(alpha: 0.4),
-                              blurRadius: 15,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: () => Navigator.pop(context, true),
-                            borderRadius: BorderRadius.circular(14),
-                            child: Center(
-                              child: Text(
-                                'Start Over',
-                                style: GoogleFonts.lexend(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ==================== CONFIRM RESET PROGRESS DIALOG ====================
-class _ConfirmResetProgressDialog extends StatelessWidget {
-  const _ConfirmResetProgressDialog();
-
-  @override
-  Widget build(BuildContext context) {
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Colors.white, Color(0xFFf8f9ff)],
-          ),
-          borderRadius: BorderRadius.circular(28),
-          boxShadow: [
-            BoxShadow(
-              color: DesignTokens.dialogDanger.withValues(alpha: 0.15),
-              blurRadius: 30,
-              offset: const Offset(0, 10),
-            ),
-          ],
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [DesignTokens.dialogDanger, DesignTokens.dialogDanger],
-                  ),
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: DesignTokens.dialogDanger.withValues(alpha: 0.3),
-                      blurRadius: 20,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.refresh_rounded,
-                  color: Colors.white,
-                  size: 40,
-                ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'Start Over',
-                style: GoogleFonts.lexend(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF1f2937),
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'This will reset your learning progress.',
-                style: GoogleFonts.lexend(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w400,
-                  color: const Color(0xFF6b7280),
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: DesignTokens.dialogDanger.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  children: [
-                    ProfileConfirmInfoItem(
-                      icon: Icons.menu_book_rounded,
-                      title: 'Vocabulary Deleted',
-                      description: 'All saved words will be removed',
-                    ),
-                    const SizedBox(height: 12),
-                    ProfileConfirmInfoItem(
-                      icon: Icons.analytics_rounded,
-                      title: 'Progress Reset',
-                      description: 'Learning progress will be reset to zero',
-                    ),
-                    const SizedBox(height: 12),
-                    ProfileConfirmInfoItem(
-                      icon: Icons.local_fire_department_rounded,
-                      title: 'Streak Cleared',
-                      description: 'Your streak and shields will be reset',
-                    ),
-                    const SizedBox(height: 12),
-                    ProfileConfirmInfoItem(
-                      icon: Icons.lightbulb_rounded,
-                      title: 'Account Kept',
-                      description:
-                          'Your account and settings will be preserved',
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Expanded(
-                    child: SizedBox(
-                      height: 50,
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.pop(context, false),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF9ca3af),
-                          side: BorderSide(
-                            color: const Color(
-                              0xFF9ca3af,
-                            ).withValues(alpha: 0.3),
-                            width: 1.5,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                        ),
-                        child: Text(
-                          'Cancel',
-                          style: GoogleFonts.lexend(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: SizedBox(
-                      height: 50,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [DesignTokens.dialogDanger, DesignTokens.dialogDanger],
-                          ),
-                          borderRadius: BorderRadius.circular(14),
-                          boxShadow: [
-                            BoxShadow(
-                              color: DesignTokens.dialogDanger.withValues(alpha: 0.4),
-                              blurRadius: 15,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: () => Navigator.pop(context, true),
-                            borderRadius: BorderRadius.circular(14),
-                            child: Center(
-                              child: Text(
-                                'Start Over',
-                                style: GoogleFonts.lexend(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -1186,26 +653,7 @@ class _DataSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-        border: Border.all(
-          color: const Color(0xFFE2D1F9).withValues(alpha: 0.3),
-          width: 1,
-        ),
-      ),
+      decoration: _profileSectionDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1218,11 +666,7 @@ class _DataSection extends ConsumerWidget {
                   width: 4,
                   height: 18,
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [Color(0xFF8B5CF6), Color(0xFF60a5fa)],
-                    ),
+                    color: DesignTokens.brandColor,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -1247,9 +691,18 @@ class _DataSection extends ConsumerWidget {
             subtitle: 'Reset learning progress (keep settings)',
             showDivider: true,
             onTap: () async {
-              final confirmed = await showDialog<bool>(
-                context: context,
-                builder: (context) => const _ConfirmResetProgressDialog(),
+              final confirmed = await _showProfileConfirmation(
+                context,
+                title: 'Start Over',
+                message:
+                    'This will reset your learning progress.',
+                icon: Icons.restart_alt_rounded,
+                confirmLabel: 'Start Over',
+                content: const StartOverDialogDetails(),
+                contentBottomSpacing: DesignTokens.spacingMedium,
+                accentColor: DesignTokens.dialogDanger,
+                accentTint: DesignTokens.dialogDangerTint,
+                primaryOutlined: true,
               );
 
               if (confirmed == true && context.mounted) {
@@ -1279,7 +732,7 @@ class _DataSection extends ConsumerWidget {
                 }
               }
             },
-            iconBgColor: const Color(0xFFF3F4F6),
+            iconBgColor: DesignTokens.dialogBrandTint,
           ),
 
           // Export Vocabulary
@@ -1304,7 +757,7 @@ class _DataSection extends ConsumerWidget {
                 }
               }
             },
-            iconBgColor: const Color(0xFFF3F4F6), // 🩶 Soft Gray (Minimal)
+            iconBgColor: DesignTokens.dialogBrandTint,
           ),
 
           // Clear Cache
@@ -1326,7 +779,7 @@ class _DataSection extends ConsumerWidget {
                 }
               }
             },
-            iconBgColor: const Color(0xFFF3F4F6), // 🩶 Soft Gray (Minimal)
+            iconBgColor: DesignTokens.dialogBrandTint,
           ),
         ],
       ),
@@ -1367,6 +820,12 @@ class _AccountSection extends ConsumerWidget {
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
             child: Row(
               children: [
+                const Icon(
+                  Icons.warning_amber_rounded,
+                  size: 16,
+                  color: Colors.red,
+                ),
+                const SizedBox(width: 6),
                 Text(
                   'ACCOUNT',
                   style: GoogleFonts.lexend(
@@ -1376,8 +835,6 @@ class _AccountSection extends ConsumerWidget {
                     letterSpacing: 1.5,
                   ),
                 ),
-                const SizedBox(width: 6),
-                const Text('⚠️', style: TextStyle(fontSize: 14)),
               ],
             ),
           ),
@@ -1428,10 +885,18 @@ class _AccountSection extends ConsumerWidget {
                         ],
                       ),
                     ),
-                    Icon(
-                      Icons.chevron_right,
-                      size: 20,
-                      color: Colors.red.withValues(alpha: 0.6),
+                    Container(
+                      width: 26,
+                      height: 26,
+                      decoration: BoxDecoration(
+                        color: Colors.red.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.chevron_right_rounded,
+                        size: 20,
+                        color: Colors.red.withValues(alpha: 0.6),
+                      ),
                     ),
                   ],
                 ),
@@ -1454,23 +919,15 @@ class _AboutSection extends ConsumerWidget {
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(DesignTokens.radiusCircular),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
-          ),
-          BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
+            blurRadius: 12,
+            offset: const Offset(0, 3),
           ),
         ],
-        border: Border.all(
-          color: const Color(0xFFE2D1F9).withValues(alpha: 0.3),
-          width: 1,
-        ),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1484,11 +941,7 @@ class _AboutSection extends ConsumerWidget {
                   width: 4,
                   height: 18,
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [Color(0xFF8B5CF6), Color(0xFF60a5fa)],
-                    ),
+                    color: DesignTokens.brandColor,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -1515,7 +968,7 @@ class _AboutSection extends ConsumerWidget {
             onTap: () {
               _showAboutDialog(context);
             },
-            iconBgColor: const Color(0xFFF3F4F6), // 🩶 Soft Gray (Minimal)
+            iconBgColor: DesignTokens.dialogBrandTint,
           ),
 
           // Privacy Policy
@@ -1530,7 +983,7 @@ class _AboutSection extends ConsumerWidget {
                 MaterialPageRoute(builder: (_) => const PrivacyPolicyPage()),
               );
             },
-            iconBgColor: const Color(0xFFF3F4F6), // 🩶 Soft Gray (Minimal)
+            iconBgColor: DesignTokens.dialogBrandTint,
           ),
 
           // Terms of Service
@@ -1545,7 +998,7 @@ class _AboutSection extends ConsumerWidget {
                 MaterialPageRoute(builder: (_) => const TermsOfServicePage()),
               );
             },
-            iconBgColor: const Color(0xFFF3F4F6), // 🩶 Soft Gray (Minimal)
+            iconBgColor: DesignTokens.dialogBrandTint,
           ),
         ],
       ),
@@ -1562,151 +1015,101 @@ class _AboutDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-      child: Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Colors.white, Color(0xFFf8f9ff)],
-          ),
-          borderRadius: BorderRadius.circular(28),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF8b5cf6).withValues(alpha: 0.15),
-              blurRadius: 30,
-              offset: const Offset(0, 10),
-            ),
-          ],
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(DesignTokens.dialogRadius),
+      ),
+      insetPadding: const EdgeInsets.symmetric(
+        horizontal: DesignTokens.dialogInsetHorizontal,
+        vertical: DesignTokens.dialogInsetVertical,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: DesignTokens.dialogPaddingHorizontal,
+          vertical: DesignTokens.dialogPaddingVertical,
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // App Icon/Logo
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0xFF60a5fa), Color(0xFFa78bfa)],
-                ),
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFFa78bfa).withValues(alpha: 0.3),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Image.asset(
+                'assets/images/about_mascot.png',
+                width: 112,
+                height: 112,
+                fit: BoxFit.contain,
               ),
-              child: const Icon(
-                Icons.stars_rounded,
-                color: Colors.white,
-                size: 40,
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            // App Name
-            Text(
-              'Starmory',
-              style: GoogleFonts.cormorantUnicase(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: const Color(0xFF1f2937),
-              ),
-            ),
-            const SizedBox(height: 8),
-
-            // Tagline
-            Text(
-              'Learn English through your memories',
-              style: GoogleFonts.lexend(
-                fontSize: 14,
-                fontWeight: FontWeight.w400,
-                color: const Color(0xFF6b7280),
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-
-            // Version
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: const Color(0xFFE2D1F9).withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                'Version 1.0.0',
-                style: GoogleFonts.lexend(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xFF8B5CF6),
+              const SizedBox(height: 8),
+              Text(
+                'Starmory',
+                style: GoogleFonts.cormorantUnicase(
+                  fontSize: 26,
+                  fontWeight: DesignTokens.weightBold,
+                  color: DesignTokens.dialogTitleColor,
                 ),
               ),
-            ),
-            const SizedBox(height: 20),
-
-            // Description
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Text(
-                'Starmory helps you learn English vocabulary by turning your personal photos into meaningful learning experiences.',
-                style: GoogleFonts.lexend(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w400,
-                  color: const Color(0xFF6b7280),
-                  height: 1.5,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // Close button
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: Container(
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xFF60a5fa), Color(0xFFa78bfa)],
-                  ),
-                  borderRadius: BorderRadius.circular(14),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFFa78bfa).withValues(alpha: 0.4),
-                      blurRadius: 15,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: DesignTokens.dialogInfoTint, width: 1.5),
                 ),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: () => Navigator.pop(context),
-                    borderRadius: BorderRadius.circular(14),
-                    child: const Center(
-                      child: Text(
-                        'Close',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
+                child: Text(
+                  'Version 1.0.0',
+                  style: GoogleFonts.lexend(
+                    fontSize: 15,
+                    fontWeight: DesignTokens.weightSemiBold,
+                    color: DesignTokens.dialogInfo,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 30),
+              Text(
+                'Starmory helps you learn English vocabulary by turning your personal photos into meaningful learning memories.',
+                textAlign: TextAlign.left,
+                style: GoogleFonts.lexend(
+                  fontSize: 15,
+                  height: 1.55,
+                  color: DesignTokens.dialogTitleColor,
+                ),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                'Stickers designed by Magnific from Flaticon',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.lexend(
+                  fontSize: 11,
+                  color: DesignTokens.dialogSupportingTextColor,
+                ),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                height: DesignTokens.dialogButtonHeight,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: ElevatedButton.styleFrom(
+                    elevation: 0,
+                    backgroundColor: DesignTokens.dialogInfo,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(
+                        DesignTokens.dialogButtonRadius,
                       ),
                     ),
                   ),
+                  child: Text(
+                    'Close',
+                    style: GoogleFonts.lexend(
+                      fontSize: DesignTokens.dialogButtonFontSize,
+                      fontWeight: DesignTokens.weightSemiBold,
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -1749,38 +1152,23 @@ class _NotLoggedInViewState extends ConsumerState<_NotLoggedInView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: GalaxyScreenBackground(
+      body: Container(
+        decoration: _profileBackgroundDecoration(),
         child: Column(
           children: [
             // Guest Header
             SafeArea(
               child: Padding(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
                 child: Column(
                   children: [
                     // Top bar with back button and Guest badge
                     Row(
                       children: [
-                        Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.06),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: IconButton(
-                            icon: const Icon(
-                              Icons.arrow_back_ios_new_rounded,
-                              color: Color(0xFF1F2937),
-                              size: 20,
-                            ),
-                            onPressed: () => Navigator.pop(context),
-                          ),
+                        _ProfileHeaderIconButton(
+                          icon: Icons.arrow_back_ios_new_rounded,
+                          tooltip: 'Back',
+                          onPressed: () => Navigator.pop(context),
                         ),
                         const Spacer(),
                         // Guest User badge (moved here)
@@ -1823,12 +1211,13 @@ class _NotLoggedInViewState extends ConsumerState<_NotLoggedInView> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: DesignTokens.spacingSmall),
 
                     // Register Prompt Card
                     Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.all(20),
+                      height: 172,
+                      padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(20),
@@ -1844,13 +1233,13 @@ class _NotLoggedInViewState extends ConsumerState<_NotLoggedInView> {
                         children: [
                           Icon(
                             Icons.cloud_sync_outlined,
-                            size: 36,
+                            size: 32,
                             color: const Color(0xFF8B5CF6),
                           ),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 8),
                           Text(
                             'Save your progress',
-                            style: GoogleFonts.cormorantUnicase(
+                            style: GoogleFonts.lexend(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                               color: const Color(0xFF1f2937),
@@ -1867,28 +1256,26 @@ class _NotLoggedInViewState extends ConsumerState<_NotLoggedInView> {
                             ),
                             textAlign: TextAlign.center,
                           ),
-                          const SizedBox(height: 16),
-                          // Consistent gradient button
+                          const SizedBox(height: 10),
+                          // Match the purple CTA style used on Home.
                           SizedBox(
                             width: double.infinity,
-                            height: 50,
+                            height: 48,
                             child: Container(
                               decoration: BoxDecoration(
                                 gradient: const LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
                                   colors: [
                                     Color(0xFF8B5CF6),
-                                    Color(0xFF60a5fa),
+                                    Color(0xFF7C3AED),
                                   ],
                                 ),
-                                borderRadius: BorderRadius.circular(14),
+                                borderRadius: BorderRadius.circular(30),
                                 boxShadow: [
                                   BoxShadow(
                                     color: const Color(
-                                      0xFF8B5CF6,
-                                    ).withValues(alpha: 0.4),
-                                    blurRadius: 15,
+                                      0xFF7C3AED,
+                                    ).withValues(alpha: 0.35),
+                                    blurRadius: 10,
                                     offset: const Offset(0, 4),
                                   ),
                                 ],
@@ -1899,19 +1286,19 @@ class _NotLoggedInViewState extends ConsumerState<_NotLoggedInView> {
                                   onTap: () {
                                     AccountMethodPage.show(context);
                                   },
-                                  borderRadius: BorderRadius.circular(14),
-                                  child: const Row(
+                                  borderRadius: BorderRadius.circular(30),
+                                  child: Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      Icon(
+                                      const Icon(
                                         Icons.person_add,
                                         color: Colors.white,
                                         size: 20,
                                       ),
-                                      SizedBox(width: 8),
+                                      const SizedBox(width: 8),
                                       Text(
                                         'Create Account',
-                                        style: TextStyle(
+                                        style: GoogleFonts.lexend(
                                           color: Colors.white,
                                           fontSize: 15,
                                           fontWeight: FontWeight.w600,
@@ -1926,7 +1313,7 @@ class _NotLoggedInViewState extends ConsumerState<_NotLoggedInView> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: DesignTokens.spacingBase),
                   ],
                 ),
               ),
@@ -2050,172 +1437,159 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
     }
 
     return Scaffold(
-      body: GalaxyScreenBackground(
+      body: Container(
+        decoration: _profileBackgroundDecoration(),
         child: Column(
           children: [
             // Profile Header
             SafeArea(
               child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
-                ),
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
                 child: Column(
                   children: [
                     // Top bar with back and logout buttons
                     Row(
                       children: [
-                        Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.06),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: IconButton(
-                            icon: const Icon(
-                              Icons.arrow_back_ios_new_rounded,
-                              color: Color(0xFF1F2937),
-                              size: 20,
-                            ),
-                            onPressed: () => Navigator.pop(context),
-                          ),
+                        _ProfileHeaderIconButton(
+                          icon: Icons.arrow_back_ios_new_rounded,
+                          tooltip: 'Back',
+                          onPressed: () => Navigator.pop(context),
                         ),
                         const Spacer(),
-                        Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.06),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: IconButton(
-                            icon: const Icon(
-                              Icons.logout,
-                              color: Color(0xFF1f2937),
-                            ),
-                            onPressed: () => _showLogoutDialog(context, ref),
-                            tooltip: 'Logout',
-                          ),
+                        _ProfileHeaderIconButton(
+                          icon: Icons.logout_rounded,
+                          tooltip: 'Log out',
+                          onPressed: () => _showLogoutDialog(context, ref),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 4),
-                    // Avatar - clickable to change
-                    GestureDetector(
-                      onTap: () =>
-                          _showAvatarPicker(context, displayName, avatarUrl),
-                      child: Stack(
+                    const SizedBox(height: DesignTokens.spacingSmall),
+                    // Account identity card
+                    Container(
+                      width: double.infinity,
+                      height: 172,
+                      padding: const EdgeInsets.all(DesignTokens.spacingLarge),
+                      decoration: BoxDecoration(
+                        color: DesignTokens.surfacePrimary,
+                        borderRadius:
+                            BorderRadius.circular(DesignTokens.radiusXLarge),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.08),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.1),
-                                  blurRadius: 12,
-                                  offset: const Offset(0, 4),
+                          GestureDetector(
+                            onTap: () => _showAvatarPicker(
+                              context,
+                              displayName,
+                              avatarUrl,
+                            ),
+                            child: Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                CircleAvatar(
+                                  radius: 36,
+                                  backgroundColor: const Color(0xFFF1EDFF),
+                                  backgroundImage: avatarUrl != null
+                                      ? NetworkImage(avatarUrl)
+                                      : null,
+                                  child: avatarUrl == null
+                                      ? Text(
+                                          displayName
+                                              .substring(0, 1)
+                                              .toUpperCase(),
+                                          style: GoogleFonts.lexend(
+                                            fontSize: 27,
+                                            fontWeight: DesignTokens.weightBold,
+                                            color: DesignTokens.dialogBrand,
+                                          ),
+                                        )
+                                      : null,
+                                ),
+                                Positioned(
+                                  bottom: -2,
+                                  right: -2,
+                                  child: Container(
+                                    width: 26,
+                                    height: 26,
+                                    decoration: BoxDecoration(
+                                      color: DesignTokens.dialogBrand,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: Colors.white,
+                                        width: 2,
+                                      ),
+                                    ),
+                                    child: const Icon(
+                                      Icons.camera_alt_rounded,
+                                      size: 13,
+                                      color: Colors.white,
+                                    ),
+                                  ),
                                 ),
                               ],
                             ),
-                            child: CircleAvatar(
-                              radius: 40,
-                              backgroundColor: Colors.white,
-                              backgroundImage: avatarUrl != null
-                                  ? NetworkImage(avatarUrl)
-                                  : null,
-                              child: avatarUrl == null
-                                  ? Text(
-                                      displayName.substring(0, 1).toUpperCase(),
-                                      style: const TextStyle(
-                                        fontSize: 28,
-                                        fontWeight: FontWeight.bold,
-                                        color: Color(0xFF8B5CF6),
-                                      ),
-                                    )
-                                  : null,
-                            ),
                           ),
-                          // Edit icon overlay
-                          Positioned(
-                            bottom: 0,
-                            right: 0,
-                            child: Container(
-                              width: 28,
-                              height: 28,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF8B5CF6),
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: Colors.white,
-                                  width: 2,
+                          const SizedBox(height: DesignTokens.spacingMedium),
+                          GestureDetector(
+                            onTap: () => _showDisplayNameDialog(
+                              context,
+                              ref,
+                              displayName,
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                ConstrainedBox(
+                                  constraints: BoxConstraints(
+                                    maxWidth:
+                                        MediaQuery.sizeOf(context).width - 112,
+                                  ),
+                                  child: Text(
+                                    displayName,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    textAlign: TextAlign.center,
+                                    style: GoogleFonts.lexend(
+                                      fontSize: 18,
+                                      fontWeight: DesignTokens.weightSemiBold,
+                                      color: DesignTokens.textPrimary,
+                                    ),
+                                  ),
                                 ),
-                              ),
-                              child: const Icon(
-                                Icons.camera_alt,
-                                size: 14,
-                                color: Colors.white,
-                              ),
+                                const SizedBox(
+                                  width: DesignTokens.spacingSmall,
+                                ),
+                                const Icon(
+                                  Icons.edit_outlined,
+                                  size: 15,
+                                  color: DesignTokens.textMuted,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: DesignTokens.spacingBase),
+                          Text(
+                            email,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.lexend(
+                              fontSize: 12,
+                              color: DesignTokens.textSecondary,
                             ),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    // Name - clickable to edit
-                    GestureDetector(
-                      onTap: () =>
-                          _showDisplayNameDialog(context, ref, displayName),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Flexible(
-                            child: Text(
-                              displayName.length > 11
-                                  ? '${displayName.substring(0, 11)}...'
-                                  : displayName,
-                              style: GoogleFonts.cormorantUnicase(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                                color: const Color(0xFF1f2937),
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                              maxLines: 1,
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Icon(
-                            Icons.edit_outlined,
-                            size: 16,
-                            color: const Color(
-                              0xFF1f2937,
-                            ).withValues(alpha: 0.5),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    // Email
-                    Text(
-                      email,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: const Color(0xFF1f2937).withValues(alpha: 0.7),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: DesignTokens.spacingBase),
                   ],
                 ),
               ),
@@ -2431,31 +1805,21 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
       if (e.code == 'already_active') return;
       if (context.mounted) {
         final error = e.message ?? e;
-        if (ImagePickerErrorMessage.isPermissionRequestAlreadyRunning(error)) {
-          showTokenizedErrorDialog(
-            context,
-            title: 'Error',
-            message: ImagePickerErrorMessage.failedToPick(error),
-            icon: Icons.photo_library_outlined,
-          );
-        } else {
-          SnackBarHelper.error(
-              context, 'Failed to pick image: ${e.message ?? e.toString()}');
-        }
+        showTokenizedErrorDialog(
+          context,
+          title: 'Error',
+          message: ImagePickerErrorMessage.failedToPick(error),
+          icon: Icons.photo_library_outlined,
+        );
       }
     } catch (e) {
       if (context.mounted) {
-        if (ImagePickerErrorMessage.isPermissionRequestAlreadyRunning(e)) {
-          showTokenizedErrorDialog(
-            context,
-            title: 'Error',
-            message: ImagePickerErrorMessage.failedToPick(e),
-            icon: Icons.photo_library_outlined,
-          );
-        } else {
-          SnackBarHelper.error(
-              context, ImagePickerErrorMessage.failedToPick(e));
-        }
+        showTokenizedErrorDialog(
+          context,
+          title: 'Error',
+          message: ImagePickerErrorMessage.failedToPick(e),
+          icon: Icons.photo_library_outlined,
+        );
       }
     }
   }
@@ -2480,147 +1844,22 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
   }
 
   Future<void> _showLogoutDialog(BuildContext context, WidgetRef ref) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Colors.white, Color(0xFFf8f9ff)],
-            ),
-            borderRadius: BorderRadius.circular(28),
-            boxShadow: [
-              BoxShadow(
-                color: DesignTokens.dialogBrand.withValues(alpha: 0.15),
-                blurRadius: 30,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    color: DesignTokens.dialogBrand,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: DesignTokens.dialogBrand.withValues(alpha: 0.3),
-                        blurRadius: 20,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.logout_rounded,
-                    color: Colors.white,
-                    size: 40,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  'Logout',
-                  style: GoogleFonts.lexend(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFF1f2937),
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Are you sure you want to log out?',
-                  style: GoogleFonts.lexend(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
-                    color: const Color(0xFF6b7280),
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  children: [
-                    Expanded(
-                      child: SizedBox(
-                        height: 50,
-                        child: OutlinedButton(
-                          onPressed: () => Navigator.pop(context, false),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF9ca3af),
-                            side: BorderSide(
-                              color: const Color(
-                                0xFF9ca3af,
-                              ).withValues(alpha: 0.3),
-                              width: 1.5,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                          ),
-                          child: Text(
-                            'Cancel',
-                            style: GoogleFonts.lexend(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: SizedBox(
-                        height: 50,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: DesignTokens.dialogBrand,
-                            borderRadius: BorderRadius.circular(14),
-                            boxShadow: [
-                              BoxShadow(
-                                color: DesignTokens.dialogBrand.withValues(alpha: 0.4),
-                                blurRadius: 15,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              onTap: () => Navigator.pop(context, true),
-                              borderRadius: BorderRadius.circular(14),
-                              child: Center(
-                                child: Text(
-                                  'Logout',
-                                  style: GoogleFonts.lexend(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
+    final confirmed = await _showProfileConfirmation(
+      context,
+      title: 'Logout',
+      message: 'Are you sure you want to log out?',
+      icon: Icons.logout_rounded,
+      iconWidget: Image.asset(
+        'assets/images/logout_mascot.png',
+        width: 75,
+        height: 75,
       ),
+      confirmLabel: 'Logout',
+      accentColor: DesignTokens.dialogBrand,
+      accentTint: DesignTokens.dialogBrandTint,
+      primaryOutlined: true,
+      barrierDismissible: false,
     );
-
     if (confirmed == true && context.mounted) {
       try {
         final client = Supabase.instance.client;
@@ -2685,165 +1924,34 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
     BuildContext context,
     WidgetRef ref,
   ) async {
-    // ⭐ CRITICAL FIX: Capture all providers AND navigator BEFORE showing dialog
-    // This prevents "Cannot use ref after widget was disposed" error
+    // Capture services and the root navigator before the destructive operation.
     final authService = ref.read(authServiceProvider);
     final preferenceService = ref.read(onboardingServiceProvider);
     final hiveService = ref.read(hiveServiceProvider);
     final streakNotifier = ref.read(streakProvider.notifier);
     final navigator = Navigator.of(context, rootNavigator: true);
 
-    final confirmed = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Colors.white, Color(0xFFf8f9ff)],
-            ),
-            borderRadius: BorderRadius.circular(28),
-            boxShadow: [
-              BoxShadow(
-                color: DesignTokens.dialogDanger.withValues(alpha: 0.15),
-                blurRadius: 30,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    color: DesignTokens.dialogDanger,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: DesignTokens.dialogDanger.withValues(alpha: 0.3),
-                        blurRadius: 20,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.delete_forever_rounded,
-                    color: Colors.white,
-                    size: 40,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  'Delete Account',
-                  style: GoogleFonts.lexend(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFF1f2937),
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'This action cannot be undone and all your data will be permanently lost.',
-                  style: GoogleFonts.lexend(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
-                    color: const Color(0xFF6b7280),
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Are you sure you want to delete your account?',
-                  style: GoogleFonts.lexend(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: DesignTokens.dialogDanger,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  children: [
-                    Expanded(
-                      child: SizedBox(
-                        height: 50,
-                        child: OutlinedButton(
-                          onPressed: () => Navigator.pop(context, false),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF9ca3af),
-                            side: BorderSide(
-                              color: const Color(
-                                0xFF9ca3af,
-                              ).withValues(alpha: 0.3),
-                              width: 1.5,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                          ),
-                          child: Text(
-                            'Cancel',
-                            style: GoogleFonts.lexend(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: SizedBox(
-                        height: 50,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: DesignTokens.dialogDanger,
-                            borderRadius: BorderRadius.circular(14),
-                            boxShadow: [
-                              BoxShadow(
-                                color: DesignTokens.dialogDanger.withValues(alpha: 0.4),
-                                blurRadius: 15,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              onTap: () => Navigator.pop(context, true),
-                              borderRadius: BorderRadius.circular(14),
-                              child: Center(
-                                child: Text(
-                                  'Delete',
-                                  style: GoogleFonts.lexend(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
+    final confirmed = await _showProfileConfirmation(
+      context,
+      title: 'Delete Account',
+      message:
+          'This action cannot be undone and all your data will be permanently lost.',
+      icon: Icons.delete_forever_rounded,
+      confirmLabel: 'Delete',
+      iconWidget: Image.asset(
+        'assets/images/delete_acc_mascot.png',
+        width: 65,
+        height: 65,
+        fit: BoxFit.contain,
       ),
+      content: const _DeleteAccountWarning(),
+      messageTextAlign: TextAlign.left,
+      contentBottomSpacing: DesignTokens.spacingSmall,
+      accentColor: DesignTokens.dialogDanger,
+      accentTint: DesignTokens.dialogDangerTint,
+      primaryOutlined: true,
+      barrierDismissible: false,
     );
-
     if (confirmed == true) {
       try {
         print('🗑️ Starting account deletion...');
@@ -2919,6 +2027,44 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
 }
 
 // ==================== DISPLAY NAME DIALOG ====================
+class _DeleteAccountWarning extends StatelessWidget {
+  const _DeleteAccountWarning();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: DesignTokens.dialogDangerTint,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(
+            Icons.warning_rounded,
+            size: 18,
+            color: DesignTokens.dialogDanger,
+          ),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              'Are you sure you want to delete your account?',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.lexend(
+                fontSize: DesignTokens.dialogBodyFontSize,
+                fontWeight: DesignTokens.weightSemiBold,
+                color: DesignTokens.dialogDanger,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _DisplayNameDialog extends StatefulWidget {
   final TextEditingController controller;
   final GlobalKey<FormState> formKey;
@@ -2948,73 +2094,56 @@ class _DisplayNameDialogState extends State<_DisplayNameDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Colors.white, Color(0xFFf8f9ff)],
-          ),
-          borderRadius: BorderRadius.circular(28),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF8b5cf6).withValues(alpha: 0.15),
-              blurRadius: 30,
-              offset: const Offset(0, 10),
-            ),
-          ],
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(DesignTokens.dialogRadius),
+      ),
+      insetPadding: const EdgeInsets.symmetric(
+        horizontal: DesignTokens.dialogInsetHorizontal,
+        vertical: DesignTokens.dialogInsetVertical,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: DesignTokens.dialogPaddingHorizontal,
+          vertical: DesignTokens.dialogPaddingVertical,
         ),
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xFFf472b6), Color(0xFF60a5fa)],
-                  ),
+                width: DesignTokens.dialogIconSize + 10,
+                height: DesignTokens.dialogIconSize + 10,
+                decoration: const BoxDecoration(
+                  color: DesignTokens.dialogBrandTint,
                   shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFFf472b6).withValues(alpha: 0.3),
-                      blurRadius: 20,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
                 ),
                 child: const Icon(
-                  Icons.edit_outlined,
-                  color: Colors.white,
-                  size: 40,
+                  Icons.edit_square,
+                  color: DesignTokens.dialogBrand,
+                  size: 38,
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: DesignTokens.dialogIconTitleSpacing),
               Text(
                 'Edit Display Name',
                 style: GoogleFonts.lexend(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF1f2937),
+                  fontSize: DesignTokens.dialogTitleFontSize,
+                  fontWeight: DesignTokens.weightSemiBold,
+                  color: DesignTokens.dialogTitleColor,
                 ),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: DesignTokens.dialogTitleBodySpacing),
               Text(
                 'Enter your new display name',
                 style: GoogleFonts.lexend(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w400,
-                  color: const Color(0xFF6b7280),
+                  fontSize: DesignTokens.dialogBodyFontSize,
+                  color: DesignTokens.dialogSupportingTextColor,
                 ),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 14),
               Form(
                 key: widget.formKey,
                 child: TextFormField(
@@ -3023,7 +2152,6 @@ class _DisplayNameDialogState extends State<_DisplayNameDialog> {
                   maxLength: 40,
                   textCapitalization: TextCapitalization.words,
                   onTap: () {
-                    // Select all text when tapped for easy editing
                     final text = widget.controller.text;
                     if (text.isNotEmpty) {
                       widget.controller.selection = TextSelection(
@@ -3034,30 +2162,46 @@ class _DisplayNameDialogState extends State<_DisplayNameDialog> {
                   },
                   decoration: InputDecoration(
                     hintText: 'Enter your name',
+                    counterText: '',
+                    suffix: ValueListenableBuilder<TextEditingValue>(
+                      valueListenable: widget.controller,
+                      builder: (context, value, child) => Text(
+                        '${value.text.length}/40',
+                        style: GoogleFonts.lexend(
+                          fontSize: 13,
+                          color: DesignTokens.dialogSupportingTextColor,
+                        ),
+                      ),
+                    ),
+                    hintStyle: GoogleFonts.lexend(
+                      fontSize: DesignTokens.dialogBodyFontSize,
+                      color: DesignTokens.textMuted,
+                    ),
                     filled: true,
                     fillColor: Colors.white,
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(
-                        color: const Color(0xFF8B5CF6).withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: const BorderSide(
+                        color: DesignTokens.dialogBrandTint,
                       ),
                     ),
                     enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(
-                        color: const Color(0xFF8B5CF6).withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: const BorderSide(
+                        color: DesignTokens.dialogBrandTint,
+                        width: 1.5,
                       ),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(16),
                       borderSide: const BorderSide(
-                        color: Color(0xFF8B5CF6),
-                        width: 2,
+                        color: DesignTokens.dialogBrand,
+                        width: 1.5,
                       ),
                     ),
                     contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
+                      horizontal: 20,
+                      vertical: 16,
                     ),
                   ),
                   validator: (value) {
@@ -3071,31 +2215,30 @@ class _DisplayNameDialogState extends State<_DisplayNameDialog> {
                   },
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: DesignTokens.dialogActionsSpacing),
               Row(
                 children: [
                   Expanded(
                     child: SizedBox(
-                      height: 50,
+                      height: DesignTokens.dialogButtonHeight,
                       child: OutlinedButton(
                         onPressed: () => Navigator.of(context).pop(false),
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF9ca3af),
-                          side: BorderSide(
-                            color: const Color(
-                              0xFF9ca3af,
-                            ).withValues(alpha: 0.3),
-                            width: 1.5,
+                          foregroundColor: DesignTokens.dialogDisabledActionColor,
+                          side: const BorderSide(
+                            color: DesignTokens.dialogDisabledActionBorderColor,
                           ),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
+                            borderRadius: BorderRadius.circular(
+                              DesignTokens.dialogButtonRadius,
+                            ),
                           ),
                         ),
                         child: Text(
                           'Cancel',
                           style: GoogleFonts.lexend(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
+                            fontSize: DesignTokens.dialogButtonFontSize,
+                            fontWeight: DesignTokens.weightSemiBold,
                           ),
                         ),
                       ),
@@ -3104,45 +2247,28 @@ class _DisplayNameDialogState extends State<_DisplayNameDialog> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: SizedBox(
-                      height: 50,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [Color(0xFF60a5fa), Color(0xFFa78bfa)],
+                      height: DesignTokens.dialogButtonHeight,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          if (widget.formKey.currentState?.validate() == true) {
+                            Navigator.of(context).pop(true);
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          elevation: 0,
+                          backgroundColor: DesignTokens.dialogBrand,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(
+                              DesignTokens.dialogButtonRadius,
+                            ),
                           ),
-                          borderRadius: BorderRadius.circular(14),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(
-                                0xFFa78bfa,
-                              ).withValues(alpha: 0.4),
-                              blurRadius: 15,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
                         ),
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: () {
-                              if (widget.formKey.currentState?.validate() ==
-                                  true) {
-                                Navigator.of(context).pop(true);
-                              }
-                            },
-                            borderRadius: BorderRadius.circular(14),
-                            child: Center(
-                              child: Text(
-                                'Save',
-                                style: GoogleFonts.lexend(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
+                        child: Text(
+                          'Save',
+                          style: GoogleFonts.lexend(
+                            fontSize: DesignTokens.dialogButtonFontSize,
+                            fontWeight: DesignTokens.weightSemiBold,
                           ),
                         ),
                       ),
@@ -3171,171 +2297,120 @@ class _AvatarPickerDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Colors.white, Color(0xFFf8f9ff)],
-          ),
-          borderRadius: BorderRadius.circular(28),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF8b5cf6).withValues(alpha: 0.15),
-              blurRadius: 30,
-              offset: const Offset(0, 10),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Avatar preview with gradient glow
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0xFF8B5CF6), Color(0xFF60A5FA)],
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF8B5CF6).withValues(alpha: 0.3),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(3.5),
-                child: Container(
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white,
-                  ),
-                  child: ClipOval(
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(DesignTokens.dialogRadius),
+      ),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 500),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: AspectRatio(
+                    aspectRatio: 2.25,
                     child: currentAvatarUrl != null
                         ? CachedNetworkImage(
                             imageUrl: currentAvatarUrl!,
                             fit: BoxFit.cover,
-                            placeholder: (context, url) => const Center(
-                              child: SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              ),
-                            ),
-                            errorWidget: (context, url, error) => Center(
-                              child: Text(
-                                displayName.isNotEmpty
-                                    ? displayName[0].toUpperCase()
-                                    : '?',
-                                style: const TextStyle(
-                                  fontSize: 28,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF9CA3AF),
-                                ),
-                              ),
-                            ),
+                            placeholder: (context, url) => _avatarFallback(),
+                            errorWidget: (context, url, error) =>
+                                _avatarFallback(),
                           )
-                        : Center(
-                            child: Text(
-                              displayName.isNotEmpty
-                                  ? displayName[0].toUpperCase()
-                                  : '?',
-                              style: const TextStyle(
-                                fontSize: 28,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF9CA3AF),
-                              ),
-                            ),
-                          ),
+                        : _avatarFallback(),
                   ),
                 ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'Change Profile Photo',
-              style: GoogleFonts.lexend(
-                fontSize: 22,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFF1f2937),
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Choose a new profile picture',
-              style: GoogleFonts.lexend(
-                fontSize: 14,
-                fontWeight: FontWeight.w400,
-                color: const Color(0xFF6b7280),
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 20),
-
-            // Take Photo
-            _buildActionButton(
-              icon: Icons.camera_alt_outlined,
-              title: 'Take Photo',
-              onTap: () => Navigator.pop(context, 'camera'),
-            ),
-            const SizedBox(height: 12),
-
-            // Choose from Gallery
-            _buildActionButton(
-              icon: Icons.photo_library_outlined,
-              title: 'Choose from Gallery',
-              onTap: () => Navigator.pop(context, 'gallery'),
-            ),
-
-            if (currentAvatarUrl != null) ...[
-              const SizedBox(height: 20),
-              // Remove Photo
-              TextButton.icon(
-                onPressed: () => Navigator.pop(context, 'remove'),
-                icon: const Icon(Icons.delete_outline, size: 20),
-                label: Text(
-                  'Remove Photo',
+                const SizedBox(height: 20),
+                Text(
+                  'Change Profile Photo',
+                  textAlign: TextAlign.center,
                   style: GoogleFonts.lexend(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.red.withValues(alpha: 0.8),
+                    fontSize: 20,
+                    fontWeight: DesignTokens.weightSemiBold,
+                    color: DesignTokens.dialogTitleColor,
                   ),
                 ),
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.red.withValues(alpha: 0.8),
+                const SizedBox(height: 18),
+                _buildActionButton(
+                  icon: Icons.camera_alt_rounded,
+                  title: 'Take Photo',
+                  onTap: () => Navigator.pop(context, 'camera'),
                 ),
-              ),
-            ],
-
-            const SizedBox(height: 8),
-            // Cancel
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(
-                'Cancel',
-                style: GoogleFonts.lexend(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xFF9ca3af),
+                const SizedBox(height: 10),
+                _buildActionButton(
+                  icon: Icons.photo_library_outlined,
+                  title: 'Choose from Gallery',
+                  onTap: () => Navigator.pop(context, 'gallery'),
                 ),
-              ),
+                if (currentAvatarUrl != null) ...[
+                  const SizedBox(height: 10),
+                  TextButton.icon(
+                    onPressed: () => Navigator.pop(context, 'remove'),
+                    icon: const Icon(Icons.delete_outline_rounded, size: 21),
+                    label: Text(
+                      'Remove Photo',
+                      style: GoogleFonts.lexend(
+                        fontSize: 16,
+                        fontWeight: DesignTokens.weightSemiBold,
+                      ),
+                    ),
+                    style: TextButton.styleFrom(
+                      foregroundColor: DesignTokens.dialogDanger,
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 6),
+                SizedBox(
+                  width: double.infinity,
+                  height: DesignTokens.dialogButtonHeight,
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: DesignTokens.dialogDisabledActionColor,
+                      side: const BorderSide(
+                        color: DesignTokens.dialogDisabledActionBorderColor,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(
+                          DesignTokens.dialogButtonRadius,
+                        ),
+                      ),
+                    ),
+                    child: Text(
+                      'Cancel',
+                      style: GoogleFonts.lexend(
+                        fontSize: DesignTokens.dialogButtonFontSize,
+                        fontWeight: DesignTokens.weightSemiBold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
   }
+
+  Widget _avatarFallback() => Container(
+        color: DesignTokens.dialogBrandTint,
+        alignment: Alignment.center,
+        child: Text(
+          displayName.isNotEmpty ? displayName[0].toUpperCase() : '?',
+          style: GoogleFonts.lexend(
+            fontSize: 56,
+            fontWeight: DesignTokens.weightSemiBold,
+            color: DesignTokens.dialogBrand,
+          ),
+        ),
+      );
 
   Widget _buildActionButton({
     required IconData icon,
@@ -3344,50 +2419,43 @@ class _AvatarPickerDialog extends StatelessWidget {
   }) {
     return SizedBox(
       width: double.infinity,
-      height: 52,
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFFE5E7EB), width: 1),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+      height: DesignTokens.dialogButtonHeight,
+      child: OutlinedButton(
+        onPressed: onTap,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: DesignTokens.dialogTitleColor,
+          side: const BorderSide(color: DesignTokens.dialogBrandTint, width: 1.5),
+          shape: const StadiumBorder(),
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 22, color: DesignTokens.dialogTitleColor),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                title,
+                style: GoogleFonts.lexend(
+                  fontSize: DesignTokens.dialogButtonFontSize,
+                  fontWeight: DesignTokens.weightSemiBold,
+                  color: DesignTokens.dialogTitleColor,
+                ),
+              ),
+            ),
+            Container(
+              width: 32,
+              height: 32,
+              decoration: const BoxDecoration(
+                color: Color(0xFFF1F2F5),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.chevron_right_rounded,
+                size: 22,
+                color: Color(0xFF9CA3AF),
+              ),
             ),
           ],
-        ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(14),
-            child: Row(
-              children: [
-                const SizedBox(width: 20),
-                Icon(icon, size: 22, color: const Color(0xFF6B7280)),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: GoogleFonts.lexend(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                      color: const Color(0xFF1f2937),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Icon(
-                  Icons.chevron_right,
-                  size: 20,
-                  color: const Color(0xFFD1D5DB),
-                ),
-                const SizedBox(width: 12),
-              ],
-            ),
-          ),
         ),
       ),
     );

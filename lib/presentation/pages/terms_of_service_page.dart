@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../constants/design_tokens.dart';
 
 class TermsOfServicePage extends StatelessWidget {
   const TermsOfServicePage({super.key});
@@ -9,26 +10,13 @@ class TermsOfServicePage extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.white,
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFFFFE5C2),
-              Color(0xFFFDCFE0),
-              Color(0xFFDFD2FD),
-              Color(0xFFCEC2FD),
-            ],
-            stops: [0.0, 0.32, 0.70, 1.0],
-          ),
-        ),
         child: SafeArea(
           bottom: false,
           child: Column(
             children: [
                 // Top bar
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                   child: Row(
                     children: [
                       InkWell(
@@ -52,15 +40,6 @@ class TermsOfServicePage extends StatelessWidget {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 16),
-                      Text(
-                        'Terms of Service',
-                        style: GoogleFonts.lexend(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFF1F2937),
-                        ),
-                      ),
                     ],
                   ),
                 ),
@@ -73,7 +52,7 @@ class TermsOfServicePage extends StatelessWidget {
                       borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
                     ),
                     child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(24),
+                      padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [

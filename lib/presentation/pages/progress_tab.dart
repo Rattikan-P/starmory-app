@@ -585,7 +585,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                     ],
                   ),
 
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
 
                   // Next Badge Progress Bar
                   Column(
@@ -656,7 +656,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                     ],
                   ),
 
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
 
                   // Bottom Mini Stats Strip inside Card
                   Container(

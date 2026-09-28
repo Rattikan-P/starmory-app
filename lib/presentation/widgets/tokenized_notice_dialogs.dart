@@ -109,15 +109,22 @@ Future<void> showTokenizedActionDialog(
   required String title,
   required String message,
   required IconData icon,
+  TextAlign messageTextAlign = TextAlign.center,
+  Widget? iconWidget,
+  Widget? content,
+  bool barrierDismissible = true,
   String primaryLabel = 'OK',
   VoidCallback? onPrimary,
   String? secondaryLabel,
   VoidCallback? onSecondary,
   Color accentColor = DesignTokens.dialogDanger,
   Color? accentTint,
+  bool primaryOutlined = false,
+  double contentBottomSpacing = DesignTokens.dialogActionsSpacing,
 }) async {
   await showDialog<void>(
     context: context,
+    barrierDismissible: barrierDismissible,
     builder: (dialogContext) => Dialog(
       backgroundColor: Colors.white,
       shape: RoundedRectangleBorder(
@@ -135,11 +142,12 @@ Future<void> showTokenizedActionDialog(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _WarningIcon(
-              icon: icon,
-              color: accentColor,
-              tint: accentTint ?? accentColor.withValues(alpha: 0.1),
-            ),
+            iconWidget ??
+                _WarningIcon(
+                  icon: icon,
+                  color: accentColor,
+                  tint: accentTint ?? accentColor.withValues(alpha: 0.1),
+                ),
             const SizedBox(height: DesignTokens.dialogIconTitleSpacing),
             Text(
               title,
@@ -153,20 +161,27 @@ Future<void> showTokenizedActionDialog(
             const SizedBox(height: DesignTokens.dialogTitleBodySpacing),
             Text(
               message,
-              textAlign: TextAlign.center,
+              textAlign: messageTextAlign,
               style: GoogleFonts.lexend(
                 fontSize: DesignTokens.dialogBodyFontSize,
                 height: DesignTokens.dialogBodyLineHeight,
                 color: DesignTokens.dialogBodyColor,
               ),
             ),
-            const SizedBox(height: DesignTokens.dialogActionsSpacing),
+            if (content != null) ...[
+              const SizedBox(height: DesignTokens.dialogTitleBodySpacing),
+              content,
+              SizedBox(height: contentBottomSpacing),
+            ] else
+              const SizedBox(height: DesignTokens.dialogActionsSpacing),
             if (secondaryLabel == null)
               SizedBox(
                 width: double.infinity,
                 child: _DialogActionButton(
                   label: primaryLabel,
                   buttonColor: accentColor,
+                  outlined: primaryOutlined,
+                  outlineColor: primaryOutlined ? accentColor : null,
                   onPressed: () {
                     Navigator.pop(dialogContext);
                     onPrimary?.call();
@@ -191,6 +206,8 @@ Future<void> showTokenizedActionDialog(
                     child: _DialogActionButton(
                       label: primaryLabel,
                       buttonColor: accentColor,
+                      outlined: primaryOutlined,
+                      outlineColor: primaryOutlined ? accentColor : null,
                       onPressed: () {
                         Navigator.pop(dialogContext);
                         onPrimary?.call();
@@ -652,6 +669,7 @@ class _DialogActionButton extends StatelessWidget {
   final bool outlined;
   final bool multiline;
   final Color buttonColor;
+  final Color? outlineColor;
 
   const _DialogActionButton({
     required this.label,
@@ -659,6 +677,7 @@ class _DialogActionButton extends StatelessWidget {
     this.outlined = false,
     this.multiline = false,
     this.buttonColor = DesignTokens.dialogWarning,
+    this.outlineColor,
   });
 
   @override
@@ -669,9 +688,11 @@ class _DialogActionButton extends StatelessWidget {
           ? OutlinedButton(
               onPressed: onPressed,
               style: OutlinedButton.styleFrom(
-                foregroundColor: DesignTokens.dialogDisabledActionColor,
-                side: const BorderSide(
-                  color: DesignTokens.dialogDisabledActionBorderColor,
+                foregroundColor:
+                    outlineColor ?? DesignTokens.dialogDisabledActionColor,
+                side: BorderSide(
+                  color: outlineColor ??
+                      DesignTokens.dialogDisabledActionBorderColor,
                 ),
                 padding: _buttonPadding,
                 shape: RoundedRectangleBorder(

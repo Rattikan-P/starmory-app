@@ -11,6 +11,20 @@ class DesignTokens {
   static const int brandColorValue = 0xFF8b5cf6;
   static const Color brandColor = Color(brandColorValue);
 
+  /// Four-color pastel gradient shared by Home's hero and profile/legal headers.
+  static const LinearGradient pageHeaderGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0xFFFFE5C2),
+      Color(0xFFFDCFE0),
+      Color(0xFFDFD2FD),
+      Color(0xFFCEC2FD),
+    ],
+    // Bring the lilac and violet into view in short page headers.
+    stops: [0.0, 0.20, 0.40, 0.60],
+  );
+
   /// Secondary brand accent - Light Purple
   static const int brandAccentValue = 0xFFC4B5FD;
   static const Color brandAccent = Color(brandAccentValue);
@@ -35,6 +49,7 @@ class DesignTokens {
   /// Critical, system-error, and danger dialogs.
   static const int dialogDangerValue = 0xFFE44F54;
   static const Color dialogDanger = Color(dialogDangerValue);
+  static const Color dialogDangerTint = Color(0xFFFFEDEE);
 
   /// Shared opacity for semantic-color borders inside dialogs.
   static const double dialogAccentBorderOpacity = 0.35;

@@ -272,7 +272,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
     final photoUrl = userState.user?.photoUrl;
 
     return SizedBox(
-      height: 52,
+      height: 56,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [

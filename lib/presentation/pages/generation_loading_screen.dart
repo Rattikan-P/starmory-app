@@ -390,7 +390,7 @@ class _GenerationLoadingScreenState
   }
 
   static const List<String> _phases = [
-    'Analyzing your photo',
+    'AI is analyzing your photo',
     'Detecting vocabulary words',
     'Generating contextual sentences',
     'Done!',
