@@ -223,6 +223,207 @@ Future<void> showTokenizedActionDialog(
   );
 }
 
+/// Shared tokenized choice dialog for decisions such as merging guest data.
+/// Dismissing with the system back button is treated as choosing the secondary
+/// action so callers always receive a concrete decision.
+Future<bool> showTokenizedChoiceDialog(
+  BuildContext context, {
+  required String title,
+  required String message,
+  required IconData icon,
+  required String primaryLabel,
+  required String secondaryLabel,
+  Widget? content,
+  String? question,
+  bool primaryMultiline = false,
+  bool secondaryMultiline = false,
+  Color accentColor = DesignTokens.dialogBrand,
+  Color? accentTint,
+}) async {
+  final result = await showDialog<bool>(
+    context: context,
+    barrierDismissible: false,
+    builder: (dialogContext) => Dialog(
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(DesignTokens.dialogRadius),
+      ),
+      insetPadding: const EdgeInsets.symmetric(
+        horizontal: DesignTokens.dialogInsetHorizontal,
+        vertical: DesignTokens.dialogInsetVertical,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: DesignTokens.dialogPaddingHorizontal,
+          vertical: DesignTokens.dialogPaddingVertical,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _WarningIcon(
+                icon: icon,
+                color: accentColor,
+                tint: accentTint ?? accentColor.withValues(alpha: 0.1),
+              ),
+              const SizedBox(height: DesignTokens.dialogIconTitleSpacing),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.lexend(
+                  fontSize: DesignTokens.dialogTitleFontSize,
+                  fontWeight: DesignTokens.weightSemiBold,
+                  color: DesignTokens.dialogTitleColor,
+                ),
+              ),
+              const SizedBox(height: DesignTokens.dialogTitleBodySpacing),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.lexend(
+                  fontSize: DesignTokens.dialogBodyFontSize,
+                  height: DesignTokens.dialogBodyLineHeight,
+                  color: DesignTokens.dialogSupportingTextColor,
+                ),
+              ),
+              if (content != null) ...[
+                const SizedBox(height: DesignTokens.dialogTitleBodySpacing),
+                content,
+              ],
+              if (question != null) ...[
+                const SizedBox(height: DesignTokens.dialogTitleBodySpacing),
+                Text(
+                  question,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.lexend(
+                    fontSize: DesignTokens.dialogBodyFontSize,
+                    height: DesignTokens.dialogBodyLineHeight,
+                    color: DesignTokens.dialogSupportingTextColor,
+                  ),
+                ),
+              ],
+              const SizedBox(height: DesignTokens.dialogActionsSpacing),
+              Row(
+                children: [
+                  Expanded(
+                    child: _DialogActionButton(
+                      label: secondaryLabel,
+                      outlined: true,
+                      multiline: secondaryMultiline,
+                      onPressed: () => Navigator.pop(dialogContext, false),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _DialogActionButton(
+                      label: primaryLabel,
+                      buttonColor: accentColor,
+                      multiline: primaryMultiline,
+                      onPressed: () => Navigator.pop(dialogContext, true),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+  return result ?? false;
+}
+
+/// Guest account preferences shown in the shared account-merge dialog.
+class TokenizedGuestPreferencesCard extends StatelessWidget {
+  final String? languageLevel;
+  final String? englishVariant;
+
+  const TokenizedGuestPreferencesCard({
+    super.key,
+    this.languageLevel,
+    this.englishVariant,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final preferences = <String>[
+      if (languageLevel != null) 'Language Level: $languageLevel',
+      if (englishVariant != null) 'English Variant: $englishVariant',
+    ];
+    if (preferences.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: DesignTokens.dialogDisabledActionBorderColor,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: DesignTokens.dialogBrandTint,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.star_rounded,
+                  color: DesignTokens.dialogBrand,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                'Your guest preference',
+                style: GoogleFonts.lexend(
+                  fontSize: 13,
+                  fontWeight: DesignTokens.weightSemiBold,
+                  color: DesignTokens.dialogSupportingTextColor,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          for (var i = 0; i < preferences.length; i++) ...[
+            if (i > 0) const SizedBox(height: 6),
+            Row(
+              children: [
+                const SizedBox(width: 8),
+                Container(
+                  width: 6,
+                  height: 6,
+                  decoration: const BoxDecoration(
+                    color: DesignTokens.dialogSupportingTextColor,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    preferences[i],
+                    style: GoogleFonts.lexend(
+                      fontSize: DesignTokens.dialogBodyFontSize,
+                      color: DesignTokens.dialogSupportingTextColor,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 /// Shared tokenized warning shown when an image is too blurry to analyze.
 Future<void> showImageQualityIssueDialog(
   BuildContext context, {

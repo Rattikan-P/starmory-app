@@ -230,33 +230,11 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
     final uniqueImages = allVocabularies.map((v) => v.imageUrl).toSet();
     final totalPhotos = uniqueImages.where((url) => url.isNotEmpty).length;
     final streakDays = streakData?.currentStreak ?? 0;
-    final longestStreak = streakData?.longestStreak ?? 0;
-
-    // Calculate total unique learning days across all vocabularies, scrapbooks, and streak
-    final scrapbookState = ref.watch(scrapbookStateProvider);
-    final learningDates = <String>{};
-    for (final v in allVocabularies) {
-      final local = v.createdAt.toLocal();
-      learningDates.add(
-          '${local.year}-${local.month.toString().padLeft(2, '0')}-${local.day.toString().padLeft(2, '0')}');
-    }
-    for (final sb in scrapbookState.scrapbooks) {
-      final local = sb.createdAt.toLocal();
-      learningDates.add(
-          '${local.year}-${local.month.toString().padLeft(2, '0')}-${local.day.toString().padLeft(2, '0')}');
-    }
-    if (allVocabularies.isNotEmpty ||
-        scrapbookState.scrapbooks.isNotEmpty ||
-        streakDays > 0) {
-      final now = DateTime.now();
-      learningDates.add(
-          '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}');
-    }
-    final daysLearning = [
-      learningDates.length,
-      streakDays,
-      longestStreak,
-    ].reduce((a, b) => a > b ? a : b);
+    final learningDaysAsync = ref.watch(learningActivityDaysProvider);
+    final daysLearning = learningDaysAsync.maybeWhen(
+      data: (days) => days.length,
+      orElse: () => 0,
+    );
 
     final natureVocabCount =
         allVocabularies.where((v) => v.topic.toLowerCase() == 'nature').length;
@@ -540,52 +518,65 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // Top Row: Stars count & label (vertically centered & aligned)
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Text(
-                        '$totalStars',
-                        style: GoogleFonts.lexend(
-                          fontSize: 44,
-                          fontWeight: FontWeight.w800,
-                          color: const Color(0xFF221F33),
-                          height: 1,
-                          letterSpacing: -1,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              'stars collected',
-                              style: GoogleFonts.lexend(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w800,
-                                color: const Color(0xFF221F33),
-                                height: 1.2,
+                  // Keep the original side-by-side layout, with a larger count.
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final countWidth = constraints.maxWidth * 0.45;
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          ConstrainedBox(
+                            constraints: BoxConstraints(maxWidth: countWidth),
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                '$totalStars',
+                                maxLines: 1,
+                                style: GoogleFonts.lexend(
+                                  fontSize: 50,
+                                  fontWeight: FontWeight.w800,
+                                  color: const Color(0xFF221F33),
+                                  height: 1,
+                                  letterSpacing: -1,
+                                ),
                               ),
                             ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'Words in your discovery galaxy',
-                              style: GoogleFonts.lexend(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w400,
-                                color: const Color(0xFF655D80),
-                                height: 1.2,
-                              ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'stars collected',
+                                  style: GoogleFonts.lexend(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800,
+                                    color: const Color(0xFF221F33),
+                                    height: 1.2,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Words in your discovery galaxy',
+                                  style: GoogleFonts.lexend(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w400,
+                                    color: const Color(0xFF655D80),
+                                    height: 1.2,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
-                      ),
-                    ],
+                          ),
+                        ],
+                      );
+                    },
                   ),
 
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
 
                   // Next Badge Progress Bar
                   Column(
@@ -661,7 +652,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                   // Bottom Mini Stats Strip inside Card
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 10),
+                        horizontal: 14, vertical: 8),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.75),
                       borderRadius: BorderRadius.circular(16),
@@ -751,7 +742,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                                         ),
                                       ),
                                       TextSpan(
-                                        text: 'days learning',
+                                        text: 'learning days',
                                         style: GoogleFonts.lexend(
                                           fontSize: 11.5,
                                           fontWeight: FontWeight.w400,
@@ -927,7 +918,9 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
 
         // Vocabulary list
         if (_displayedVocabs.isEmpty)
-          _buildEmptyState()
+          (_searchQuery.trim().isNotEmpty || _selectedCategory != 'All')
+              ? _buildFilteredEmptyState()
+              : _buildEmptyState()
         else
           _buildVocabularyList(),
       ],
@@ -1235,7 +1228,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 ClipRRect(
-                                  borderRadius: BorderRadius.circular(3),
+                                  borderRadius: BorderRadius.circular(6),
                                   child: LinearProgressIndicator(
                                     value: progressRatio,
                                     minHeight: 4,
@@ -1611,13 +1604,22 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'All Categories',
-                    style: GoogleFonts.lexend(
-                      fontSize: 19,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF221F33),
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'All Categories',
+                          style: GoogleFonts.lexend(
+                            fontSize: 19,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF221F33),
+                          ),
+                        ),
+                      ),
+                      AppBottomSheetCloseButton(
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 16),
                   Wrap(
@@ -1962,11 +1964,77 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
     );
   }
 
+  Widget _buildFilteredEmptyState() {
+    final message = _searchQuery.trim().isNotEmpty
+        ? 'Try a different word or translation'
+        : _selectedCategory == 'Favorites'
+            ? 'You haven’t saved any favorite words yet'
+            : 'There are no words in this category yet';
+
+    return SizedBox(
+      width: double.infinity,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 36),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: const Color(0xFFEBE6FC), width: 1.5),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF7C5CFC).withValues(alpha: 0.08),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 72,
+              height: 72,
+              decoration: const BoxDecoration(
+                color: Color(0xFFF1EDFF),
+                shape: BoxShape.circle,
+              ),
+              child: const Center(
+                child: Icon(
+                  Icons.search_off_rounded,
+                  color: Color(0xFF7C5CFC),
+                  size: 36,
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Text(
+              'No vocabulary found',
+              style: GoogleFonts.lexend(
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF221F33),
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              message,
+              style: GoogleFonts.lexend(
+                fontSize: 14,
+                color: const Color(0xFF4B5563),
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _showPhotosGallery(BuildContext context) {
     final vocabState = ref.read(vocabularyStateProvider);
     final allVocabularies = vocabState.vocabularies;
 
-    // Get unique images only (group vocabularies by image URL)
+    // Get unique primary photos and the vocabulary captured from each photo.
     final uniqueImagesMap = <String, List<VocabularyModel>>{};
 
     for (final vocab in allVocabularies) {
@@ -1987,9 +2055,14 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
 
     // Convert to list of unique photo entries
     final photoEntries = uniqueImagesMap.entries.map((entry) {
+      final vocabularies = entry.value;
+      final capturedAt = vocabularies
+          .map((vocabulary) => vocabulary.createdAt)
+          .reduce((first, second) => first.isBefore(second) ? first : second);
       return PhotoEntry(
         imageUrl: entry.key,
-        vocabularies: entry.value,
+        vocabularies: vocabularies,
+        capturedAt: capturedAt,
       );
     }).toList();
 
@@ -2009,15 +2082,19 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
 class PhotoEntry {
   final String imageUrl;
   final List<VocabularyModel> vocabularies;
+  final DateTime capturedAt;
 
   PhotoEntry({
     required this.imageUrl,
     required this.vocabularies,
+    required this.capturedAt,
   });
 }
 
+enum _PhotoSortOrder { newestFirst, oldestFirst }
+
 // Photos Gallery Page
-class PhotosGalleryPage extends StatelessWidget {
+class PhotosGalleryPage extends StatefulWidget {
   final List<PhotoEntry> photoEntries;
   final List<VocabularyModel> allVocabularies;
 
@@ -2028,17 +2105,57 @@ class PhotosGalleryPage extends StatelessWidget {
   });
 
   @override
+  State<PhotosGalleryPage> createState() => _PhotosGalleryPageState();
+}
+
+class _PhotosGalleryPageState extends State<PhotosGalleryPage> {
+  _PhotoSortOrder _sortOrder = _PhotoSortOrder.newestFirst;
+
+  @override
   Widget build(BuildContext context) {
+    final sortedPhotoEntries = [...widget.photoEntries]..sort((first, second) =>
+        _sortOrder == _PhotoSortOrder.newestFirst
+            ? second.capturedAt.compareTo(first.capturedAt)
+            : first.capturedAt.compareTo(second.capturedAt));
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded,
-              color: Color(0xFF1F2937), size: 20),
-          onPressed: () => Navigator.pop(context),
+        leadingWidth: 64,
+        leading: Center(
+          child: GestureDetector(
+            onTap: () => Navigator.pop(context),
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: const Color(0xFFE5E7EB),
+                  width: 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: const Center(
+                child: Icon(
+                  Icons.arrow_back_ios_new_rounded,
+                  color: Color(0xFF1F2937),
+                  size: 17,
+                ),
+              ),
+            ),
+          ),
         ),
         title: Text(
           'My Photos',
@@ -2048,6 +2165,50 @@ class PhotosGalleryPage extends StatelessWidget {
             color: const Color(0xFF221F33),
           ),
         ),
+        actions: [
+          Theme(
+            data: Theme.of(context).copyWith(
+              hoverColor: Colors.transparent,
+              highlightColor: Colors.transparent,
+              focusColor: Colors.transparent,
+              splashColor: Colors.transparent,
+            ),
+            child: PopupMenuButton<_PhotoSortOrder>(
+              tooltip: 'Sort photos',
+              initialValue: _sortOrder,
+              onSelected: (value) => setState(() => _sortOrder = value),
+              position: PopupMenuPosition.under,
+              offset: const Offset(0, 8),
+              color: Colors.white,
+              elevation: 10,
+              shadowColor: DesignTokens.dialogBrand.withValues(alpha: 0.16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+                side: BorderSide(
+                  color: DesignTokens.dialogAccentBorderColor(
+                    DesignTokens.dialogBrand,
+                  ),
+                ),
+              ),
+              icon: const Icon(
+                Icons.sort_rounded,
+                color: DesignTokens.brandColor,
+              ),
+              itemBuilder: (context) => [
+                _buildSortMenuItem(
+                  order: _PhotoSortOrder.newestFirst,
+                  label: 'Newest first',
+                  icon: Icons.south_rounded,
+                ),
+                _buildSortMenuItem(
+                  order: _PhotoSortOrder.oldestFirst,
+                  label: 'Oldest first',
+                  icon: Icons.north_rounded,
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
       body: SafeArea(
         child: Padding(
@@ -2059,12 +2220,66 @@ class PhotosGalleryPage extends StatelessWidget {
               mainAxisSpacing: 12,
               childAspectRatio: 1,
             ),
-            itemCount: photoEntries.length,
+            itemCount: sortedPhotoEntries.length,
             itemBuilder: (context, index) {
-              final entry = photoEntries[index];
+              final entry = sortedPhotoEntries[index];
               return _buildPhotoCard(context, entry);
             },
           ),
+        ),
+      ),
+    );
+  }
+
+  PopupMenuItem<_PhotoSortOrder> _buildSortMenuItem({
+    required _PhotoSortOrder order,
+    required String label,
+    required IconData icon,
+  }) {
+    final isSelected = _sortOrder == order;
+    return PopupMenuItem<_PhotoSortOrder>(
+      value: order,
+      height: 46,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? DesignTokens.dialogBrandTint : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              size: 18,
+              color: isSelected
+                  ? DesignTokens.dialogBrand
+                  : DesignTokens.textSecondary,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                label,
+                style: GoogleFonts.lexend(
+                  fontSize: 13.5,
+                  fontWeight: isSelected
+                      ? DesignTokens.weightSemiBold
+                      : FontWeight.w400,
+                  color: isSelected
+                      ? DesignTokens.dialogBrand
+                      : DesignTokens.textPrimary,
+                ),
+              ),
+            ),
+            if (isSelected) ...[
+              const SizedBox(width: 8),
+              const Icon(
+                Icons.check_rounded,
+                size: 17,
+                color: DesignTokens.dialogBrand,
+              ),
+            ],
+          ],
         ),
       ),
     );
@@ -2082,7 +2297,7 @@ class PhotosGalleryPage extends StatelessWidget {
           backgroundColor: Colors.transparent,
           builder: (context) => PhotoWordsBottomSheet(
             photoEntry: entry,
-            allVocabularies: allVocabularies,
+            allVocabularies: widget.allVocabularies,
           ),
         );
       },
@@ -2152,45 +2367,45 @@ class PhotosGalleryPage extends StatelessWidget {
                   ),
                 ),
               ),
-              // Word count badge (top right)
-              if (wordCount > 1)
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.95),
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.1),
-                          blurRadius: 4,
+              // Word count badge remains visible even when the photo has one word.
+              Positioned(
+                top: 8,
+                right: 8,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEF4444),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFEF4444).withValues(alpha: 0.35),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.star_rounded,
+                        size: 13,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '$wordCount',
+                        style: GoogleFonts.lexend(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
                         ),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.photo_library_rounded,
-                          size: 12,
-                          color: Color(0xFF7C5CFC),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '$wordCount',
-                          style: GoogleFonts.lexend(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: const Color(0xFF7C5CFC),
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
+              ),
               // Word label at bottom
               Positioned(
                 left: 0,
@@ -2556,25 +2771,6 @@ class PhotoWordsBottomSheet extends ConsumerWidget {
                           fontSize: 11,
                           fontWeight: FontWeight.w500,
                           color: const Color(0xFF6B7280),
-                        ),
-                      ),
-                    ),
-                  ],
-                  if (vocab.cefrLevel.isNotEmpty) ...[
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFEF3C7),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        vocab.cefrLevel,
-                        style: GoogleFonts.lexend(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: const Color(0xFFD97706),
                         ),
                       ),
                     ),

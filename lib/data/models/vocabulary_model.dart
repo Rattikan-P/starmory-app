@@ -18,6 +18,7 @@ class VocabularyModel extends Equatable {
   final DateTime? updatedAt;
   final List<String> tags;
   final bool isFavorite;
+  final List<VocabularyExample> additionalExamples;
 
   const VocabularyModel({
     required this.id,
@@ -35,7 +36,27 @@ class VocabularyModel extends Equatable {
     this.updatedAt,
     this.tags = const [],
     this.isFavorite = false,
+    this.additionalExamples = const [],
   });
+
+  List<VocabularyExample> get allExamples => [
+        VocabularyExample(
+          imageUrl: imageUrl,
+          englishSentence: englishSentence,
+          thaiSentence: thaiSentence,
+          createdAt: createdAt,
+        ),
+        ...additionalExamples,
+      ];
+
+  VocabularyModel mergeExampleContexts(VocabularyModel other) {
+    final examples = List<VocabularyExample>.from(additionalExamples);
+    final knownKeys = allExamples.map((example) => example.identityKey).toSet();
+    for (final example in other.allExamples) {
+      if (knownKeys.add(example.identityKey)) examples.add(example);
+    }
+    return copyWith(additionalExamples: examples);
+  }
 
   /// Create from AI-generated response
   factory VocabularyModel.fromAIResponse({
@@ -89,6 +110,7 @@ class VocabularyModel extends Equatable {
     DateTime? updatedAt,
     List<String>? tags,
     bool? isFavorite,
+    List<VocabularyExample>? additionalExamples,
   }) {
     return VocabularyModel(
       id: id ?? this.id,
@@ -106,6 +128,7 @@ class VocabularyModel extends Equatable {
       updatedAt: updatedAt ?? this.updatedAt,
       tags: tags ?? this.tags,
       isFavorite: isFavorite ?? this.isFavorite,
+      additionalExamples: additionalExamples ?? this.additionalExamples,
     );
   }
 
@@ -127,6 +150,8 @@ class VocabularyModel extends Equatable {
       'updatedAt': updatedAt?.toIso8601String(),
       'tags': tags,
       'isFavorite': isFavorite,
+      'additionalExamples':
+          additionalExamples.map((example) => example.toJson()).toList(),
     };
   }
 
@@ -150,6 +175,7 @@ class VocabularyModel extends Equatable {
           : null,
       tags: (json['tags'] as List<dynamic>?)?.cast<String>() ?? [],
       isFavorite: json['isFavorite'] as bool? ?? false,
+      additionalExamples: _parseExamples(json['additionalExamples']),
     );
   }
 
@@ -173,6 +199,7 @@ class VocabularyModel extends Equatable {
           : null,
       tags: (json['tags'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
       isFavorite: json['is_favorite'] as bool? ?? false,
+      additionalExamples: _parseExamples(json['additional_examples']),
     );
   }
 
@@ -185,5 +212,55 @@ class VocabularyModel extends Equatable {
         updatedAt,
         topic,
         imageUrl,
+        additionalExamples,
       ];
+
+  static List<VocabularyExample> _parseExamples(dynamic value) {
+    if (value is! List) return const [];
+    return value
+        .whereType<Map>()
+        .map((item) => VocabularyExample.fromJson(
+            Map<String, dynamic>.from(item)))
+        .toList();
+  }
+}
+
+class VocabularyExample extends Equatable {
+  final String imageUrl;
+  final String englishSentence;
+  final String thaiSentence;
+  final DateTime createdAt;
+
+  const VocabularyExample({
+    required this.imageUrl,
+    required this.englishSentence,
+    required this.thaiSentence,
+    required this.createdAt,
+  });
+
+  String get identityKey =>
+      '${imageUrl.trim()}|${englishSentence.trim().toLowerCase()}|${thaiSentence.trim()}';
+
+  Map<String, dynamic> toJson() => {
+        'imageUrl': imageUrl,
+        'englishSentence': englishSentence,
+        'thaiSentence': thaiSentence,
+        'createdAt': createdAt.toIso8601String(),
+      };
+
+  factory VocabularyExample.fromJson(Map<String, dynamic> json) =>
+      VocabularyExample(
+        imageUrl: (json['imageUrl'] ?? json['image_url']) as String? ?? '',
+        englishSentence:
+            (json['englishSentence'] ?? json['english_sentence']) as String? ??
+                '',
+        thaiSentence:
+            (json['thaiSentence'] ?? json['thai_sentence']) as String? ?? '',
+        createdAt: DateTime.tryParse(
+                (json['createdAt'] ?? json['created_at']) as String? ?? '') ??
+            DateTime.now(),
+      );
+
+  @override
+  List<Object?> get props => [imageUrl, englishSentence, thaiSentence, createdAt];
 }

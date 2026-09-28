@@ -25,10 +25,10 @@ class DialogPreviewPage extends StatelessWidget {
       _DialogPreviewItem('Camera Permission', 'Permission popup',
           () => showPermissionRequiredDialog(context, 'Camera')),
       _DialogPreviewItem(
-          'Scrapbook · Photo Library Permission', 'Edit scrapbook',
+          'Scrapbook · Photo Library Permission',
+          'Edit scrapbook',
           () => showPermissionRequiredDialog(context, 'Photo Library')),
-      _DialogPreviewItem('Scrapbook · Unsaved Changes', 'Edit scrapbook',
-          () {
+      _DialogPreviewItem('Scrapbook · Unsaved Changes', 'Edit scrapbook', () {
         showTokenizedActionDialog(
           context,
           title: 'Unsaved Changes',
@@ -45,6 +45,24 @@ class DialogPreviewPage extends StatelessWidget {
           () => showStreakInfoDialog(context, 0)),
       _DialogPreviewItem('Shield Info', 'Info · blue tokens',
           () => showShieldInfoDialog(context, 0)),
+      _DialogPreviewItem('Account Merge', 'Auth: Google / OTP account merge',
+          () async {
+        await showTokenizedChoiceDialog(
+          context,
+          title: 'Account already exists',
+          message: 'This email already has an account.',
+          question: 'Merge your guest progress with this account?',
+          icon: Icons.merge_rounded,
+          primaryLabel: 'Combine my\ndata',
+          secondaryLabel: 'Keep my\naccount',
+          primaryMultiline: true,
+          secondaryMultiline: true,
+          content: const TokenizedGuestPreferencesCard(
+            languageLevel: 'A1',
+            englishVariant: 'US',
+          ),
+        );
+      }),
       _DialogPreviewItem(
         'Logout Confirmation',
         'Profile: mascot and outlined brand actions',
@@ -112,7 +130,8 @@ class DialogPreviewPage extends StatelessWidget {
           primaryLabel: 'Try Again',
         );
       }),
-      _DialogPreviewItem('Scrapbook · Photo Picker Error', 'Edit scrapbook', () {
+      _DialogPreviewItem('Scrapbook · Photo Picker Error', 'Edit scrapbook',
+          () {
         showTokenizedErrorDialog(
           context,
           title: 'Error',

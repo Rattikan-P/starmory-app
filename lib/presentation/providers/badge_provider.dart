@@ -628,6 +628,14 @@ class BadgeController extends StateNotifier<BadgeState> {
     if (user == null) return [];
 
     final now = DateTime.now();
+    try {
+      await _ref
+          .read(learningActivityServiceProvider)
+          .recordActivityDay(user, now);
+      _ref.invalidate(learningActivityDaysProvider);
+    } catch (e) {
+      debugPrint('Failed to record learning day: $e');
+    }
     final hour = now.hour;
 
     bool isNightOwl = (hour >= 22 || hour < 4);

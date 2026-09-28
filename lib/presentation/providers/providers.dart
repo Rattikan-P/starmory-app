@@ -8,6 +8,7 @@ import '../../data/services/vocabulary_sync_service.dart';
 import '../../data/services/image_storage_service.dart';
 import '../../data/services/merge_service.dart';
 import '../../data/services/review_service.dart';
+import '../../data/services/learning_activity_service.dart';
 import '../../data/models/user_model.dart';
 import '../../data/models/vocabulary_model.dart';
 import '../../data/models/scrapbook_model.dart';
@@ -35,6 +36,19 @@ export 'sticker_provider.dart';
 /// Hive Service Provider
 final hiveServiceProvider = Provider<HiveService>((ref) {
   return HiveService();
+});
+
+final learningActivityServiceProvider = Provider<LearningActivityService>((ref) {
+  return LearningActivityService(
+    hiveService: ref.read(hiveServiceProvider),
+  );
+});
+
+final learningActivityDaysProvider = FutureProvider<Set<String>>((ref) async {
+  final user = ref.watch(userStateProvider.select((state) => state.user));
+  return ref
+      .read(learningActivityServiceProvider)
+      .getLearningDays(user);
 });
 
 /// Image Storage Service Provider
@@ -216,7 +230,7 @@ class UserNotifier extends StateNotifier<UserState> {
 
       // Fetch quota from Supabase using auto-reset function
       final client = Supabase.instance.client;
-      final today = DateTime.now().toIso8601String().split('T')[0];
+      final today = QuotaManager.bangkokDateKey();
 
       // Use RPC function that auto-resets if new day
       final quotaResponse = await client.rpc('get_user_quota_with_reset',
@@ -779,7 +793,7 @@ class UserNotifier extends StateNotifier<UserState> {
         final client = Supabase.instance.client;
         final supabaseUser = client.auth.currentUser;
         if (supabaseUser != null) {
-          final today = DateTime.now().toIso8601String().split('T')[0];
+          final today = QuotaManager.bangkokDateKey();
 
           // Get current quota from Supabase
           final quotaResponse = await client
@@ -1176,14 +1190,22 @@ class VocabularyNotifier extends StateNotifier<VocabularyState> {
 
       for (final v in vocabularies) {
         final key = v.word.trim().toLowerCase();
-        if (!uniqueMap.containsKey(key)) {
+        final existing = uniqueMap[key];
+        if (existing == null) {
           uniqueMap[key] = v;
         } else {
+          uniqueMap[key] = existing.mergeExampleContexts(v);
           duplicateIds.add(v.id);
         }
       }
 
       if (duplicateIds.isNotEmpty) {
+        for (final vocab in uniqueMap.values) {
+          await _hiveService.saveVocabulary(vocab);
+          if (_syncService.isLoggedIn) {
+            await _syncService.updateInCloud(vocab);
+          }
+        }
         print(
             '🧹 [VocabularyNotifier] Deduplicating ${duplicateIds.length} existing duplicate vocabularies...');
         for (final dupId in duplicateIds) {
@@ -1202,13 +1224,28 @@ class VocabularyNotifier extends StateNotifier<VocabularyState> {
   Future<void> addVocabulary(VocabularyModel vocabulary) async {
     try {
       final normWord = vocabulary.word.trim().toLowerCase();
-      final exists = state.vocabularies.any(
+      final existingIndex = state.vocabularies.indexWhere(
         (v) => v.word.trim().toLowerCase() == normWord,
       );
 
-      if (exists) {
+      if (existingIndex >= 0) {
+        final existing = state.vocabularies[existingIndex];
+        final merged = existing.mergeExampleContexts(vocabulary);
+        if (merged == existing) {
+          print(
+              'ℹ️ [VocabularyNotifier] Duplicate context for "$normWord"; skipping.');
+          return;
+        }
+
+        await _hiveService.saveVocabulary(merged);
+        if (_syncService.isLoggedIn) {
+          await _syncService.updateInCloud(merged);
+        }
+        final updatedVocabs = List<VocabularyModel>.from(state.vocabularies);
+        updatedVocabs[existingIndex] = merged;
+        state = VocabularyState(vocabularies: updatedVocabs);
         print(
-            'ℹ️ [VocabularyNotifier] Word "$normWord" already exists in collection. Skipping duplicate.');
+            '✅ [VocabularyNotifier] Added another photo/example context for "$normWord".');
         return;
       }
 
@@ -1241,21 +1278,29 @@ class VocabularyNotifier extends StateNotifier<VocabularyState> {
   Future<void> addVocabularies(List<VocabularyModel> vocabularies) async {
     if (vocabularies.isEmpty) return;
     try {
-      final addedVocabs = <VocabularyModel>[];
       final currentVocabs = List<VocabularyModel>.from(state.vocabularies);
-      final existingWords =
-          currentVocabs.map((v) => v.word.trim().toLowerCase()).toSet();
+      final indexByWord = <String, int>{
+        for (var i = 0; i < currentVocabs.length; i++)
+          currentVocabs[i].word.trim().toLowerCase(): i,
+      };
+      var didChange = false;
 
       for (final vocabulary in vocabularies) {
         final normWord = vocabulary.word.trim().toLowerCase();
-        if (existingWords.contains(normWord)) {
-          print(
-              'ℹ️ [VocabularyNotifier] Word "$normWord" already exists in collection. Skipping duplicate.');
+        final existingIndex = indexByWord[normWord];
+        if (existingIndex != null) {
+          final existing = currentVocabs[existingIndex];
+          final merged = existing.mergeExampleContexts(vocabulary);
+          if (merged == existing) continue;
+
+          await _hiveService.saveVocabulary(merged);
+          if (_syncService.isLoggedIn) {
+            await _syncService.updateInCloud(merged);
+          }
+          currentVocabs[existingIndex] = merged;
+          didChange = true;
           continue;
         }
-
-        existingWords.add(normWord);
-        addedVocabs.add(vocabulary);
 
         await _hiveService.saveVocabulary(vocabulary);
         if (_syncService.isLoggedIn) {
@@ -1265,12 +1310,13 @@ class VocabularyNotifier extends StateNotifier<VocabularyState> {
           await _reviewService.createCard(vocabulary.id);
           print('✅ Word card created: ${vocabulary.word}');
         }
+        indexByWord[normWord] = currentVocabs.length;
+        currentVocabs.add(vocabulary);
+        didChange = true;
       }
 
-      if (addedVocabs.isNotEmpty) {
-        state = VocabularyState(
-          vocabularies: [...state.vocabularies, ...addedVocabs],
-        );
+      if (didChange) {
+        state = VocabularyState(vocabularies: currentVocabs);
       }
     } catch (e) {
       state = VocabularyState(

@@ -155,6 +155,17 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
 
       final sessionCards = await _reviewService.getReviewSession(
           topicFilter: topicFilter, batchSize: batchSize);
+      final vocabularyById = {
+        for (final vocabulary
+            in _ref?.read(vocabularyStateProvider).vocabularies ?? const [])
+          vocabulary.id: vocabulary,
+      };
+      final cardsWithExamples = sessionCards.map((card) {
+        final vocabulary = vocabularyById[card.vocabularyId];
+        return vocabulary == null
+            ? card
+            : card.copyWith(vocabulary: vocabulary);
+      }).toList();
 
       // Check if there are more due cards remaining (with same topic filter)
       final remainingDue =
@@ -165,10 +176,10 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
       _hasUpdatedStreakThisSession = false;
 
       state = ReviewState(
-        cards: sessionCards,
+        cards: cardsWithExamples,
         currentIndex: 0,
         isLoading: false,
-        sessionCount: sessionCards.length,
+        sessionCount: cardsWithExamples.length,
         remainingDueCount: remainingDue,
         reviewedCardIds: {}, // Clear reviewed cards on new session
         sessionStartTime: DateTime.now(),

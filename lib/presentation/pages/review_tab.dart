@@ -1386,7 +1386,7 @@ class _ReviewTabState extends ConsumerState<ReviewTab>
                                   count: allCount,
                                   isSelected: selectedTopic == null,
                                   isAvailable: allCount > 0,
-                                  icon: null,
+                                  icon: Icons.grid_view_rounded,
                                   onTap: () {
                                     setModalState(() => selectedTopic = null);
                                   },

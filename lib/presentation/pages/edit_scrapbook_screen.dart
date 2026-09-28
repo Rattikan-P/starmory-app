@@ -696,7 +696,10 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
           const SizedBox(width: DesignTokens.spacingMedium),
           _SaveButton(
             isSaving: _isSaving,
-            onTap: _isSaving || !_hasUnsavedChanges ? null : _saveScrapbook,
+            onTap: _isSaving ||
+                    (widget.scrapbookId != null && !_hasUnsavedChanges)
+                ? null
+                : _saveScrapbook,
           ),
         ],
       ),

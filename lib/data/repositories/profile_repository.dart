@@ -397,6 +397,12 @@ class ProfileRepository {
     // Clear cloud vocabulary
     final cloudCleared = await _vocabSyncService.clearCloud();
 
+    // Learning-day history is part of learning progress and resets with it.
+    await _supabaseClient
+        .from('learning_activity_days')
+        .delete()
+        .eq('user_id', user.id);
+
     if (!cloudCleared) {
       // Local cleared but cloud failed - show warning but continue
     }

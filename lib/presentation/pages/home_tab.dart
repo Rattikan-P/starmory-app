@@ -65,10 +65,14 @@ class _HomeTabState extends ConsumerState<HomeTab>
 
   void _scheduleQuotaRefreshAtMidnight() {
     _quotaRefreshTimer?.cancel();
-    final now = DateTime.now();
-    final nextMidnight = DateTime(now.year, now.month, now.day + 1)
-        .add(const Duration(seconds: 1));
-    _quotaRefreshTimer = Timer(nextMidnight.difference(now), () async {
+    final nowUtc = DateTime.now().toUtc();
+    final nowBangkok = nowUtc.add(const Duration(hours: 7));
+    final nextBangkokMidnightUtc = DateTime.utc(
+      nowBangkok.year,
+      nowBangkok.month,
+      nowBangkok.day + 1,
+    ).subtract(const Duration(hours: 7)).add(const Duration(seconds: 1));
+    _quotaRefreshTimer = Timer(nextBangkokMidnightUtc.difference(nowUtc), () async {
       await _refreshQuota();
       if (mounted) _scheduleQuotaRefreshAtMidnight();
     });

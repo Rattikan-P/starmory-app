@@ -58,7 +58,7 @@ class QuotaService {
     final user = _client.auth.currentUser;
     if (user == null) return await _getGuestStatus();
 
-    final today = DateTime.now().toIso8601String().split('T')[0];
+    final today = QuotaManager.bangkokDateKey();
 
     final response = await _client
         .from(_quotasTable)
@@ -137,7 +137,7 @@ class QuotaService {
     final user = _client.auth.currentUser;
     if (user == null) return false;
 
-    final today = DateTime.now().toIso8601String().split('T')[0];
+    final today = QuotaManager.bangkokDateKey();
 
     // Get current quota
     final response = await _client
@@ -189,7 +189,7 @@ class QuotaService {
   }
 
   Future<void> _resetDailyQuota(String userId) async {
-    final today = DateTime.now().toIso8601String().split('T')[0];
+    final today = QuotaManager.bangkokDateKey();
     await _client
         .from(_quotasTable)
         .update({
@@ -209,7 +209,7 @@ class QuotaService {
     final user = _client.auth.currentUser;
     if (user == null) return false;
 
-    final today = DateTime.now().toIso8601String().split('T')[0];
+    final today = QuotaManager.bangkokDateKey();
 
     try {
       final response = await _client

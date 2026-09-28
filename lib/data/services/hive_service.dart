@@ -327,10 +327,36 @@ class HiveService {
   Future<void> clearUserStats() async {
     try {
       final box = Hive.box<String>(AppConstants.boxUserStats);
-      await box.delete(AppConstants.keyUserStats);
+      await box.deleteAll([
+        AppConstants.keyUserStats,
+        AppConstants.keyLearningActivityDays,
+      ]);
     } catch (e) {
       throw CacheFailure('Failed to clear user stats: ${e.toString()}');
     }
+  }
+
+  Future<Set<String>> getLearningActivityDays() async {
+    final box = Hive.box<String>(AppConstants.boxUserStats);
+    final jsonString = box.get(AppConstants.keyLearningActivityDays);
+    if (jsonString == null) return <String>{};
+    try {
+      return (jsonDecode(jsonString) as List<dynamic>)
+          .whereType<String>()
+          .toSet();
+    } catch (_) {
+      return <String>{};
+    }
+  }
+
+  Future<void> recordLearningActivityDay(String day) async {
+    final box = Hive.box<String>(AppConstants.boxUserStats);
+    final days = await getLearningActivityDays();
+    if (!days.add(day)) return;
+    await box.put(
+      AppConstants.keyLearningActivityDays,
+      jsonEncode(days.toList()..sort()),
+    );
   }
 
   // ============= Guest Quota Backup Operations =============

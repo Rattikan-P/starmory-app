@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../data/models/word_card_model.dart';
+import '../../data/models/vocabulary_model.dart';
 import '../../data/services/tts_service.dart';
 
 /// Review Card Widget with Active Recall, Realistic Card Deck & Interactive Rating Stamps
@@ -63,10 +64,20 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
   bool _isPlaying = false;
   StreamSubscription? _ttsCompletionSubscription;
   StreamSubscription? _ttsErrorSubscription;
+  late final VocabularyExample _reviewExample;
 
   @override
   void initState() {
     super.initState();
+    final examples = widget.card.vocabulary?.allExamples ?? const [];
+    _reviewExample = examples.isEmpty
+        ? VocabularyExample(
+            imageUrl: '',
+            englishSentence: '',
+            thaiSentence: '',
+            createdAt: DateTime.now(),
+          )
+        : examples[Random().nextInt(examples.length)];
     _ttsService.initialize();
 
     _ttsCompletionSubscription = _ttsService.onComplete.listen((_) {
@@ -618,11 +629,11 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
           fit: StackFit.expand,
           children: [
             // Blurred background image
-            if (vocab.imageUrl.isNotEmpty)
+            if (_reviewExample.imageUrl.isNotEmpty)
               Stack(
                 fit: StackFit.expand,
                 children: [
-                  _buildImage(vocab.imageUrl, fit: BoxFit.cover),
+                  _buildImage(_reviewExample.imageUrl, fit: BoxFit.cover),
                   // Gaussian Blur
                   Positioned.fill(
                     child: BackdropFilter(
@@ -720,9 +731,9 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
                 fit: StackFit.expand,
                 children: [
                   // Full clear image
-                  if (vocab.imageUrl.isNotEmpty)
+                  if (_reviewExample.imageUrl.isNotEmpty)
                     Positioned.fill(
-                      child: _buildImage(vocab.imageUrl, fit: BoxFit.cover),
+                      child: _buildImage(_reviewExample.imageUrl, fit: BoxFit.cover),
                     )
                   else
                     Container(color: const Color(0xFF221F33)),
@@ -795,7 +806,7 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
                           const SizedBox(height: 10),
 
                           // "example" label & sentence
-                          if (vocab.englishSentence.isNotEmpty) ...[
+                          if (_reviewExample.englishSentence.isNotEmpty) ...[
                             Text(
                               'example',
                               style: GoogleFonts.lexend(
@@ -813,7 +824,7 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: Text(
-                                '"${vocab.englishSentence}"',
+                                '"${_reviewExample.englishSentence}"',
                                 style: GoogleFonts.lexend(
                                   fontSize: 11.5,
                                   color: Colors.white.withValues(alpha: 0.95),

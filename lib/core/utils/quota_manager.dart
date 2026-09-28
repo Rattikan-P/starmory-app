@@ -31,10 +31,16 @@ class QuotaManager extends Equatable {
 
   /// Get today's usage count
   int getTodayUsage() {
-    final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
-    return usageHistory
-        .where((entry) => DateFormat('yyyy-MM-dd').format(entry.timestamp.toLocal()) == today)
-        .length;
+    final today = bangkokDateKey();
+    return usageHistory.where((entry) => bangkokDateKey(entry.timestamp) == today).length;
+  }
+
+  /// Calendar date used for daily quotas throughout the app and Supabase.
+  static String bangkokDateKey([DateTime? dateTime]) {
+    final bangkokTime = (dateTime ?? DateTime.now())
+        .toUtc()
+        .add(const Duration(hours: 7));
+    return DateFormat('yyyy-MM-dd').format(bangkokTime);
   }
 
   /// Get remaining total quota
