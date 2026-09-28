@@ -7,6 +7,7 @@ import '../../../data/services/merge_service.dart';
 import '../../../utils/snackbar_helper.dart';
 import '../../widgets/tokenized_notice_dialogs.dart';
 import '../../widgets/auth_widgets.dart';
+import '../../widgets/bottom_sheet_chrome.dart';
 import '../main_navigation.dart';
 import '../onboarding_page.dart';
 import '../language_selection_page.dart';
@@ -954,14 +955,7 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             // Handle bar
-            Container(
-              width: 42,
-              height: 5,
-              decoration: BoxDecoration(
-                color: const Color(0xFFD1D5DB),
-                borderRadius: BorderRadius.circular(3),
-              ),
-            ),
+            const AppBottomSheetDragHandle(),
             const SizedBox(height: 18),
 
             // Header

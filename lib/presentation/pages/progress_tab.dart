@@ -12,6 +12,7 @@ import '../widgets/reward_icon_widget.dart';
 import '../widgets/badges_section.dart';
 import '../widgets/top_header_actions.dart';
 import '../widgets/vocabulary_detail_bottom_sheet.dart';
+import '../widgets/bottom_sheet_chrome.dart';
 import 'badges_page.dart';
 import 'stickers_page.dart';
 import 'profile_tab.dart';
@@ -89,12 +90,11 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
     Future.delayed(const Duration(milliseconds: 300), () {
       if (mounted) {
         final nextIndex = _displayedVocabs.length;
-        final endIndex = (nextIndex + _itemsPerPage)
-            .clamp(0, _allFilteredVocabs.length);
+        final endIndex =
+            (nextIndex + _itemsPerPage).clamp(0, _allFilteredVocabs.length);
 
         setState(() {
-          _displayedVocabs =
-              _allFilteredVocabs.sublist(0, endIndex);
+          _displayedVocabs = _allFilteredVocabs.sublist(0, endIndex);
           _isLoadingMore = false;
         });
       }
@@ -135,15 +135,18 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
     _sortAndDisplayVocabs(filtered);
   }
 
-  Future<void> _sortAndDisplayVocabs(List<VocabularyModel> filteredVocabularies) async {
+  Future<void> _sortAndDisplayVocabs(
+      List<VocabularyModel> filteredVocabularies) async {
     try {
       final hiveService = ref.read(hiveServiceProvider);
-      final sorted = await _sortVocabulariesByDueDate(filteredVocabularies, hiveService);
+      final sorted =
+          await _sortVocabulariesByDueDate(filteredVocabularies, hiveService);
 
       setState(() {
         _allFilteredVocabs = sorted;
         // Keep existing displayed items if sorted list is the same
-        if (_displayedVocabs.isEmpty || !_listsAreEqual(_displayedVocabs, sorted)) {
+        if (_displayedVocabs.isEmpty ||
+            !_listsAreEqual(_displayedVocabs, sorted)) {
           // Load initial items only if list changed
           final initialCount = _itemsPerPage.clamp(0, sorted.length);
           _displayedVocabs = sorted.sublist(0, initialCount);
@@ -156,7 +159,8 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
         _allFilteredVocabs = filteredVocabularies;
         // Keep existing if error
         if (_displayedVocabs.isEmpty) {
-          final initialCount = _itemsPerPage.clamp(0, filteredVocabularies.length);
+          final initialCount =
+              _itemsPerPage.clamp(0, filteredVocabularies.length);
           _displayedVocabs = filteredVocabularies.sublist(0, initialCount);
         }
         _isLoadingMore = false;
@@ -165,10 +169,12 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
   }
 
   // Check if two lists are equal (same items in same order and same favorite state)
-  bool _listsAreEqual(List<VocabularyModel> list1, List<VocabularyModel> list2) {
+  bool _listsAreEqual(
+      List<VocabularyModel> list1, List<VocabularyModel> list2) {
     if (list1.length != list2.length) return false;
     for (int i = 0; i < list1.length; i++) {
-      if (list1[i].id != list2[i].id || list1[i].isFavorite != list2[i].isFavorite) return false;
+      if (list1[i].id != list2[i].id ||
+          list1[i].isFavorite != list2[i].isFavorite) return false;
     }
     return true;
   }
@@ -182,7 +188,8 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
 
   @override
   Widget build(BuildContext context) {
-    print('🔄 Build called - _isInitialized: $_isInitialized, _displayedVocabs: ${_displayedVocabs.length}');
+    print(
+        '🔄 Build called - _isInitialized: $_isInitialized, _displayedVocabs: ${_displayedVocabs.length}');
 
     // Listen for scroll to top signal from tab navigation
     ref.listen<int>(
@@ -198,7 +205,8 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
     ref.listen(userStateProvider, (previous, next) {
       final prevUser = previous?.user;
       final nextUser = next.user;
-      if (prevUser?.id != nextUser?.id || prevUser?.isGuest != nextUser?.isGuest) {
+      if (prevUser?.id != nextUser?.id ||
+          prevUser?.isGuest != nextUser?.isGuest) {
         setState(() {
           _isInitialized = false;
           _lastVocabLength = -1;
@@ -229,15 +237,20 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
     final learningDates = <String>{};
     for (final v in allVocabularies) {
       final local = v.createdAt.toLocal();
-      learningDates.add('${local.year}-${local.month.toString().padLeft(2, '0')}-${local.day.toString().padLeft(2, '0')}');
+      learningDates.add(
+          '${local.year}-${local.month.toString().padLeft(2, '0')}-${local.day.toString().padLeft(2, '0')}');
     }
     for (final sb in scrapbookState.scrapbooks) {
       final local = sb.createdAt.toLocal();
-      learningDates.add('${local.year}-${local.month.toString().padLeft(2, '0')}-${local.day.toString().padLeft(2, '0')}');
+      learningDates.add(
+          '${local.year}-${local.month.toString().padLeft(2, '0')}-${local.day.toString().padLeft(2, '0')}');
     }
-    if (allVocabularies.isNotEmpty || scrapbookState.scrapbooks.isNotEmpty || streakDays > 0) {
+    if (allVocabularies.isNotEmpty ||
+        scrapbookState.scrapbooks.isNotEmpty ||
+        streakDays > 0) {
       final now = DateTime.now();
-      learningDates.add('${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}');
+      learningDates.add(
+          '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}');
     }
     final daysLearning = [
       learningDates.length,
@@ -245,9 +258,8 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
       longestStreak,
     ].reduce((a, b) => a > b ? a : b);
 
-    final natureVocabCount = allVocabularies
-        .where((v) => v.topic.toLowerCase() == 'nature')
-        .length;
+    final natureVocabCount =
+        allVocabularies.where((v) => v.topic.toLowerCase() == 'nature').length;
 
     // Check and unlock badges / stickers if eligible (only when counts change, to prevent infinite loops)
     if (_lastCheckedStars != totalStars ||
@@ -460,11 +472,11 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
     required int daysLearning,
   }) {
     final badgeState = ref.watch(badgeStateProvider);
-    final upcoming = badgeState.getNextUpcomingBadge(totalStars, streakDays, category: 'Stars');
+    final upcoming = badgeState.getNextUpcomingBadge(totalStars, streakDays,
+        category: 'Stars');
 
-    final progressText = upcoming != null
-        ? upcoming.progressLabel
-        : 'All Badges Unlocked!';
+    final progressText =
+        upcoming != null ? upcoming.progressLabel : 'All Badges Unlocked!';
     final progressPercent = upcoming?.progressPercentage ?? 1.0;
 
     return Container(
@@ -503,7 +515,8 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                 angle: 0.2,
                 child: const Opacity(
                   opacity: 0.3,
-                  child: Icon(Icons.star_border_rounded, size: 85, color: Colors.white),
+                  child: Icon(Icons.star_border_rounded,
+                      size: 85, color: Colors.white),
                 ),
               ),
             ),
@@ -514,7 +527,8 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                 angle: -0.15,
                 child: const Opacity(
                   opacity: 0.25,
-                  child: Icon(Icons.star_rounded, size: 50, color: Colors.white),
+                  child:
+                      Icon(Icons.star_rounded, size: 50, color: Colors.white),
                 ),
               ),
             ),
@@ -646,7 +660,8 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
 
                   // Bottom Mini Stats Strip inside Card
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 10),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.75),
                       borderRadius: BorderRadius.circular(16),
@@ -790,12 +805,15 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 decoration: BoxDecoration(
-                  color: _selectedTab == 'Vocab' ? Colors.white : Colors.transparent,
+                  color: _selectedTab == 'Vocab'
+                      ? Colors.white
+                      : Colors.transparent,
                   borderRadius: BorderRadius.circular(22),
                   boxShadow: _selectedTab == 'Vocab'
                       ? [
                           BoxShadow(
-                            color: const Color(0xFF7C5CFC).withValues(alpha: 0.12),
+                            color:
+                                const Color(0xFF7C5CFC).withValues(alpha: 0.12),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
@@ -844,12 +862,15 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 decoration: BoxDecoration(
-                  color: _selectedTab == 'Reward' ? Colors.white : Colors.transparent,
+                  color: _selectedTab == 'Reward'
+                      ? Colors.white
+                      : Colors.transparent,
                   borderRadius: BorderRadius.circular(22),
                   boxShadow: _selectedTab == 'Reward'
                       ? [
                           BoxShadow(
-                            color: const Color(0xFF7C5CFC).withValues(alpha: 0.12),
+                            color:
+                                const Color(0xFF7C5CFC).withValues(alpha: 0.12),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
@@ -916,9 +937,8 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
   Widget _buildRewardSection(int totalStars, int currentStreak) {
     final stickerState = ref.watch(stickerStateProvider);
     final allVocabularies = ref.watch(vocabularyStateProvider).vocabularies;
-    final natureVocabCount = allVocabularies
-        .where((v) => v.topic.toLowerCase() == 'nature')
-        .length;
+    final natureVocabCount =
+        allVocabularies.where((v) => v.topic.toLowerCase() == 'nature').length;
 
     return Column(
       children: [
@@ -998,7 +1018,8 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                 ),
                 const Spacer(),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: const Color(0xFFF4EEFF),
                     borderRadius: BorderRadius.circular(12),
@@ -1022,7 +1043,8 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                   },
                   borderRadius: BorderRadius.circular(8),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                     child: Row(
                       children: [
                         Text(
@@ -1112,12 +1134,16 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                             gradient: isUnlocked
                                 ? LinearGradient(colors: gradient)
                                 : const LinearGradient(
-                                    colors: [Color(0xFFEBE6FC), Color(0xFFDED8F7)],
+                                    colors: [
+                                      Color(0xFFEBE6FC),
+                                      Color(0xFFDED8F7)
+                                    ],
                                   ),
                             boxShadow: isUnlocked
                                 ? [
                                     BoxShadow(
-                                      color: gradient.first.withValues(alpha: 0.3),
+                                      color:
+                                          gradient.first.withValues(alpha: 0.3),
                                       blurRadius: 8,
                                       offset: const Offset(0, 2),
                                     ),
@@ -1132,10 +1158,26 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                                       BlendMode.dst,
                                     )
                                   : const ColorFilter.matrix(<double>[
-                                      0.2126, 0.7152, 0.0722, 0, 0,
-                                      0.2126, 0.7152, 0.0722, 0, 0,
-                                      0.2126, 0.7152, 0.0722, 0, 0,
-                                      0,      0,      0,      0.45, 0,
+                                      0.2126,
+                                      0.7152,
+                                      0.0722,
+                                      0,
+                                      0,
+                                      0.2126,
+                                      0.7152,
+                                      0.0722,
+                                      0,
+                                      0,
+                                      0.2126,
+                                      0.7152,
+                                      0.0722,
+                                      0,
+                                      0,
+                                      0,
+                                      0,
+                                      0,
+                                      0.45,
+                                      0,
                                     ]),
                               child: Image.asset(
                                 pack.previewAsset,
@@ -1170,9 +1212,11 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                         // Progress Indicator / Tag
                         if (isUnlocked)
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 1.5),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                              color: const Color(0xFF10B981)
+                                  .withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
@@ -1268,7 +1312,8 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
           ),
           suffixIcon: _searchQuery.isNotEmpty
               ? IconButton(
-                  icon: const Icon(Icons.close_rounded, size: 18, color: Color(0xFF9892A6)),
+                  icon: const Icon(Icons.close_rounded,
+                      size: 18, color: Color(0xFF9892A6)),
                   onPressed: () {
                     _searchController.clear();
                     setState(() {
@@ -1280,7 +1325,8 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                 )
               : null,
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         ),
         style: GoogleFonts.lexend(
           color: const Color(0xFF221F33),
@@ -1312,12 +1358,12 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
           // Popular category chips with spacing
           for (int i = 0; i < popularCategories.length; i++) ...[
             if (i > 0) const SizedBox(width: 8),
-            _buildCategoryChip(popularCategories[i], _getCategoryCount(popularCategories[i], totalCount)),
+            _buildCategoryChip(popularCategories[i],
+                _getCategoryCount(popularCategories[i], totalCount)),
           ],
           const SizedBox(width: 8),
           // More... dropdown if there are more categories
-          if (hasMore)
-            _buildMoreCategoryDropdown(),
+          if (hasMore) _buildMoreCategoryDropdown(),
         ],
       ),
     );
@@ -1407,7 +1453,8 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
           color: isSelected ? const Color(0xFFF4EEFF) : Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected ? const Color(0xFF7C5CFC) : const Color(0xFFEBE6FC),
+            color:
+                isSelected ? const Color(0xFF7C5CFC) : const Color(0xFFEBE6FC),
             width: isSelected ? 1.5 : 1.0,
           ),
           boxShadow: isSelected
@@ -1440,7 +1487,9 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
               style: GoogleFonts.lexend(
                 fontSize: 13,
                 fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                color: isSelected ? const Color(0xFF7C5CFC) : const Color(0xFF8E88A8),
+                color: isSelected
+                    ? const Color(0xFF7C5CFC)
+                    : const Color(0xFF8E88A8),
               ),
             ),
             const SizedBox(width: 6),
@@ -1457,7 +1506,9 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                 style: GoogleFonts.lexend(
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
-                  color: isSelected ? const Color(0xFF7C5CFC) : const Color(0xFF8E88A8),
+                  color: isSelected
+                      ? const Color(0xFF7C5CFC)
+                      : const Color(0xFF8E88A8),
                 ),
               ),
             ),
@@ -1470,7 +1521,8 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
   Widget _buildMoreCategoryDropdown() {
     final isCustomCategorySelected = _selectedCategory != 'All' &&
         _selectedCategory != 'Favorites' &&
-        !_getPopularCategories(_allFilteredVocabs.length).contains(_selectedCategory);
+        !_getPopularCategories(_allFilteredVocabs.length)
+            .contains(_selectedCategory);
 
     return InkWell(
       onTap: _showCategoryBottomSheet,
@@ -1478,7 +1530,8 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: isCustomCategorySelected ? const Color(0xFFF4EEFF) : Colors.white,
+          color:
+              isCustomCategorySelected ? const Color(0xFFF4EEFF) : Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isCustomCategorySelected
@@ -1491,10 +1544,14 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              isCustomCategorySelected ? _formatCategoryName(_selectedCategory) : 'More...',
+              isCustomCategorySelected
+                  ? _formatCategoryName(_selectedCategory)
+                  : 'More...',
               style: GoogleFonts.lexend(
                 fontSize: 13,
-                fontWeight: isCustomCategorySelected ? FontWeight.w700 : FontWeight.w500,
+                fontWeight: isCustomCategorySelected
+                    ? FontWeight.w700
+                    : FontWeight.w500,
                 color: isCustomCategorySelected
                     ? const Color(0xFF7C5CFC)
                     : const Color(0xFF8E88A8),
@@ -1521,9 +1578,9 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
     final popularCategories = _getPopularCategories(allVocabs.length);
 
     // Get categories NOT in popular list
-    final remainingCategories = allCategories.where((cat) =>
-      cat != 'All' && !popularCategories.contains(cat)
-    ).toList();
+    final remainingCategories = allCategories
+        .where((cat) => cat != 'All' && !popularCategories.contains(cat))
+        .toList();
 
     showModalBottomSheet(
       context: context,
@@ -1546,14 +1603,8 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
           mainAxisSize: MainAxisSize.min,
           children: [
             // Handle bar
-            Container(
-              margin: const EdgeInsets.only(top: 12),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: const Color(0xFFE2DBFD),
-                borderRadius: BorderRadius.circular(2),
-              ),
+            const AppBottomSheetDragHandle(
+              margin: EdgeInsets.only(top: 12),
             ),
             Padding(
               padding: const EdgeInsets.all(22),
@@ -1587,7 +1638,8 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                         },
                         borderRadius: BorderRadius.circular(20),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 8),
                           decoration: BoxDecoration(
                             color: isSelected
                                 ? const Color(0xFFF4EEFF)
@@ -1691,9 +1743,8 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
     return Column(
       children: [
         // Display all current vocabularies
-        ..._displayedVocabs.map((vocab) =>
-          _buildVocabularyItem(vocab, _displayedVocabs)
-        ),
+        ..._displayedVocabs
+            .map((vocab) => _buildVocabularyItem(vocab, _displayedVocabs)),
 
         // Loading indicator at bottom
         if (_isLoadingMore)
@@ -1708,7 +1759,8 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
     );
   }
 
-  Widget _buildVocabularyItem(VocabularyModel vocab, List<VocabularyModel> allVocabularies) {
+  Widget _buildVocabularyItem(
+      VocabularyModel vocab, List<VocabularyModel> allVocabularies) {
     final isFavorite = vocab.isFavorite;
 
     return Container(
@@ -1789,10 +1841,14 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                   onTap: () {
                     setState(() {
                       _displayedVocabs = _displayedVocabs.map((v) {
-                        return v.id == vocab.id ? v.copyWith(isFavorite: !v.isFavorite) : v;
+                        return v.id == vocab.id
+                            ? v.copyWith(isFavorite: !v.isFavorite)
+                            : v;
                       }).toList();
                     });
-                    ref.read(vocabularyStateProvider.notifier).toggleFavorite(vocab.id);
+                    ref
+                        .read(vocabularyStateProvider.notifier)
+                        .toggleFavorite(vocab.id);
                   },
                   borderRadius: BorderRadius.circular(19),
                   child: Container(
@@ -1800,15 +1856,21 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                     height: 38,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: isFavorite ? const Color(0xFFFDF2F8) : const Color(0xFFF9F7FD),
+                      color: isFavorite
+                          ? const Color(0xFFFDF2F8)
+                          : const Color(0xFFF9F7FD),
                       border: Border.all(
-                        color: isFavorite ? const Color(0xFFFCE7F3) : const Color(0xFFEBE6FC),
+                        color: isFavorite
+                            ? const Color(0xFFFCE7F3)
+                            : const Color(0xFFEBE6FC),
                         width: 1,
                       ),
                     ),
                     child: Center(
                       child: Icon(
-                        isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                        isFavorite
+                            ? Icons.favorite_rounded
+                            : Icons.favorite_border_rounded,
                         color: isFavorite
                             ? const Color(0xFFEC4899)
                             : const Color(0xFFA69EB8),
@@ -1974,7 +2036,8 @@ class PhotosGalleryPage extends StatelessWidget {
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF1F2937), size: 20),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded,
+              color: Color(0xFF1F2937), size: 20),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
@@ -2046,7 +2109,8 @@ class PhotosGalleryPage extends StatelessWidget {
             fit: StackFit.expand,
             children: [
               // Photo
-              entry.imageUrl.startsWith('http://') || entry.imageUrl.startsWith('https://')
+              entry.imageUrl.startsWith('http://') ||
+                      entry.imageUrl.startsWith('https://')
                   ? Image.network(
                       entry.imageUrl,
                       fit: BoxFit.cover,
@@ -2094,7 +2158,8 @@ class PhotosGalleryPage extends StatelessWidget {
                   top: 8,
                   right: 8,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.95),
                       borderRadius: BorderRadius.circular(12),
@@ -2204,14 +2269,8 @@ class PhotoWordsBottomSheet extends ConsumerWidget {
       child: Column(
         children: [
           // Handle bar
-          Container(
-            margin: const EdgeInsets.only(top: 12),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: const Color(0xFFE2DBFD),
-              borderRadius: BorderRadius.circular(2),
-            ),
+          const AppBottomSheetDragHandle(
+            margin: EdgeInsets.only(top: 12),
           ),
 
           // Header
@@ -2247,8 +2306,7 @@ class PhotoWordsBottomSheet extends ConsumerWidget {
                     ],
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.close_rounded, color: Color(0xFF9892A6), size: 24),
+                AppBottomSheetCloseButton(
                   onPressed: () => Navigator.pop(context),
                 ),
               ],
@@ -2286,7 +2344,8 @@ class PhotoWordsBottomSheet extends ConsumerWidget {
                             child: Row(
                               children: [
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 10, vertical: 3),
                                   decoration: BoxDecoration(
                                     color: const Color(0xFFF4EEFF),
                                     borderRadius: BorderRadius.circular(8),
@@ -2376,7 +2435,8 @@ class PhotoWordsBottomSheet extends ConsumerWidget {
                 bottom: 10,
                 right: 12,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
                     color: Colors.black.withValues(alpha: 0.55),
                     borderRadius: BorderRadius.circular(12),
@@ -2414,7 +2474,8 @@ class PhotoWordsBottomSheet extends ConsumerWidget {
     VocabularyModel vocab,
     List<VocabularyModel> allVocabs,
   ) {
-    final hasSentence = vocab.englishSentence.isNotEmpty || vocab.thaiSentence.isNotEmpty;
+    final hasSentence =
+        vocab.englishSentence.isNotEmpty || vocab.thaiSentence.isNotEmpty;
 
     return Material(
       color: Colors.transparent,
@@ -2445,7 +2506,8 @@ class PhotoWordsBottomSheet extends ConsumerWidget {
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
                       color: const Color(0xFFF4EEFF),
                       borderRadius: BorderRadius.circular(8),
@@ -2478,7 +2540,8 @@ class PhotoWordsBottomSheet extends ConsumerWidget {
                   if (vocab.partOfSpeech.isNotEmpty) ...[
                     const SizedBox(width: 6),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: const Color(0xFFF9FAFB),
                         borderRadius: BorderRadius.circular(8),
@@ -2500,7 +2563,8 @@ class PhotoWordsBottomSheet extends ConsumerWidget {
                   if (vocab.cefrLevel.isNotEmpty) ...[
                     const SizedBox(width: 6),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: const Color(0xFFFEF3C7),
                         borderRadius: BorderRadius.circular(8),
@@ -2644,7 +2708,8 @@ class PhotoWordsBottomSheet extends ConsumerWidget {
     double? width,
     double? height,
   }) {
-    final isNetwork = imageUrl.startsWith('http://') || imageUrl.startsWith('https://');
+    final isNetwork =
+        imageUrl.startsWith('http://') || imageUrl.startsWith('https://');
     if (isNetwork) {
       return Image.network(
         imageUrl,
@@ -2717,4 +2782,3 @@ class PhotoWordsBottomSheet extends ConsumerWidget {
     );
   }
 }
-

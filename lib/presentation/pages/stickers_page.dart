@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../data/sticker_sets.dart';
 import '../providers/providers.dart';
+import '../widgets/bottom_sheet_chrome.dart';
 
 class StickersPage extends ConsumerStatefulWidget {
   const StickersPage({super.key});
@@ -55,7 +56,8 @@ class _StickersPageState extends ConsumerState<StickersPage> {
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF1F2937), size: 20),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded,
+              color: Color(0xFF1F2937), size: 20),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
@@ -107,7 +109,8 @@ class _StickersPageState extends ConsumerState<StickersPage> {
                                 color: const Color(0xFFF4EEFF),
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              child: const Text('🎨', style: TextStyle(fontSize: 20)),
+                              child: const Text('🎨',
+                                  style: TextStyle(fontSize: 20)),
                             ),
                             const SizedBox(width: 12),
                             Column(
@@ -134,7 +137,8 @@ class _StickersPageState extends ConsumerState<StickersPage> {
                           ],
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
                             color: const Color(0xFFF4EEFF),
                             borderRadius: BorderRadius.circular(12),
@@ -184,12 +188,17 @@ class _StickersPageState extends ConsumerState<StickersPage> {
                       onTap: () => setState(() => _filter = filterName),
                       borderRadius: BorderRadius.circular(16),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 8),
                         decoration: BoxDecoration(
-                          color: isSelected ? const Color(0xFFF4EEFF) : Colors.white,
+                          color: isSelected
+                              ? const Color(0xFFF4EEFF)
+                              : Colors.white,
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
-                            color: isSelected ? const Color(0xFF7C5CFC) : const Color(0xFFEBE6FC),
+                            color: isSelected
+                                ? const Color(0xFF7C5CFC)
+                                : const Color(0xFFEBE6FC),
                             width: 1.2,
                           ),
                         ),
@@ -197,8 +206,11 @@ class _StickersPageState extends ConsumerState<StickersPage> {
                           label,
                           style: GoogleFonts.lexend(
                             fontSize: 12.5,
-                            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                            color: isSelected ? const Color(0xFF7C5CFC) : const Color(0xFF8E88A8),
+                            fontWeight:
+                                isSelected ? FontWeight.w700 : FontWeight.w500,
+                            color: isSelected
+                                ? const Color(0xFF7C5CFC)
+                                : const Color(0xFF8E88A8),
                           ),
                         ),
                       ),
@@ -207,34 +219,34 @@ class _StickersPageState extends ConsumerState<StickersPage> {
                 }).toList(),
               ),
 
-                const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-                // Sticker Packs List
-                Expanded(
-                  child: filteredPacks.isEmpty
-                      ? _buildEmptyState()
-                      : ListView.separated(
-                          padding: const EdgeInsets.only(bottom: 24),
-                          itemCount: filteredPacks.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 14),
-                          itemBuilder: (context, index) {
-                            final pack = filteredPacks[index];
-                            return _buildPackCard(
-                              context,
-                              pack,
-                              totalStars: totalStars,
-                              streakDays: streakDays,
-                              natureVocabCount: natureVocabCount,
-                              stickerState: stickerState,
-                            );
-                          },
-                        ),
-                ),
-              ],
-            ),
+              // Sticker Packs List
+              Expanded(
+                child: filteredPacks.isEmpty
+                    ? _buildEmptyState()
+                    : ListView.separated(
+                        padding: const EdgeInsets.only(bottom: 24),
+                        itemCount: filteredPacks.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 14),
+                        itemBuilder: (context, index) {
+                          final pack = filteredPacks[index];
+                          return _buildPackCard(
+                            context,
+                            pack,
+                            totalStars: totalStars,
+                            streakDays: streakDays,
+                            natureVocabCount: natureVocabCount,
+                            stickerState: stickerState,
+                          );
+                        },
+                      ),
+              ),
+            ],
           ),
         ),
-      );
+      ),
+    );
   }
 
   Widget _buildPackCard(
@@ -320,10 +332,26 @@ class _StickersPageState extends ConsumerState<StickersPage> {
                   child: ColorFiltered(
                     colorFilter: isLocked
                         ? const ColorFilter.matrix(<double>[
-                            0.2126, 0.7152, 0.0722, 0, 0,
-                            0.2126, 0.7152, 0.0722, 0, 0,
-                            0.2126, 0.7152, 0.0722, 0, 0,
-                            0,      0,      0,      0.45, 0,
+                            0.2126,
+                            0.7152,
+                            0.0722,
+                            0,
+                            0,
+                            0.2126,
+                            0.7152,
+                            0.0722,
+                            0,
+                            0,
+                            0.2126,
+                            0.7152,
+                            0.0722,
+                            0,
+                            0,
+                            0,
+                            0,
+                            0,
+                            0.45,
+                            0,
                           ])
                         : const ColorFilter.mode(
                             Colors.transparent,
@@ -363,9 +391,11 @@ class _StickersPageState extends ConsumerState<StickersPage> {
                           ),
                           const SizedBox(width: 6),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 7, vertical: 2),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF8B5CF6).withValues(alpha: 0.1),
+                              color: const Color(0xFF8B5CF6)
+                                  .withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
@@ -396,7 +426,8 @@ class _StickersPageState extends ConsumerState<StickersPage> {
 
                 // Status Pill
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
                     color: isLocked
                         ? Colors.grey.shade100
@@ -407,9 +438,13 @@ class _StickersPageState extends ConsumerState<StickersPage> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        isLocked ? Icons.lock_rounded : Icons.check_circle_rounded,
+                        isLocked
+                            ? Icons.lock_rounded
+                            : Icons.check_circle_rounded,
                         size: 13,
-                        color: isLocked ? Colors.grey.shade600 : const Color(0xFF10B981),
+                        color: isLocked
+                            ? Colors.grey.shade600
+                            : const Color(0xFF10B981),
                       ),
                       const SizedBox(width: 4),
                       Text(
@@ -417,7 +452,9 @@ class _StickersPageState extends ConsumerState<StickersPage> {
                         style: GoogleFonts.lexend(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
-                          color: isLocked ? Colors.grey.shade600 : const Color(0xFF10B981),
+                          color: isLocked
+                              ? Colors.grey.shade600
+                              : const Color(0xFF10B981),
                         ),
                       ),
                     ],
@@ -464,10 +501,26 @@ class _StickersPageState extends ConsumerState<StickersPage> {
                     child: ColorFiltered(
                       colorFilter: isLocked
                           ? const ColorFilter.matrix(<double>[
-                              0.2126, 0.7152, 0.0722, 0, 0,
-                              0.2126, 0.7152, 0.0722, 0, 0,
-                              0.2126, 0.7152, 0.0722, 0, 0,
-                              0,      0,      0,      0.4, 0,
+                              0.2126,
+                              0.7152,
+                              0.0722,
+                              0,
+                              0,
+                              0.2126,
+                              0.7152,
+                              0.0722,
+                              0,
+                              0,
+                              0.2126,
+                              0.7152,
+                              0.0722,
+                              0,
+                              0,
+                              0,
+                              0,
+                              0,
+                              0.4,
+                              0,
                             ])
                           : const ColorFilter.mode(
                               Colors.transparent,
@@ -534,7 +587,8 @@ class _StickersPageState extends ConsumerState<StickersPage> {
                   Expanded(
                     child: Row(
                       children: [
-                        const Icon(Icons.palette_outlined, size: 14, color: Color(0xFF8B5CF6)),
+                        const Icon(Icons.palette_outlined,
+                            size: 14, color: Color(0xFF8B5CF6)),
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
@@ -662,14 +716,7 @@ void showStickerPackModal(
           children: [
             // Handle bar
             Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFCBD5E1),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
+              child: const AppBottomSheetDragHandle(),
             ),
             const SizedBox(height: 16),
 
@@ -700,10 +747,26 @@ void showStickerPackModal(
                   child: ColorFiltered(
                     colorFilter: isLocked
                         ? const ColorFilter.matrix(<double>[
-                            0.2126, 0.7152, 0.0722, 0, 0,
-                            0.2126, 0.7152, 0.0722, 0, 0,
-                            0.2126, 0.7152, 0.0722, 0, 0,
-                            0,      0,      0,      0.5, 0,
+                            0.2126,
+                            0.7152,
+                            0.0722,
+                            0,
+                            0,
+                            0.2126,
+                            0.7152,
+                            0.0722,
+                            0,
+                            0,
+                            0.2126,
+                            0.7152,
+                            0.0722,
+                            0,
+                            0,
+                            0,
+                            0,
+                            0,
+                            0.5,
+                            0,
                           ])
                         : const ColorFilter.mode(
                             Colors.transparent,
@@ -746,7 +809,8 @@ void showStickerPackModal(
                 ),
                 if (isLocked)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
                       color: const Color(0xFFF1F5F9),
                       borderRadius: BorderRadius.circular(8),
@@ -823,7 +887,8 @@ void showStickerPackModal(
                         value: progressRatio,
                         minHeight: 8,
                         backgroundColor: const Color(0xFFE2E8F0),
-                        valueColor: AlwaysStoppedAnimation<Color>(gradient.first),
+                        valueColor:
+                            AlwaysStoppedAnimation<Color>(gradient.first),
                       ),
                     ),
                   ],
@@ -868,10 +933,26 @@ void showStickerPackModal(
                     child: ColorFiltered(
                       colorFilter: isLocked
                           ? const ColorFilter.matrix(<double>[
-                              0.2126, 0.7152, 0.0722, 0, 0,
-                              0.2126, 0.7152, 0.0722, 0, 0,
-                              0.2126, 0.7152, 0.0722, 0, 0,
-                              0,      0,      0,      0.4, 0,
+                              0.2126,
+                              0.7152,
+                              0.0722,
+                              0,
+                              0,
+                              0.2126,
+                              0.7152,
+                              0.0722,
+                              0,
+                              0,
+                              0.2126,
+                              0.7152,
+                              0.0722,
+                              0,
+                              0,
+                              0,
+                              0,
+                              0,
+                              0.4,
+                              0,
                             ])
                           : const ColorFilter.mode(
                               Colors.transparent,

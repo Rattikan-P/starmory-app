@@ -7,12 +7,15 @@ import '../../data/services/app_state_service.dart';
 import '../../data/services/auth_service.dart';
 import '../../utils/snackbar_helper.dart';
 import '../widgets/auth_widgets.dart';
+import '../widgets/bottom_sheet_chrome.dart';
 import 'auth/otp_verification_page.dart';
 import 'language_selection_page.dart';
 import 'main_navigation.dart';
-import '../providers/providers.dart' show hiveServiceProvider, vocabularySyncServiceProvider;
+import '../providers/providers.dart'
+    show hiveServiceProvider, vocabularySyncServiceProvider;
 
-final onboardingServiceProvider = Provider<AppStateService>((ref) => AppStateService());
+final onboardingServiceProvider =
+    Provider<AppStateService>((ref) => AppStateService());
 
 class OnboardingPage extends ConsumerStatefulWidget {
   final bool skipToAuth;
@@ -34,14 +37,16 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
       glowColor: Color(0xFF8B7CFF),
       imageAsset: 'assets/images/LearnFromPhotos_mascot.png',
       title: 'Learn from Photos',
-      description: 'Snap a photo, learn a word.\nYour world is your language lesson.',
+      description:
+          'Snap a photo, learn a word.\nYour world is your language lesson.',
     ),
     OnboardingItem(
       glowColor: Color(0xFFD98FB4),
       imageAsset: 'assets/images/2MinutesaDay_mascot.png',
       imageScale: 1.30,
       title: '2 Minutes a Day',
-      description: 'One word a day is enough.\nNo guilt, no pressure, just progress.',
+      description:
+          'One word a day is enough.\nNo guilt, no pressure, just progress.',
     ),
     OnboardingItem(
       glowColor: Color(0xFFFFC629),
@@ -116,7 +121,8 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
       }
 
       // Auto-accept terms on signup
-      await appStateService.setTermsVersion(appStateService.getCurrentTermsVersion());
+      await appStateService
+          .setTermsVersion(appStateService.getCurrentTermsVersion());
 
       final userData = await client
           .from('users')
@@ -156,7 +162,8 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
 
           if (localVocabs.isNotEmpty) {
             // Use mergeWithCloud to avoid duplicates
-            final syncedVocabs = await vocabSyncService.mergeWithCloud(localVocabs);
+            final syncedVocabs =
+                await vocabSyncService.mergeWithCloud(localVocabs);
             // Update local storage with merged vocabularies
             await hiveService.clearAllVocabulary();
             for (final vocab in syncedVocabs) {
@@ -178,8 +185,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
 
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(
-            builder: (_) =>
-                const MainNavigationScreen(),
+            builder: (_) => const MainNavigationScreen(),
           ),
           (route) => false,
         );
@@ -292,7 +298,8 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                 fit: BoxFit.contain,
                 errorBuilder: (context, error, stackTrace) => Text(
                   'Starmory',
-                  style: GoogleFonts.cormorantUnicase(fontSize: 23, color: Colors.black),
+                  style: GoogleFonts.cormorantUnicase(
+                      fontSize: 23, color: Colors.black),
                 ),
               ),
             ),
@@ -301,7 +308,8 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                 controller: _pageController,
                 onPageChanged: (index) => setState(() => _currentPage = index),
                 itemCount: _items.length,
-                itemBuilder: (context, index) => _buildReferencePage(_items[index]),
+                itemBuilder: (context, index) =>
+                    _buildReferencePage(_items[index]),
               ),
             ),
             Row(
@@ -339,7 +347,8 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                       onPressed: _nextPage,
                       style: ElevatedButton.styleFrom(
                         elevation: 4,
-                        shadowColor: const Color(0xFF8B5CF6).withValues(alpha: 0.35),
+                        shadowColor:
+                            const Color(0xFF8B5CF6).withValues(alpha: 0.35),
                         backgroundColor: const Color(0xFF8B5CF6),
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
@@ -347,7 +356,9 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                         ),
                       ),
                       child: Text(
-                        _currentPage == _items.length - 1 ? 'Get Started' : 'Next',
+                        _currentPage == _items.length - 1
+                            ? 'Get Started'
+                            : 'Next',
                         style: GoogleFonts.lexend(
                           fontSize: 15.5,
                           fontWeight: FontWeight.w600,
@@ -374,7 +385,8 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
+                                color: const Color(0xFF8B5CF6)
+                                    .withValues(alpha: 0.08),
                                 blurRadius: 8,
                                 offset: const Offset(0, 2),
                               ),
@@ -545,14 +557,7 @@ class _AuthOptionsSheet extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             // Handle bar
-            Container(
-              width: 42,
-              height: 5,
-              decoration: BoxDecoration(
-                color: const Color(0xFFD1D5DB),
-                borderRadius: BorderRadius.circular(3),
-              ),
-            ),
+            const AppBottomSheetDragHandle(),
             const SizedBox(height: 18),
 
             // Header

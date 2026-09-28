@@ -10,6 +10,7 @@ import 'profile_tab.dart';
 import '../providers/providers.dart';
 import '../utils/photo_picker_flow.dart';
 import '../widgets/top_header_actions.dart';
+import '../widgets/bottom_sheet_chrome.dart';
 
 /// Review Tab - Pixel-perfect implementation matching the latest design
 class ReviewTab extends ConsumerStatefulWidget {
@@ -1265,14 +1266,7 @@ class _ReviewTabState extends ConsumerState<ReviewTab>
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     // Top Drag handle
-                    Container(
-                      width: 44,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFD1D5DB),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
+                    const AppBottomSheetDragHandle(),
                     const SizedBox(height: 16),
 
                     // Header Row: Custom review + Close button
@@ -1302,23 +1296,8 @@ class _ReviewTabState extends ConsumerState<ReviewTab>
                             ],
                           ),
                         ),
-                        Container(
-                          width: 40,
-                          height: 40,
-                          decoration: const BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Color(0xFFF3F4F6),
-                          ),
-                          child: IconButton(
-                            padding: EdgeInsets.zero,
-                            tooltip: 'Close',
-                            onPressed: () => Navigator.pop(context),
-                            icon: const Icon(
-                              Icons.close_rounded,
-                              size: 20,
-                              color: Color(0xFF221F33),
-                            ),
-                          ),
+                        AppBottomSheetCloseButton(
+                          onPressed: () => Navigator.pop(context),
                         ),
                       ],
                     ),

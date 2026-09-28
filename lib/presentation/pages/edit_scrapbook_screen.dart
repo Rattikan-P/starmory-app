@@ -21,8 +21,10 @@ import '../../data/sticker_sets.dart';
 import '../utils/reward_unlock_helper.dart';
 import '../widgets/permission_required_dialog.dart';
 import '../widgets/tokenized_notice_dialogs.dart';
+import '../widgets/bottom_sheet_chrome.dart';
 
 const double _scrapbookTopBarHeight = 60;
+const double _polaroidColorSheetHeight = 290;
 
 /// Helper class for background color options
 class _BackgroundColorOption {
@@ -116,6 +118,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
   // Selection state (for showing resize/rotate controls)
   String? _selectedId; // ID of selected item
   String? _selectedType; // 'text', 'sticker', or 'photo'
+  String? _editingTextOverlayId;
   Offset? _lastTapPosition; // Last tap position for control handle detection
   late List<String> _elementLayerOrder;
 
@@ -139,6 +142,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
 
   // Canvas size for positioning calculations
   Size? _canvasSize;
+  OverlayEntry? _activeTextInputEntry;
 
   // Available emojis for selection
   static const List<String> _availableEmojis = [
@@ -443,31 +447,52 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
   bool get _hasUnsavedChanges {
     if (_selectedEmoji != _originalSelectedEmoji) return true;
     if (_backgroundColor != _originalBackgroundColor) return true;
-    if (_textOverlays.length != _originalTextOverlays.length) return true;
+    // Opening the text tool creates a temporary empty overlay for live input.
+    // It should not make Save active until the user actually enters text.
+    final textOverlays =
+        _textOverlays.where((overlay) => overlay.text.trim().isNotEmpty).toList();
+    final originalTextOverlays = _originalTextOverlays
+        .where((overlay) => overlay.text.trim().isNotEmpty)
+        .toList();
+    if (textOverlays.length != originalTextOverlays.length) return true;
     if (_stickers.length != _originalStickers.length) return true;
     if (_additionalPhotos.length != _originalAdditionalPhotos.length)
       return true;
+
     // Check if layer order has changed
-    if (_elementLayerOrder.length != _originalElementLayerOrder.length)
-      return true;
-    for (int i = 0; i < _elementLayerOrder.length; i++) {
-      if (_elementLayerOrder[i] != _originalElementLayerOrder[i]) return true;
+    final emptyTextKeys = {
+      ..._textOverlays
+          .where((overlay) => overlay.text.trim().isEmpty)
+          .map((overlay) => _elementKey('text', overlay.id)),
+      ..._originalTextOverlays
+          .where((overlay) => overlay.text.trim().isEmpty)
+          .map((overlay) => _elementKey('text', overlay.id)),
+    };
+    final layerOrder =
+        _elementLayerOrder.where((key) => !emptyTextKeys.contains(key));
+    final originalLayerOrder = _originalElementLayerOrder
+        .where((key) => !emptyTextKeys.contains(key));
+    final currentOrder = layerOrder.toList();
+    final savedOrder = originalLayerOrder.toList();
+    if (currentOrder.length != savedOrder.length) return true;
+    for (int i = 0; i < currentOrder.length; i++) {
+      if (currentOrder[i] != savedOrder[i]) return true;
     }
 
     // Check for position/content changes in text overlays
-    for (int i = 0; i < _textOverlays.length; i++) {
-      if (_textOverlays[i].x != _originalTextOverlays[i].x ||
-          _textOverlays[i].y != _originalTextOverlays[i].y ||
-          _textOverlays[i].text != _originalTextOverlays[i].text ||
-          _textOverlays[i].color != _originalTextOverlays[i].color ||
-          _textOverlays[i].fontSize != _originalTextOverlays[i].fontSize ||
-          _textOverlays[i].fontFamily != _originalTextOverlays[i].fontFamily ||
-          _textOverlays[i].backgroundColor !=
-              _originalTextOverlays[i].backgroundColor ||
-          _textOverlays[i].scale != _originalTextOverlays[i].scale ||
-          _textOverlays[i].rotation != _originalTextOverlays[i].rotation ||
-          _textOverlays[i].flip != _originalTextOverlays[i].flip ||
-          _textOverlays[i].width != _originalTextOverlays[i].width) {
+    for (int i = 0; i < textOverlays.length; i++) {
+      if (textOverlays[i].x != originalTextOverlays[i].x ||
+          textOverlays[i].y != originalTextOverlays[i].y ||
+          textOverlays[i].text != originalTextOverlays[i].text ||
+          textOverlays[i].color != originalTextOverlays[i].color ||
+          textOverlays[i].fontSize != originalTextOverlays[i].fontSize ||
+          textOverlays[i].fontFamily != originalTextOverlays[i].fontFamily ||
+          textOverlays[i].backgroundColor !=
+              originalTextOverlays[i].backgroundColor ||
+          textOverlays[i].scale != originalTextOverlays[i].scale ||
+          textOverlays[i].rotation != originalTextOverlays[i].rotation ||
+          textOverlays[i].flip != originalTextOverlays[i].flip ||
+          textOverlays[i].width != originalTextOverlays[i].width) {
         return true;
       }
     }
@@ -590,6 +615,10 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                 ],
               ),
 
+              // Keep the emoji selector with the scrapbook content so the
+              // active text-edit scrim dims it along with the canvas.
+              _buildEmojiOverlay(),
+
               // Element layer follows the canvas but can receive gestures
               // anywhere between the date and the bottom toolbar.
               _buildElementOverlay(),
@@ -617,6 +646,16 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
 
               // Bottom Toolbar (Positioned at bottom)
               _buildBottomToolbar(),
+
+              // Dim and disable the scrapbook controls while typing.
+              if (_editingTextOverlayId != null)
+                const Positioned.fill(
+                  child: AbsorbPointer(
+                    child: ColoredBox(
+                      color: Color.fromRGBO(0, 0, 0, 0.45),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
@@ -657,7 +696,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
           const SizedBox(width: DesignTokens.spacingMedium),
           _SaveButton(
             isSaving: _isSaving,
-            onTap: _isSaving ? null : _saveScrapbook,
+            onTap: _isSaving || !_hasUnsavedChanges ? null : _saveScrapbook,
           ),
         ],
       ),
@@ -877,9 +916,6 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
           child: Stack(
             clipBehavior: Clip.none,
             children: [
-              // Emoji overlay (centered in canvas)
-              _buildEmojiSelector(),
-
               // Draggable items follow the persistent bring-to-front order.
               ..._buildDraggableItems(),
 
@@ -887,6 +923,24 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
               // targets are not clipped by the selected item's bounds.
               _buildSelectedControlOverlay(),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmojiOverlay() {
+    return Positioned.fill(
+      child: ClipRect(
+        clipper: const _ProtectedTopBarClipper(_scrapbookTopBarHeight),
+        child: CompositedTransformFollower(
+          link: _canvasLayerLink,
+          showWhenUnlinked: false,
+          targetAnchor: Alignment.topLeft,
+          followerAnchor: Alignment.topLeft,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [_buildEmojiSelector()],
           ),
         ),
       ),
@@ -1007,10 +1061,176 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     );
   }
 
+  double _visibleTextEditingCenterY(
+    double photoHeight,
+    BuildContext layoutContext,
+  ) {
+    final media = MediaQuery.of(layoutContext);
+    final canvasBox =
+        _canvasAreaKey.currentContext?.findRenderObject() as RenderBox?;
+    if (canvasBox == null) return DesignTokens.scrapbookCanvasHeight * 0.2;
+
+    final canvasTop = canvasBox.localToGlobal(Offset.zero).dy;
+    final keyboardTop = media.size.height - media.viewInsets.bottom;
+    // The text editor controls sit immediately above the keyboard. Keep the
+    // preview centered in the visible canvas area above those controls.
+    const editorControlsHeight = 150.0;
+    final editorTop = keyboardTop - editorControlsHeight;
+    final visibleCenterY = (editorTop - canvasTop) / 2;
+    final maxCenterY = math.max(
+      40.0,
+      math.min(
+        photoHeight - 12,
+        DesignTokens.scrapbookCanvasHeight * 0.45,
+      ),
+    );
+    return visibleCenterY.clamp(40.0, maxCenterY).toDouble();
+  }
+
+  OverlayEntry _createActiveTextInputEntry({
+    required ScrapbookTextOverlay overlay,
+    required TextEditingController controller,
+    required FocusNode focusNode,
+  }) {
+    return OverlayEntry(
+      builder: (entryContext) {
+        final canvasBox =
+            _canvasAreaKey.currentContext?.findRenderObject() as RenderBox?;
+        final overlayBox =
+            Overlay.of(entryContext).context.findRenderObject() as RenderBox?;
+        final textIndex =
+            _textOverlays.indexWhere((item) => item.id == overlay.id);
+        if (canvasBox == null || overlayBox == null || textIndex == -1) {
+          return const SizedBox.shrink();
+        }
+        final activeOverlay = _textOverlays[textIndex];
+
+        final availableWidth = MediaQuery.sizeOf(entryContext).width -
+            (DesignTokens.spacingLarge * 2);
+        final frameWidth = availableWidth * 0.65;
+        final photoHeight = (frameWidth * 1.2 * 0.82) - 24;
+        final centerY = _visibleTextEditingCenterY(photoHeight, entryContext);
+        final canvasTopLeft = canvasBox.localToGlobal(Offset.zero);
+        final center = overlayBox.globalToLocal(
+          Offset(
+            canvasTopLeft.dx + (availableWidth / 2),
+            canvasTopLeft.dy + centerY,
+          ),
+        );
+        final fieldWidth = availableWidth * 0.88;
+        final fieldHeight = math.min(photoHeight * 0.7, 150.0).toDouble();
+        final activeTextStyle = _getFontStyle(activeOverlay.fontFamily).copyWith(
+          color: Color(activeOverlay.color),
+          fontSize: activeOverlay.fontSize * activeOverlay.scale,
+          fontWeight: FontWeight.w600,
+          height: 1.2,
+        );
+        final backgroundPaddingX = 12.0 * activeOverlay.scale;
+        final backgroundPaddingY = 8.0 * activeOverlay.scale;
+        final textPainter = TextPainter(
+          text: TextSpan(text: controller.text, style: activeTextStyle),
+          textAlign: TextAlign.center,
+          textDirection: Directionality.of(entryContext),
+        )..layout(
+            maxWidth: math.max(1, fieldWidth - (backgroundPaddingX * 2)),
+          );
+        final textWidth = textPainter
+            .computeLineMetrics()
+            .fold<double>(0, (width, line) => math.max(width, line.width));
+        final backgroundWidth = controller.text.isEmpty
+            ? 0.0
+            : math.min(
+                fieldWidth,
+                textWidth + (backgroundPaddingX * 2),
+              );
+        final backgroundHeight = controller.text.isEmpty
+            ? 0.0
+            : textPainter.height + (backgroundPaddingY * 2);
+
+        return Positioned.fill(
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned(
+                left: center.dx - (fieldWidth / 2),
+                top: center.dy - (fieldHeight / 2),
+                width: fieldWidth,
+                height: fieldHeight,
+                child: Transform.rotate(
+                  angle: activeOverlay.rotation,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      if (activeOverlay.backgroundColor != null &&
+                          backgroundWidth > 0)
+                        IgnorePointer(
+                          child: Container(
+                            width: backgroundWidth,
+                            height: backgroundHeight,
+                            color: Color(activeOverlay.backgroundColor!)
+                                .withValues(alpha: 0.95),
+                          ),
+                        ),
+                      Material(
+                        type: MaterialType.transparency,
+                        child: TextField(
+                      controller: controller,
+                      focusNode: focusNode,
+                      autofocus: false,
+                      expands: true,
+                      maxLines: null,
+                      minLines: null,
+                      maxLength: 200,
+                      buildCounter: (
+                        _, {
+                        required currentLength,
+                        required isFocused,
+                        maxLength,
+                      }) =>
+                          const SizedBox.shrink(),
+                      textAlign: TextAlign.center,
+                      textAlignVertical: TextAlignVertical.center,
+                      textCapitalization: TextCapitalization.sentences,
+                      cursorColor: Color(activeOverlay.color),
+                      style: activeTextStyle,
+                      decoration: InputDecoration(
+                        filled: false,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        border: InputBorder.none,
+                        counterText: '',
+                      ),
+                      onChanged: (value) {
+                        if (!mounted) return;
+                        setState(() {
+                          final index = _textOverlays
+                              .indexWhere((item) => item.id == overlay.id);
+                          if (index != -1) {
+                            _textOverlays[index] =
+                                _textOverlays[index].copyWith(text: value);
+                          }
+                        });
+                        _activeTextInputEntry?.markNeedsBuild();
+                      },
+                    ),
+                  ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildTextOverlay(ScrapbookTextOverlay overlay) {
     if (_canvasSize == null) return const SizedBox.shrink();
+    if (overlay.id == _editingTextOverlayId) return const SizedBox.shrink();
 
-    // Calculate actual position based on canvas size
     final left = DesignTokens.spacingLarge + (overlay.x * _canvasSize!.width);
     final top = overlay.y * _canvasSize!.height;
 
@@ -2580,25 +2800,19 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
+      barrierColor: Colors.transparent,
       builder: (context) => Container(
         height: 400,
         decoration: const BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.vertical(
-            top: Radius.circular(24),
+            top: Radius.circular(DesignTokens.bottomSheetRadius),
           ),
         ),
         child: Column(
           children: [
             const SizedBox(height: 12),
-            Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: const Color(0xFFE5E7EB),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
+            const AppBottomSheetDragHandle(),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 12, 16, 8),
               child: Row(
@@ -2613,9 +2827,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                       ),
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.close_rounded, size: 20),
-                    color: const Color(0xFF6B7280),
+                  AppBottomSheetCloseButton(
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
@@ -2677,6 +2889,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
       text: '',
       x: 0.5,
       y: 0.5,
+      color: 0xFFFFFFFF,
       backgroundColor: null, // No background by default
     );
 
@@ -2706,7 +2919,11 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     // Focus node for the text field
     final focusNode = FocusNode();
 
-    showModalBottomSheet(
+    setState(() {
+      _editingTextOverlayId = overlay.id;
+    });
+
+    final editSheetFuture = showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.transparent,
@@ -2718,7 +2935,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
             decoration: const BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.vertical(
-                top: Radius.circular(24),
+                top: Radius.circular(DesignTokens.bottomSheetRadius),
               ),
               boxShadow: [
                 BoxShadow(
@@ -2731,83 +2948,11 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Header with drag handle
                 Center(
-                  child: Container(
-                    margin: const EdgeInsets.only(
-                      top: 12,
-                      bottom: 8,
-                    ),
-                    width: 36,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE5E7EB),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
+                  child: const AppBottomSheetDragHandle(
+                    margin: EdgeInsets.only(top: 12, bottom: 8),
                   ),
                 ),
-
-                // Text input area
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: DesignTokens.spacingLarge,
-                    vertical: DesignTokens.spacingMedium,
-                  ),
-                  child: TextField(
-                    controller: controller,
-                    focusNode: focusNode,
-                    decoration: InputDecoration(
-                      hintText: 'Enter text...',
-                      hintStyle: GoogleFonts.lexend(
-                        color: const Color(0xFF9CA3AF),
-                        fontSize: 16,
-                      ),
-                      filled: true,
-                      fillColor: const Color(0xFFF9FAFB),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: const BorderSide(
-                            color: Color(0xFF8B5CF6), width: 1.5),
-                      ),
-                      contentPadding: const EdgeInsets.all(14),
-                    ),
-                    autofocus: true,
-                    maxLines: null,
-                    maxLength: 200,
-                    style: TextStyle(
-                      color: const Color(0xFF1F2937),
-                      fontSize: 17,
-                      fontFamily: selectedFont,
-                    ),
-                    onChanged: (value) {
-                      // Auto-save on change
-                      if (!mounted) return;
-                      setState(() {
-                        final index =
-                            _textOverlays.indexWhere((o) => o.id == overlay.id);
-                        if (index != -1) {
-                          _textOverlays[index] = _textOverlays[index].copyWith(
-                            text: value,
-                            color: selectedTextColor,
-                            fontFamily: selectedFont,
-                            backgroundColor: selectedBackgroundColor,
-                          );
-                        }
-                      });
-                    },
-                  ),
-                ),
-
-                // Divider
-                const Divider(height: 1, color: Color(0xFFE5E7EB)),
 
                 // Options row (based on selected tool)
                 Container(
@@ -2821,6 +2966,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                     selectedFont: selectedFont,
                     selectedTextColor: selectedTextColor,
                     selectedBackgroundColor: selectedBackgroundColor,
+                    textFocusNode: focusNode,
                     onFontChanged: (font) {
                       setModalState(() {
                         selectedFont = font;
@@ -2835,6 +2981,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                           );
                         }
                       });
+                      _activeTextInputEntry?.markNeedsBuild();
                       HapticFeedback.lightImpact();
                     },
                     onTextColorChanged: (color) {
@@ -2851,6 +2998,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                           );
                         }
                       });
+                      _activeTextInputEntry?.markNeedsBuild();
                       HapticFeedback.lightImpact();
                     },
                     onBgColorChanged: (color) {
@@ -2864,9 +3012,11 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                         if (index != -1) {
                           _textOverlays[index] = _textOverlays[index].copyWith(
                             backgroundColor: color,
+                            clearBackgroundColor: color == null,
                           );
                         }
                       });
+                      _activeTextInputEntry?.markNeedsBuild();
                       HapticFeedback.lightImpact();
                     },
                   ),
@@ -2924,17 +3074,39 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
           );
         },
       ),
-    ).whenComplete(() {
+    );
+
+    final textInputEntry = _createActiveTextInputEntry(
+      overlay: overlay,
+      controller: controller,
+      focusNode: focusNode,
+    );
+    _activeTextInputEntry = textInputEntry;
+    Overlay.of(context, rootOverlay: true).insert(textInputEntry);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && focusNode.canRequestFocus) {
+        focusNode.requestFocus();
+      }
+    });
+
+    editSheetFuture.whenComplete(() {
+      textInputEntry.remove();
+      if (identical(_activeTextInputEntry, textInputEntry)) {
+        _activeTextInputEntry = null;
+      }
       focusNode.dispose();
       controller.dispose();
 
-      // If text is still empty, remove the overlay (user cancelled without typing)
-      final index = _textOverlays.indexWhere((o) => o.id == overlay.id);
-      if (index != -1 && _textOverlays[index].text.isEmpty) {
-        setState(() {
+      if (!mounted) return;
+      // If text is still empty, remove the overlay (user cancelled without typing).
+      setState(() {
+        _editingTextOverlayId = null;
+        final index = _textOverlays.indexWhere((o) => o.id == overlay.id);
+        if (index != -1 && _textOverlays[index].text.isEmpty) {
           _textOverlays.removeAt(index);
-        });
-      }
+        }
+      });
     });
   }
 
@@ -2944,6 +3116,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     required String selectedFont,
     required int selectedTextColor,
     required int? selectedBackgroundColor,
+    required FocusNode textFocusNode,
     required Function(String) onFontChanged,
     required Function(int) onTextColorChanged,
     required Function(int?) onBgColorChanged,
@@ -3006,6 +3179,9 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                     initialColor: Color(selectedTextColor),
                   );
                   if (color != null) onTextColorChanged(color);
+                  if (mounted && textFocusNode.canRequestFocus) {
+                    textFocusNode.requestFocus();
+                  }
                 },
               ),
               ..._textColorOptions.map((option) {
@@ -3068,6 +3244,9 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                     ),
                   );
                   if (color != null) onBgColorChanged(color);
+                  if (mounted && textFocusNode.canRequestFocus) {
+                    textFocusNode.requestFocus();
+                  }
                 },
               ),
               ..._textBackgroundOptions.map((option) {
@@ -3184,75 +3363,134 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
       isScrollControlled: true,
       useSafeArea: true,
       builder: (sheetContext) => StatefulBuilder(
-        builder: (context, setSheetState) => Container(
-          padding: const EdgeInsets.fromLTRB(
-            DesignTokens.spacingSmall,
-            DesignTokens.spacingBase,
-            DesignTokens.spacingSmall,
-            DesignTokens.spacingXLarge,
-          ),
-          decoration: const BoxDecoration(
-            color: Color(0xFF242424),
-            borderRadius: BorderRadius.vertical(
-              top: Radius.circular(24),
+        builder: (context, setSheetState) {
+          final hexColor = selectedColor.value
+              .toRadixString(16)
+              .padLeft(8, '0')
+              .substring(2)
+              .toUpperCase();
+
+          return Container(
+            height: _polaroidColorSheetHeight,
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(DesignTokens.bottomSheetRadius),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.12),
+                  blurRadius: 16,
+                  offset: const Offset(0, -2),
+                ),
+              ],
             ),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  IconButton(
-                    tooltip: 'Cancel',
-                    onPressed: () => Navigator.pop(sheetContext),
-                    icon: const Icon(
-                      Icons.close_rounded,
-                      color: Color(0xFFD7D7D7),
-                      size: 22,
-                    ),
+            child: Column(
+              children: [
+                const AppBottomSheetDragHandle(
+                  margin: EdgeInsets.only(bottom: 8),
+                ),
+                SizedBox(
+                  height: 44,
+                  child: Row(
+                    children: [
+                      AppBottomSheetCloseButton(
+                        tooltip: 'Cancel',
+                        onPressed: () => Navigator.pop(sheetContext),
+                      ),
+                      const SizedBox(width: DesignTokens.spacingMedium),
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: GoogleFonts.lexend(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF1F2937),
+                          ),
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 9,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF9FAFB),
+                          borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
+                          border: Border.all(color: const Color(0xFFE5E7EB)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 18,
+                              height: 18,
+                              decoration: BoxDecoration(
+                                color: selectedColor,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: const Color(0xFFD1D5DB),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              '#$hexColor',
+                              style: GoogleFonts.lexend(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                                color: const Color(0xFF4B5563),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: DesignTokens.spacingSmall),
+                      Material(
+                        color: DesignTokens.brandColor,
+                        shape: const CircleBorder(),
+                        clipBehavior: Clip.antiAlias,
+                        child: InkWell(
+                          customBorder: const CircleBorder(),
+                          onTap: () {
+                            HapticFeedback.lightImpact();
+                            Navigator.pop(sheetContext, selectedColor.value);
+                          },
+                          child: const SizedBox(
+                            width: 40,
+                            height: 40,
+                            child: Icon(
+                              Icons.check_rounded,
+                              color: Colors.white,
+                              size: 22,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  Expanded(
-                    child: Text(
-                      title,
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.lexend(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
+                ),
+                const SizedBox(height: DesignTokens.spacingSmall),
+                Expanded(
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: DesignTokens.spacingLarge,
+                      ),
+                      child: _ColorWheelPicker(
+                        initialColor: initialColor,
+                        onChanged: (color) {
+                          setSheetState(() => selectedColor = color);
+                        },
                       ),
                     ),
                   ),
-                  IconButton(
-                    tooltip: 'Apply color',
-                    onPressed: () {
-                      HapticFeedback.lightImpact();
-                      Navigator.pop(
-                        sheetContext,
-                        selectedColor.value,
-                      );
-                    },
-                    icon: const Icon(
-                      Icons.check_rounded,
-                      color: Color(0xFFD7D7D7),
-                      size: 22,
-                    ),
-                  ),
-                ],
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: DesignTokens.spacingXXLarge,
                 ),
-                child: _ColorWheelPicker(
-                  initialColor: initialColor,
-                  onChanged: (color) {
-                    setSheetState(() => selectedColor = color);
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
@@ -3381,7 +3619,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
         decoration: const BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.vertical(
-            top: Radius.circular(24),
+            top: Radius.circular(DesignTokens.bottomSheetRadius),
           ),
           boxShadow: [
             BoxShadow(
@@ -3394,14 +3632,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
         child: Column(
           children: [
             const SizedBox(height: 12),
-            Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: const Color(0xFFE5E7EB),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
+            const AppBottomSheetDragHandle(),
             // Header
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 12, 16, 8),
@@ -3417,9 +3648,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                       ),
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.close_rounded, size: 20),
-                    color: const Color(0xFF6B7280),
+                  AppBottomSheetCloseButton(
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
@@ -3483,7 +3712,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
         decoration: const BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.vertical(
-            top: Radius.circular(24),
+            top: Radius.circular(DesignTokens.bottomSheetRadius),
           ),
           boxShadow: [
             BoxShadow(
@@ -3498,14 +3727,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE5E7EB),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
+              child: const AppBottomSheetDragHandle(),
             ),
             const SizedBox(height: 12),
             Row(
@@ -3520,9 +3742,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                     ),
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.close_rounded, size: 20),
-                  color: const Color(0xFF6B7280),
+                AppBottomSheetCloseButton(
                   onPressed: () => Navigator.pop(context),
                 ),
               ],
@@ -3647,7 +3867,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
         decoration: const BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.vertical(
-            top: Radius.circular(24),
+            top: Radius.circular(DesignTokens.bottomSheetRadius),
           ),
           boxShadow: [
             BoxShadow(
@@ -3662,14 +3882,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE5E7EB),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
+              child: const AppBottomSheetDragHandle(),
             ),
             const SizedBox(height: 12),
             Row(
@@ -3684,9 +3897,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                     ),
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.close_rounded, size: 20),
-                  color: const Color(0xFF6B7280),
+                AppBottomSheetCloseButton(
                   onPressed: () => Navigator.pop(context),
                 ),
               ],
@@ -3866,20 +4077,13 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
             decoration: BoxDecoration(
               color: const Color(0xFFF9F8FC),
               borderRadius: BorderRadius.vertical(
-                top: Radius.circular(DesignTokens.radiusXLarge),
+                top: Radius.circular(DesignTokens.bottomSheetRadius),
               ),
             ),
             child: Column(
               children: [
                 const SizedBox(height: DesignTokens.spacingMedium),
-                Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFD1CED8),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
+                const AppBottomSheetDragHandle(),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(
                     DesignTokens.spacingXLarge,
@@ -3899,10 +4103,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                           ),
                         ),
                       ),
-                      IconButton(
+                      AppBottomSheetCloseButton(
                         tooltip: 'Close sticker picker',
-                        icon: const Icon(Icons.close_rounded),
-                        color: DesignTokens.textSecondary,
                         onPressed: () => Navigator.pop(context),
                       ),
                     ],
@@ -4248,10 +4450,11 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
+        height: _polaroidColorSheetHeight,
         decoration: const BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.vertical(
-            top: Radius.circular(24),
+            top: Radius.circular(DesignTokens.bottomSheetRadius),
           ),
           boxShadow: [
             BoxShadow(
@@ -4267,14 +4470,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE5E7EB),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
+              child: const AppBottomSheetDragHandle(),
             ),
             const SizedBox(height: 12),
             Row(
@@ -4289,9 +4485,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                     ),
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.close_rounded, size: 20),
-                  color: const Color(0xFF6B7280),
+                AppBottomSheetCloseButton(
                   onPressed: () => Navigator.pop(context),
                 ),
               ],
@@ -4876,7 +5070,10 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
   }
 
   Widget _buildSelectedControlOverlay() {
-    if (_canvasSize == null || _selectedId == null || _selectedType == null) {
+    if (_editingTextOverlayId != null ||
+        _canvasSize == null ||
+        _selectedId == null ||
+        _selectedType == null) {
       return const SizedBox.shrink();
     }
 

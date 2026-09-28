@@ -97,6 +97,7 @@ class DesignTokens {
   static const double dialogButtonRadius = 25.0;
   static const double dialogButtonFontSize = 15.5;
   static const double dialogTitleBodySpacing = 16.0;
+
   /// Compact gap used between a dialog title and its supporting message.
   static const double dialogCompactTitleBodySpacing = 8.0;
   static const double dialogIconTitleSpacing = 18.0;
@@ -106,6 +107,18 @@ class DesignTokens {
   static const Color dialogSupportingTextColor = textSecondary;
   static const Color dialogDisabledActionColor = textMuted;
   static const Color dialogDisabledActionBorderColor = Color(0xFFE7DEFF);
+
+  // ============= Bottom Sheets =============
+
+  /// Shared grabber and dismiss-button styling for modal bottom sheets.
+  static const double bottomSheetRadius = 28.0;
+  static const double bottomSheetHandleWidth = 44.0;
+  static const double bottomSheetHandleHeight = 4.0;
+  static const Color bottomSheetHandleColor = Color(0xFFD1D5DB);
+  static const double bottomSheetCloseButtonSize = 40.0;
+  static const double bottomSheetCloseIconSize = 20.0;
+  static const Color bottomSheetCloseButtonColor = Color(0xFFF3F4F6);
+  static const Color bottomSheetCloseIconColor = Color(0xFF221F33);
 
   /// App-wide defaults for Material dialogs. Explicit dialog-specific styles
   /// (for example semantic accent colors) can still override these defaults.

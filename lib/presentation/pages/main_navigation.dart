@@ -18,6 +18,7 @@ import 'image_preview_screen.dart';
 import 'auth/account_method_page.dart';
 import '../widgets/permission_required_dialog.dart';
 import '../widgets/tokenized_notice_dialogs.dart';
+import '../widgets/bottom_sheet_chrome.dart';
 import '../providers/providers.dart';
 
 // Track last synced user ID to ensure syncing when switching accounts
@@ -99,14 +100,7 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: const Color(0xFFE5E7EB),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
+            const AppBottomSheetDragHandle(),
             const SizedBox(height: 20),
             Text(
               'Capture a New Memory',

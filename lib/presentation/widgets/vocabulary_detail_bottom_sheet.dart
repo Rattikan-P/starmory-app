@@ -4,10 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../constants/design_tokens.dart';
 import '../../data/models/vocabulary_model.dart';
 import '../../data/services/dictionary_service.dart';
 import '../../data/services/tts_service.dart';
 import '../providers/scrapbook_provider.dart';
+import 'bottom_sheet_chrome.dart';
 
 // Vocabulary Detail Bottom Sheet - Shows word details from dictionary API
 class VocabularyDetailBottomSheet extends ConsumerStatefulWidget {
@@ -134,8 +136,8 @@ class _VocabularyDetailBottomSheetState
 
   Future<void> _fetchDictionaryData() async {
     // Fetch dictionary for current word
-    final result =
-        await widget.dictionaryService.getWordDefinition(widget.vocabulary.word);
+    final result = await widget.dictionaryService
+        .getWordDefinition(widget.vocabulary.word);
 
     // Fetch dictionary for twin word if exists
     DictionaryEntry? twinResult;
@@ -264,7 +266,9 @@ class _VocabularyDetailBottomSheetState
       height: MediaQuery.of(context).size.height * 0.75,
       decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(DesignTokens.bottomSheetRadius),
+        ),
         boxShadow: [
           BoxShadow(
             color: Color(0x1A000000),
@@ -276,14 +280,8 @@ class _VocabularyDetailBottomSheetState
       child: Column(
         children: [
           // Handle bar
-          Container(
-            margin: const EdgeInsets.only(top: 12),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: const Color(0xFFE5E7EB),
-              borderRadius: BorderRadius.circular(2),
-            ),
+          const AppBottomSheetDragHandle(
+            margin: EdgeInsets.only(top: 12),
           ),
 
           // Header
@@ -332,7 +330,8 @@ class _VocabularyDetailBottomSheetState
                                 ),
                               ),
                               TextSpan(
-                                text: '\u00A0(${widget.vocabulary.languageVariant})',
+                                text:
+                                    '\u00A0(${widget.vocabulary.languageVariant})',
                                 style: GoogleFonts.lexend(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w500,
@@ -395,8 +394,7 @@ class _VocabularyDetailBottomSheetState
                     ],
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.close, color: Color(0xFF9ca3af)),
+                AppBottomSheetCloseButton(
                   onPressed: () => Navigator.pop(context),
                 ),
               ],
@@ -631,7 +629,8 @@ class _VocabularyDetailBottomSheetState
     final scrapbookState = ref.watch(scrapbookStateProvider);
     final normWord = widget.vocabulary.word.trim().toLowerCase();
     final matchingScrapbooks = scrapbookState.scrapbooks.where((sb) {
-      return sb.vocabularyWords.any((w) => w.word.trim().toLowerCase() == normWord);
+      return sb.vocabularyWords
+          .any((w) => w.word.trim().toLowerCase() == normWord);
     }).toList();
 
     return Container(
@@ -658,7 +657,8 @@ class _VocabularyDetailBottomSheetState
               if (matchingScrapbooks.length > 1) ...[
                 const Spacer(),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
                     color: const Color(0xFFEDE9FE),
                     borderRadius: BorderRadius.circular(10),
@@ -693,7 +693,6 @@ class _VocabularyDetailBottomSheetState
               color: const Color(0xFF6B7280),
             ),
           ),
-
           if (matchingScrapbooks.isNotEmpty) ...[
             const SizedBox(height: 12),
             const Divider(height: 1, color: Color(0xFFE5E7EB)),
@@ -728,14 +727,20 @@ class _VocabularyDetailBottomSheetState
                                 width: 44,
                                 height: 44,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => const Icon(Icons.image, size: 24, color: Colors.grey),
+                                errorBuilder: (_, __, ___) => const Icon(
+                                    Icons.image,
+                                    size: 24,
+                                    color: Colors.grey),
                               )
                             : Image.file(
                                 File(sb.imagePath),
                                 width: 44,
                                 height: 44,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => const Icon(Icons.image, size: 24, color: Colors.grey),
+                                errorBuilder: (_, __, ___) => const Icon(
+                                    Icons.image,
+                                    size: 24,
+                                    color: Colors.grey),
                               ),
                       ),
                     const SizedBox(width: 10),
@@ -894,22 +899,25 @@ class _VocabularyDetailBottomSheetState
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: meaning.synonyms.take(6).map((syn) => Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF3F4F6),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      syn,
-                      style: GoogleFonts.lexend(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: const Color(0xFF6b7280),
-                      ),
-                    ),
-                  )).toList(),
+              children: meaning.synonyms
+                  .take(6)
+                  .map((syn) => Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF3F4F6),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          syn,
+                          style: GoogleFonts.lexend(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xFF6b7280),
+                          ),
+                        ),
+                      ))
+                  .toList(),
             ),
           ],
         ],

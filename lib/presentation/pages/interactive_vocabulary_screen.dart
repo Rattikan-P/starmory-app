@@ -5,6 +5,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../constants/design_tokens.dart';
 import '../providers/providers.dart';
 import '../../data/models/vocabulary_model.dart';
 import '../../data/models/scrapbook_model.dart';
@@ -14,6 +15,7 @@ import 'generation_loading_screen.dart';
 import 'edit_scrapbook_screen.dart';
 import 'auth/account_method_page.dart';
 import '../widgets/tokenized_notice_dialogs.dart';
+import '../widgets/bottom_sheet_chrome.dart';
 import '../utils/reward_unlock_helper.dart';
 import 'dart:ui';
 
@@ -1044,7 +1046,7 @@ class _InteractiveVocabularyScreenState
                 builder: (context, scrollController) {
                   return ClipRRect(
                     borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(32),
+                      top: Radius.circular(DesignTokens.bottomSheetRadius),
                     ),
                     child: BackdropFilter(
                       filter: ImageFilter.blur(
@@ -1059,7 +1061,8 @@ class _InteractiveVocabularyScreenState
                           decoration: BoxDecoration(
                             color: Colors.white.withValues(alpha: 0.82),
                             borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(32),
+                              top: Radius.circular(
+                                  DesignTokens.bottomSheetRadius),
                             ),
                             border: Border.all(
                                 color: Colors.white.withValues(alpha: 0.6)),
@@ -1078,14 +1081,10 @@ class _InteractiveVocabularyScreenState
                               // Drag Handle
                               SliverToBoxAdapter(
                                 child: Center(
-                                  child: Container(
+                                  child: AppBottomSheetDragHandle(
                                     margin: const EdgeInsets.only(
-                                        top: 12, bottom: 8),
-                                    width: 40,
-                                    height: 4,
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFDDD6FE),
-                                      borderRadius: BorderRadius.circular(99),
+                                      top: 12,
+                                      bottom: 8,
                                     ),
                                   ),
                                 ),

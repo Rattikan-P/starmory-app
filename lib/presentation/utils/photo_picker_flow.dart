@@ -12,6 +12,7 @@ import '../../core/utils/image_picker_error_message.dart';
 import '../widgets/permission_required_dialog.dart';
 import '../pages/image_preview_screen.dart';
 import '../widgets/tokenized_notice_dialogs.dart';
+import '../widgets/bottom_sheet_chrome.dart';
 
 /// Shared image-selection flow used wherever users can add a new photo.
 class PhotoPickerFlow {
@@ -32,14 +33,7 @@ class PhotoPickerFlow {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 42,
-                height: 5,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFD6D1E8),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
+              const AppBottomSheetDragHandle(),
               const SizedBox(height: 20),
               const Text('Add a photo',
                   style: TextStyle(

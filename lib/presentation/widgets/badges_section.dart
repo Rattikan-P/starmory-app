@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../providers/providers.dart';
 import 'reward_icon_widget.dart';
+import 'bottom_sheet_chrome.dart';
 
 /// Helper function to show badge details bottom sheet modal
 void showBadgeDetailsModal(
@@ -37,14 +38,7 @@ void showBadgeDetailsModal(
           mainAxisSize: MainAxisSize.min,
           children: [
             // Handle bar
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: const Color(0xFFE2DBFD),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
+            const AppBottomSheetDragHandle(),
             const SizedBox(height: 20),
 
             // Badge Icon with Glow
@@ -146,15 +140,21 @@ void showBadgeDetailsModal(
                   style: GoogleFonts.lexend(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: isUnlocked ? const Color(0xFF059669) : const Color(0xFF655D80),
+                    color: isUnlocked
+                        ? const Color(0xFF059669)
+                        : const Color(0xFF655D80),
                   ),
                 ),
                 Text(
-                  isUnlocked ? 'Completed' : '$progress / ${badge.requiredStars}',
+                  isUnlocked
+                      ? 'Completed'
+                      : '$progress / ${badge.requiredStars}',
                   style: GoogleFonts.lexend(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
-                    color: isUnlocked ? const Color(0xFF059669) : const Color(0xFF7C5CFC),
+                    color: isUnlocked
+                        ? const Color(0xFF059669)
+                        : const Color(0xFF7C5CFC),
                   ),
                 ),
               ],
@@ -163,7 +163,9 @@ void showBadgeDetailsModal(
             ClipRRect(
               borderRadius: BorderRadius.circular(6),
               child: LinearProgressIndicator(
-                value: isUnlocked ? 1.0 : (progress / badge.requiredStars).clamp(0.0, 1.0),
+                value: isUnlocked
+                    ? 1.0
+                    : (progress / badge.requiredStars).clamp(0.0, 1.0),
                 minHeight: 8,
                 backgroundColor: const Color(0xFFEBE6FC),
                 valueColor: AlwaysStoppedAnimation<Color>(
@@ -268,7 +270,8 @@ class BadgesSection extends ConsumerWidget {
                 ),
                 const Spacer(),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: const Color(0xFFF4EEFF),
                     borderRadius: BorderRadius.circular(12),
@@ -288,7 +291,8 @@ class BadgesSection extends ConsumerWidget {
                     onTap: onSeeAll,
                     borderRadius: BorderRadius.circular(8),
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 4, vertical: 2),
                       child: Row(
                         children: [
                           Text(
@@ -340,7 +344,8 @@ class BadgesSection extends ConsumerWidget {
                     : const [Color(0xFF7C5CFC), Color(0xFF6366F1)];
 
                 return GestureDetector(
-                  onTap: () => showBadgeDetailsModal(context, badge, isUnlocked, progress),
+                  onTap: () => showBadgeDetailsModal(
+                      context, badge, isUnlocked, progress),
                   child: Container(
                     width: 104,
                     padding: const EdgeInsets.all(8),
@@ -369,12 +374,16 @@ class BadgesSection extends ConsumerWidget {
                             gradient: isUnlocked
                                 ? LinearGradient(colors: gradient)
                                 : const LinearGradient(
-                                    colors: [Color(0xFFEBE6FC), Color(0xFFDED8F7)],
+                                    colors: [
+                                      Color(0xFFEBE6FC),
+                                      Color(0xFFDED8F7)
+                                    ],
                                   ),
                             boxShadow: isUnlocked
                                 ? [
                                     BoxShadow(
-                                      color: gradient.first.withValues(alpha: 0.3),
+                                      color:
+                                          gradient.first.withValues(alpha: 0.3),
                                       blurRadius: 8,
                                       offset: const Offset(0, 2),
                                     ),
@@ -410,9 +419,11 @@ class BadgesSection extends ConsumerWidget {
                         // Progress Indicator / Tag
                         if (isUnlocked)
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 1.5),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                              color: const Color(0xFF10B981)
+                                  .withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
