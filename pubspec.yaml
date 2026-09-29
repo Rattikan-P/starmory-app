@@ -115,6 +115,7 @@ flutter:
   assets:
     - .env
     - assets/images/
+    - assets/images/mascots/
     - assets/images/badges/
     - assets/textures/
     - assets/stickers/doodle/
