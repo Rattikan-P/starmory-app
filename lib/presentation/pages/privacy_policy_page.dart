@@ -61,7 +61,7 @@ class PrivacyPolicyPage extends StatelessWidget {
                             height: 90,
                             child: Center(
                               child: Image.asset(
-                                'assets/images/privacy_mascot.png',
+                                'assets/images/mascots/privacy_mascot.png',
                                 width: 90,
                                 height: 90,
                                 fit: BoxFit.contain,

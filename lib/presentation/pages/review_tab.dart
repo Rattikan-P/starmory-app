@@ -11,6 +11,7 @@ import '../providers/providers.dart';
 import '../utils/photo_picker_flow.dart';
 import '../widgets/top_header_actions.dart';
 import '../widgets/bottom_sheet_chrome.dart';
+import '../widgets/app_loading_widgets.dart';
 
 /// Review Tab - Pixel-perfect implementation matching the latest design
 class ReviewTab extends ConsumerStatefulWidget {
@@ -180,7 +181,7 @@ class _ReviewTabState extends ConsumerState<ReviewTab>
       BuildContext context, WidgetRef ref, dynamic reviewState) {
     if (reviewState.isLoading) {
       return const Center(
-        child: CircularProgressIndicator(color: Color(0xFF7C5CFC)),
+        child: StarLoadingIndicator(),
       );
     }
 
@@ -708,7 +709,7 @@ class _ReviewTabState extends ConsumerState<ReviewTab>
                 width: 172,
                 height: 172,
                 child: Image.asset(
-                  'assets/images/review_mascot.png',
+                  'assets/images/mascots/review_mascot.png',
                   fit: BoxFit.contain,
                   errorBuilder: (context, error, stackTrace) {
                     return const Center(

@@ -6,6 +6,7 @@ import '../../utils/snackbar_helper.dart';
 import '../providers/providers.dart';
 import '../utils/reward_unlock_helper.dart';
 import '../widgets/review_card_widget.dart';
+import '../widgets/app_loading_widgets.dart';
 
 /// Review Session Page
 /// Main review interface with flip cards, auto-advance, and cozy clean design
@@ -332,7 +333,8 @@ class _ReviewSessionPageState extends ConsumerState<ReviewSessionPage> {
                     child: TweenAnimationBuilder<double>(
                       tween: Tween<double>(
                         begin: 0.0,
-                        end: reviewState.isComplete ? 1.0 : reviewState.progress,
+                        end:
+                            reviewState.isComplete ? 1.0 : reviewState.progress,
                       ),
                       duration: const Duration(milliseconds: 350),
                       curve: Curves.easeOutCubic,
@@ -365,7 +367,7 @@ class _ReviewSessionPageState extends ConsumerState<ReviewSessionPage> {
   Widget _buildBody(BuildContext context, WidgetRef ref, ReviewState state) {
     if (state.isLoading) {
       return const Center(
-        child: CircularProgressIndicator(color: Color(0xFF7C5CFC)),
+        child: StarLoadingIndicator(),
       );
     }
 
@@ -433,7 +435,9 @@ class _ReviewSessionPageState extends ConsumerState<ReviewSessionPage> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Future.delayed(const Duration(milliseconds: 350), () {
           if (mounted && context.mounted) {
-            final isPerfect = state.isComplete && state.notYetCount == 0 && state.sessionCount > 0;
+            final isPerfect = state.isComplete &&
+                state.notYetCount == 0 &&
+                state.sessionCount > 0;
             RewardUnlockHelper.checkAndShowUnlocks(
               context,
               ref,
@@ -651,7 +655,9 @@ class _ReviewSessionPageState extends ConsumerState<ReviewSessionPage> {
                   child: InkWell(
                     borderRadius: BorderRadius.circular(26),
                     onTap: () async {
-                      final isPerfect = state.isComplete && state.notYetCount == 0 && state.sessionCount > 0;
+                      final isPerfect = state.isComplete &&
+                          state.notYetCount == 0 &&
+                          state.sessionCount > 0;
                       await RewardUnlockHelper.checkAndShowUnlocks(
                         context,
                         ref,

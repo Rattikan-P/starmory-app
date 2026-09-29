@@ -35,14 +35,14 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
   final List<OnboardingItem> _items = const [
     OnboardingItem(
       glowColor: Color(0xFF8B7CFF),
-      imageAsset: 'assets/images/LearnFromPhotos_mascot.png',
+      imageAsset: 'assets/images/mascots/LearnFromPhotos_mascot.png',
       title: 'Learn from Photos',
       description:
           'Snap a photo, learn a word.\nYour world is your language lesson.',
     ),
     OnboardingItem(
       glowColor: Color(0xFFD98FB4),
-      imageAsset: 'assets/images/2MinutesaDay_mascot.png',
+      imageAsset: 'assets/images/mascots/2MinutesaDay_mascot.png',
       imageScale: 1.30,
       title: '2 Minutes a Day',
       description:
@@ -50,7 +50,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
     ),
     OnboardingItem(
       glowColor: Color(0xFFFFC629),
-      imageAsset: 'assets/images/CollectYourStars_mascot.png',
+      imageAsset: 'assets/images/mascots/CollectYourStars_mascot.png',
       imageScale: 0.95,
       title: 'Collect Your Stars',
       description: 'Coffee, cats, views.\nEvery little moment is a new star.',

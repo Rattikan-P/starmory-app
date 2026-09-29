@@ -8,6 +8,7 @@ import '../../../utils/snackbar_helper.dart';
 import '../../widgets/tokenized_notice_dialogs.dart';
 import '../../widgets/auth_widgets.dart';
 import '../../widgets/bottom_sheet_chrome.dart';
+import '../../widgets/app_loading_widgets.dart';
 import '../main_navigation.dart';
 import '../onboarding_page.dart';
 import '../language_selection_page.dart';
@@ -69,24 +70,8 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
           child: Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              children: [
-                const SizedBox(
-                  width: 32,
-                  height: 32,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 3,
-                    color: DesignTokens.brandColor,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Please wait...',
-                  style: GoogleFonts.lexend(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: DesignTokens.textPrimary,
-                  ),
-                ),
+              children: const [
+                StarLoadingIndicator(label: 'Please wait...'),
               ],
             ),
           ),

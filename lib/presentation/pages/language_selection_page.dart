@@ -233,7 +233,7 @@ class _LanguageSelectionPageState extends ConsumerState<LanguageSelectionPage> {
                         const SizedBox(height: 12),
 
                         Image.asset(
-                          'assets/images/level_mascot.png',
+                          'assets/images/mascots/level_mascot.png',
                           width: 64,
                           height: 64,
                           fit: BoxFit.contain,

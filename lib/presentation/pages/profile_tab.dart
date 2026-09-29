@@ -30,6 +30,7 @@ import '../widgets/start_over_dialog_details.dart';
 import '../widgets/streak_info_dialogs.dart';
 import '../widgets/common/profile_widgets.dart';
 import '../widgets/badges_section.dart';
+import '../widgets/app_loading_widgets.dart';
 
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
 
@@ -176,7 +177,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
     final user = ref.watch(auth.currentUserProvider);
 
     if (_isCheckingGuest) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(body: Center(child: StarLoadingIndicator()));
     }
 
     return Scaffold(
@@ -576,8 +577,7 @@ class _GuestDataSection extends ConsumerWidget {
               final confirmed = await _showProfileConfirmation(
                 context,
                 title: 'Start Over',
-                message:
-                    'This will reset your learning progress.',
+                message: 'This will reset your learning progress.',
                 icon: Icons.restart_alt_rounded,
                 confirmLabel: 'Start Over',
                 content: const StartOverDialogDetails(),
@@ -694,8 +694,7 @@ class _DataSection extends ConsumerWidget {
               final confirmed = await _showProfileConfirmation(
                 context,
                 title: 'Start Over',
-                message:
-                    'This will reset your learning progress.',
+                message: 'This will reset your learning progress.',
                 icon: Icons.restart_alt_rounded,
                 confirmLabel: 'Start Over',
                 content: const StartOverDialogDetails(),
@@ -1033,7 +1032,7 @@ class _AboutDialog extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Image.asset(
-                'assets/images/about_mascot.png',
+                'assets/images/mascots/about_mascot.png',
                 width: 112,
                 height: 112,
                 fit: BoxFit.contain,
@@ -1049,11 +1048,13 @@ class _AboutDialog extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: DesignTokens.dialogInfoTint, width: 1.5),
+                  border: Border.all(
+                      color: DesignTokens.dialogInfoTint, width: 1.5),
                 ),
                 child: Text(
                   'Version 1.0.0',
@@ -1433,7 +1434,7 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
         : null;
 
     if (_isLoading) {
-      return Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(body: Center(child: StarLoadingIndicator()));
     }
 
     return Scaffold(
@@ -1777,7 +1778,9 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) => const Center(child: CircularProgressIndicator()),
+        builder: (context) => const Center(
+          child: StarLoadingIndicator(size: 48),
+        ),
       );
 
       final imageFile = File(pickedFile.path);
@@ -1850,7 +1853,7 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
       message: 'Are you sure you want to log out?',
       icon: Icons.logout_rounded,
       iconWidget: Image.asset(
-        'assets/images/logout_mascot.png',
+        'assets/images/mascots/logout_mascot.png',
         width: 75,
         height: 75,
       ),
@@ -1939,7 +1942,7 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
       icon: Icons.delete_forever_rounded,
       confirmLabel: 'Delete',
       iconWidget: Image.asset(
-        'assets/images/delete_acc_mascot.png',
+        'assets/images/mascots/delete_acc_mascot.png',
         width: 65,
         height: 65,
         fit: BoxFit.contain,
@@ -2224,7 +2227,8 @@ class _DisplayNameDialogState extends State<_DisplayNameDialog> {
                       child: OutlinedButton(
                         onPressed: () => Navigator.of(context).pop(false),
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: DesignTokens.dialogDisabledActionColor,
+                          foregroundColor:
+                              DesignTokens.dialogDisabledActionColor,
                           side: const BorderSide(
                             color: DesignTokens.dialogDisabledActionBorderColor,
                           ),
@@ -2424,7 +2428,8 @@ class _AvatarPickerDialog extends StatelessWidget {
         onPressed: onTap,
         style: OutlinedButton.styleFrom(
           foregroundColor: DesignTokens.dialogTitleColor,
-          side: const BorderSide(color: DesignTokens.dialogBrandTint, width: 1.5),
+          side:
+              const BorderSide(color: DesignTokens.dialogBrandTint, width: 1.5),
           shape: const StadiumBorder(),
           padding: const EdgeInsets.symmetric(horizontal: 20),
         ),

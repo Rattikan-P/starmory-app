@@ -11,6 +11,7 @@ import '../../data/services/dictionary_service.dart';
 import '../../data/services/tts_service.dart';
 import '../providers/providers.dart' show currentUserProvider;
 import 'bottom_sheet_chrome.dart';
+import 'app_loading_widgets.dart';
 
 // Vocabulary Detail Bottom Sheet - Shows word details from dictionary API
 class VocabularyDetailBottomSheet extends ConsumerStatefulWidget {
@@ -908,6 +909,8 @@ class _VocabularyDetailBottomSheetState
       return Image.network(
         imagePath,
         fit: BoxFit.cover,
+        loadingBuilder: (context, child, loadingProgress) =>
+            loadingProgress == null ? child : const AppImageSkeleton(),
         errorBuilder: (_, __, ___) => _buildScrapbookImageFallback(),
       );
     }

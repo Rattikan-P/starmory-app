@@ -22,6 +22,7 @@ import '../utils/reward_unlock_helper.dart';
 import '../widgets/permission_required_dialog.dart';
 import '../widgets/tokenized_notice_dialogs.dart';
 import '../widgets/bottom_sheet_chrome.dart';
+import '../widgets/app_loading_widgets.dart';
 import '../../utils/snackbar_helper.dart';
 
 const double _scrapbookTopBarHeight = 60;
@@ -450,8 +451,9 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     if (_backgroundColor != _originalBackgroundColor) return true;
     // Opening the text tool creates a temporary empty overlay for live input.
     // It should not make Save active until the user actually enters text.
-    final textOverlays =
-        _textOverlays.where((overlay) => overlay.text.trim().isNotEmpty).toList();
+    final textOverlays = _textOverlays
+        .where((overlay) => overlay.text.trim().isNotEmpty)
+        .toList();
     final originalTextOverlays = _originalTextOverlays
         .where((overlay) => overlay.text.trim().isNotEmpty)
         .toList();
@@ -471,8 +473,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     };
     final layerOrder =
         _elementLayerOrder.where((key) => !emptyTextKeys.contains(key));
-    final originalLayerOrder = _originalElementLayerOrder
-        .where((key) => !emptyTextKeys.contains(key));
+    final originalLayerOrder =
+        _originalElementLayerOrder.where((key) => !emptyTextKeys.contains(key));
     final currentOrder = layerOrder.toList();
     final savedOrder = originalLayerOrder.toList();
     if (currentOrder.length != savedOrder.length) return true;
@@ -697,10 +699,10 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
           const SizedBox(width: DesignTokens.spacingMedium),
           _SaveButton(
             isSaving: _isSaving,
-            onTap: _isSaving ||
-                    (widget.scrapbookId != null && !_hasUnsavedChanges)
-                ? null
-                : _saveScrapbook,
+            onTap:
+                _isSaving || (widget.scrapbookId != null && !_hasUnsavedChanges)
+                    ? null
+                    : _saveScrapbook,
           ),
         ],
       ),
@@ -869,12 +871,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
         },
         loadingBuilder: (context, child, loadingProgress) {
           if (loadingProgress == null) return child;
-          return Container(
-            color: Colors.grey.shade200,
-            child: const Center(
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-          );
+          return const AppImageSkeleton();
         },
       );
     } else {
@@ -1123,7 +1120,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
         );
         final fieldWidth = availableWidth * 0.88;
         final fieldHeight = math.min(photoHeight * 0.7, 150.0).toDouble();
-        final activeTextStyle = _getFontStyle(activeOverlay.fontFamily).copyWith(
+        final activeTextStyle =
+            _getFontStyle(activeOverlay.fontFamily).copyWith(
           color: Color(activeOverlay.color),
           fontSize: activeOverlay.fontSize * activeOverlay.scale,
           fontWeight: FontWeight.w600,
@@ -1178,48 +1176,48 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                       Material(
                         type: MaterialType.transparency,
                         child: TextField(
-                      controller: controller,
-                      focusNode: focusNode,
-                      autofocus: false,
-                      expands: true,
-                      maxLines: null,
-                      minLines: null,
-                      maxLength: 200,
-                      buildCounter: (
-                        _, {
-                        required currentLength,
-                        required isFocused,
-                        maxLength,
-                      }) =>
-                          const SizedBox.shrink(),
-                      textAlign: TextAlign.center,
-                      textAlignVertical: TextAlignVertical.center,
-                      textCapitalization: TextCapitalization.sentences,
-                      cursorColor: Color(activeOverlay.color),
-                      style: activeTextStyle,
-                      decoration: InputDecoration(
-                        filled: false,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
+                          controller: controller,
+                          focusNode: focusNode,
+                          autofocus: false,
+                          expands: true,
+                          maxLines: null,
+                          minLines: null,
+                          maxLength: 200,
+                          buildCounter: (
+                            _, {
+                            required currentLength,
+                            required isFocused,
+                            maxLength,
+                          }) =>
+                              const SizedBox.shrink(),
+                          textAlign: TextAlign.center,
+                          textAlignVertical: TextAlignVertical.center,
+                          textCapitalization: TextCapitalization.sentences,
+                          cursorColor: Color(activeOverlay.color),
+                          style: activeTextStyle,
+                          decoration: InputDecoration(
+                            filled: false,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            border: InputBorder.none,
+                            counterText: '',
+                          ),
+                          onChanged: (value) {
+                            if (!mounted) return;
+                            setState(() {
+                              final index = _textOverlays
+                                  .indexWhere((item) => item.id == overlay.id);
+                              if (index != -1) {
+                                _textOverlays[index] =
+                                    _textOverlays[index].copyWith(text: value);
+                              }
+                            });
+                            _activeTextInputEntry?.markNeedsBuild();
+                          },
                         ),
-                        border: InputBorder.none,
-                        counterText: '',
                       ),
-                      onChanged: (value) {
-                        if (!mounted) return;
-                        setState(() {
-                          final index = _textOverlays
-                              .indexWhere((item) => item.id == overlay.id);
-                          if (index != -1) {
-                            _textOverlays[index] =
-                                _textOverlays[index].copyWith(text: value);
-                          }
-                        });
-                        _activeTextInputEntry?.markNeedsBuild();
-                      },
-                    ),
-                  ),
                     ],
                   ),
                 ),
@@ -1793,12 +1791,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
         },
         loadingBuilder: (context, child, loadingProgress) {
           if (loadingProgress == null) return child;
-          return Container(
-            color: Colors.grey.shade200,
-            child: const Center(
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-          );
+          return const AppImageSkeleton();
         },
       );
     }
@@ -1876,12 +1869,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
     });
 
     // Show loading while checking
-    return Container(
-      color: Colors.grey.shade200,
-      child: const Center(
-        child: CircularProgressIndicator(strokeWidth: 2),
-      ),
-    );
+    return const AppImageSkeleton();
   }
 
   Widget _buildAdditionalPhoto(ScrapbookPhoto photo) {
@@ -3421,7 +3409,8 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
                         ),
                         decoration: BoxDecoration(
                           color: const Color(0xFFF9FAFB),
-                          borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
+                          borderRadius:
+                              BorderRadius.circular(DesignTokens.radiusMedium),
                           border: Border.all(color: const Color(0xFFE5E7EB)),
                         ),
                         child: Row(
@@ -4681,8 +4670,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
       int? streakDays;
       if (isNewScrapbookFromCreate) {
         final streakNotifier = ref.read(streakProvider.notifier);
-        final streakIncreased =
-            await streakNotifier.recordVocabularyAcquired();
+        final streakIncreased = await streakNotifier.recordVocabularyAcquired();
         if (streakIncreased) {
           streakDays = ref.read(streakProvider)?.currentStreak;
         }
@@ -4699,27 +4687,27 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.check_circle, color: Colors.white),
-              const SizedBox(width: DesignTokens.spacingSmall),
-              Expanded(
-                child: Text(
-                  widget.scrapbookId != null
-                      ? 'Scrapbook updated!'
-                      : 'Scrapbook saved!',
-                  style: GoogleFonts.lexend(
-                    fontWeight: DesignTokens.weightSemiBold,
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white),
+                const SizedBox(width: DesignTokens.spacingSmall),
+                Expanded(
+                  child: Text(
+                    widget.scrapbookId != null
+                        ? 'Scrapbook updated!'
+                        : 'Scrapbook saved!',
+                    style: GoogleFonts.lexend(
+                      fontWeight: DesignTokens.weightSemiBold,
+                    ),
                   ),
                 ),
-              ),
-            ],
-          ),
-          backgroundColor: DesignTokens.success,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
-          ),
+              ],
+            ),
+            backgroundColor: DesignTokens.success,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
+            ),
           ),
         );
       }

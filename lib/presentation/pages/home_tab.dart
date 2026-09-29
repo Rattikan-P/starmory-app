@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
@@ -16,13 +15,13 @@ import '../../constants/design_tokens.dart';
 import '../providers/providers.dart';
 import '../../data/models/scrapbook_model.dart';
 import 'image_preview_screen.dart';
-import 'dialog_preview_page.dart';
 import 'edit_scrapbook_screen.dart';
 import 'auth/account_method_page.dart';
 import 'profile_tab.dart';
 import '../utils/reward_unlock_helper.dart';
 import '../widgets/scrapbook_detail_sheet.dart';
 import '../widgets/app_empty_state.dart';
+import '../widgets/app_loading_widgets.dart';
 import '../widgets/scrapbook_polaroid.dart';
 import '../widgets/top_header_actions.dart';
 import '../widgets/permission_required_dialog.dart';
@@ -73,7 +72,8 @@ class _HomeTabState extends ConsumerState<HomeTab>
       nowBangkok.month,
       nowBangkok.day + 1,
     ).subtract(const Duration(hours: 7)).add(const Duration(seconds: 1));
-    _quotaRefreshTimer = Timer(nextBangkokMidnightUtc.difference(nowUtc), () async {
+    _quotaRefreshTimer =
+        Timer(nextBangkokMidnightUtc.difference(nowUtc), () async {
       await _refreshQuota();
       if (mounted) _scheduleQuotaRefreshAtMidnight();
     });
@@ -318,18 +318,6 @@ class _HomeTabState extends ConsumerState<HomeTab>
             ),
           ),
           const SizedBox(width: 8),
-          if (kDebugMode)
-            IconButton(
-              tooltip: 'Preview dialogs',
-              visualDensity: VisualDensity.compact,
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute<void>(
-                  builder: (_) => const DialogPreviewPage(),
-                ),
-              ),
-              icon: const Icon(Icons.preview_outlined),
-            ),
           // Top Header Actions (Streak + Shield + Profile Avatar)
           TopHeaderActions(
             onProfileTap: _openProfile,
@@ -945,21 +933,8 @@ class _HomeTabState extends ConsumerState<HomeTab>
                               fit: BoxFit.cover,
                               width: double.infinity,
                               height: double.infinity,
-                              placeholder: (context, url) => Container(
-                                color: const Color(0xFFF3F4F6),
-                                child: const Center(
-                                  child: SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                        Color(0xFF8b5cf6),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
+                              placeholder: (context, url) =>
+                                  const AppImageSkeleton(),
                               errorWidget: (context, url, error) {
                                 return Container(
                                   color: const Color(0xFFE5E7EB),
@@ -1221,6 +1196,10 @@ class _ScrapbookDetailBottomSheet extends StatelessWidget {
                     ? Image.network(
                         scrapbook.imagePath,
                         fit: BoxFit.cover,
+                        loadingBuilder: (context, child, loadingProgress) =>
+                            loadingProgress == null
+                                ? child
+                                : const AppImageSkeleton(),
                         errorBuilder: (context, error, stackTrace) {
                           return Container(
                             color: Colors.grey.shade100,

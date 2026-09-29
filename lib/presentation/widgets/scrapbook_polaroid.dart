@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'app_loading_widgets.dart';
 
 /// Polaroid proportions shared with the scrapbook editor.
 ///
@@ -91,7 +92,8 @@ class ScrapbookPolaroid extends StatelessWidget {
                       top: frameBorder + 6,
                       right: frameBorder + 6,
                       child: Semantics(
-                        label: '$vocabularyCount stars collected in this memory',
+                        label:
+                            '$vocabularyCount stars collected in this memory',
                         child: ExcludeSemantics(
                           child: Container(
                             padding: const EdgeInsets.symmetric(
@@ -103,7 +105,8 @@ class ScrapbookPolaroid extends StatelessWidget {
                               borderRadius: BorderRadius.circular(12),
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(0xFFEF4444).withValues(alpha: 0.35),
+                                  color: const Color(0xFFEF4444)
+                                      .withValues(alpha: 0.35),
                                   blurRadius: 6,
                                   offset: const Offset(0, 2),
                                 ),
@@ -159,6 +162,8 @@ class ScrapbookPolaroid extends StatelessWidget {
             fit: BoxFit.cover,
             width: double.infinity,
             height: double.infinity,
+            loadingBuilder: (context, child, loadingProgress) =>
+                loadingProgress == null ? child : const AppImageSkeleton(),
             errorBuilder: errorBuilder,
           )
         : Image.file(

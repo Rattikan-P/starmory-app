@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../constants/design_tokens.dart';
 import '../../data/sticker_sets.dart';
 
 /// Modal dialog to celebrate unlocking a new sticker pack
@@ -24,7 +25,7 @@ class StickerPackUnlockDialog extends StatefulWidget {
       context: context,
       barrierDismissible: true,
       barrierLabel: 'Sticker Pack Unlock',
-      barrierColor: Colors.black.withValues(alpha: 0.75),
+      barrierColor: Colors.black.withValues(alpha: 0.48),
       transitionDuration: const Duration(milliseconds: 400),
       pageBuilder: (context, anim1, anim2) {
         return StickerPackUnlockDialog(
@@ -48,7 +49,6 @@ class StickerPackUnlockDialog extends StatefulWidget {
   @override
   State<StickerPackUnlockDialog> createState() => _StickerPackUnlockDialogState();
 }
-
 class _StickerPackUnlockDialogState extends State<StickerPackUnlockDialog>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
@@ -107,25 +107,17 @@ class _StickerPackUnlockDialogState extends State<StickerPackUnlockDialog>
           constraints: const BoxConstraints(maxWidth: 390),
           margin: const EdgeInsets.symmetric(horizontal: 20),
           decoration: BoxDecoration(
+            color: Colors.white,
             borderRadius: BorderRadius.circular(28),
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color(0xFF1E1B4B), // Deep Cosmic Indigo
-                Color(0xFF0F172A), // Dark Slate
-                Color(0xFF18181B), // Dark Zinc
-              ],
-            ),
             border: Border.all(
-              color: gradient.first.withValues(alpha: 0.6),
-              width: 1.5,
+              color: gradient.first.withValues(alpha: 0.2),
+              width: 1.2,
             ),
             boxShadow: [
               BoxShadow(
-                color: gradient.first.withValues(alpha: 0.35),
-                blurRadius: 32,
-                spreadRadius: 2,
+                color: gradient.first.withValues(alpha: 0.16),
+                blurRadius: 28,
+                spreadRadius: 1,
                 offset: const Offset(0, 8),
               ),
             ],
@@ -134,15 +126,6 @@ class _StickerPackUnlockDialogState extends State<StickerPackUnlockDialog>
             clipBehavior: Clip.none,
             alignment: Alignment.topCenter,
             children: [
-              // Cosmic background sparkles
-              Positioned.fill(
-                child: CustomPaint(
-                  painter: _SparkleBackgroundPainter(
-                    primaryColor: gradient.first,
-                  ),
-                ),
-              ),
-
               Padding(
                 padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
                 child: Column(
@@ -155,30 +138,23 @@ class _StickerPackUnlockDialogState extends State<StickerPackUnlockDialog>
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            const Color(0xFFFFD700).withValues(alpha: 0.2),
-                            const Color(0xFFF59E0B).withValues(alpha: 0.3),
-                          ],
-                        ),
+                        color: const Color(0xFFFFF5D9),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                          color: const Color(0xFFFFD700).withValues(alpha: 0.5),
+                          color: const Color(0xFFFFE5A3),
                           width: 1,
                         ),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Text('🎨', style: TextStyle(fontSize: 14)),
-                          const SizedBox(width: 6),
                           Text(
                             'STICKER PACK UNLOCKED!',
                             style: GoogleFonts.lexend(
                               fontSize: 11,
                               fontWeight: FontWeight.w800,
                               letterSpacing: 1.2,
-                              color: const Color(0xFFFFE066),
+                              color: const Color(0xFF946200),
                             ),
                           ),
                         ],
@@ -204,21 +180,21 @@ class _StickerPackUnlockDialogState extends State<StickerPackUnlockDialog>
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                   colors: [
-                                    gradient.first.withValues(alpha: 0.25),
-                                    gradient.last.withValues(alpha: 0.15),
+                                    gradient.first.withValues(alpha: 0.12),
+                                    gradient.last.withValues(alpha: 0.08),
                                   ],
                                 ),
                                 border: Border.all(
-                                  color: gradient.first.withValues(alpha: 0.8),
-                                  width: 2,
+                                  color: gradient.first.withValues(alpha: 0.28),
+                                  width: 1.5,
                                 ),
                                 boxShadow: [
                                   BoxShadow(
                                     color: gradient.first.withValues(
-                                      alpha: 0.45 * _glowAnimation.value,
+                                      alpha: 0.22 * _glowAnimation.value,
                                     ),
-                                    blurRadius: 28 * _glowAnimation.value,
-                                    spreadRadius: 4 * _glowAnimation.value,
+                                    blurRadius: 22 * _glowAnimation.value,
+                                    spreadRadius: 2 * _glowAnimation.value,
                                   ),
                                 ],
                               ),
@@ -249,10 +225,10 @@ class _StickerPackUnlockDialogState extends State<StickerPackUnlockDialog>
                         vertical: 3,
                       ),
                       decoration: BoxDecoration(
-                        color: gradient.first.withValues(alpha: 0.15),
+                        color: gradient.first.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                          color: gradient.first.withValues(alpha: 0.4),
+                          color: gradient.first.withValues(alpha: 0.22),
                           width: 1,
                         ),
                       ),
@@ -262,7 +238,7 @@ class _StickerPackUnlockDialogState extends State<StickerPackUnlockDialog>
                           fontSize: 10,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 1.2,
-                          color: const Color(0xFFC084FC),
+                          color: DesignTokens.dialogBrand,
                         ),
                       ),
                     ),
@@ -275,7 +251,7 @@ class _StickerPackUnlockDialogState extends State<StickerPackUnlockDialog>
                       style: GoogleFonts.lexend(
                         fontSize: 22,
                         fontWeight: FontWeight.w800,
-                        color: Colors.white,
+                        color: DesignTokens.dialogTitleColor,
                       ),
                     ),
 
@@ -285,10 +261,10 @@ class _StickerPackUnlockDialogState extends State<StickerPackUnlockDialog>
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.05),
+                        color: gradient.first.withValues(alpha: 0.06),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.08),
+                          color: gradient.first.withValues(alpha: 0.14),
                         ),
                       ),
                       child: Column(
@@ -302,10 +278,10 @@ class _StickerPackUnlockDialogState extends State<StickerPackUnlockDialog>
                                 height: 48,
                                 padding: const EdgeInsets.all(6),
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.08),
+                                  color: Colors.white,
                                   borderRadius: BorderRadius.circular(10),
                                   border: Border.all(
-                                    color: Colors.white.withValues(alpha: 0.12),
+                                    color: const Color(0xFFECE7F5),
                                   ),
                                 ),
                                 child: Image.asset(
@@ -327,7 +303,7 @@ class _StickerPackUnlockDialogState extends State<StickerPackUnlockDialog>
                             style: GoogleFonts.lexend(
                               fontSize: 12,
                               fontWeight: FontWeight.w400,
-                              color: const Color(0xFFCBD5E1),
+                              color: DesignTokens.dialogSupportingTextColor,
                               height: 1.35,
                             ),
                           ),
@@ -349,20 +325,29 @@ class _StickerPackUnlockDialogState extends State<StickerPackUnlockDialog>
                           backgroundColor: Colors.transparent,
                           padding: EdgeInsets.zero,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius: BorderRadius.circular(
+                              DesignTokens.dialogButtonRadius,
+                            ),
                           ),
                           shadowColor: Colors.transparent,
                         ),
                         child: Ink(
                           decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: gradient,
+                            gradient: const LinearGradient(
+                              colors: [
+                                DesignTokens.dialogBrand,
+                                Color(0xFF7045D8),
+                              ],
                             ),
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius: BorderRadius.circular(
+                              DesignTokens.dialogButtonRadius,
+                            ),
                             boxShadow: [
                               BoxShadow(
-                                color: gradient.first.withValues(alpha: 0.4),
-                                blurRadius: 12,
+                                color: DesignTokens.dialogBrand.withValues(
+                                  alpha: 0.22,
+                                ),
+                                blurRadius: 10,
                                 offset: const Offset(0, 4),
                               ),
                             ],
@@ -371,8 +356,6 @@ class _StickerPackUnlockDialogState extends State<StickerPackUnlockDialog>
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const Text('✨', style: TextStyle(fontSize: 16)),
-                                const SizedBox(width: 8),
                                 Text(
                                   'Awesome!',
                                   style: GoogleFonts.lexend(
@@ -398,15 +381,15 @@ class _StickerPackUnlockDialogState extends State<StickerPackUnlockDialog>
                 child: GestureDetector(
                   onTap: () => Navigator.of(context).pop(),
                   child: Container(
-                    padding: const EdgeInsets.all(6),
+                    padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.1),
+                      color: const Color(0xFFF3F1F7),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
                       Icons.close,
                       size: 16,
-                      color: Color(0xFF94A3B8),
+                      color: Color(0xFF77717F),
                     ),
                   ),
                 ),
@@ -417,30 +400,4 @@ class _StickerPackUnlockDialogState extends State<StickerPackUnlockDialog>
       ),
     );
   }
-}
-
-/// Custom painter for background sparkles / star particles
-class _SparkleBackgroundPainter extends CustomPainter {
-  final Color primaryColor;
-
-  _SparkleBackgroundPainter({required this.primaryColor});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final random = math.Random(55);
-    final paint = Paint()..style = PaintingStyle.fill;
-
-    for (int i = 0; i < 24; i++) {
-      final x = random.nextDouble() * size.width;
-      final y = random.nextDouble() * size.height;
-      final radius = 1.0 + random.nextDouble() * 2.0;
-      final opacity = 0.2 + random.nextDouble() * 0.5;
-
-      paint.color = (i % 2 == 0 ? Colors.white : primaryColor).withValues(alpha: opacity);
-      canvas.drawCircle(Offset(x, y), radius, paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

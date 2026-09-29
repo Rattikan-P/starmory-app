@@ -61,7 +61,7 @@ class TermsOfServicePage extends StatelessWidget {
                             height: 90,
                             child: Center(
                               child: Image.asset(
-                                'assets/images/termService_mascot.png',
+                                'assets/images/mascots/termService_mascot.png',
                                 width: 90,
                                 height: 90,
                                 fit: BoxFit.contain,

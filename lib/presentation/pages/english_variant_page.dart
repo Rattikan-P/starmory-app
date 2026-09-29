@@ -209,7 +209,7 @@ class _EnglishVariantPageState extends ConsumerState<EnglishVariantPage> {
                         const SizedBox(height: 12),
 
                         Image.asset(
-                          'assets/images/variant_mascot.png',
+                          'assets/images/mascots/variant_mascot.png',
                           width: 64,
                           height: 64,
                           fit: BoxFit.contain,

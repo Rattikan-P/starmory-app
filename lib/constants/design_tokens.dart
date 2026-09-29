@@ -96,6 +96,9 @@ class DesignTokens {
   /// Height shared by the Review and Progress hero banners.
   static const double reviewProgressBannerHeight = 184.0;
 
+  /// Slightly taller Progress banner to fit the highlighted star count.
+  static const double progressStarsBannerHeight = 196.0;
+
   // ============= Dialogs =============
 
   /// Shared dimensions for app modal dialogs.

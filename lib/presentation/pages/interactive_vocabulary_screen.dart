@@ -12,6 +12,7 @@ import '../../data/models/scrapbook_model.dart';
 import '../../data/services/gemini_service.dart';
 import '../../data/services/tts_service.dart';
 import 'generation_loading_screen.dart';
+import '../widgets/app_loading_widgets.dart';
 import 'edit_scrapbook_screen.dart';
 import 'auth/account_method_page.dart';
 import '../widgets/tokenized_notice_dialogs.dart';
@@ -836,7 +837,7 @@ class _InteractiveVocabularyScreenState
           builder: (context, snapshot) {
             // Show loading while waiting
             if (!snapshot.hasData && !snapshot.hasError) {
-              return const Center(child: CircularProgressIndicator());
+              return const Center(child: StarLoadingIndicator(size: 42));
             }
 
             // Handle error or null result

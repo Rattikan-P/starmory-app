@@ -10,6 +10,7 @@ import '../../utils/topic_categories.dart';
 import '../providers/providers.dart';
 import '../widgets/reward_icon_widget.dart';
 import '../widgets/app_empty_state.dart';
+import '../widgets/app_loading_widgets.dart';
 import '../widgets/rounded_progress_bar.dart';
 import '../widgets/badges_section.dart';
 import '../widgets/top_header_actions.dart';
@@ -461,7 +462,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
 
     return Container(
       width: double.infinity,
-      height: DesignTokens.reviewProgressBannerHeight,
+      height: DesignTokens.progressStarsBannerHeight,
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [
@@ -515,7 +516,8 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
 
             // Content
             Padding(
-              padding: const EdgeInsets.all(20),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -524,28 +526,65 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                   LayoutBuilder(
                     builder: (context, constraints) {
                       final countWidth = constraints.maxWidth * 0.45;
+                      final countTextStyle = GoogleFonts.lexend(
+                        fontSize: 54,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF221F33),
+                        height: 1,
+                        letterSpacing: -1.2,
+                      );
+                      final countPainter = TextPainter(
+                        text: TextSpan(
+                          text: '$totalStars',
+                          style: countTextStyle,
+                        ),
+                        textDirection: Directionality.of(context),
+                        maxLines: 1,
+                      )..layout();
+                      final preferredChipWidth = countPainter.width + 24;
+                      final countChipWidth = preferredChipWidth < 76
+                          ? (countWidth < 76 ? countWidth : 76.0)
+                          : (preferredChipWidth > countWidth
+                              ? countWidth
+                              : preferredChipWidth);
                       return Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          ConstrainedBox(
-                            constraints: BoxConstraints(maxWidth: countWidth),
-                            child: FittedBox(
-                              fit: BoxFit.scaleDown,
-                              alignment: Alignment.centerLeft,
-                              child: Text(
-                                '$totalStars',
-                                maxLines: 1,
-                                style: GoogleFonts.lexend(
-                                  fontSize: 50,
-                                  fontWeight: FontWeight.w800,
-                                  color: const Color(0xFF221F33),
-                                  height: 1,
-                                  letterSpacing: -1,
+                          Container(
+                            width: countChipWidth,
+                            height: 76,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(38),
+                              color: Colors.white.withValues(alpha: 0.78),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.95),
+                                width: 1.2,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFF7C5CFC)
+                                      .withValues(alpha: 0.10),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: Center(
+                              child: Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 10),
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(
+                                    '$totalStars',
+                                    maxLines: 1,
+                                    style: countTextStyle,
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 10),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -578,7 +617,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                     },
                   ),
 
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
 
                   // Next Badge Progress Bar
                   Column(
@@ -648,8 +687,8 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
 
                   // Bottom Mini Stats Strip inside Card
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.75),
                       borderRadius: BorderRadius.circular(16),
@@ -1107,7 +1146,8 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                     width: 104,
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: isUnlocked ? Colors.white : const Color(0xFFF6F4F8),
+                      color:
+                          isUnlocked ? Colors.white : const Color(0xFFF6F4F8),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
                         color: isUnlocked
@@ -2237,6 +2277,10 @@ class _PhotosGalleryPageState extends State<PhotosGalleryPage> {
                   ? Image.network(
                       entry.imageUrl,
                       fit: BoxFit.cover,
+                      loadingBuilder: (context, child, loadingProgress) =>
+                          loadingProgress == null
+                              ? child
+                              : const AppImageSkeleton(),
                       errorBuilder: (context, error, stackTrace) {
                         return Container(
                           color: const Color(0xFFF4EEFF),
@@ -2820,6 +2864,8 @@ class PhotoWordsBottomSheet extends ConsumerWidget {
         width: width,
         height: height,
         fit: fit,
+        loadingBuilder: (context, child, loadingProgress) =>
+            loadingProgress == null ? child : const AppImageSkeleton(),
         errorBuilder: (context, error, stackTrace) => Container(
           width: width,
           height: height,

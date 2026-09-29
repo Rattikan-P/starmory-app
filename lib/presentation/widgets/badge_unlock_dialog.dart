@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart' hide Badge;
 import 'package:google_fonts/google_fonts.dart';
+import '../../constants/design_tokens.dart';
 import '../providers/badge_provider.dart';
 import 'reward_icon_widget.dart';
 
@@ -25,7 +26,7 @@ class BadgeUnlockDialog extends StatefulWidget {
       context: context,
       barrierDismissible: true,
       barrierLabel: 'Badge Unlock',
-      barrierColor: Colors.black.withValues(alpha: 0.75),
+      barrierColor: Colors.black.withValues(alpha: 0.48),
       transitionDuration: const Duration(milliseconds: 400),
       pageBuilder: (context, anim1, anim2) {
         return BadgeUnlockDialog(
@@ -49,7 +50,6 @@ class BadgeUnlockDialog extends StatefulWidget {
   @override
   State<BadgeUnlockDialog> createState() => _BadgeUnlockDialogState();
 }
-
 class _BadgeUnlockDialogState extends State<BadgeUnlockDialog>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
@@ -108,25 +108,17 @@ class _BadgeUnlockDialogState extends State<BadgeUnlockDialog>
           constraints: const BoxConstraints(maxWidth: 380),
           margin: const EdgeInsets.symmetric(horizontal: 20),
           decoration: BoxDecoration(
+            color: Colors.white,
             borderRadius: BorderRadius.circular(28),
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color(0xFF1E1B4B), // Deep Cosmic Indigo
-                Color(0xFF0F172A), // Dark Slate
-                Color(0xFF18181B), // Dark Zinc
-              ],
-            ),
             border: Border.all(
-              color: gradient.first.withValues(alpha: 0.6),
-              width: 1.5,
+              color: gradient.first.withValues(alpha: 0.2),
+              width: 1.2,
             ),
             boxShadow: [
               BoxShadow(
-                color: gradient.first.withValues(alpha: 0.35),
-                blurRadius: 32,
-                spreadRadius: 2,
+                color: gradient.first.withValues(alpha: 0.16),
+                blurRadius: 28,
+                spreadRadius: 1,
                 offset: const Offset(0, 8),
               ),
             ],
@@ -135,15 +127,6 @@ class _BadgeUnlockDialogState extends State<BadgeUnlockDialog>
             clipBehavior: Clip.none,
             alignment: Alignment.topCenter,
             children: [
-              // Cosmic background sparkles
-              Positioned.fill(
-                child: CustomPaint(
-                  painter: _SparkleBackgroundPainter(
-                    primaryColor: gradient.first,
-                  ),
-                ),
-              ),
-
               Padding(
                 padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
                 child: Column(
@@ -156,30 +139,23 @@ class _BadgeUnlockDialogState extends State<BadgeUnlockDialog>
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            const Color(0xFFFFD700).withValues(alpha: 0.2),
-                            const Color(0xFFF59E0B).withValues(alpha: 0.3),
-                          ],
-                        ),
+                        color: const Color(0xFFFFF5D9),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                          color: const Color(0xFFFFD700).withValues(alpha: 0.5),
+                          color: const Color(0xFFFFE5A3),
                           width: 1,
                         ),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Text('🌟', style: TextStyle(fontSize: 14)),
-                          const SizedBox(width: 6),
                           Text(
                             'BADGE UNLOCKED!',
                             style: GoogleFonts.lexend(
                               fontSize: 12,
                               fontWeight: FontWeight.w800,
                               letterSpacing: 1.5,
-                              color: const Color(0xFFFFE066),
+                              color: const Color(0xFF946200),
                             ),
                           ),
                         ],
@@ -200,18 +176,20 @@ class _BadgeUnlockDialogState extends State<BadgeUnlockDialog>
                               height: 110,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                gradient: LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: gradient,
+                                color: Color.alphaBlend(
+                                  gradient.first.withValues(alpha: 0.10),
+                                  Colors.white,
+                                ),
+                                border: Border.all(
+                                  color: gradient.first.withValues(alpha: 0.28),
                                 ),
                                 boxShadow: [
                                   BoxShadow(
                                     color: gradient.first.withValues(
-                                      alpha: 0.4 * _glowAnimation.value,
+                                      alpha: 0.24 * _glowAnimation.value,
                                     ),
-                                    blurRadius: 28 * _glowAnimation.value,
-                                    spreadRadius: 4 * _glowAnimation.value,
+                                    blurRadius: 24 * _glowAnimation.value,
+                                    spreadRadius: 3 * _glowAnimation.value,
                                   ),
                                 ],
                               ),
@@ -235,10 +213,10 @@ class _BadgeUnlockDialogState extends State<BadgeUnlockDialog>
                         vertical: 3,
                       ),
                       decoration: BoxDecoration(
-                        color: badge.tierColor.withValues(alpha: 0.15),
+                        color: badge.tierColor.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                          color: badge.tierColor.withValues(alpha: 0.4),
+                          color: badge.tierColor.withValues(alpha: 0.3),
                           width: 1,
                         ),
                       ),
@@ -248,7 +226,7 @@ class _BadgeUnlockDialogState extends State<BadgeUnlockDialog>
                           fontSize: 10,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 1.2,
-                          color: badge.tierColor,
+                          color: DesignTokens.dialogBrand,
                         ),
                       ),
                     ),
@@ -261,7 +239,7 @@ class _BadgeUnlockDialogState extends State<BadgeUnlockDialog>
                       style: GoogleFonts.lexend(
                         fontSize: 22,
                         fontWeight: FontWeight.w800,
-                        color: Colors.white,
+                        color: DesignTokens.dialogTitleColor,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -272,10 +250,10 @@ class _BadgeUnlockDialogState extends State<BadgeUnlockDialog>
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.05),
+                        color: const Color(0xFFF8F6FC),
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.08),
+                          color: const Color(0xFFECE7F5),
                         ),
                       ),
                       child: Text(
@@ -284,7 +262,7 @@ class _BadgeUnlockDialogState extends State<BadgeUnlockDialog>
                         style: GoogleFonts.lexend(
                           fontSize: 13,
                           fontWeight: FontWeight.w400,
-                          color: const Color(0xFFE2E8F0),
+                          color: DesignTokens.dialogSupportingTextColor,
                           height: 1.4,
                         ),
                       ),
@@ -304,20 +282,29 @@ class _BadgeUnlockDialogState extends State<BadgeUnlockDialog>
                           backgroundColor: Colors.transparent,
                           padding: EdgeInsets.zero,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius: BorderRadius.circular(
+                              DesignTokens.dialogButtonRadius,
+                            ),
                           ),
                           shadowColor: Colors.transparent,
                         ),
                         child: Ink(
                           decoration: BoxDecoration(
                             gradient: const LinearGradient(
-                              colors: [Color(0xFF8B5CF6), Color(0xFF6366F1)],
+                              colors: [
+                                DesignTokens.dialogBrand,
+                                Color(0xFF7045D8),
+                              ],
                             ),
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius: BorderRadius.circular(
+                              DesignTokens.dialogButtonRadius,
+                            ),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFF8B5CF6).withValues(alpha: 0.4),
-                                blurRadius: 12,
+                                color: DesignTokens.dialogBrand.withValues(
+                                  alpha: 0.22,
+                                ),
+                                blurRadius: 10,
                                 offset: const Offset(0, 4),
                               ),
                             ],
@@ -326,8 +313,6 @@ class _BadgeUnlockDialogState extends State<BadgeUnlockDialog>
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const Text('✨', style: TextStyle(fontSize: 16)),
-                                const SizedBox(width: 8),
                                 Text(
                                   'Awesome!',
                                   style: GoogleFonts.lexend(
@@ -353,15 +338,15 @@ class _BadgeUnlockDialogState extends State<BadgeUnlockDialog>
                 child: GestureDetector(
                   onTap: () => Navigator.of(context).pop(),
                   child: Container(
-                    padding: const EdgeInsets.all(6),
+                    padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.1),
+                      color: const Color(0xFFF3F1F7),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
                       Icons.close,
                       size: 16,
-                      color: Color(0xFF94A3B8),
+                      color: Color(0xFF77717F),
                     ),
                   ),
                 ),
@@ -372,30 +357,4 @@ class _BadgeUnlockDialogState extends State<BadgeUnlockDialog>
       ),
     );
   }
-}
-
-/// Custom painter for background sparkles / star particles
-class _SparkleBackgroundPainter extends CustomPainter {
-  final Color primaryColor;
-
-  _SparkleBackgroundPainter({required this.primaryColor});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final random = math.Random(42);
-    final paint = Paint()..style = PaintingStyle.fill;
-
-    for (int i = 0; i < 24; i++) {
-      final x = random.nextDouble() * size.width;
-      final y = random.nextDouble() * size.height;
-      final radius = 1.0 + random.nextDouble() * 2.0;
-      final opacity = 0.2 + random.nextDouble() * 0.5;
-
-      paint.color = (i % 2 == 0 ? Colors.white : primaryColor).withValues(alpha: opacity);
-      canvas.drawCircle(Offset(x, y), radius, paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../constants/design_tokens.dart';
+import '../../widgets/app_loading_widgets.dart';
 import '../../../data/services/auth_service.dart';
 import '../../../data/services/merge_service.dart';
 import '../../../utils/snackbar_helper.dart';
@@ -936,7 +937,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
                       children: [
                         const SizedBox(height: 58),
                         Image.asset(
-                          'assets/images/otp_mascot.png',
+                          'assets/images/mascots/otp_mascot.png',
                           width: 104,
                           height: 64,
                           fit: BoxFit.contain,
@@ -1087,24 +1088,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
             Container(
               color: Colors.white,
               child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const CircularProgressIndicator(
-                      color: Color(0xFF8953F6),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Please wait...',
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.lexend(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: DesignTokens.textPrimary,
-                      ),
-                    ),
-                  ],
-                ),
+                child: const StarLoadingIndicator(label: 'Please wait...'),
               ),
             ),
         ],
