@@ -202,11 +202,13 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
 
   /// Swipe card and process rating
   /// [remembered] = true for swipe right (recalled), false for swipe left (forgot)
-  Future<void> swipeCard(bool remembered) async {
+  Future<int?> swipeCard(bool remembered) async {
     final currentCard = state.currentCard;
-    if (currentCard == null) return;
+    if (currentCard == null) return null;
 
     try {
+      final streakBeforeReview = _ref?.read(streakProvider)?.lastActivityDate;
+      int? streakEarned;
       // Store previous card state for undo BEFORE updating
       final previousCard = currentCard;
 
@@ -224,20 +226,39 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
         if (currentUser?.isGuest == true && _recordLearningActivity != null) {
           await _recordLearningActivity!();
         } else if (currentUser?.isGuest == true && _ref != null) {
-          final streakNotifier = _ref!.read(streakProvider.notifier);
-          await streakNotifier.recordLearningActivity();
+          final streakNotifier = _ref.read(streakProvider.notifier);
+          final streakIncreased =
+              await streakNotifier.recordLearningActivity();
+          if (streakIncreased) {
+            streakEarned = _ref.read(streakProvider)?.currentStreak;
+          }
         } else if (currentUser != null &&
             !currentUser.isGuest &&
             _ref != null) {
           // The word_cards database trigger owns registered-user streak updates.
-          await _ref!.read(streakProvider.notifier).refresh();
+          await _ref.read(streakProvider.notifier).refresh();
+          final updatedStreak = _ref.read(streakProvider);
+          final today = DateTime.now();
+          final lastActivity = updatedStreak?.lastActivityDate?.toLocal();
+          final previousActivity = streakBeforeReview?.toLocal();
+          final activityIsToday = lastActivity != null &&
+              lastActivity.year == today.year &&
+              lastActivity.month == today.month &&
+              lastActivity.day == today.day;
+          final alreadyActiveToday = previousActivity != null &&
+              previousActivity.year == today.year &&
+              previousActivity.month == today.month &&
+              previousActivity.day == today.day;
+          if (activityIsToday && !alreadyActiveToday) {
+            streakEarned = updatedStreak?.currentStreak;
+          }
         }
         _hasUpdatedStreakThisSession = true;
       }
 
       // Record review activity for Badge system
       if (_ref != null) {
-        await _ref!
+        await _ref
             .read(badgeProvider.notifier)
             .recordActivity(ActivityType.review);
       }
@@ -266,9 +287,11 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
       await _reviewService.saveUserStats(
         totalReviewsCompleted: totalReviews,
       );
+      return streakEarned;
     } catch (e) {
       print('❌ [SwipeCard] Error: $e');
       state = state.copyWith(error: e.toString());
+      return null;
     }
   }
 

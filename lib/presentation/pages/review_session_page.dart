@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../constants/design_tokens.dart';
+import '../../utils/snackbar_helper.dart';
 import '../providers/providers.dart';
 import '../utils/reward_unlock_helper.dart';
 import '../widgets/review_card_widget.dart';
@@ -681,6 +682,15 @@ class _ReviewSessionPageState extends ConsumerState<ReviewSessionPage> {
   }
 
   void _handleSwipe(WidgetRef ref, bool remembered) {
-    ref.read(reviewStateProvider.notifier).swipeCard(remembered);
+    ref
+        .read(reviewStateProvider.notifier)
+        .swipeCard(remembered)
+        .then((streakDays) {
+      if (!mounted || streakDays == null) return;
+      SnackBarHelper.streak(
+        context,
+        streakDays,
+      );
+    });
   }
 }

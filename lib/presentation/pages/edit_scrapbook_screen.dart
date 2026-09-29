@@ -22,6 +22,7 @@ import '../utils/reward_unlock_helper.dart';
 import '../widgets/permission_required_dialog.dart';
 import '../widgets/tokenized_notice_dialogs.dart';
 import '../widgets/bottom_sheet_chrome.dart';
+import '../../utils/snackbar_helper.dart';
 
 const double _scrapbookTopBarHeight = 60;
 const double _polaroidColorSheetHeight = 290;
@@ -4677,25 +4678,39 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
       // Only count streak when saving a newly created scrapbook (after pressing "Create Scrapbook").
       // Editing an existing scrapbook (กด save เดี่ยวๆ) does not count streak.
       final isNewScrapbookFromCreate = widget.scrapbookId == null;
+      int? streakDays;
       if (isNewScrapbookFromCreate) {
         final streakNotifier = ref.read(streakProvider.notifier);
-        await streakNotifier.recordVocabularyAcquired();
+        final streakIncreased =
+            await streakNotifier.recordVocabularyAcquired();
+        if (streakIncreased) {
+          streakDays = ref.read(streakProvider)?.currentStreak;
+        }
       }
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+      if (streakDays != null && widget.scrapbookId == null) {
+        SnackBarHelper.streak(
+          context,
+          streakDays,
+          prefix: 'Scrapbook saved',
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
           content: Row(
             children: [
               const Icon(Icons.check_circle, color: Colors.white),
               const SizedBox(width: DesignTokens.spacingSmall),
-              Text(
-                widget.scrapbookId != null
-                    ? 'Scrapbook updated!'
-                    : 'Scrapbook saved!',
-                style: GoogleFonts.lexend(
-                  fontWeight: DesignTokens.weightSemiBold,
+              Expanded(
+                child: Text(
+                  widget.scrapbookId != null
+                      ? 'Scrapbook updated!'
+                      : 'Scrapbook saved!',
+                  style: GoogleFonts.lexend(
+                    fontWeight: DesignTokens.weightSemiBold,
+                  ),
                 ),
               ),
             ],
@@ -4705,8 +4720,9 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(DesignTokens.radiusMedium),
           ),
-        ),
-      );
+          ),
+        );
+      }
 
       // Signal Home screen to trigger reward celebrations once landed
       ref.read(pendingRewardCheckProvider.notifier).state = true;

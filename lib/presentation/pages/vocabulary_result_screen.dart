@@ -6,6 +6,7 @@ import '../widgets/galaxy_screen_background.dart';
 import '../providers/providers.dart' show vocabularyStateProvider, reviewStateProvider;
 import '../providers/streak_provider.dart' show streakProvider;
 import '../utils/reward_unlock_helper.dart';
+import '../../utils/snackbar_helper.dart';
 import '../../data/models/vocabulary_model.dart';
 
 /// Vocabulary Result Screen - Display generated vocabulary
@@ -211,7 +212,10 @@ class VocabularyResultScreen extends ConsumerWidget {
 
     // Update streak when saving vocabulary (only once per day)
     final streakNotifier = ref.read(streakProvider.notifier);
-    await streakNotifier.recordVocabularyAcquired();
+    final streakIncreased = await streakNotifier.recordVocabularyAcquired();
+    final streakDays = streakIncreased
+        ? ref.read(streakProvider)?.currentStreak
+        : null;
 
     if (!context.mounted) return;
 
@@ -223,19 +227,27 @@ class VocabularyResultScreen extends ConsumerWidget {
 
     if (!context.mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          '✓ Saved to collection!',
-          style: GoogleFonts.lexend(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
+    if (streakDays != null) {
+      SnackBarHelper.streak(
+        context,
+        streakDays,
+        prefix: 'Saved to collection',
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '✓ Saved to collection!',
+            style: GoogleFonts.lexend(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
           ),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 2),
         ),
-        backgroundColor: Colors.green,
-        duration: const Duration(seconds: 2),
-      ),
-    );
+      );
+    }
 
     // Navigate back to home
     if (!context.mounted) return;

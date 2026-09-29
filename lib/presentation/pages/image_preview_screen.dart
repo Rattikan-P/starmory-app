@@ -387,6 +387,12 @@ class _ImagePreviewScreenState extends ConsumerState<ImagePreviewScreen> {
     if (isGuest) {
       showFreeTrialLimitDialog(
         context,
+        isTotalLimitReached: ref
+                .read(userStateProvider)
+                .user
+                ?.quotaManager
+                .isTotalLimitReached() ??
+            false,
         onSignUp: () {
           setState(() => _isProcessing = false);
           AccountMethodPage.show(context);

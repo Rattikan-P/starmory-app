@@ -16,8 +16,10 @@ import 'edit_scrapbook_screen.dart';
 import 'auth/account_method_page.dart';
 import '../widgets/tokenized_notice_dialogs.dart';
 import '../widgets/bottom_sheet_chrome.dart';
+import '../widgets/app_empty_state.dart';
 import '../utils/reward_unlock_helper.dart';
 import 'dart:ui';
+import '../../utils/snackbar_helper.dart';
 
 /// Interactive Vocabulary Result Screen
 /// Shows image with clickable dots, word chips, and context customization
@@ -1800,30 +1802,13 @@ class _InteractiveVocabularyScreenState
     return SliverFillRemaining(
       hasScrollBody: false,
       child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.touch_app_rounded,
-              size: 70,
-              color: Color(0xFFDDD6FE),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Tap the dots on the image',
-              style: GoogleFonts.lexend(
-                fontSize: 18,
-                color: const Color(0xFF1F2937),
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'to select vocabulary words',
-              style: GoogleFonts.lexend(
-                  fontSize: 14, color: const Color(0xFF6B7280)),
-            ),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: AppEmptyState(
+            icon: Icons.touch_app_rounded,
+            title: 'Tap the dots on the image',
+            message: 'to select vocabulary words',
+          ),
         ),
       ),
     );
@@ -2493,19 +2478,31 @@ class _InteractiveVocabularyScreenState
 
     // Update streak when saving vocabulary (only once per day)
     final streakNotifier = ref.read(streakProvider.notifier);
-    await streakNotifier.recordVocabularyAcquired();
+    final streakIncreased = await streakNotifier.recordVocabularyAcquired();
+    final streakDays =
+        streakIncreased ? ref.read(streakProvider)?.currentStreak : null;
 
     // Signal Home screen to trigger reward celebrations once landed
     ref.read(pendingRewardCheckProvider.notifier).state = true;
 
     if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('✓ Saved ${selectedDots.length} words to collection!'),
-        backgroundColor: Colors.green,
-      ),
-    );
+    if (streakDays != null) {
+      SnackBarHelper.streak(
+        context,
+        streakDays,
+        prefix: 'Saved ${selectedDots.length} words to collection',
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '✓ Saved ${selectedDots.length} words to collection!',
+          ),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
 
     if (!mounted) return;
     Navigator.popUntil(context, (route) => route.isFirst);
@@ -2569,6 +2566,12 @@ class _InteractiveVocabularyScreenState
       showFreeTrialLimitDialog(
         context,
         onSignUp: () => AccountMethodPage.show(context),
+        isTotalLimitReached: ref
+                .read(userStateProvider)
+                .user
+                ?.quotaManager
+                .isTotalLimitReached() ??
+            false,
       );
       return;
     }
