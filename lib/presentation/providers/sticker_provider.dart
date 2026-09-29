@@ -180,7 +180,9 @@ class StickerController extends StateNotifier<StickerState> {
   }
 
   void _syncWithUser(dynamic user) {
-    _pendingPacksToCelebrate.clear();
+    // NOTE: Do NOT clear _pendingPacksToCelebrate here.
+    // When checkAndUnlockPacks saves the user, userStateProvider fires this
+    // listener — clearing the queue here would kill dialogs before they show.
     final userStickers = Set<String>.from(user.stickers);
     userStickers.add('doodle'); // Doodle is always free and unlocked
 
@@ -279,6 +281,10 @@ class StickerController extends StateNotifier<StickerState> {
 
     // Show celebration dialogs if context is mounted
     if (context != null && context.mounted) {
+      // Small delay to let state settle before showing dialogs
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      if (!context.mounted) return newlyUnlocked;
+
       final packsToCelebrate = <StickerSet>[];
       for (final p in _pendingPacksToCelebrate) {
         if (!packsToCelebrate.any((item) => item.id == p.id)) {

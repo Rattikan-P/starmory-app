@@ -771,6 +771,10 @@ class BadgeController extends StateNotifier<BadgeState> {
     }
 
     if (context != null && context.mounted) {
+      // Small delay to let state settle before showing dialogs
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      if (!context.mounted) return newlyUnlocked;
+
       final badgesToCelebrate = <Badge>[];
       for (final badge in _pendingBadgesToCelebrate) {
         if (!badgesToCelebrate.any((item) => item.id == badge.id)) {
@@ -925,6 +929,10 @@ class BadgeController extends StateNotifier<BadgeState> {
     }
 
     if (context != null && context.mounted) {
+      // Small delay to let state settle before showing dialogs
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      if (!context.mounted) return newlyUnlocked;
+
       final badgesToCelebrate = <Badge>[];
       for (final b in _pendingBadgesToCelebrate) {
         if (!badgesToCelebrate.any((item) => item.id == b.id)) {

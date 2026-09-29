@@ -22,7 +22,10 @@ class AppEmptyState extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 36),
+      padding: EdgeInsets.symmetric(
+        horizontal: 20,
+        vertical: compact ? 24 : 36,
+      ),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(28),

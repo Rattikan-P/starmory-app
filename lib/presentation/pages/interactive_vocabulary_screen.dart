@@ -53,6 +53,7 @@ class _InteractiveVocabularyScreenState
   final Set<String> _regeneratingWordIds = {};
   bool _isRegenerating = false;
   _VocabularyDot? _selectedDotForOverlay;
+  double _initialSheetSize = 0.35;
 
   // Sheet Controller for auto-collapsing sheet when dot is tapped
   final DraggableScrollableController _sheetController =
@@ -960,20 +961,27 @@ class _InteractiveVocabularyScreenState
             // Store dimensions for overlay use
             _containerSize = Size(constraints.maxWidth, constraints.maxHeight);
             _imageSize = imageSize;
-            _imageFit = _calculateBoxFitContain(
+            final fit = _calculateBoxFitContain(
               imageSize,
               constraints.maxWidth,
               constraints.maxHeight,
             );
+            _imageFit = fit;
+
+            final displayedWidth = imageSize.width * fit.scale;
+            final displayedHeight = imageSize.height * fit.scale;
 
             return Stack(
               clipBehavior: Clip.none,
               children: [
-                Align(
-                  alignment: Alignment.topCenter,
+                Positioned(
+                  left: fit.offsetX,
+                  top: fit.offsetY,
+                  width: displayedWidth,
+                  height: displayedHeight,
                   child: Image.file(
                     File(widget.imagePath),
-                    fit: BoxFit.contain,
+                    fit: BoxFit.fill,
                     errorBuilder: (context, error, stackTrace) {
                       return Center(
                         child: Column(
@@ -1012,6 +1020,7 @@ class _InteractiveVocabularyScreenState
         return FutureBuilder<Size?>(
           future: _getImageDimensions(),
           builder: (context, snapshot) {
+            double initialChildSize = 0.35;
             double minChildSize = 0.15;
             double maxChildSize = 0.85;
 
@@ -1028,8 +1037,17 @@ class _InteractiveVocabularyScreenState
               final displayedImageHeight = imageSize.height * fit.scale;
 
               final remainingHeight = screenHeight - displayedImageHeight;
-              minChildSize = (remainingHeight / screenHeight).clamp(0.08, 0.5);
+              final remainingRatio = remainingHeight / screenHeight;
+
+              // Seamlessly fit right below the image for landscape/square photos,
+              // while ensuring the sheet stays above the floating button (minimum 0.30) for very tall portrait photos.
+              initialChildSize = remainingRatio.clamp(0.30, 0.75);
+              minChildSize = initialChildSize; // Lock bottom boundary
+              _initialSheetSize = initialChildSize;
             }
+
+            // Ensure constraints: minChildSize <= initialChildSize <= maxChildSize
+            minChildSize = minChildSize.clamp(0.10, initialChildSize);
 
             return NotificationListener<Notification>(
               onNotification: (notification) {
@@ -1043,7 +1061,7 @@ class _InteractiveVocabularyScreenState
               },
               child: DraggableScrollableSheet(
                 controller: _sheetController,
-                initialChildSize: minChildSize.clamp(0.35, 0.85),
+                initialChildSize: initialChildSize,
                 minChildSize: minChildSize,
                 maxChildSize: maxChildSize,
                 builder: (context, scrollController) {
@@ -1080,6 +1098,7 @@ class _InteractiveVocabularyScreenState
                           ),
                           child: CustomScrollView(
                             controller: scrollController,
+                            physics: const ClampingScrollPhysics(),
                             slivers: [
                               // Drag Handle
                               SliverToBoxAdapter(
@@ -1109,17 +1128,18 @@ class _InteractiveVocabularyScreenState
                               // Word Details / Empty State
                               // Hide individual word cards when combined mode is ON
                               if (_selectedWordIds.isEmpty)
-                                _buildEmptyStateSliver(scrollController)
+                                _buildEmptyStateSliver()
                               else if (!_useCombinedSentence)
                                 _buildWordDetailsSliver(scrollController),
 
                               // Bottom padding so content is never blocked by "Create Scrapbook" button
-                              SliverToBoxAdapter(
-                                child: SizedBox(
-                                  height: 110 +
-                                      MediaQuery.of(context).padding.bottom,
+                              if (_selectedWordIds.isNotEmpty)
+                                SliverToBoxAdapter(
+                                  child: SizedBox(
+                                    height: 110 +
+                                        MediaQuery.of(context).padding.bottom,
+                                  ),
                                 ),
-                              ),
                             ],
                           ),
                         ),
@@ -1164,9 +1184,9 @@ class _InteractiveVocabularyScreenState
     double overlayX = displayedX - overlayWidth / 2;
     double overlayY = displayedY + dotSize / 2 + 8;
 
-    // Reserve space for bottom sheet (min height ~35% of screen) and safe area
+    // Reserve space for bottom sheet (based on dynamic initial sheet height) and safe area
     final bottomSafeArea = MediaQuery.of(context).padding.bottom;
-    final bottomSheetMinHeight = containerHeight * 0.35;
+    final bottomSheetMinHeight = containerHeight * _initialSheetSize;
     final reservedBottomSpace = bottomSheetMinHeight + bottomSafeArea;
     final maxBottomY =
         containerHeight - overlayHeight - reservedBottomSpace - 8;
@@ -1357,26 +1377,30 @@ class _InteractiveVocabularyScreenState
     return await File(widget.imagePath).readAsBytes();
   }
 
-  /// Calculate BoxFit.contain scaling and position (aligned top-center)
+  /// Calculate BoxFit.contain scaling and position (aligned top-center, with safe max height for excessively tall images)
   ({double scale, double offsetX, double offsetY}) _calculateBoxFitContain(
     Size imageSize,
     double containerWidth,
     double containerHeight,
   ) {
+    // Maximum height allowed for the image (68% of screen) to prevent excessively tall photos
+    // from extending into the bottom button/sheet area
+    final maxAllowedHeight = containerHeight * 0.68;
+
     final imageAspectRatio = imageSize.width / imageSize.height;
-    final containerAspectRatio = containerWidth / containerHeight;
+    final containerAspectRatio = containerWidth / maxAllowedHeight;
 
     double scale;
     double offsetX = 0;
     const double offsetY = 0;
 
-    // BoxFit.contain: scale to fit within container
+    // Scale to fit within containerWidth x maxAllowedHeight
     if (imageAspectRatio > containerAspectRatio) {
-      // Image is wider than container - scale to width
+      // Image is wider than safe container (Landscape, Square, Standard Portrait) - scale to full width
       scale = containerWidth / imageSize.width;
     } else {
-      // Image is taller than container - scale to height
-      scale = containerHeight / imageSize.height;
+      // Image is excessively tall (Ultra-tall portrait, full screenshot) - scale to safe max height
+      scale = maxAllowedHeight / imageSize.height;
       // Center horizontally
       offsetX = (containerWidth - imageSize.width * scale) / 2;
     }
@@ -1799,17 +1823,15 @@ class _InteractiveVocabularyScreenState
     );
   }
 
-  Widget _buildEmptyStateSliver(ScrollController scrollController) {
-    return SliverFillRemaining(
-      hasScrollBody: false,
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: AppEmptyState(
-            icon: Icons.touch_app_rounded,
-            title: 'Tap the dots on the image',
-            message: 'to select vocabulary words',
-          ),
+  Widget _buildEmptyStateSliver() {
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        child: AppEmptyState(
+          compact: true,
+          icon: Icons.touch_app_outlined,
+          title: 'Tap the dots on the image',
+          message: 'to select vocabulary words',
         ),
       ),
     );
@@ -1856,13 +1878,13 @@ class _InteractiveVocabularyScreenState
     final wasSelected = _selectedWordIds.contains(dot.id);
     final isDeselecting = _selectedDotForOverlay?.id == dot.id;
 
-    // Smoothly collapse bottom sheet if it's currently expanded high (> 0.45)
+    // Smoothly collapse bottom sheet if it's currently expanded higher than initial resting position
     // so the image area, dot, and word overlay popup are fully visible
     if (!isDeselecting &&
         _sheetController.isAttached &&
-        _sheetController.size > 0.45) {
+        _sheetController.size > (_initialSheetSize + 0.05)) {
       _sheetController.animateTo(
-        0.35,
+        _initialSheetSize,
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeOutCubic,
       );
@@ -2516,49 +2538,31 @@ class _InteractiveVocabularyScreenState
       return;
     }
 
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Row(children: [const Text('Rescan Image')]),
-        content: const Text(
-          'Do you want to scan this same image again to generate new vocabulary?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context); // Close dialog
-
-              // Collect all existing words to exclude when regenerating
-              final existingWords =
-                  _vocabularyDots.map((dot) => dot.word).toList();
-
-              // Navigate to GenerationLoadingScreen with same image and exclude words
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => GenerationLoadingScreen(
-                    imagePath: widget.imagePath,
-                    cefrLevel: widget.cefrLevel,
-                    communicativeFunction: widget.communicativeFunction,
-                    englishVariant: widget.englishVariant,
-                    excludeWords: existingWords, // Exclude existing words
-                    isRegenerate: true, // Mark as regeneration
-                  ),
-                ),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF8B5CF6),
-              foregroundColor: Colors.white,
+    showTokenizedActionDialog(
+      context,
+      title: 'Rescan Image',
+      message: 'Do you want to scan this same image again to generate new vocabulary?',
+      icon: Icons.document_scanner_rounded,
+      accentColor: DesignTokens.dialogBrand,
+      accentTint: DesignTokens.dialogBrandTint,
+      primaryLabel: 'Rescan',
+      secondaryLabel: 'Cancel',
+      onPrimary: () {
+        final existingWords = _vocabularyDots.map((dot) => dot.word).toList();
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => GenerationLoadingScreen(
+              imagePath: widget.imagePath,
+              cefrLevel: widget.cefrLevel,
+              communicativeFunction: widget.communicativeFunction,
+              englishVariant: widget.englishVariant,
+              excludeWords: existingWords,
+              isRegenerate: true,
             ),
-            child: const Text('Rescan'),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
