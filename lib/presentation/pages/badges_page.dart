@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../providers/providers.dart';
 import '../widgets/reward_icon_widget.dart';
+import '../widgets/app_empty_state.dart';
+import '../widgets/rounded_progress_bar.dart';
 
 import '../widgets/badges_section.dart';
 
@@ -246,9 +248,7 @@ class _BadgesPageState extends ConsumerState<BadgesPage> {
       child: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: isUnlocked
-              ? const Color(0xFFF3E8FF).withValues(alpha: 0.6)
-              : const Color(0xFFF8FAFC),
+          color: isUnlocked ? Colors.white : const Color(0xFFF6F4F8),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isUnlocked
@@ -275,27 +275,46 @@ class _BadgesPageState extends ConsumerState<BadgesPage> {
               height: 48,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: isUnlocked
-                    ? LinearGradient(colors: gradient)
-                    : const LinearGradient(
-                        colors: [Color(0xFFE2E8F0), Color(0xFFCBD5E1)],
-                      ),
-                boxShadow: isUnlocked
-                    ? [
-                        BoxShadow(
-                          color: gradient.first.withValues(alpha: 0.3),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ]
-                    : null,
-              ),
-              child: Center(
-                child: RewardIconWidget(
-                  icon: badge.icon,
-                  size: 26,
-                  isLocked: !isUnlocked,
+                color: isUnlocked
+                    ? Color.alphaBlend(
+                        gradient.first.withValues(alpha: 0.10), Colors.white)
+                    : const Color(0xFFF0EEF3),
+                border: Border.all(
+                  color: isUnlocked
+                      ? gradient.first.withValues(alpha: 0.28)
+                      : const Color(0xFFE9E5EF),
                 ),
+              ),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  RewardIconWidget(
+                    icon: badge.icon,
+                    size: 26,
+                    isLocked: !isUnlocked,
+                  ),
+                  if (!isUnlocked)
+                    Positioned(
+                      right: 0,
+                      bottom: 0,
+                      child: Container(
+                        width: 18,
+                        height: 18,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: const Color(0xFFDAD6E0),
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.lock_rounded,
+                          size: 10,
+                          color: Color(0xFF817B89),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
             const SizedBox(height: 6),
@@ -338,16 +357,10 @@ class _BadgesPageState extends ConsumerState<BadgesPage> {
                 padding: const EdgeInsets.symmetric(horizontal: 4),
                 child: Column(
                   children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(3),
-                      child: LinearProgressIndicator(
-                        value: progressRatio,
-                        minHeight: 4,
-                        backgroundColor: const Color(0xFFE2E8F0),
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          gradient.first,
-                        ),
-                      ),
+                    RoundedProgressBar(
+                      value: progressRatio,
+                      trackColor: const Color(0xFFEBE6FC),
+                      valueColor: gradient.first,
                     ),
                     const SizedBox(height: 2),
                     Text(
@@ -369,24 +382,13 @@ class _BadgesPageState extends ConsumerState<BadgesPage> {
 
   Widget _buildEmptyState() {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(
-            Icons.military_tech_outlined,
-            size: 64,
-            color: Color(0xFF9CA3AF),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'No badges in this category',
-            style: GoogleFonts.lexend(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-              color: const Color(0xFF4B5563),
-            ),
-          ),
-        ],
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: AppEmptyState(
+          icon: Icons.military_tech_outlined,
+          title: 'No badges in this category',
+          message: 'Try another category to see your badges.',
+        ),
       ),
     );
   }

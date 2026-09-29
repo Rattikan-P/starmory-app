@@ -9,6 +9,8 @@ import '../../data/services/dictionary_service.dart';
 import '../../utils/topic_categories.dart';
 import '../providers/providers.dart';
 import '../widgets/reward_icon_widget.dart';
+import '../widgets/app_empty_state.dart';
+import '../widgets/rounded_progress_bar.dart';
 import '../widgets/badges_section.dart';
 import '../widgets/top_header_actions.dart';
 import '../widgets/vocabulary_detail_bottom_sheet.dart';
@@ -633,16 +635,11 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                         ],
                       ),
                       const SizedBox(height: 7),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(6),
-                        child: LinearProgressIndicator(
-                          value: progressPercent,
-                          backgroundColor: Colors.white.withValues(alpha: 0.65),
-                          valueColor: const AlwaysStoppedAnimation<Color>(
-                            Color(0xFF7C5CFC),
-                          ),
-                          minHeight: 7,
-                        ),
+                      RoundedProgressBar(
+                        value: progressPercent,
+                        height: 7,
+                        trackColor: Colors.white.withValues(alpha: 0.65),
+                        valueColor: const Color(0xFF7C5CFC),
                       ),
                     ],
                   ),
@@ -1048,11 +1045,19 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                             color: const Color(0xFF7C5CFC),
                           ),
                         ),
-                        const SizedBox(width: 2),
-                        const Icon(
-                          Icons.arrow_forward_ios,
-                          size: 10,
-                          color: Color(0xFF7C5CFC),
+                        const SizedBox(width: 6),
+                        Container(
+                          width: 26,
+                          height: 26,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFF1F2F5),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.chevron_right_rounded,
+                            size: 20,
+                            color: Color(0xFF9CA3AF),
+                          ),
                         ),
                       ],
                     ),
@@ -1102,9 +1107,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                     width: 104,
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: isUnlocked
-                          ? const Color(0xFFF4EEFF)
-                          : const Color(0xFFFBF9FE),
+                      color: isUnlocked ? Colors.white : const Color(0xFFF6F4F8),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
                         color: isUnlocked
@@ -1119,69 +1122,86 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                       children: [
                         // Pack Icon Circle with glow
                         Container(
-                          width: 48,
-                          height: 48,
-                          padding: const EdgeInsets.all(6),
+                          width: 52,
+                          height: 52,
+                          padding: const EdgeInsets.all(4),
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            gradient: isUnlocked
-                                ? LinearGradient(colors: gradient)
-                                : const LinearGradient(
-                                    colors: [
-                                      Color(0xFFEBE6FC),
-                                      Color(0xFFDED8F7)
-                                    ],
-                                  ),
-                            boxShadow: isUnlocked
-                                ? [
-                                    BoxShadow(
-                                      color:
-                                          gradient.first.withValues(alpha: 0.3),
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ]
-                                : null,
+                            color: isUnlocked
+                                ? Color.alphaBlend(
+                                    gradient.first.withValues(alpha: 0.10),
+                                    Colors.white,
+                                  )
+                                : const Color(0xFFF0EEF3),
+                            border: Border.all(
+                              color: isUnlocked
+                                  ? gradient.first.withValues(alpha: 0.28)
+                                  : const Color(0xFFE9E5EF),
+                            ),
                           ),
-                          child: Center(
-                            child: ColorFiltered(
-                              colorFilter: isUnlocked
-                                  ? const ColorFilter.mode(
-                                      Colors.transparent,
-                                      BlendMode.dst,
-                                    )
-                                  : const ColorFilter.matrix(<double>[
-                                      0.2126,
-                                      0.7152,
-                                      0.0722,
-                                      0,
-                                      0,
-                                      0.2126,
-                                      0.7152,
-                                      0.0722,
-                                      0,
-                                      0,
-                                      0.2126,
-                                      0.7152,
-                                      0.0722,
-                                      0,
-                                      0,
-                                      0,
-                                      0,
-                                      0,
-                                      0.45,
-                                      0,
-                                    ]),
-                              child: Image.asset(
-                                pack.previewAsset,
-                                fit: BoxFit.contain,
-                                errorBuilder: (_, __, ___) => const Icon(
-                                  Icons.image_outlined,
-                                  size: 24,
-                                  color: Color(0xFF9892A6),
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              ColorFiltered(
+                                colorFilter: isUnlocked
+                                    ? const ColorFilter.mode(
+                                        Colors.transparent,
+                                        BlendMode.dst,
+                                      )
+                                    : const ColorFilter.matrix(<double>[
+                                        0.2126,
+                                        0.7152,
+                                        0.0722,
+                                        0,
+                                        0,
+                                        0.2126,
+                                        0.7152,
+                                        0.0722,
+                                        0,
+                                        0,
+                                        0.2126,
+                                        0.7152,
+                                        0.0722,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0.7,
+                                        0,
+                                      ]),
+                                child: Image.asset(
+                                  pack.previewAsset,
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (_, __, ___) => const Icon(
+                                    Icons.image_outlined,
+                                    size: 24,
+                                    color: Color(0xFF9892A6),
+                                  ),
                                 ),
                               ),
-                            ),
+                              if (!isUnlocked)
+                                Positioned(
+                                  right: 0,
+                                  bottom: 0,
+                                  child: Container(
+                                    width: 18,
+                                    height: 18,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: const Color(0xFFDAD6E0),
+                                      ),
+                                    ),
+                                    child: const Icon(
+                                      Icons.lock_rounded,
+                                      size: 10,
+                                      color: Color(0xFF817B89),
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
                         const SizedBox(height: 6),
@@ -1227,16 +1247,10 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(6),
-                                  child: LinearProgressIndicator(
-                                    value: progressRatio,
-                                    minHeight: 4,
-                                    backgroundColor: const Color(0xFFEBE6FC),
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      gradient.first,
-                                    ),
-                                  ),
+                                RoundedProgressBar(
+                                  value: progressRatio,
+                                  trackColor: const Color(0xFFEBE6FC),
+                                  valueColor: gradient.first,
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
@@ -1898,69 +1912,16 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
     );
   }
 
-  Widget _buildEmptyState() {
-    return SizedBox(
-      width: double.infinity,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: const Color(0xFFEBE6FC),
-            width: 1.2,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF7C5CFC).withValues(alpha: 0.06),
-              blurRadius: 16,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          children: [
-            Container(
-              width: 68,
-              height: 68,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: const Color(0xFFF4EEFF),
-                border: Border.all(
-                  color: const Color(0xFFE2DBFD),
-                  width: 1.5,
-                ),
-              ),
-              child: const Center(
-                child: Icon(
-                  Icons.auto_awesome_rounded,
-                  size: 32,
-                  color: Color(0xFF7C5CFC),
-                ),
-              ),
-            ),
-            const SizedBox(height: 18),
-            Text(
-              'No vocabulary found',
-              style: GoogleFonts.lexend(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF221F33),
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Start discovering words with new photos to build your galaxy!',
-              style: GoogleFonts.lexend(
-                fontSize: 13.5,
-                fontWeight: FontWeight.w400,
-                color: const Color(0xFF9892A6),
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
+  Widget _buildEmptyState({
+    String? message,
+    IconData icon = Icons.auto_awesome_rounded,
+  }) {
+    return AppEmptyState(
+      compact: true,
+      icon: icon,
+      title: 'No vocabulary found',
+      message: message ??
+          'Start discovering words with new photos to build your galaxy!',
     );
   }
 
@@ -1968,65 +1929,12 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
     final message = _searchQuery.trim().isNotEmpty
         ? 'Try a different word or translation'
         : _selectedCategory == 'Favorites'
-            ? 'You haven’t saved any favorite words yet'
+            ? "You haven't saved any favorite words yet"
             : 'There are no words in this category yet';
 
-    return SizedBox(
-      width: double.infinity,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 36),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(28),
-          border: Border.all(color: const Color(0xFFEBE6FC), width: 1.5),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF7C5CFC).withValues(alpha: 0.08),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: const BoxDecoration(
-                color: Color(0xFFF1EDFF),
-                shape: BoxShape.circle,
-              ),
-              child: const Center(
-                child: Icon(
-                  Icons.search_off_rounded,
-                  color: Color(0xFF7C5CFC),
-                  size: 36,
-                ),
-              ),
-            ),
-            const SizedBox(height: 18),
-            Text(
-              'No vocabulary found',
-              style: GoogleFonts.lexend(
-                fontSize: 22,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF221F33),
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 6),
-            Text(
-              message,
-              style: GoogleFonts.lexend(
-                fontSize: 14,
-                color: const Color(0xFF4B5563),
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
+    return _buildEmptyState(
+      message: message,
+      icon: Icons.search_off_rounded,
     );
   }
 
