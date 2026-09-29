@@ -15,7 +15,16 @@ class AuthService {
   String? get currentUserId => _client.auth.currentSession?.user.id;
 
   Future<void> signOut() async {
-    await _client.auth.signOut();
+    try {
+      await _googleAuthService.signOutFromGoogle();
+    } catch (e) {
+      print('⚠️ [AuthService] Google signOut error: $e');
+    }
+    try {
+      await _client.auth.signOut().timeout(const Duration(seconds: 4));
+    } catch (e) {
+      print('⚠️ [AuthService] Supabase signOut error: $e');
+    }
   }
 
   Future<void> deleteAccount() async {

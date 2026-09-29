@@ -160,6 +160,8 @@ class StickerState {
 class StickerController extends StateNotifier<StickerState> {
   final Ref _ref;
   final List<StickerSet> _pendingPacksToCelebrate = [];
+  String? _lastSyncedUserId;
+  bool? _lastSyncedUserWasGuest;
 
   StickerController(this._ref) : super(StickerState.initial()) {
     _initUserListener();
@@ -180,11 +182,42 @@ class StickerController extends StateNotifier<StickerState> {
   }
 
   void _syncWithUser(dynamic user) {
-    // NOTE: Do NOT clear _pendingPacksToCelebrate here.
+    // NOTE: Do NOT blindly clear _pendingPacksToCelebrate here.
     // When checkAndUnlockPacks saves the user, userStateProvider fires this
     // listener — clearing the queue here would kill dialogs before they show.
+    // Only clear when the actual user identity changes.
+    final userId = user.id as String?;
+    final isGuest = user.isGuest as bool;
+    if (_lastSyncedUserId != null &&
+        (_lastSyncedUserId != userId || _lastSyncedUserWasGuest != isGuest)) {
+      _pendingPacksToCelebrate.clear();
+    }
+    _lastSyncedUserId = userId;
+    _lastSyncedUserWasGuest = isGuest;
+
     final userStickers = Set<String>.from(user.stickers);
     userStickers.add('doodle'); // Doodle is always free and unlocked
+    
+    // If celebrated_stickers preference is not tracked yet, all existing stickers
+    // that the user already has are treated as already celebrated (so login doesn't re-trigger popups).
+    // ⭐ GUARD: Skip for guest users — guests don't need celebration tracking,
+    // and initializing it triggers updateUser → _syncWithUser → updateUser cascade (OOM).
+    final rawCelebrated = user.preferences['celebrated_stickers'] as List<dynamic>?;
+    if (rawCelebrated == null && userStickers.length > 1 && !isGuest) {
+      Future.microtask(() async {
+        final current = _ref.read(userStateProvider).user;
+        if (current != null &&
+            current.id == userId &&
+            !current.isGuest &&
+            current.preferences['celebrated_stickers'] == null) {
+          final updatedPrefs = Map<String, dynamic>.from(current.preferences);
+          updatedPrefs['celebrated_stickers'] = userStickers.toList();
+          await _ref.read(userStateProvider.notifier).updateUser(
+                current.copyWith(preferences: updatedPrefs),
+              );
+        }
+      });
+    }
 
     final updatedPacks = state.packs.map((pack) {
       final shouldBeUnlocked = userStickers.contains(pack.id) || pack.unlockType == StickerUnlockType.free;
@@ -210,11 +243,17 @@ class StickerController extends StateNotifier<StickerState> {
     final currentUnlocked = Set<String>.from(user.stickers);
     currentUnlocked.add('doodle');
 
+    final celebratedPacks = user.preferences['celebrated_stickers'] != null
+        ? Set<String>.from(
+            (user.preferences['celebrated_stickers'] as List<dynamic>)
+                .cast<String>(),
+          )
+        : <String>{};
+
     final newlyUnlocked = <StickerSet>[];
+    final newlyEarnedIds = <String>[];
 
     for (final pack in state.packs) {
-      if (!pack.isLocked || currentUnlocked.contains(pack.id)) continue;
-
       bool meetsCriteria = false;
 
       switch (pack.unlockType) {
@@ -244,12 +283,19 @@ class StickerController extends StateNotifier<StickerState> {
       }
 
       if (meetsCriteria) {
-        newlyUnlocked.add(pack.copyWith(isLocked: false));
-        currentUnlocked.add(pack.id);
+        if (!currentUnlocked.contains(pack.id)) {
+          newlyUnlocked.add(pack.copyWith(isLocked: false));
+          newlyEarnedIds.add(pack.id);
+          currentUnlocked.add(pack.id);
+        } else if (pack.id != 'doodle' &&
+            !celebratedPacks.contains(pack.id) &&
+            !_pendingPacksToCelebrate.any((item) => item.id == pack.id)) {
+          newlyUnlocked.add(pack.copyWith(isLocked: false));
+        }
       }
     }
 
-    if (newlyUnlocked.isNotEmpty) {
+    if (newlyEarnedIds.isNotEmpty) {
       // Save to UserModel (SSOT)
       final updatedUser = user.copyWith(
         stickers: currentUnlocked.toList(),
@@ -267,7 +313,7 @@ class StickerController extends StateNotifier<StickerState> {
       state = state.copyWith(
         packs: updatedPacks,
         unlockedCount: updatedPacks.where((p) => !p.isLocked).length,
-        latestUnlockedPack: newlyUnlocked.last,
+        latestUnlockedPack: newlyUnlocked.isNotEmpty ? newlyUnlocked.last : state.latestUnlockedPack,
       );
     }
 
@@ -301,11 +347,30 @@ class StickerController extends StateNotifier<StickerState> {
       for (final pack in packsToCelebrate) {
         if (context.mounted) {
           await StickerPackUnlockDialog.show(context, stickerSet: pack);
+          await _markPackAsCelebrated(pack.id);
         }
       }
     }
 
     return newlyUnlocked;
+  }
+
+  bool get hasPendingUnlocks => _pendingPacksToCelebrate.isNotEmpty;
+
+  Future<void> _markPackAsCelebrated(String packId) async {
+    final user = _ref.read(userStateProvider).user;
+    if (user == null) return;
+
+    final celebrated = Set<String>.from(
+      (user.preferences['celebrated_stickers'] as List<dynamic>?)?.cast<String>() ?? [],
+    );
+    if (!celebrated.contains(packId)) {
+      celebrated.add(packId);
+      final updatedPrefs = Map<String, dynamic>.from(user.preferences);
+      updatedPrefs['celebrated_stickers'] = celebrated.toList();
+      final updatedUser = user.copyWith(preferences: updatedPrefs);
+      await _ref.read(userStateProvider.notifier).updateUser(updatedUser);
+    }
   }
 
   /// Manually unlock a specific pack
@@ -336,8 +401,23 @@ class StickerController extends StateNotifier<StickerState> {
 
     if (context != null && context.mounted) {
       await StickerPackUnlockDialog.show(context, stickerSet: unlockedPack);
+      await _markPackAsCelebrated(packId);
     }
   }
+
+  Future<void> showPendingUnlocks(BuildContext context) async {
+    if (!context.mounted || _pendingPacksToCelebrate.isEmpty) return;
+
+    final pending = List<StickerSet>.from(_pendingPacksToCelebrate);
+    _pendingPacksToCelebrate.clear();
+    for (final pack in pending) {
+      if (!context.mounted) break;
+      await StickerPackUnlockDialog.show(context, stickerSet: pack);
+      await _markPackAsCelebrated(pack.id);
+    }
+  }
+
+  void clearPendingUnlocks() => _pendingPacksToCelebrate.clear();
 }
 
 /// Provider for Sticker State and Controller

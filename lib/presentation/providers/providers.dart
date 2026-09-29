@@ -155,6 +155,7 @@ final userStateProvider = StateNotifierProvider<UserNotifier, UserState>((ref) {
 class UserNotifier extends StateNotifier<UserState> {
   final HiveService _hiveService;
   StreamSubscription<AuthState>? _authSubscription;
+  bool _isLoggingOut = false;
 
   UserNotifier(
     this._hiveService, {
@@ -367,14 +368,30 @@ class UserNotifier extends StateNotifier<UserState> {
         final stickersList = stickersValue is Set
             ? stickersValue.toList()
             : (stickersValue is List ? stickersValue : <String>[]);
+        final guestCelebratedBadges =
+            (guestUser.preferences['celebrated_badges'] as List<dynamic>?)
+                    ?.cast<String>() ??
+                [];
+        final guestCelebratedStickers =
+            (guestUser.preferences['celebrated_stickers'] as List<dynamic>?)
+                    ?.cast<String>() ??
+                [];
+        final allCelebratedBadges = Set<String>.from(guestCelebratedBadges)
+          ..addAll(badgesList.cast<String>());
+        final allCelebratedStickers = Set<String>.from(guestCelebratedStickers)
+          ..addAll(stickersList.cast<String>());
         mergedPrefs['badges'] = badgesList.cast<String>();
         mergedPrefs['stickers'] = stickersList.cast<String>();
+        mergedPrefs['celebrated_badges'] = allCelebratedBadges.toList();
+        mergedPrefs['celebrated_stickers'] = allCelebratedStickers.toList();
 
         registeredUser = UserModel.createRegisteredUser(
           id: supabaseUser.id,
           email: supabaseUser.email ?? 'user@example.com',
           displayName: (serverUserData?['display_name'] as String?) ??
-              supabaseUser.userMetadata?['display_name'] as String?,
+              (supabaseUser.userMetadata?['display_name'] as String?) ??
+              (supabaseUser.userMetadata?['full_name'] as String?) ??
+              (supabaseUser.userMetadata?['name'] as String?),
           photoUrl: (serverUserData?['avatar_url'] as String?) ??
               (supabaseUser.userMetadata?['avatar_url'] as String?) ??
               (supabaseUser.userMetadata?['picture'] as String?),
@@ -414,11 +431,6 @@ class UserNotifier extends StateNotifier<UserState> {
         final serverStreak = serverUserData?['current_streak'] as int? ?? 0;
         final serverLongestStreak =
             serverUserData?['longest_streak'] as int? ?? 0;
-        final serverPreferences = <String, dynamic>{
-          'defaultCefrLevel': languageLevel ?? AppDefaults.defaultLanguageLevel,
-          'languageVariant':
-              englishVariant ?? AppDefaults.defaultEnglishVariant,
-        };
         final serverBadges =
             (supabaseUser.userMetadata?['badges'] as List<dynamic>?)
                     ?.cast<String>() ??
@@ -427,6 +439,30 @@ class UserNotifier extends StateNotifier<UserState> {
             (supabaseUser.userMetadata?['stickers'] as List<dynamic>?)
                     ?.cast<String>() ??
                 [];
+        final serverCelebratedBadges =
+            (serverUserData?['preferences']?['celebrated_badges']
+                        as List<dynamic>?)
+                    ?.cast<String>() ??
+                (supabaseUser.userMetadata?['celebrated_badges']
+                        as List<dynamic>?)
+                    ?.cast<String>() ??
+                serverBadges;
+        final serverCelebratedStickers =
+            (serverUserData?['preferences']?['celebrated_stickers']
+                        as List<dynamic>?)
+                    ?.cast<String>() ??
+                (supabaseUser.userMetadata?['celebrated_stickers']
+                        as List<dynamic>?)
+                    ?.cast<String>() ??
+                serverStickers;
+
+        final serverPreferences = <String, dynamic>{
+          'defaultCefrLevel': languageLevel ?? AppDefaults.defaultLanguageLevel,
+          'languageVariant':
+              englishVariant ?? AppDefaults.defaultEnglishVariant,
+          'celebrated_badges': serverCelebratedBadges,
+          'celebrated_stickers': serverCelebratedStickers,
+        };
         final serverWordsLearned =
             serverUserData?['total_words_learned'] as int? ?? 0;
         final serverShields = serverUserData?['shields_available'] as int? ?? 0;
@@ -445,7 +481,9 @@ class UserNotifier extends StateNotifier<UserState> {
           id: supabaseUser.id,
           email: supabaseUser.email ?? 'user@example.com',
           displayName: (serverUserData?['display_name'] as String?) ??
-              supabaseUser.userMetadata?['display_name'] as String?,
+              (supabaseUser.userMetadata?['display_name'] as String?) ??
+              (supabaseUser.userMetadata?['full_name'] as String?) ??
+              (supabaseUser.userMetadata?['name'] as String?),
           photoUrl: (serverUserData?['avatar_url'] as String?) ??
               (supabaseUser.userMetadata?['avatar_url'] as String?) ??
               (supabaseUser.userMetadata?['picture'] as String?),
@@ -496,7 +534,10 @@ class UserNotifier extends StateNotifier<UserState> {
       final registeredUser = UserModel.createRegisteredUser(
         id: supabaseUser.id,
         email: supabaseUser.email ?? 'user@example.com',
-        displayName: supabaseUser.userMetadata?['display_name'] as String?,
+        displayName:
+            (supabaseUser.userMetadata?['display_name'] as String?) ??
+                (supabaseUser.userMetadata?['full_name'] as String?) ??
+                (supabaseUser.userMetadata?['name'] as String?),
         photoUrl: (supabaseUser.userMetadata?['avatar_url'] as String?) ??
             (supabaseUser.userMetadata?['picture'] as String?),
       ).copyWith(
@@ -621,6 +662,11 @@ class UserNotifier extends StateNotifier<UserState> {
               UserAttributes(data: {
                 'badges': user.badges,
                 'stickers': user.stickers,
+                if (user.preferences['celebrated_badges'] != null)
+                  'celebrated_badges': user.preferences['celebrated_badges'],
+                if (user.preferences['celebrated_stickers'] != null)
+                  'celebrated_stickers':
+                      user.preferences['celebrated_stickers'],
               }),
             );
             print(
@@ -638,12 +684,20 @@ class UserNotifier extends StateNotifier<UserState> {
   }
 
   Future<void> logout() async {
+    // Prevent concurrent logout calls from multiple auth listeners
+    if (_isLoggingOut) {
+      print('DEBUG: UserStateNotifier.logout - SKIPPED (already in progress)');
+      return;
+    }
+    _isLoggingOut = true;
     try {
+      print('DEBUG: UserStateNotifier.logout - START');
       state = state.copyWith(isLoading: true);
 
       // ⭐ CRITICAL: Check if guest user already exists BEFORE clearing
       // This preserves guest quota (device-based quota persistence)
       final existingUser = await _hiveService.getCurrentUser();
+      print('DEBUG: UserStateNotifier.logout - existingUser: ${existingUser?.email}, isGuest=${existingUser?.isGuest}');
 
       if (existingUser != null && existingUser.isGuest) {
         // Guest already exists - preserve quota but reset streak
@@ -656,11 +710,14 @@ class UserNotifier extends StateNotifier<UserState> {
           clearStreakStateUpdatedAt: true,
         );
         await _hiveService.saveUser(resetUser);
+        print('DEBUG: UserStateNotifier.logout - setting state with resetUser');
         state = UserState(user: resetUser);
+        print('DEBUG: UserStateNotifier.logout - state set, returning');
         return;
       }
 
       // No guest user exists - need to create one
+      print('DEBUG: UserStateNotifier.logout - clearing current user and creating new guest');
       await _hiveService.clearCurrentUser();
 
       // Create new guest user
@@ -671,6 +728,8 @@ class UserNotifier extends StateNotifier<UserState> {
       state = UserState(user: guestUser);
     } catch (e) {
       state = UserState(user: state.user, error: e.toString());
+    } finally {
+      _isLoggingOut = false;
     }
   }
 
@@ -877,10 +936,30 @@ class UserNotifier extends StateNotifier<UserState> {
       final userData =
           await client.from('users').select().eq('id', currentUser.id).single();
 
-      final displayName = userData['display_name'] as String?;
-      final photoUrl = userData['avatar_url'] as String?;
+      final displayName = (userData['display_name'] as String?) ??
+          (supabaseUser.userMetadata?['display_name'] as String?) ??
+          (supabaseUser.userMetadata?['full_name'] as String?) ??
+          (supabaseUser.userMetadata?['name'] as String?);
+      final photoUrl = (userData['avatar_url'] as String?) ??
+          (supabaseUser.userMetadata?['avatar_url'] as String?) ??
+          (supabaseUser.userMetadata?['picture'] as String?);
       final languageLevel = userData['language_level'] as String?;
       final englishVariant = userData['english_variant'] as String?;
+
+      if (userData['avatar_url'] == null && photoUrl != null) {
+        try {
+          await client
+              .from('users')
+              .update({'avatar_url': photoUrl}).eq('id', currentUser.id);
+        } catch (_) {}
+      }
+      if (userData['display_name'] == null && displayName != null) {
+        try {
+          await client
+              .from('users')
+              .update({'display_name': displayName}).eq('id', currentUser.id);
+        } catch (_) {}
+      }
 
       // Fetch fresh quota from database (same logic as _convertToRegisteredUser)
       final quotaResponse = await client.rpc('get_user_quota_with_reset',
@@ -1092,6 +1171,11 @@ class VocabularyNotifier extends StateNotifier<VocabularyState> {
         await _loadVocabularies();
         await syncFromCloud();
       } else if (event == AuthChangeEvent.signedOut) {
+        // Guard: skip if already cleared (prevents redundant work during logout)
+        if (state.vocabularies.isEmpty && _currentUserId == null) {
+          print('👋 [VocabularyNotifier] User signed out, already cleared - skipping');
+          return;
+        }
         print(
             '👋 [VocabularyNotifier] User signed out, clearing local vocabulary & cards...');
         _currentUserId = null;

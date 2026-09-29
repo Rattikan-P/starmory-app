@@ -138,7 +138,10 @@ class AuthQuotaNotifier extends StateNotifier<AuthQuotaState> {
         break;
       case AuthChangeEvent.signedOut:
         state = state.copyWith(isLoggedIn: false);
-        _createGuestUser();
+        // Just sync with the guest user that UserStateNotifier already created
+        // (avoids redundant logout() call that caused race conditions & OOM)
+        final guestUser = _ref.read(userStateProvider).user;
+        state = state.copyWith(localUser: guestUser);
         break;
       case AuthChangeEvent.userUpdated:
         _syncLocalUser();
@@ -165,12 +168,18 @@ class AuthQuotaNotifier extends StateNotifier<AuthQuotaState> {
 
       if (state.isLoggedIn && localUser?.isGuest == true) {
         // User just logged in - convert guest to registered user
-        final supabaseUser = _authService.currentUserId;
-        if (supabaseUser != null) {
+        final sessionUser =
+            Supabase.instance.client.auth.currentSession?.user;
+        if (sessionUser != null) {
           final registeredUser = UserModel.createRegisteredUser(
-            id: supabaseUser,
-            email: Supabase.instance.client.auth.currentSession?.user.email ??
-                'user@example.com',
+            id: sessionUser.id,
+            email: sessionUser.email ?? 'user@example.com',
+            displayName:
+                (sessionUser.userMetadata?['display_name'] as String?) ??
+                    (sessionUser.userMetadata?['full_name'] as String?) ??
+                    (sessionUser.userMetadata?['name'] as String?),
+            photoUrl: (sessionUser.userMetadata?['avatar_url'] as String?) ??
+                (sessionUser.userMetadata?['picture'] as String?),
           );
 
           // Preserve guest quota history if needed

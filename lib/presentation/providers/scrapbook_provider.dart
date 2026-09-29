@@ -143,6 +143,11 @@ class ScrapbookNotifier extends StateNotifier<ScrapbookState> {
         // Sync from cloud
         _syncFromCloud();
       } else if (event == AuthChangeEvent.signedOut) {
+        // Guard: skip if already cleared (prevents redundant work during logout)
+        if (state.scrapbooks.isEmpty && _currentUserId == null) {
+          print('👋 [ScrapbookNotifier] User signed out, already cleared - skipping');
+          return;
+        }
         print('👋 User signed out, clearing local scrapbooks...');
         // Clear current user ID
         _currentUserId = null;

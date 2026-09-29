@@ -2161,56 +2161,49 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
     if (confirmed == true && context.mounted) {
       try {
         final client = Supabase.instance.client;
-        final preferenceService = ref.read(onboardingServiceProvider);
         final hiveService = ref.read(hiveServiceProvider);
-        final navigator = Navigator.of(context);
+        final preferenceService = ref.read(onboardingServiceProvider);
+        final navigator = Navigator.of(context, rootNavigator: true);
+        print('DEBUG: _showLogoutDialog - START');
 
-        // ⭐ CRITICAL: Get GUEST QUOTA BACKUP (persists across login/logout)
+        // ⭐ CRITICAL: Preserve guest quota backup (persists across login/logout)
         final guestQuotaBackup = await hiveService.getGuestQuotaBackup();
+        print('DEBUG: _showLogoutDialog - got guestQuotaBackup: $guestQuotaBackup');
 
-        // ⭐ Clear ALL local data (vocabulary, scrapbooks, word cards, user stats, preferences, photos, streak)
-        await Future.wait([
-          hiveService.clearAllVocabulary(),
-          hiveService.clearAllScrapbooks(),
-          hiveService.clearAllWordCards(),
-          hiveService.clearUserStats(),
-          preferenceService.clearLocalPreferences(),
-          preferenceService.setOnboardingCompleted(false),
-        ]);
+        // Lightweight cache clearing (images only, non-blocking)
+        PaintingBinding.instance.imageCache.clear();
+        PaintingBinding.instance.imageCache.clearLiveImages();
 
-        // Reset in-memory provider states
-        ref.read(vocabularyStateProvider.notifier).clear();
-        ref.read(scrapbookStateProvider.notifier).clear();
-        ref.read(streakProvider.notifier).clearLocalState();
-        ref.invalidate(reviewStateProvider);
+        // Reset onboarding flag (not handled by auth listeners)
+        await preferenceService.setOnboardingCompleted(false);
 
-        // Clear cache (photos, temporary files)
-        await preferenceService.clearCache();
-
-        // ⭐ CREATE GUEST WITH PRESERVED QUOTA FROM BACKUP
-        // Device-based trial: quota persists in backup regardless of login state
-        final guestUser = UserModel.createGuest();
-        final guestUserToSet = guestQuotaBackup != null
-            ? guestUser.copyWith(quotaManager: guestQuotaBackup)
-            : guestUser;
-
-        await hiveService.saveUser(guestUserToSet);
-        if (guestQuotaBackup == null) {
-          await hiveService.saveGuestQuotaBackup(guestUser.quotaManager);
+        // Ensure guest quota backup is preserved for device-based trial
+        if (guestQuotaBackup != null) {
+          await hiveService.saveGuestQuotaBackup(guestQuotaBackup);
         }
-        ref.read(userStateProvider.notifier).updateUser(guestUserToSet);
 
-        // Sign out from Supabase LAST
+        // ⭐ Sign out from Supabase — triggers all auth listeners to:
+        //   - UserStateNotifier.logout() → create guest user, reset streak
+        //   - VocabularyNotifier → clear vocabularies & word cards
+        //   - ScrapbookNotifier → clear scrapbooks
+        //   - AuthQuotaProvider → sync guest user state
+        //   - ProfileTab → re-check guest mode
+        // This single call replaces all the explicit clearing that was here before.
+        print('DEBUG: _showLogoutDialog - calling client.auth.signOut()...');
         await client.auth.signOut();
+        print('DEBUG: _showLogoutDialog - client.auth.signOut() completed!');
 
         // Navigate to Onboarding page
+        print('DEBUG: _showLogoutDialog - calling pushAndRemoveUntil...');
         navigator.pushAndRemoveUntil(
           MaterialPageRoute(
             builder: (_) => const OnboardingPage(skipToAuth: true),
           ),
           (route) => false,
         );
-      } catch (e) {
+        print('DEBUG: _showLogoutDialog - pushAndRemoveUntil completed!');
+      } catch (e, st) {
+        print('DEBUG: _showLogoutDialog ERROR: $e\n$st');
         if (context.mounted) {
           SnackBarHelper.error(context, AlertMessages.logoutFailed);
         }
@@ -2226,7 +2219,6 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
     final authService = ref.read(authServiceProvider);
     final preferenceService = ref.read(onboardingServiceProvider);
     final hiveService = ref.read(hiveServiceProvider);
-    final streakNotifier = ref.read(streakProvider.notifier);
     final navigator = Navigator.of(context, rootNavigator: true);
 
     final confirmed = await _showProfileConfirmation(
@@ -2254,51 +2246,28 @@ class _LoggedInViewState extends ConsumerState<_LoggedInView> {
       try {
         print('🗑️ Starting account deletion...');
 
-        // ⭐ CRITICAL: Get GUEST QUOTA BACKUP (persists across login/logout/delete)
-        // This is the device-based trial quota that survives account deletion
+        // ⭐ CRITICAL: Preserve guest quota backup (persists across login/logout/delete)
         final guestQuotaBackup = await hiveService.getGuestQuotaBackup();
 
-        // ⭐ Clear ALL local data (vocabulary, scrapbooks, word cards, user stats, preferences, photos, streak)
-        await Future.wait([
-          hiveService.clearAllVocabulary(),
-          hiveService.clearAllScrapbooks(),
-          hiveService.clearAllWordCards(),
-          hiveService.clearUserStats(),
-          preferenceService.clearLocalPreferences(),
-          preferenceService.setOnboardingCompleted(false),
-        ]);
+        // Lightweight cache clearing (images only, non-blocking)
+        PaintingBinding.instance.imageCache.clear();
+        PaintingBinding.instance.imageCache.clearLiveImages();
 
-        // Reset in-memory provider states
-        ref.read(vocabularyStateProvider.notifier).clear();
-        ref.read(scrapbookStateProvider.notifier).clear();
-        streakNotifier.clearLocalState();
-        ref.invalidate(reviewStateProvider);
+        // Reset onboarding flag (not handled by auth listeners)
+        await preferenceService.setOnboardingCompleted(false);
 
-        // Clear cache (photos, temporary files)
-        await preferenceService.clearCache();
-
-        // ⭐ CREATE GUEST WITH PRESERVED QUOTA FROM BACKUP
-        // Device-based trial: quota persists in backup regardless of account status
-        final guestUser = UserModel.createGuest();
-        final guestUserToSet = guestQuotaBackup != null
-            ? guestUser.copyWith(quotaManager: guestQuotaBackup)
-            : guestUser;
-
-        await hiveService.saveUser(guestUserToSet);
-        if (guestQuotaBackup == null) {
-          await hiveService.saveGuestQuotaBackup(guestUser.quotaManager);
+        // Ensure guest quota backup is preserved
+        if (guestQuotaBackup != null) {
+          await hiveService.saveGuestQuotaBackup(guestQuotaBackup);
         }
-        ref.read(userStateProvider.notifier).updateUser(guestUserToSet);
 
-        print('✅ All user data cleared, quota preserved');
-
-        // Delete account (includes signOut → logout → will use preserved guest in Hive)
+        // Delete account (calls signOut() internally → triggers all auth listeners
+        // for cleanup: vocabulary, scrapbooks, user state, etc.)
         await authService.deleteAccount();
         print('✅ Account deleted');
 
         // Navigate to Onboarding using captured navigator
         print('🚪 Navigating to onboarding...');
-        // Use captured navigator (with rootNavigator) to ensure navigation works
         navigator.pushAndRemoveUntil(
           MaterialPageRoute(
               builder: (_) => const OnboardingPage(skipToAuth: true)),
