@@ -122,13 +122,14 @@ class _HomeTabState extends ConsumerState<HomeTab>
 
     // Activity badges need a BuildContext to show their queued unlock dialog.
     // Only reevaluate badge eligibility when a flow explicitly requested it.
-    Future.delayed(const Duration(milliseconds: 300), () {
-      if (mounted && context.mounted) {
-        if (hasPendingRewardCheck) {
-          RewardUnlockHelper.checkAndShowUnlocks(context, ref);
-        } else {
-          ref.read(badgeStateProvider.notifier).showPendingUnlocks(context);
-        }
+    Future.delayed(const Duration(milliseconds: 300), () async {
+      if (!mounted) return;
+      if (hasPendingRewardCheck) {
+        await RewardUnlockHelper.checkAndShowUnlocks(context, ref);
+      } else {
+        await ref.read(badgeStateProvider.notifier).showPendingUnlocks(context);
+        if (!mounted) return;
+        await ref.read(stickerStateProvider.notifier).showPendingUnlocks(context);
       }
     });
   }
@@ -185,6 +186,20 @@ class _HomeTabState extends ConsumerState<HomeTab>
       (previous, next) {
         if (previous != next) {
           _scrollToTop();
+        }
+      },
+    );
+
+    // Listen for tab switch to Home to trigger pending celebrations
+    ref.listen<int>(
+      navigationProvider.select((s) => s.currentIndex),
+      (previous, next) {
+        if (next == 0 && previous != 0) {
+          Future.delayed(const Duration(milliseconds: 300), () {
+            if (mounted && context.mounted) {
+              RewardUnlockHelper.checkAndShowUnlocks(context, ref);
+            }
+          });
         }
       },
     );
@@ -271,10 +286,6 @@ class _HomeTabState extends ConsumerState<HomeTab>
     }
 
     final userName = userState.user?.displayName ?? 'Guest';
-    final avatarLetter = userState.user?.displayNameOrEmail.isNotEmpty == true
-        ? userState.user!.displayNameOrEmail[0].toUpperCase()
-        : 'G';
-    final photoUrl = userState.user?.photoUrl;
 
     return SizedBox(
       height: 56,

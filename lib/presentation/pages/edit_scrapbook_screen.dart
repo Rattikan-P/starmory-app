@@ -4678,6 +4678,11 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
 
       if (!mounted) return;
 
+      // Evaluate and show reward unlocks directly while this screen is mounted!
+      await RewardUnlockHelper.checkAndShowUnlocks(context, ref);
+
+      if (!mounted) return;
+
       if (streakDays != null && widget.scrapbookId == null) {
         SnackBarHelper.streak(
           context,
@@ -4712,8 +4717,7 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
         );
       }
 
-      // Signal Home screen to trigger reward celebrations once landed
-      ref.read(pendingRewardCheckProvider.notifier).state = true;
+      if (!mounted) return;
 
       // Navigate back to home
       Navigator.popUntil(context, (route) => route.isFirst);

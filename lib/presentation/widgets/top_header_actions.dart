@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../pages/profile_tab.dart';
 import '../providers/providers.dart';
 import 'streak_info_dialogs.dart';
@@ -34,10 +35,22 @@ class TopHeaderActions extends ConsumerWidget {
     final streakData = ref.watch(streakProvider);
 
     final user = userState.user;
-    final displayName = user?.displayName ?? user?.email ?? 'Guest';
+    final supabaseUser = Supabase.instance.client.auth.currentUser;
+    final String displayName =
+        (user?.displayName != null && user!.displayName!.isNotEmpty)
+            ? user.displayName!
+            : ((supabaseUser?.userMetadata?['display_name'] as String?) ??
+                (supabaseUser?.userMetadata?['full_name'] as String?) ??
+                (supabaseUser?.userMetadata?['name'] as String?) ??
+                user?.email ??
+                supabaseUser?.email ??
+                'Guest');
     final avatarLetter =
         displayName.isNotEmpty ? displayName[0].toUpperCase() : 'G';
-    final photoUrl = user?.photoUrl;
+    final photoUrl = (user?.photoUrl != null && user!.photoUrl!.isNotEmpty)
+        ? user.photoUrl
+        : ((supabaseUser?.userMetadata?['avatar_url'] as String?) ??
+            (supabaseUser?.userMetadata?['picture'] as String?));
 
     final streakDays = streakData?.currentStreak ?? 0;
     final shields = streakData?.shieldsAvailable ?? 0;

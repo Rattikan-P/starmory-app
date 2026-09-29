@@ -19,6 +19,7 @@ import '../widgets/bottom_sheet_chrome.dart';
 import 'badges_page.dart';
 import 'stickers_page.dart';
 import 'profile_tab.dart';
+import '../utils/reward_unlock_helper.dart';
 
 class ProgressTab extends ConsumerStatefulWidget {
   const ProgressTab({super.key});
@@ -242,23 +243,19 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
     final natureVocabCount =
         allVocabularies.where((v) => v.topic.toLowerCase() == 'nature').length;
 
-    // Check and unlock badges / stickers if eligible (only when counts change, to prevent infinite loops)
-    if (_lastCheckedStars != totalStars ||
-        _lastCheckedStreak != streakDays ||
-        _lastCheckedNature != natureVocabCount) {
+    // Check and unlock badges / stickers if eligible (only when this tab is active)
+    final isProgressTabActive =
+        ref.watch(navigationProvider).currentIndex == 3;
+    if (isProgressTabActive &&
+        (_lastCheckedStars != totalStars ||
+            _lastCheckedStreak != streakDays ||
+            _lastCheckedNature != natureVocabCount)) {
       _lastCheckedStars = totalStars;
       _lastCheckedStreak = streakDays;
       _lastCheckedNature = natureVocabCount;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        ref.read(badgeStateProvider.notifier).checkAndUnlockBadges(
-              totalStars,
-              streakDays,
-            );
-        ref.read(stickerStateProvider.notifier).checkAndUnlockPacks(
-              totalStars: totalStars,
-              streakDays: streakDays,
-              natureVocabCount: natureVocabCount,
-            );
+        if (!mounted) return;
+        RewardUnlockHelper.checkAndShowUnlocks(context, ref);
       });
     }
 
@@ -2130,8 +2127,11 @@ class PhotoEntry {
   PhotoEntry({
     required this.imageUrl,
     required this.vocabularies,
-    required this.capturedAt,
-  });
+    DateTime? capturedAt,
+  }) : capturedAt = capturedAt ??
+            (vocabularies.isNotEmpty
+                ? vocabularies.first.createdAt
+                : DateTime.now());
 }
 
 enum _PhotoSortOrder { newestFirst, oldestFirst }

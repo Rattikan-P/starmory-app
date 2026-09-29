@@ -2505,8 +2505,10 @@ class _InteractiveVocabularyScreenState
     final streakDays =
         streakIncreased ? ref.read(streakProvider)?.currentStreak : null;
 
-    // Signal Home screen to trigger reward celebrations once landed
-    ref.read(pendingRewardCheckProvider.notifier).state = true;
+    if (!mounted) return;
+
+    // Evaluate and show reward unlocks directly while this screen is mounted!
+    await RewardUnlockHelper.checkAndShowUnlocks(context, ref);
 
     if (!mounted) return;
 

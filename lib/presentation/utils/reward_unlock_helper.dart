@@ -17,8 +17,9 @@ class RewardUnlockHelper {
 
     final allVocabularies = ref.read(vocabularyStateProvider).vocabularies;
     final streakState = ref.read(streakProvider);
+    final user = ref.read(userStateProvider).user;
     final totalStars = allVocabularies.length + additionalWords;
-    final streakDays = streakState?.currentStreak ?? 0;
+    final streakDays = streakState?.currentStreak ?? user?.currentStreak ?? 0;
     final natureVocabCount = allVocabularies
             .where((v) => v.topic.toLowerCase() == 'nature')
             .length +

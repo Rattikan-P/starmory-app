@@ -479,6 +479,8 @@ class _EnglishVariantPageState extends ConsumerState<EnglishVariantPage> {
     final user = client.auth.currentUser;
     String? displayName =
         user?.userMetadata?['full_name'] ?? user?.userMetadata?['name'];
+    final photoUrl = (user?.userMetadata?['avatar_url'] as String?) ??
+        (user?.userMetadata?['picture'] as String?);
 
     // Fallback: extract name from email (e.g., john.smith@gmail.com → John Smith)
     if (displayName == null && userEmail != null) {
@@ -502,6 +504,14 @@ class _EnglishVariantPageState extends ConsumerState<EnglishVariantPage> {
           englishVariant: code,
           termsVersion: preferenceService.getCurrentTermsVersion(),
         );
+
+        if (photoUrl != null) {
+          try {
+            await client
+                .from('users')
+                .update({'avatar_url': photoUrl}).eq('id', userId);
+          } catch (_) {}
+        }
 
         // Also mark onboarding as completed in database
         await client
@@ -557,11 +567,15 @@ class _EnglishVariantPageState extends ConsumerState<EnglishVariantPage> {
         );
         // ⭐ IMPORTANT: Refresh session to get updated metadata
         await client.auth.refreshSession();
+        final currentUser = client.auth.currentSession?.user;
+        final photoUrl = (currentUser?.userMetadata?['avatar_url'] as String?) ??
+            (currentUser?.userMetadata?['picture'] as String?);
         await client.from('users').upsert({
           'id': userId,
           'language_level':
               widget.languageLevel ?? AppDefaults.defaultLanguageLevel,
           'english_variant': code,
+          if (photoUrl != null) 'avatar_url': photoUrl,
           'onboarding_completed': true,
         });
       } catch (e) {

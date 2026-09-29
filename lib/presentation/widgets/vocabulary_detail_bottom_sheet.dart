@@ -210,7 +210,7 @@ class _VocabularyDetailBottomSheetState
       _isPlayingUS = false;
     });
     try {
-      await _ttsService.speak(
+      _ttsService.speak(
         sentence,
         language: TTSService.getLanguageCode(variant),
       );

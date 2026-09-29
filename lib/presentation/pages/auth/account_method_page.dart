@@ -164,6 +164,8 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
       final userEmail = user?.email;
       String? displayName =
           user?.userMetadata?['full_name'] ?? user?.userMetadata?['name'];
+      final photoUrl = (user?.userMetadata?['avatar_url'] as String?) ??
+          (user?.userMetadata?['picture'] as String?);
 
       // Fallback: extract name from email (e.g., john.smith@gmail.com → John Smith)
       if (displayName == null && userEmail != null) {
@@ -231,6 +233,13 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
             englishVariant: finalVariant ?? AppDefaults.defaultEnglishVariant,
             termsVersion: preferenceService.getCurrentTermsVersion(),
           );
+          if (photoUrl != null) {
+            try {
+              await client
+                  .from('users')
+                  .update({'avatar_url': photoUrl}).eq('id', userId);
+            } catch (_) {}
+          }
 
           // Upload guest vocabulary to new user's cloud storage
           final hiveService = ref.read(hiveServiceProvider);
@@ -490,6 +499,8 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
                     supabaseUser?.userMetadata?["english_variant"] as String?;
 
                 final updatedUser = currentUser.copyWith(
+                  displayName: displayName ?? currentUser.displayName,
+                  photoUrl: photoUrl ?? currentUser.photoUrl,
                   currentStreak: mergedStreak,
                   longestStreak: mergedLongest,
                   shields: mergedShields,

@@ -60,9 +60,11 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
   @override
   void initState() {
     super.initState();
+    print('DEBUG: OnboardingPage.initState called, skipToAuth=${widget.skipToAuth}');
 
     // Skip to auth bottom sheet immediately if requested (for logout)
     if (widget.skipToAuth) {
+      print('DEBUG: OnboardingPage scheduling _showAuthBottomSheet via microtask');
       Future.microtask(() => _showAuthBottomSheet());
       return;
     }

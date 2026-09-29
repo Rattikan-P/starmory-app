@@ -105,7 +105,7 @@ void main() {
 
         expect(
           warningMessage,
-          equals('Free trials used up. Sign up for 15 daily generations!'),
+          equals('Free trials used up. Create an account for 15 daily generations!'),
         );
       });
 
@@ -382,7 +382,7 @@ void main() {
           lifetimeLimit: 10,
         );
         expect(guestExhausted.warningMessage,
-          equals('Free trials used up. Sign up for 15 daily generations!'));
+          equals('Free trials used up. Create an account for 15 daily generations!'));
 
         // Registered user low quota
         final registeredLow = QuotaStatus(
