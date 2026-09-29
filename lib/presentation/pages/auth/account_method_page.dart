@@ -50,15 +50,68 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
   final _emailController = TextEditingController();
   final _emailFormKey = GlobalKey<FormState>();
   bool _isEmailLoading = false;
+  bool _isGoogleLoading = false;
+  OverlayEntry? _googleLoadingEntry;
 
   @override
   void dispose() {
+    _googleLoadingEntry?.remove();
+    _googleLoadingEntry?.dispose();
     _emailController.dispose();
     super.dispose();
   }
 
+  void _showGoogleLoadingOverlay(BuildContext context) {
+    final entry = OverlayEntry(
+      builder: (context) => Positioned.fill(
+        child: Material(
+          color: Colors.white,
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(
+                  width: 32,
+                  height: 32,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 3,
+                    color: DesignTokens.brandColor,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Please wait...',
+                  style: GoogleFonts.lexend(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: DesignTokens.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    _googleLoadingEntry = entry;
+    Overlay.of(context, rootOverlay: true).insert(entry);
+  }
+
+  void _hideGoogleLoadingOverlay() {
+    final entry = _googleLoadingEntry;
+    if (entry == null) return;
+    entry.remove();
+    entry.dispose();
+    _googleLoadingEntry = null;
+  }
+
   Future<void> _continueWithGoogle(BuildContext context) async {
+    if (_isGoogleLoading || _isEmailLoading) return;
+    setState(() => _isGoogleLoading = true);
+    var syncIncomplete = false;
+
     try {
+      _showGoogleLoadingOverlay(context);
       final preferenceService = ref.read(onboardingServiceProvider);
       await preferenceService.init();
 
@@ -163,6 +216,7 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
         if (!hasGuestData) {
           // ไม่มีข้อมูล guest → ถาม level/variant
           // Close bottom sheet first, then navigate
+          _hideGoogleLoadingOverlay();
           if (context.mounted) {
             Navigator.of(context).pop(); // Close bottom sheet
           }
@@ -206,12 +260,14 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
                 await hiveService.clearAllVocabulary();
               } else {
                 // Partial upload failed - keep local data for retry
+                syncIncomplete = true;
                 print(
                     '⚠️ [Google Login] Partial upload: $uploadedCount/${localVocabs.length}');
               }
             }
           } catch (e) {
             // Upload failed - local vocabularies preserved
+            syncIncomplete = true;
             print('❌ [Google Login] Upload failed: $e');
           }
 
@@ -223,6 +279,7 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
                 .syncGuestScrapbooksToCloud();
             print('✅ [Google Login] Guest scrapbooks uploaded to cloud');
           } catch (e) {
+            syncIncomplete = true;
             print('⚠️ [Google Login] Guest scrapbooks upload failed: $e');
           }
 
@@ -243,6 +300,7 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
             }
           } catch (e) {
             // Streak migration failed - continue with login
+            syncIncomplete = true;
             print('⚠️ [Google Login] Streak migration failed: $e');
           }
 
@@ -253,6 +311,7 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
         } catch (e) {
           // E3: Service unavailable when saving preferences
           if (context.mounted) {
+            _hideGoogleLoadingOverlay();
             showSupabaseRequestErrorDialog(context);
           }
           return; // Stay on page, user can retry
@@ -262,8 +321,11 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
         if (hasGuestData) {
           // แสดง dialog ถามว่าต้องการ merge ไหม
           if (!context.mounted) return;
+          _hideGoogleLoadingOverlay();
           shouldMerge =
               await _showMergeDialog(context, guestLevel, guestVariant);
+          if (!context.mounted) return;
+          _showGoogleLoadingOverlay(context);
 
           if (shouldMerge == true) {
             // User เลือก merge → ใช้ MergeService เพื่อ merge ข้อมูล
@@ -375,6 +437,7 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
                     .syncGuestScrapbooksToCloud();
                 print('✅ [Google Login] Guest scrapbooks synced to cloud');
               } catch (e) {
+                syncIncomplete = true;
                 print(
                     '⚠️ [Google Login] Failed to sync guest scrapbooks to cloud: $e');
               }
@@ -472,6 +535,7 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
               // E3: Service unavailable when merging preferences
               print('❌ [Google Login] Merge failed: $e');
               if (context.mounted) {
+                _hideGoogleLoadingOverlay();
                 showSupabaseRequestErrorDialog(context);
               }
               return; // Stay on page, user can retry
@@ -488,6 +552,7 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
               await hiveService.clearAllScrapbooks();
               await ref.read(scrapbookStateProvider.notifier).clear();
             } catch (e) {
+              syncIncomplete = true;
               print('⚠️ [Google Login] Failed to clear local guest data: $e');
             }
           }
@@ -524,6 +589,7 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
           await ref.read(streakProvider.notifier).refresh();
           print('✅ [Google Login] Cloud-only data loaded successfully');
         } catch (e) {
+          syncIncomplete = true;
           print('⚠️ [Google Login] Failed to load cloud-only data: $e');
         }
       } else {
@@ -535,6 +601,7 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
           await ref.read(streakProvider.notifier).refresh();
           print('✅ [Google Login] User data state synced and refreshed');
         } catch (e) {
+          syncIncomplete = true;
           print('⚠️ [Google Login] Failed to sync/refresh user data state: $e');
         }
       }
@@ -542,7 +609,13 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
       if (!context.mounted) return;
 
       // Show different message for existing vs new users
-      if (!isNewUser) {
+      if (syncIncomplete) {
+        SnackBarHelper.warning(
+          context,
+          'Account connected, but some progress may not have synced yet.',
+          duration: const Duration(seconds: 5),
+        );
+      } else if (!isNewUser) {
         SnackBarHelper.success(context, AlertMessages.welcomeBack);
       } else {
         SnackBarHelper.success(context, AlertMessages.welcomeToApp);
@@ -564,10 +637,14 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
       if (context.mounted) {
         SnackBarHelper.error(context, AlertMessages.loginFailed);
       }
+    } finally {
+      _hideGoogleLoadingOverlay();
+      if (mounted) setState(() => _isGoogleLoading = false);
     }
   }
 
   Future<void> _continueWithEmail(BuildContext context) async {
+    if (_isGoogleLoading || _isEmailLoading) return;
     if (!_emailFormKey.currentState!.validate()) return;
 
     setState(() => _isEmailLoading = true);
@@ -661,62 +738,65 @@ class _AccountMethodPageState extends ConsumerState<AccountMethodPage> {
   Widget build(BuildContext context) {
     final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
 
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      padding: EdgeInsets.only(
-        left: 24,
-        right: 24,
-        top: 16,
-        bottom: 20 + keyboardHeight,
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Handle bar
-            const AppBottomSheetDragHandle(),
-            const SizedBox(height: 18),
+    return PopScope(
+      canPop: !_isGoogleLoading,
+      child: Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        padding: EdgeInsets.only(
+          left: 24,
+          right: 24,
+          top: 16,
+          bottom: 20 + keyboardHeight,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Handle bar
+              const AppBottomSheetDragHandle(),
+              const SizedBox(height: 18),
 
-            // Header
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.star, size: 16, color: Color(0xFF8B5CF6)),
-                const SizedBox(width: 8),
-                Text(
-                  'Create an account',
-                  style: GoogleFonts.lexend(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: DesignTokens.textPrimary,
+              // Header
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.star, size: 16, color: Color(0xFF8B5CF6)),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Create an account',
+                    style: GoogleFonts.lexend(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: DesignTokens.textPrimary,
+                    ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-
-            Text(
-              'Continue with your progress',
-              style: GoogleFonts.lexend(
-                fontSize: 14,
-                fontWeight: FontWeight.w400,
-                color: DesignTokens.textMuted,
+                ],
               ),
-            ),
-            const SizedBox(height: 18),
+              const SizedBox(height: 4),
 
-            // Reusable AuthForm
-            AuthForm(
-              onGoogleTap: () => _continueWithGoogle(context),
-              onEmailTap: () => _continueWithEmail(context),
-              emailController: _emailController,
-              emailFormKey: _emailFormKey,
-              isEmailLoading: _isEmailLoading,
-            ),
-          ],
+              Text(
+                'Continue with your progress',
+                style: GoogleFonts.lexend(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w400,
+                  color: DesignTokens.textMuted,
+                ),
+              ),
+              const SizedBox(height: 18),
+
+              // Reusable AuthForm
+              AuthForm(
+                onGoogleTap: () => _continueWithGoogle(context),
+                onEmailTap: () => _continueWithEmail(context),
+                emailController: _emailController,
+                emailFormKey: _emailFormKey,
+                isEmailLoading: _isEmailLoading,
+              ),
+            ],
+          ),
         ),
       ),
     );

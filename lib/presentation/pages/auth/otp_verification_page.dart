@@ -143,6 +143,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
     final otp = _otpControllers.map((c) => c.text).join();
 
     setState(() => _isLoading = true);
+    var syncIncomplete = false;
     try {
       final authService = ref.read(authServiceProvider);
       final result = await authService.verifyOtp(
@@ -287,6 +288,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
                     .syncGuestScrapbooksToCloud();
                 print('✅ [OTP Login] Guest scrapbooks synced to cloud');
               } catch (e) {
+                syncIncomplete = true;
                 print(
                     '⚠️ [OTP Login] Failed to sync guest scrapbooks to cloud: $e');
               }
@@ -376,6 +378,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
               await hiveService.clearAllScrapbooks();
               await ref.read(scrapbookStateProvider.notifier).clear();
             } catch (e) {
+              syncIncomplete = true;
               print('⚠️ [OTP Login] Failed to clear local guest data: $e');
             }
           }
@@ -405,6 +408,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
                   '✅ [OTP Login] Synced UserModel with cloud preferences: level=$cloudLevel, variant=$cloudVariant (merged: $shouldMerge)');
             }
           } catch (e) {
+            syncIncomplete = true;
             print('⚠️ [OTP Login] Failed to sync UserModel: $e');
           }
         }
@@ -448,12 +452,14 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
                   await hiveService.clearAllVocabulary();
                 } else {
                   // Partial upload failed - keep local data for retry
+                  syncIncomplete = true;
                   print(
                       '⚠️ [OTP Login] Partial upload: $uploadedCount/${localVocabs.length}');
                 }
               }
             } catch (e) {
               // Upload failed - local vocabularies preserved
+              syncIncomplete = true;
               print('❌ [OTP Login] Upload failed: $e');
             }
 
@@ -465,6 +471,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
                   .syncGuestScrapbooksToCloud();
               print('✅ [OTP Login] Guest scrapbooks uploaded to cloud');
             } catch (e) {
+              syncIncomplete = true;
               print('⚠️ [OTP Login] Guest scrapbooks upload failed: $e');
             }
 
@@ -485,6 +492,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
               }
             } catch (e) {
               // Streak migration failed - continue with login
+              syncIncomplete = true;
               print('⚠️ [OTP Login] Streak migration failed: $e');
             }
           } catch (e) {
@@ -550,6 +558,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
           await ref.read(streakProvider.notifier).refresh();
           print('✅ [OTP Login] Cloud-only data loaded successfully');
         } catch (e) {
+          syncIncomplete = true;
           print('⚠️ [OTP Login] Failed to load cloud-only data: $e');
         }
       } else {
@@ -561,6 +570,7 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
           await ref.read(streakProvider.notifier).refresh();
           print('✅ [OTP Login] User data state synced and refreshed');
         } catch (e) {
+          syncIncomplete = true;
           print('⚠️ [OTP Login] Failed to sync/refresh user data state: $e');
         }
       }
@@ -568,7 +578,14 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
       if (!mounted) return;
 
       // Show different message for existing vs new users
-      if (!isNewUser) {
+      if (syncIncomplete) {
+        SnackBarHelper.warning(
+          context,
+          'Account connected, but some progress may not have synced yet.',
+          duration: const Duration(seconds: 5),
+          showAboveKeyboard: true,
+        );
+      } else if (!isNewUser) {
         SnackBarHelper.success(context, AlertMessages.welcomeBack,
             showAboveKeyboard: true);
       } else {
@@ -1068,9 +1085,26 @@ class _OtpVerificationPageState extends ConsumerState<OtpVerificationPage> {
           ),
           if (_isLoading)
             Container(
-              color: Colors.white.withValues(alpha: 0.8),
-              child: const Center(
-                child: CircularProgressIndicator(color: Color(0xFF8953F6)),
+              color: Colors.white,
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const CircularProgressIndicator(
+                      color: Color(0xFF8953F6),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Please wait...',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.lexend(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: DesignTokens.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
         ],
