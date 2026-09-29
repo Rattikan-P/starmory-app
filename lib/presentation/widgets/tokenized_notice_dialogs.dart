@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/config/app_constants.dart';
 import '../../constants/design_tokens.dart';
 
 /// Shared tokenized layout for errors raised during image analysis/generation.
@@ -571,6 +572,7 @@ Future<void> showDailyLimitReachedDialog(
 Future<void> showFreeTrialLimitDialog(
   BuildContext context, {
   required VoidCallback onSignUp,
+  bool isTotalLimitReached = false,
 }) async {
   await showDialog<void>(
     context: context,
@@ -594,7 +596,9 @@ Future<void> showFreeTrialLimitDialog(
             const _WarningIcon(icon: Icons.hourglass_bottom_rounded),
             const SizedBox(height: DesignTokens.dialogIconTitleSpacing),
             Text(
-              'Free Trial Limit',
+              isTotalLimitReached
+                  ? 'Guest Trial Complete'
+                  : 'Daily Guest Limit Reached',
               textAlign: TextAlign.center,
               style: GoogleFonts.lexend(
                 fontSize: DesignTokens.dialogTitleFontSize,
@@ -606,7 +610,9 @@ Future<void> showFreeTrialLimitDialog(
               height: DesignTokens.dialogCompactTitleBodySpacing,
             ),
             Text(
-              "You've used all your guest generations.\nSign up to get 15 daily generations!",
+              isTotalLimitReached
+                  ? "You've used all ${AppConstants.guestTotalLimit} free generations. Create a free account for ${AppConstants.registeredDailyLimit} generations every day."
+                  : "You've used today's ${AppConstants.guestDailyLimit} guest generations. Create a free account for ${AppConstants.registeredDailyLimit} generations every day.",
               textAlign: TextAlign.center,
               style: GoogleFonts.lexend(
                 fontSize: DesignTokens.dialogBodyFontSize,
@@ -644,7 +650,7 @@ Future<void> showFreeTrialLimitDialog(
                   const SizedBox(width: DesignTokens.spacingMedium),
                   Expanded(
                     child: Text(
-                      '15 generations every day with a free account.',
+                      '${AppConstants.registeredDailyLimit} generations every day with a free account.',
                       style: GoogleFonts.lexend(
                         fontSize: DesignTokens.dialogBodyFontSize,
                         height: DesignTokens.dialogBodyLineHeight,

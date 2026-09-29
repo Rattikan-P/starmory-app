@@ -22,6 +22,7 @@ import 'auth/account_method_page.dart';
 import 'profile_tab.dart';
 import '../utils/reward_unlock_helper.dart';
 import '../widgets/scrapbook_detail_sheet.dart';
+import '../widgets/app_empty_state.dart';
 import '../widgets/scrapbook_polaroid.dart';
 import '../widgets/top_header_actions.dart';
 import '../widgets/permission_required_dialog.dart';
@@ -639,7 +640,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
                   ),
                 ),
                 child: Text(
-                  'Sign up',
+                  'Create account',
                   style: GoogleFonts.lexend(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
@@ -658,6 +659,12 @@ class _HomeTabState extends ConsumerState<HomeTab>
       showFreeTrialLimitDialog(
         context,
         onSignUp: () => AccountMethodPage.show(context),
+        isTotalLimitReached: ref
+                .read(userStateProvider)
+                .user
+                ?.quotaManager
+                .isTotalLimitReached() ??
+            false,
       );
       return;
     }
@@ -813,68 +820,19 @@ class _HomeTabState extends ConsumerState<HomeTab>
         ),
         const SizedBox(height: 16),
         recentScrapbooks.isEmpty
-            ? _buildEmptyScrapbookState(context)
+            ? _buildEmptyScrapbookState()
             : _buildScrapbookList(context, recentScrapbooks),
       ],
     );
   }
 
   /// Empty state for when no scrapbooks exist
-  Widget _buildEmptyScrapbookState(BuildContext context) {
-    return Container(
-      height: 140,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: const Color(0xFFE8E5EC),
-        ),
-      ),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    const Color(0xFFF3F4F6),
-                    const Color(0xFFE5E7EB).withValues(alpha: 0.5),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(
-                Icons.photo_library_outlined,
-                size: 28,
-                color: Color(0xFF9ca3af),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'No memories yet',
-              style: GoogleFonts.lexend(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFF6b7280),
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Start capturing moments today',
-              style: GoogleFonts.lexend(
-                fontSize: 12,
-                fontWeight: FontWeight.w400,
-                color: const Color(0xFF9ca3af),
-              ),
-            ),
-          ],
-        ),
-      ),
+  Widget _buildEmptyScrapbookState() {
+    return AppEmptyState(
+      compact: true,
+      icon: Icons.photo_library_outlined,
+      title: 'No memories yet',
+      message: 'Start capturing moments today',
     );
   }
 

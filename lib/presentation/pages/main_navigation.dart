@@ -304,6 +304,12 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
       showFreeTrialLimitDialog(
         context,
         onSignUp: () => AccountMethodPage.show(context),
+        isTotalLimitReached: ref
+                .read(userStateProvider)
+                .user
+                ?.quotaManager
+                .isTotalLimitReached() ??
+            false,
       );
       return;
     }

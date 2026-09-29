@@ -84,6 +84,12 @@ class _GenerationLoadingScreenState
     if (isGuest) {
       showFreeTrialLimitDialog(
         context,
+        isTotalLimitReached: ref
+                .read(authQuotaProvider)
+                .localUser
+                ?.quotaManager
+                .isTotalLimitReached() ??
+            false,
         onSignUp: () => AccountMethodPage.show(context),
       );
     } else {
