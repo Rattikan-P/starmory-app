@@ -2,14 +2,17 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../../core/utils/safe_image_picker.dart';
+import '../../core/utils/image_picker_error_message.dart';
+import '../widgets/permission_required_dialog.dart';
 import '../pages/image_preview_screen.dart';
+import '../widgets/tokenized_notice_dialogs.dart';
+import '../widgets/bottom_sheet_chrome.dart';
 
 /// Shared image-selection flow used wherever users can add a new photo.
 class PhotoPickerFlow {
@@ -30,18 +33,16 @@ class PhotoPickerFlow {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 42,
-                height: 5,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFD6D1E8),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
+              const AppBottomSheetDragHandle(),
               const SizedBox(height: 20),
-              const Text('Add a photo', style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800, color: Color(0xFF302858))),
+              const Text('Add a photo',
+                  style: TextStyle(
+                      fontSize: 21,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF302858))),
               const SizedBox(height: 6),
-              const Text('Choose where your new memory comes from', style: TextStyle(fontSize: 13, color: Color(0xFF6A6385))),
+              const Text('Choose where your new memory comes from',
+                  style: TextStyle(fontSize: 13, color: Color(0xFF6A6385))),
               const SizedBox(height: 22),
               _sourceOption(
                 context: sheetContext,
@@ -107,9 +108,15 @@ class PhotoPickerFlow {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Color(0xFF39305F))),
+                    Text(title,
+                        style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF39305F))),
                     const SizedBox(height: 3),
-                    Text(subtitle, style: const TextStyle(fontSize: 12, color: Color(0xFF746D8D))),
+                    Text(subtitle,
+                        style: const TextStyle(
+                            fontSize: 12, color: Color(0xFF746D8D))),
                   ],
                 ),
               ),
@@ -121,14 +128,17 @@ class PhotoPickerFlow {
     );
   }
 
-  static Future<void> pickAndPreview(BuildContext context, ImageSource source) async {
+  static Future<void> pickAndPreview(
+      BuildContext context, ImageSource source) async {
     if (SafeImagePicker.isPicking) return;
     try {
       final permission = source == ImageSource.camera
           ? await Permission.camera.request()
           : await Permission.photos.request();
       if (!permission.isGranted) {
-        if (context.mounted) _showPermissionDialog(context, source == ImageSource.camera ? 'Camera' : 'Photo Library');
+        if (context.mounted)
+          _showPermissionDialog(context,
+              source == ImageSource.camera ? 'Camera' : 'Photo Library');
         return;
       }
 
@@ -141,7 +151,10 @@ class PhotoPickerFlow {
       if (image == null || !context.mounted) return;
 
       final imagePath = image.path.toLowerCase();
-      if (imagePath.endsWith('.gif') || imagePath.endsWith('.webp') || image.mimeType == 'image/gif' || image.mimeType == 'image/webp') {
+      if (imagePath.endsWith('.gif') ||
+          imagePath.endsWith('.webp') ||
+          image.mimeType == 'image/gif' ||
+          image.mimeType == 'image/webp') {
         _showErrorDialog(
           context,
           'Unsupported Format',
@@ -154,16 +167,19 @@ class PhotoPickerFlow {
       if (!context.mounted) return;
       await Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => ImagePreviewScreen(imagePath: permanentPath)),
+        MaterialPageRoute(
+            builder: (_) => ImagePreviewScreen(imagePath: permanentPath)),
       );
     } on PlatformException catch (error) {
       if (error.code == 'already_active') return;
       if (context.mounted) {
-        _showErrorDialog(context, 'Error', 'Failed to pick image: ${error.message ?? error.toString()}');
+        _showErrorDialog(context, 'Error',
+            ImagePickerErrorMessage.failedToPick(error.message ?? error));
       }
     } catch (error) {
       if (context.mounted) {
-        _showErrorDialog(context, 'Error', 'Failed to pick image: $error');
+        _showErrorDialog(
+            context, 'Error', ImagePickerErrorMessage.failedToPick(error));
       }
     }
   }
@@ -171,9 +187,12 @@ class PhotoPickerFlow {
   static Future<String> _saveImagePermanently(String sourcePath) async {
     try {
       final appDirectory = await getApplicationDocumentsDirectory();
-      final vocabularyDirectory = Directory('${appDirectory.path}/vocabulary_images');
-      if (!await vocabularyDirectory.exists()) await vocabularyDirectory.create(recursive: true);
-      final fileName = 'vocab_${DateTime.now().millisecondsSinceEpoch}${path.extension(sourcePath)}';
+      final vocabularyDirectory =
+          Directory('${appDirectory.path}/vocabulary_images');
+      if (!await vocabularyDirectory.exists())
+        await vocabularyDirectory.create(recursive: true);
+      final fileName =
+          'vocab_${DateTime.now().millisecondsSinceEpoch}${path.extension(sourcePath)}';
       final targetPath = '${vocabularyDirectory.path}/$fileName';
       await File(sourcePath).copy(targetPath);
       return targetPath;
@@ -183,74 +202,21 @@ class PhotoPickerFlow {
   }
 
   static void _showPermissionDialog(BuildContext context, String type) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
-          '$type Permission Required',
-          style: GoogleFonts.lexend(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: const Color(0xFF1f2937),
-          ),
-        ),
-        content: Text(
-          'Please grant $type permission to continue.',
-          style: GoogleFonts.lexend(
-            fontSize: 14,
-            fontWeight: FontWeight.w400,
-            color: const Color(0xFF6b7280),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            style: TextButton.styleFrom(foregroundColor: const Color(0xFF9ca3af)),
-            child: Text('Cancel', style: GoogleFonts.lexend(fontSize: 15, fontWeight: FontWeight.w500)),
-          ),
-          TextButton(
-            onPressed: () {
-              openAppSettings();
-              Navigator.pop(context);
-            },
-            style: TextButton.styleFrom(foregroundColor: const Color(0xFF8b5cf6)),
-            child: Text('Settings', style: GoogleFonts.lexend(fontSize: 15, fontWeight: FontWeight.w500)),
-          ),
-        ],
-      ),
-    );
+    showPermissionRequiredDialog(context, type);
   }
 
-  static void _showErrorDialog(BuildContext context, String title, String message) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
-          title,
-          style: GoogleFonts.lexend(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: const Color(0xFF1f2937),
-          ),
-        ),
-        content: Text(
-          message,
-          style: GoogleFonts.lexend(
-            fontSize: 14,
-            fontWeight: FontWeight.w400,
-            color: const Color(0xFF6b7280),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            style: TextButton.styleFrom(foregroundColor: const Color(0xFF8b5cf6)),
-            child: Text('OK', style: GoogleFonts.lexend(fontSize: 15, fontWeight: FontWeight.w500)),
-          ),
-        ],
-      ),
+  static void _showErrorDialog(
+      BuildContext context, String title, String message) {
+    if (title == 'Unsupported Format') {
+      showUnsupportedFormatDialog(context);
+      return;
+    }
+
+    showTokenizedErrorDialog(
+      context,
+      title: title,
+      message: message,
+      icon: Icons.error_outline_rounded,
     );
   }
 }

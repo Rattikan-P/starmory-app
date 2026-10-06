@@ -3,7 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../data/sticker_sets.dart';
+import '../../constants/design_tokens.dart';
 import '../providers/providers.dart';
+import '../widgets/bottom_sheet_chrome.dart';
+import '../widgets/app_empty_state.dart';
+import '../widgets/rounded_progress_bar.dart';
 
 class StickersPage extends ConsumerStatefulWidget {
   const StickersPage({super.key});
@@ -55,7 +59,8 @@ class _StickersPageState extends ConsumerState<StickersPage> {
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF1F2937), size: 20),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded,
+              color: Color(0xFF1F2937), size: 20),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
@@ -107,7 +112,8 @@ class _StickersPageState extends ConsumerState<StickersPage> {
                                 color: const Color(0xFFF4EEFF),
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              child: const Text('🎨', style: TextStyle(fontSize: 20)),
+                              child: const Text('🎨',
+                                  style: TextStyle(fontSize: 20)),
                             ),
                             const SizedBox(width: 12),
                             Column(
@@ -134,7 +140,8 @@ class _StickersPageState extends ConsumerState<StickersPage> {
                           ],
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
                             color: const Color(0xFFF4EEFF),
                             borderRadius: BorderRadius.circular(12),
@@ -184,12 +191,17 @@ class _StickersPageState extends ConsumerState<StickersPage> {
                       onTap: () => setState(() => _filter = filterName),
                       borderRadius: BorderRadius.circular(16),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 8),
                         decoration: BoxDecoration(
-                          color: isSelected ? const Color(0xFFF4EEFF) : Colors.white,
+                          color: isSelected
+                              ? const Color(0xFFF4EEFF)
+                              : Colors.white,
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
-                            color: isSelected ? const Color(0xFF7C5CFC) : const Color(0xFFEBE6FC),
+                            color: isSelected
+                                ? const Color(0xFF7C5CFC)
+                                : const Color(0xFFEBE6FC),
                             width: 1.2,
                           ),
                         ),
@@ -197,8 +209,11 @@ class _StickersPageState extends ConsumerState<StickersPage> {
                           label,
                           style: GoogleFonts.lexend(
                             fontSize: 12.5,
-                            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                            color: isSelected ? const Color(0xFF7C5CFC) : const Color(0xFF8E88A8),
+                            fontWeight:
+                                isSelected ? FontWeight.w700 : FontWeight.w500,
+                            color: isSelected
+                                ? const Color(0xFF7C5CFC)
+                                : const Color(0xFF8E88A8),
                           ),
                         ),
                       ),
@@ -207,34 +222,34 @@ class _StickersPageState extends ConsumerState<StickersPage> {
                 }).toList(),
               ),
 
-                const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-                // Sticker Packs List
-                Expanded(
-                  child: filteredPacks.isEmpty
-                      ? _buildEmptyState()
-                      : ListView.separated(
-                          padding: const EdgeInsets.only(bottom: 24),
-                          itemCount: filteredPacks.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 14),
-                          itemBuilder: (context, index) {
-                            final pack = filteredPacks[index];
-                            return _buildPackCard(
-                              context,
-                              pack,
-                              totalStars: totalStars,
-                              streakDays: streakDays,
-                              natureVocabCount: natureVocabCount,
-                              stickerState: stickerState,
-                            );
-                          },
-                        ),
-                ),
-              ],
-            ),
+              // Sticker Packs List
+              Expanded(
+                child: filteredPacks.isEmpty
+                    ? _buildEmptyState()
+                    : ListView.separated(
+                        padding: const EdgeInsets.only(bottom: 24),
+                        itemCount: filteredPacks.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 14),
+                        itemBuilder: (context, index) {
+                          final pack = filteredPacks[index];
+                          return _buildPackCard(
+                            context,
+                            pack,
+                            totalStars: totalStars,
+                            streakDays: streakDays,
+                            natureVocabCount: natureVocabCount,
+                            stickerState: stickerState,
+                          );
+                        },
+                      ),
+              ),
+            ],
           ),
         ),
-      );
+      ),
+    );
   }
 
   Widget _buildPackCard(
@@ -307,36 +322,81 @@ class _StickersPageState extends ConsumerState<StickersPage> {
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: isLocked
-                        ? Colors.grey.shade100
-                        : const Color(0xFFEDE9FE),
+                        ? const Color(0xFFF0EEF3)
+                        : Color.alphaBlend(
+                            gradient.first.withValues(alpha: 0.10),
+                            Colors.white,
+                          ),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
                       color: isLocked
-                          ? Colors.grey.shade300
-                          : gradient.first.withValues(alpha: 0.4),
+                          ? const Color(0xFFE9E5EF)
+                          : gradient.first.withValues(alpha: 0.28),
                       width: 1.2,
                     ),
                   ),
-                  child: ColorFiltered(
-                    colorFilter: isLocked
-                        ? const ColorFilter.matrix(<double>[
-                            0.2126, 0.7152, 0.0722, 0, 0,
-                            0.2126, 0.7152, 0.0722, 0, 0,
-                            0.2126, 0.7152, 0.0722, 0, 0,
-                            0,      0,      0,      0.45, 0,
-                          ])
-                        : const ColorFilter.mode(
-                            Colors.transparent,
-                            BlendMode.dst,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      ColorFiltered(
+                        colorFilter: isLocked
+                            ? const ColorFilter.matrix(<double>[
+                                0.2126,
+                                0.7152,
+                                0.0722,
+                                0,
+                                0,
+                                0.2126,
+                                0.7152,
+                                0.0722,
+                                0,
+                                0,
+                                0.2126,
+                                0.7152,
+                                0.0722,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0,
+                                0.45,
+                                0,
+                              ])
+                            : const ColorFilter.mode(
+                                Colors.transparent,
+                                BlendMode.dst,
+                              ),
+                        child: Image.asset(
+                          pack.previewAsset,
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, __, ___) => const Icon(
+                            Icons.image_outlined,
+                            color: Colors.grey,
                           ),
-                    child: Image.asset(
-                      pack.previewAsset,
-                      fit: BoxFit.contain,
-                      errorBuilder: (_, __, ___) => const Icon(
-                        Icons.image_outlined,
-                        color: Colors.grey,
+                        ),
                       ),
-                    ),
+                      if (isLocked)
+                        Positioned(
+                          right: 0,
+                          bottom: 0,
+                          child: Container(
+                            width: 18,
+                            height: 18,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: const Color(0xFFDAD6E0),
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.lock_rounded,
+                              size: 10,
+                              color: Color(0xFF817B89),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
                 const SizedBox(width: 14),
@@ -363,9 +423,11 @@ class _StickersPageState extends ConsumerState<StickersPage> {
                           ),
                           const SizedBox(width: 6),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 7, vertical: 2),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF8B5CF6).withValues(alpha: 0.1),
+                              color: const Color(0xFF8B5CF6)
+                                  .withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
@@ -396,7 +458,8 @@ class _StickersPageState extends ConsumerState<StickersPage> {
 
                 // Status Pill
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
                     color: isLocked
                         ? Colors.grey.shade100
@@ -407,9 +470,13 @@ class _StickersPageState extends ConsumerState<StickersPage> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        isLocked ? Icons.lock_rounded : Icons.check_circle_rounded,
+                        isLocked
+                            ? Icons.lock_rounded
+                            : Icons.check_circle_rounded,
                         size: 13,
-                        color: isLocked ? Colors.grey.shade600 : const Color(0xFF10B981),
+                        color: isLocked
+                            ? Colors.grey.shade600
+                            : const Color(0xFF10B981),
                       ),
                       const SizedBox(width: 4),
                       Text(
@@ -417,7 +484,9 @@ class _StickersPageState extends ConsumerState<StickersPage> {
                         style: GoogleFonts.lexend(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
-                          color: isLocked ? Colors.grey.shade600 : const Color(0xFF10B981),
+                          color: isLocked
+                              ? Colors.grey.shade600
+                              : const Color(0xFF10B981),
                         ),
                       ),
                     ],
@@ -464,10 +533,26 @@ class _StickersPageState extends ConsumerState<StickersPage> {
                     child: ColorFiltered(
                       colorFilter: isLocked
                           ? const ColorFilter.matrix(<double>[
-                              0.2126, 0.7152, 0.0722, 0, 0,
-                              0.2126, 0.7152, 0.0722, 0, 0,
-                              0.2126, 0.7152, 0.0722, 0, 0,
-                              0,      0,      0,      0.4, 0,
+                              0.2126,
+                              0.7152,
+                              0.0722,
+                              0,
+                              0,
+                              0.2126,
+                              0.7152,
+                              0.0722,
+                              0,
+                              0,
+                              0.2126,
+                              0.7152,
+                              0.0722,
+                              0,
+                              0,
+                              0,
+                              0,
+                              0,
+                              0.4,
+                              0,
                             ])
                           : const ColorFilter.mode(
                               Colors.transparent,
@@ -534,7 +619,8 @@ class _StickersPageState extends ConsumerState<StickersPage> {
                   Expanded(
                     child: Row(
                       children: [
-                        const Icon(Icons.palette_outlined, size: 14, color: Color(0xFF8B5CF6)),
+                        const Icon(Icons.palette_outlined,
+                            size: 14, color: Color(0xFF8B5CF6)),
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
@@ -570,24 +656,13 @@ class _StickersPageState extends ConsumerState<StickersPage> {
 
   Widget _buildEmptyState() {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(
-            Icons.category_outlined,
-            size: 64,
-            color: Color(0xFF9CA3AF),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'No sticker packs found in this category',
-            style: GoogleFonts.lexend(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-              color: const Color(0xFF4B5563),
-            ),
-          ),
-        ],
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: AppEmptyState(
+          icon: Icons.category_outlined,
+          title: 'No sticker packs found in this category',
+          message: 'Try another category to see available sticker packs.',
+        ),
       ),
     );
   }
@@ -662,14 +737,7 @@ void showStickerPackModal(
           children: [
             // Handle bar
             Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFCBD5E1),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
+              child: const AppBottomSheetDragHandle(),
             ),
             const SizedBox(height: 16),
 
@@ -700,10 +768,26 @@ void showStickerPackModal(
                   child: ColorFiltered(
                     colorFilter: isLocked
                         ? const ColorFilter.matrix(<double>[
-                            0.2126, 0.7152, 0.0722, 0, 0,
-                            0.2126, 0.7152, 0.0722, 0, 0,
-                            0.2126, 0.7152, 0.0722, 0, 0,
-                            0,      0,      0,      0.5, 0,
+                            0.2126,
+                            0.7152,
+                            0.0722,
+                            0,
+                            0,
+                            0.2126,
+                            0.7152,
+                            0.0722,
+                            0,
+                            0,
+                            0.2126,
+                            0.7152,
+                            0.0722,
+                            0,
+                            0,
+                            0,
+                            0,
+                            0,
+                            0.5,
+                            0,
                           ])
                         : const ColorFilter.mode(
                             Colors.transparent,
@@ -746,7 +830,8 @@ void showStickerPackModal(
                 ),
                 if (isLocked)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
                       color: const Color(0xFFF1F5F9),
                       borderRadius: BorderRadius.circular(8),
@@ -817,14 +902,11 @@ void showStickerPackModal(
                       ],
                     ),
                     const SizedBox(height: 6),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(6),
-                      child: LinearProgressIndicator(
-                        value: progressRatio,
-                        minHeight: 8,
-                        backgroundColor: const Color(0xFFE2E8F0),
-                        valueColor: AlwaysStoppedAnimation<Color>(gradient.first),
-                      ),
+                    RoundedProgressBar(
+                      value: progressRatio,
+                      height: 8,
+                      trackColor: const Color(0xFFE2E8F0),
+                      valueColor: gradient.first,
                     ),
                   ],
                 ],
@@ -868,10 +950,26 @@ void showStickerPackModal(
                     child: ColorFiltered(
                       colorFilter: isLocked
                           ? const ColorFilter.matrix(<double>[
-                              0.2126, 0.7152, 0.0722, 0, 0,
-                              0.2126, 0.7152, 0.0722, 0, 0,
-                              0.2126, 0.7152, 0.0722, 0, 0,
-                              0,      0,      0,      0.4, 0,
+                              0.2126,
+                              0.7152,
+                              0.0722,
+                              0,
+                              0,
+                              0.2126,
+                              0.7152,
+                              0.0722,
+                              0,
+                              0,
+                              0.2126,
+                              0.7152,
+                              0.0722,
+                              0,
+                              0,
+                              0,
+                              0,
+                              0,
+                              0.4,
+                              0,
                             ])
                           : const ColorFilter.mode(
                               Colors.transparent,
@@ -897,22 +995,24 @@ void showStickerPackModal(
             // Close Button
             SizedBox(
               width: double.infinity,
-              height: 46,
+              height: DesignTokens.dialogButtonHeight,
               child: ElevatedButton(
                 onPressed: () => Navigator.of(context).pop(),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF8B5CF6),
+                  backgroundColor: DesignTokens.dialogBrand,
                   foregroundColor: Colors.white,
                   elevation: 0,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(
+                      DesignTokens.dialogButtonRadius,
+                    ),
                   ),
                 ),
                 child: Text(
                   'Close',
                   style: GoogleFonts.lexend(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
+                    fontSize: DesignTokens.dialogButtonFontSize,
+                    fontWeight: DesignTokens.weightSemiBold,
                   ),
                 ),
               ),

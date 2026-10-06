@@ -1,33 +1,57 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mockito/mockito.dart';
+import 'package:starmory_app/data/models/user_model.dart';
 import 'package:starmory_app/data/models/vocabulary_model.dart';
 import 'package:starmory_app/data/models/word_card_model.dart';
 import 'package:starmory_app/data/models/user_stats_model.dart';
 import 'package:starmory_app/data/services/review_service.dart';
 import 'package:starmory_app/presentation/providers/review_provider.dart';
+import 'package:starmory_app/presentation/providers/providers.dart'
+    show
+        hiveServiceProvider,
+        userStateProvider,
+        UserNotifier,
+        UserState;
 
 import '../test_helpers.dart';
 import '../test_helpers.mocks.dart';
+import '../test_setup.dart';
 
 /// UTC-26: Session Completion Statistics & Streak Tracking
-/// Test Function: ReviewState.isComplete / ReviewService.saveUserStats()
+/// Test Function: ReviewState.isComplete, ReviewNotifier.swipeCard(),
+/// ReviewService.saveUserStats(), StreakNotifier.recordLearningActivity()
 void main() {
   printTestHeader('UTC-26: Session Completion Statistics & Streak Tracking');
 
-  late MockReviewService mockReviewService;
-  late ReviewNotifier notifier;
-  bool streakRecorded = false;
+  setUpAll(setupTestEnvironment);
 
-  setUp(() {
+  late MockReviewService mockReviewService;
+  late MockHiveService mockHiveService;
+  late ProviderContainer container;
+  late ReviewNotifier notifier;
+  int remainingDueCards = 0;
+
+  setUp(() async {
     mockReviewService = MockReviewService();
-    streakRecorded = false;
-    notifier = ReviewNotifier(
-      mockReviewService,
-      recordLearningActivity: () async {
-        streakRecorded = true;
-      },
-    );
+    mockHiveService = MockHiveService();
+    when(mockHiveService.saveUser(any)).thenAnswer((_) async {});
+    remainingDueCards = 0;
+    container = ProviderContainer(overrides: [
+      hiveServiceProvider.overrideWithValue(mockHiveService),
+      reviewServiceProvider.overrideWithValue(mockReviewService),
+      userStateProvider.overrideWith(
+        (ref) => UserNotifier(
+          mockHiveService,
+          initialState: UserState(user: UserModel.createGuest()),
+          autoLoad: false,
+        ),
+      ),
+    ]);
+    notifier = container.read(reviewStateProvider.notifier);
   });
+
+  tearDown(() => container.dispose());
 
   WordCardModel createCard(String id) {
     return WordCardModel(
@@ -63,9 +87,14 @@ void main() {
       topicFilter: anyNamed('topicFilter'),
       batchSize: anyNamed('batchSize'),
     )).thenAnswer((_) async => cards);
-    when(mockReviewService.getRemainingDueCount(topicFilter: anyNamed('topicFilter'))).thenAnswer((_) async => 0);
+    remainingDueCards = cards.length;
+    when(mockReviewService.getRemainingDueCount(topicFilter: anyNamed('topicFilter')))
+        .thenAnswer((_) async => remainingDueCards);
     when(mockReviewService.getUserStats()).thenAnswer((_) async => UserStatsModel(lastReviewDate: DateTime.now()));
-    when(mockReviewService.updateCard(any)).thenAnswer((inv) async => inv.positionalArguments.first as WordCardModel);
+    when(mockReviewService.updateCard(any)).thenAnswer((inv) async {
+      remainingDueCards = remainingDueCards > 0 ? remainingDueCards - 1 : 0;
+      return inv.positionalArguments.first as WordCardModel;
+    });
     when(mockReviewService.saveUserStats(
       totalReviewsCompleted: anyNamed('totalReviewsCompleted'),
     )).thenAnswer((_) async {});
@@ -126,7 +155,10 @@ void main() {
 
     await notifier.swipeCard(true);
 
-    expect(streakRecorded, isTrue);
+    final streakUpdated =
+        container.read(userStateProvider).user?.currentStreak == 1;
+    expect(streakUpdated, isTrue);
+    expect(container.read(userStateProvider).user?.currentStreak, 1);
 
     printTestOutputSimple(
       testId: 'UTC-26-TC03',
@@ -134,8 +166,8 @@ void main() {
       input: 'TD02: First review of the session',
       expectedOutput: {'streakUpdated': true, 'activityRecorded': true},
       actualOutput: {
-        'streakUpdated': streakRecorded,
-        'activityRecorded': streakRecorded,
+        'streakUpdated': streakUpdated,
+        'activityRecorded': streakUpdated,
       },
     );
   });
@@ -148,6 +180,7 @@ void main() {
 
     verify(mockReviewService.updateCard(any)).called(1);
     expect(notifier.state.reviewedCardIds.contains('1'), isTrue);
+    expect(notifier.state.remainingDueCount, 2);
 
     printTestOutputSimple(
       testId: 'UTC-26-TC04',
@@ -157,7 +190,7 @@ void main() {
       actualOutput: {
         'exitedMidway': true,
         'ratedCardsSaved': notifier.state.reviewedCardIds.length,
-        'remainingDueCountUpdated': true,
+        'remainingDueCountUpdated': notifier.state.remainingDueCount == 2,
       },
     );
   });

@@ -7,8 +7,8 @@ import '../../data/services/hive_service.dart';
 import '../../data/services/vocabulary_sync_service.dart';
 import '../../data/services/image_storage_service.dart';
 import '../../data/services/merge_service.dart';
-import '../../data/services/streak_service.dart';
 import '../../data/services/review_service.dart';
+import '../../data/services/learning_activity_service.dart';
 import '../../data/models/user_model.dart';
 import '../../data/models/vocabulary_model.dart';
 import '../../data/models/scrapbook_model.dart';
@@ -36,6 +36,19 @@ export 'sticker_provider.dart';
 /// Hive Service Provider
 final hiveServiceProvider = Provider<HiveService>((ref) {
   return HiveService();
+});
+
+final learningActivityServiceProvider = Provider<LearningActivityService>((ref) {
+  return LearningActivityService(
+    hiveService: ref.read(hiveServiceProvider),
+  );
+});
+
+final learningActivityDaysProvider = FutureProvider<Set<String>>((ref) async {
+  final user = ref.watch(userStateProvider.select((state) => state.user));
+  return ref
+      .read(learningActivityServiceProvider)
+      .getLearningDays(user);
 });
 
 /// Image Storage Service Provider
@@ -72,7 +85,8 @@ class AppInitialization {
   });
 
   static const uninitialized = AppInitialization(isInitialized: false);
-  static AppInitialization get initialized => const AppInitialization(isInitialized: true);
+  static AppInitialization get initialized =>
+      const AppInitialization(isInitialized: true);
 
   AppInitialization copyWith({bool? isInitialized, String? error}) {
     return AppInitialization(
@@ -183,7 +197,8 @@ class UserNotifier extends StateNotifier<UserState> {
     );
   }
 
-  Future<void> _handleAuthChange(AuthChangeEvent event, User? supabaseUser) async {
+  Future<void> _handleAuthChange(
+      AuthChangeEvent event, User? supabaseUser) async {
     switch (event) {
       case AuthChangeEvent.signedIn:
         print('✅ User signed in: ${supabaseUser?.email}');
@@ -215,12 +230,11 @@ class UserNotifier extends StateNotifier<UserState> {
 
       // Fetch quota from Supabase using auto-reset function
       final client = Supabase.instance.client;
-      final today = DateTime.now().toIso8601String().split('T')[0];
+      final today = QuotaManager.bangkokDateKey();
 
       // Use RPC function that auto-resets if new day
-      final quotaResponse = await client
-          .rpc('get_user_quota_with_reset', params: {'p_user_id': supabaseUser.id})
-          .maybeSingle();
+      final quotaResponse = await client.rpc('get_user_quota_with_reset',
+          params: {'p_user_id': supabaseUser.id}).maybeSingle();
 
       QuotaManager quotaManager;
       if (quotaResponse == null) {
@@ -264,8 +278,10 @@ class UserNotifier extends StateNotifier<UserState> {
       }
 
       // Sync language_level and english_variant from Supabase user metadata
-      final languageLevel = supabaseUser.userMetadata?['language_level'] as String?;
-      final englishVariant = supabaseUser.userMetadata?['english_variant'] as String?;
+      final languageLevel =
+          supabaseUser.userMetadata?['language_level'] as String?;
+      final englishVariant =
+          supabaseUser.userMetadata?['english_variant'] as String?;
 
       // Fetch existing user data from Supabase to preserve streak and progress
       Map<String, dynamic>? serverUserData;
@@ -292,21 +308,21 @@ class UserNotifier extends StateNotifier<UserState> {
       if (hasGuestData && serverUserData == null) {
         // Brand new user registering: Migrate guest data to new registered user
         print('🔄 Migrating guest data to registered user...');
-
-        // Read guest streak from local database (Hive) - this is the source of truth for guests
-        final streakService = StreakService();
-        final guestStreakData = await streakService.getStreakData();
+        final guestUser = currentUser!;
 
         // Prepare guest data map
         final guestDataMap = <String, dynamic>{
-          'currentStreak': guestStreakData?.currentStreak ?? 0,
-          'longestStreak': guestStreakData?.longestStreak ?? 0,
-          'lastStreakActivityDate': guestStreakData?.lastActivityDate?.toIso8601String(),
-          'shields': currentUser!.shields,
-          'totalWordsLearned': currentUser.totalWordsLearned,
-          'badges': currentUser.badges,
-          'stickers': currentUser.stickers,
-          'preferences': currentUser.preferences,
+          'currentStreak': guestUser.currentStreak,
+          'longestStreak': guestUser.longestStreak,
+          'lastStreakActivityDate':
+              guestUser.lastStreakActivityDate?.toIso8601String(),
+          'streakStateUpdatedAt':
+              guestUser.streakStateUpdatedAt?.toIso8601String(),
+          'shields': guestUser.shields,
+          'totalWordsLearned': guestUser.totalWordsLearned,
+          'badges': guestUser.badges,
+          'stickers': guestUser.stickers,
+          'preferences': guestUser.preferences,
         };
 
         // Use Merge Service
@@ -320,17 +336,27 @@ class UserNotifier extends StateNotifier<UserState> {
 
         // Merge preferences with metadata
         final mergedPrefs = Map<String, dynamic>.from(
-          mergeResult.mergedData['preferences'] as Map? ?? currentUser.preferences
-        );
-        if (languageLevel != null) mergedPrefs['defaultCefrLevel'] = languageLevel;
-        if (englishVariant != null) mergedPrefs['languageVariant'] = englishVariant;
+            mergeResult.mergedData['preferences'] as Map? ??
+                guestUser.preferences);
+        if (languageLevel != null)
+          mergedPrefs['defaultCefrLevel'] = languageLevel;
+        if (englishVariant != null)
+          mergedPrefs['languageVariant'] = englishVariant;
 
         // Parse last activity date
-        DateTime? lastActivityDate;
-        final lastActivityStr = mergeResult.mergedData['lastStreakActivityDate'] as String?;
-        if (lastActivityStr != null) {
-          lastActivityDate = DateTime.tryParse(lastActivityStr);
-        }
+        final mergedLastActivity = mergeResult.mergedData['last_activity_date'];
+        final lastActivityDate = mergedLastActivity is DateTime
+            ? mergedLastActivity
+            : mergedLastActivity is String
+                ? DateTime.tryParse(mergedLastActivity)
+                : null;
+        final mergedStateUpdated =
+            mergeResult.mergedData['streak_state_updated_at'];
+        final stateUpdatedAt = mergedStateUpdated is DateTime
+            ? mergedStateUpdated
+            : mergedStateUpdated is String
+                ? DateTime.tryParse(mergedStateUpdated)
+                : null;
 
         // Convert Set to List for badges/stickers if needed
         final badgesValue = mergeResult.mergedData['badges'];
@@ -341,26 +367,31 @@ class UserNotifier extends StateNotifier<UserState> {
         final stickersList = stickersValue is Set
             ? stickersValue.toList()
             : (stickersValue is List ? stickersValue : <String>[]);
+        mergedPrefs['badges'] = badgesList.cast<String>();
+        mergedPrefs['stickers'] = stickersList.cast<String>();
 
         registeredUser = UserModel.createRegisteredUser(
           id: supabaseUser.id,
           email: supabaseUser.email ?? 'user@example.com',
-          displayName: (serverUserData?['display_name'] as String?) ?? supabaseUser.userMetadata?['display_name'] as String?,
+          displayName: (serverUserData?['display_name'] as String?) ??
+              supabaseUser.userMetadata?['display_name'] as String?,
           photoUrl: (serverUserData?['avatar_url'] as String?) ??
-                    (supabaseUser.userMetadata?['avatar_url'] as String?) ??
-                    (supabaseUser.userMetadata?['picture'] as String?),
+              (supabaseUser.userMetadata?['avatar_url'] as String?) ??
+              (supabaseUser.userMetadata?['picture'] as String?),
         ).copyWith(
           quotaManager: quotaManager,
           preferences: mergedPrefs,
           // Use merged values from merge framework
-          totalWordsLearned: mergeResult.mergedData['total_words_learned'] as int? ?? 0,
+          totalWordsLearned:
+              mergeResult.mergedData['total_words_learned'] as int? ?? 0,
           currentStreak: mergeResult.mergedData['current_streak'] as int? ?? 0,
           longestStreak: mergeResult.mergedData['longest_streak'] as int? ?? 0,
-          shields: mergeResult.mergedData['shields'] as int? ?? 0,
+          shields: mergeResult.mergedData['shields_available'] as int? ?? 0,
           lastStreakActivityDate: lastActivityDate,
+          streakStateUpdatedAt: stateUpdatedAt,
           badges: badgesList.cast<String>(),
           stickers: stickersList.cast<String>(),
-          createdAt: currentUser.createdAt, // Keep original join time
+          createdAt: guestUser.createdAt, // Keep original join time
         );
 
         // Sync merged data to server if any guest values were used
@@ -369,35 +400,55 @@ class UserNotifier extends StateNotifier<UserState> {
             supabaseUser.id,
             registeredUser.currentStreak,
             registeredUser.longestStreak,
+            shields: registeredUser.shields,
+            lastActivityDate: registeredUser.lastStreakActivityDate,
+            streakStateUpdatedAt: registeredUser.streakStateUpdatedAt,
           );
-          print('✅ Synced merged data to server: streak=${registeredUser.currentStreak}');
+          print(
+              '✅ Synced merged data to server: streak=${registeredUser.currentStreak}');
         } else {
           print('✅ Using server data (no guest values were better)');
         }
       } else {
         // No guest data - use server data or defaults
         final serverStreak = serverUserData?['current_streak'] as int? ?? 0;
-        final serverLongestStreak = serverUserData?['longest_streak'] as int? ?? 0;
-        final serverBadges = (serverUserData?['badges'] as List<dynamic>?)?.cast<String>() ?? [];
-        final serverStickers = (serverUserData?['stickers'] as List<dynamic>?)?.cast<String>() ?? [];
-        final serverWordsLearned = serverUserData?['total_words_learned'] as int? ?? 0;
-        final serverShields = serverUserData?['shields'] as int? ?? 0;
-        final serverPreferences = (serverUserData?['preferences'] as Map<String, dynamic>?) ?? {
+        final serverLongestStreak =
+            serverUserData?['longest_streak'] as int? ?? 0;
+        final serverPreferences = <String, dynamic>{
           'defaultCefrLevel': languageLevel ?? AppDefaults.defaultLanguageLevel,
-          'languageVariant': englishVariant ?? AppDefaults.defaultEnglishVariant,
+          'languageVariant':
+              englishVariant ?? AppDefaults.defaultEnglishVariant,
         };
+        final serverBadges =
+            (supabaseUser.userMetadata?['badges'] as List<dynamic>?)
+                    ?.cast<String>() ??
+                [];
+        final serverStickers =
+            (supabaseUser.userMetadata?['stickers'] as List<dynamic>?)
+                    ?.cast<String>() ??
+                [];
+        final serverWordsLearned =
+            serverUserData?['total_words_learned'] as int? ?? 0;
+        final serverShields = serverUserData?['shields_available'] as int? ?? 0;
         DateTime? serverLastActivity;
-        if (serverUserData?['last_streak_activity_date'] != null) {
-          serverLastActivity = DateTime.tryParse(serverUserData!['last_streak_activity_date'] as String);
+        if (serverUserData?['last_activity_date'] != null) {
+          serverLastActivity = DateTime.tryParse(
+              serverUserData!['last_activity_date'] as String);
         }
+        final serverStateUpdatedAt =
+            serverUserData?['streak_state_updated_at'] == null
+                ? null
+                : DateTime.tryParse(
+                    serverUserData!['streak_state_updated_at'] as String);
 
         registeredUser = UserModel.createRegisteredUser(
           id: supabaseUser.id,
           email: supabaseUser.email ?? 'user@example.com',
-          displayName: (serverUserData?['display_name'] as String?) ?? supabaseUser.userMetadata?['display_name'] as String?,
+          displayName: (serverUserData?['display_name'] as String?) ??
+              supabaseUser.userMetadata?['display_name'] as String?,
           photoUrl: (serverUserData?['avatar_url'] as String?) ??
-                    (supabaseUser.userMetadata?['avatar_url'] as String?) ??
-                    (supabaseUser.userMetadata?['picture'] as String?),
+              (supabaseUser.userMetadata?['avatar_url'] as String?) ??
+              (supabaseUser.userMetadata?['picture'] as String?),
         ).copyWith(
           quotaManager: quotaManager,
           preferences: serverPreferences,
@@ -409,33 +460,50 @@ class UserNotifier extends StateNotifier<UserState> {
           totalWordsLearned: serverWordsLearned,
           shields: serverShields,
           lastStreakActivityDate: serverLastActivity,
+          streakStateUpdatedAt: serverStateUpdatedAt,
         );
-        print('✅ Loaded existing user data from server: streak=$serverStreak, badges=${serverBadges.length}, stickers=${serverStickers.length}');
+        print(
+            '✅ Loaded existing user data from server: streak=$serverStreak, badges=${serverBadges.length}, stickers=${serverStickers.length}');
       }
 
       await _hiveService.saveUser(registeredUser);
+      if (!registeredUser.isGuest &&
+          (registeredUser.badges.isNotEmpty ||
+              registeredUser.stickers.isNotEmpty)) {
+        await Supabase.instance.client.auth.updateUser(
+          UserAttributes(data: {
+            'badges': registeredUser.badges,
+            'stickers': registeredUser.stickers,
+          }),
+        );
+      }
       state = UserState(user: registeredUser);
       print('✅ Registered user saved: ${registeredUser.displayNameOrEmail}');
-      print('📊 Streak: ${registeredUser.currentStreak} days (longest: ${registeredUser.longestStreak})');
+      print(
+          '📊 Streak: ${registeredUser.currentStreak} days (longest: ${registeredUser.longestStreak})');
       print('📚 Words learned: ${registeredUser.totalWordsLearned}');
-      print('📊 Quota: ${quotaManager.getTodayUsage()}/${quotaManager.dailyLimit} today');
+      print(
+          '📊 Quota: ${quotaManager.getTodayUsage()}/${quotaManager.dailyLimit} today');
     } catch (e, stackTrace) {
       print('❌ Error converting to registered user: $e');
       print('📚 Stack trace: $stackTrace');
       // Fallback: create user with default quota and preferences
-      final languageLevel = supabaseUser.userMetadata?['language_level'] as String?;
-      final englishVariant = supabaseUser.userMetadata?['english_variant'] as String?;
+      final languageLevel =
+          supabaseUser.userMetadata?['language_level'] as String?;
+      final englishVariant =
+          supabaseUser.userMetadata?['english_variant'] as String?;
 
       final registeredUser = UserModel.createRegisteredUser(
         id: supabaseUser.id,
         email: supabaseUser.email ?? 'user@example.com',
         displayName: supabaseUser.userMetadata?['display_name'] as String?,
         photoUrl: (supabaseUser.userMetadata?['avatar_url'] as String?) ??
-                  (supabaseUser.userMetadata?['picture'] as String?),
+            (supabaseUser.userMetadata?['picture'] as String?),
       ).copyWith(
         preferences: {
           'defaultCefrLevel': languageLevel ?? AppDefaults.defaultLanguageLevel,
-          'languageVariant': englishVariant ?? AppDefaults.defaultEnglishVariant,
+          'languageVariant':
+              englishVariant ?? AppDefaults.defaultEnglishVariant,
         },
       );
       await _hiveService.saveUser(registeredUser);
@@ -444,15 +512,30 @@ class UserNotifier extends StateNotifier<UserState> {
   }
 
   /// Sync user streak to Supabase
-  Future<void> _syncStreakToServer(String userId, int currentStreak, int longestStreak) async {
+  Future<void> _syncStreakToServer(
+    String userId,
+    int currentStreak,
+    int longestStreak, {
+    int? shields,
+    DateTime? lastActivityDate,
+    DateTime? streakStateUpdatedAt,
+  }) async {
     try {
       final client = Supabase.instance.client;
       await client.from('users').upsert({
         'id': userId,
         'current_streak': currentStreak,
         'longest_streak': longestStreak,
+        if (shields != null) 'shields_available': shields,
+        if (lastActivityDate != null)
+          'last_activity_date':
+              lastActivityDate.toIso8601String().split('T').first,
+        if (streakStateUpdatedAt != null)
+          'streak_state_updated_at':
+              streakStateUpdatedAt.toUtc().toIso8601String(),
       });
-      print('✅ Streak synced to server: current=$currentStreak, longest=$longestStreak');
+      print(
+          '✅ Streak synced to server: current=$currentStreak, longest=$longestStreak');
     } catch (e) {
       print('⚠️ Failed to sync streak to server: $e');
     }
@@ -474,7 +557,8 @@ class UserNotifier extends StateNotifier<UserState> {
         } else if (supabaseSession == null && !user.isGuest) {
           // User has local registered data but no Supabase session
           // Try to refresh session first (token might be expired)
-          print('🔄 No Supabase session but local user is registered, attempting refresh...');
+          print(
+              '🔄 No Supabase session but local user is registered, attempting refresh...');
           try {
             await Supabase.instance.client.auth.refreshSession();
             print('✅ Session refreshed successfully');
@@ -533,13 +617,14 @@ class UserNotifier extends StateNotifier<UserState> {
         final userId = client.auth.currentUser?.id;
         if (userId != null) {
           try {
-            await client.from('users').update({
-              'badges': user.badges,
-              'stickers': user.stickers,
-              'preferences': user.preferences,
-              'total_words_learned': user.totalWordsLearned,
-            }).eq('id', userId);
-            print('✅ User badges/stickers synced to Supabase: badges=${user.badges.length}, stickers=${user.stickers.length}');
+            await client.auth.updateUser(
+              UserAttributes(data: {
+                'badges': user.badges,
+                'stickers': user.stickers,
+              }),
+            );
+            print(
+                '✅ User badges/stickers synced to Supabase: badges=${user.badges.length}, stickers=${user.stickers.length}');
           } catch (e) {
             print('⚠️ Failed to sync user badges/stickers to Supabase: $e');
           }
@@ -567,7 +652,8 @@ class UserNotifier extends StateNotifier<UserState> {
           currentStreak: 0,
           longestStreak: 0,
           shields: 0,
-          lastStreakActivityDate: null,
+          clearLastStreakActivityDate: true,
+          clearStreakStateUpdatedAt: true,
         );
         await _hiveService.saveUser(resetUser);
         state = UserState(user: resetUser);
@@ -601,7 +687,8 @@ class UserNotifier extends StateNotifier<UserState> {
         currentStreak: 0,
         longestStreak: 0,
         shields: 0,
-        lastStreakActivityDate: null,
+        clearLastStreakActivityDate: true,
+        clearStreakStateUpdatedAt: true,
       );
       await _hiveService.saveUser(resetUser);
       return resetUser;
@@ -691,7 +778,8 @@ class UserNotifier extends StateNotifier<UserState> {
     final user = state.user;
     if (user == null) return false;
 
-    debugPrint('🔢 recordQuotaUsage called - current daily: ${user.quotaManager.getTodayUsage()}/${user.quotaManager.dailyLimit}');
+    debugPrint(
+        '🔢 recordQuotaUsage called - current daily: ${user.quotaManager.getTodayUsage()}/${user.quotaManager.dailyLimit}');
 
     // Check if user can generate
     if (!user.canGenerate) {
@@ -705,7 +793,7 @@ class UserNotifier extends StateNotifier<UserState> {
         final client = Supabase.instance.client;
         final supabaseUser = client.auth.currentUser;
         if (supabaseUser != null) {
-          final today = DateTime.now().toIso8601String().split('T')[0];
+          final today = QuotaManager.bangkokDateKey();
 
           // Get current quota from Supabase
           final quotaResponse = await client
@@ -723,17 +811,15 @@ class UserNotifier extends StateNotifier<UserState> {
             int newDailyCount = (lastReset == today) ? dailyCount + 1 : 1;
 
             // Update Supabase
-            await client
-                .from('user_quotas')
-                .update({
-                  'daily_gen_count': newDailyCount,
-                  'daily_gen_reset_date': today,
-                  'total_gen_count': totalCount + 1,
-                  'updated_at': DateTime.now().toIso8601String(),
-                })
-                .eq('user_id', supabaseUser.id);
+            await client.from('user_quotas').update({
+              'daily_gen_count': newDailyCount,
+              'daily_gen_reset_date': today,
+              'total_gen_count': totalCount + 1,
+              'updated_at': DateTime.now().toIso8601String(),
+            }).eq('user_id', supabaseUser.id);
 
-            print('✅ Synced quota to Supabase: daily=$newDailyCount, total=${totalCount + 1}');
+            print(
+                '✅ Synced quota to Supabase: daily=$newDailyCount, total=${totalCount + 1}');
           }
         }
       } catch (e) {
@@ -756,14 +842,16 @@ class UserNotifier extends StateNotifier<UserState> {
     if (user.isGuest) {
       try {
         await _hiveService.saveGuestQuotaBackup(updatedQuotaManager);
-        print('💾 Guest quota backup updated: ${updatedQuotaManager.usageHistory.length}/10');
+        print(
+            '💾 Guest quota backup updated: ${updatedQuotaManager.usageHistory.length}/10');
       } catch (e) {
         print('⚠️ Failed to save guest quota backup: $e');
         // Continue anyway - local update succeeded
       }
     }
 
-    debugPrint('✅ recordQuotaUsage completed - new daily: ${updatedQuotaManager.getTodayUsage()}/${updatedQuotaManager.dailyLimit}');
+    debugPrint(
+        '✅ recordQuotaUsage completed - new daily: ${updatedQuotaManager.getTodayUsage()}/${updatedQuotaManager.dailyLimit}');
     return true;
   }
 
@@ -786,11 +874,8 @@ class UserNotifier extends StateNotifier<UserState> {
       }
 
       // Fetch fresh data from database (users table) - like Profile tab does
-      final userData = await client
-          .from('users')
-          .select()
-          .eq('id', currentUser.id)
-          .single();
+      final userData =
+          await client.from('users').select().eq('id', currentUser.id).single();
 
       final displayName = userData['display_name'] as String?;
       final photoUrl = userData['avatar_url'] as String?;
@@ -798,9 +883,8 @@ class UserNotifier extends StateNotifier<UserState> {
       final englishVariant = userData['english_variant'] as String?;
 
       // Fetch fresh quota from database (same logic as _convertToRegisteredUser)
-      final quotaResponse = await client
-          .rpc('get_user_quota_with_reset', params: {'p_user_id': supabaseUser.id})
-          .maybeSingle();
+      final quotaResponse = await client.rpc('get_user_quota_with_reset',
+          params: {'p_user_id': supabaseUser.id}).maybeSingle();
 
       QuotaManager updatedQuotaManager = currentUser.quotaManager;
       if (quotaResponse != null) {
@@ -834,7 +918,8 @@ class UserNotifier extends StateNotifier<UserState> {
         print('⚠️ No quota data found, keeping current quota');
       }
 
-      print('📥 Refreshing from database: displayName=$displayName, photoUrl=$photoUrl');
+      print(
+          '📥 Refreshing from database: displayName=$displayName, photoUrl=$photoUrl');
 
       // Update UserModel with fresh data from database
       final updatedUser = currentUser.copyWith(
@@ -845,15 +930,22 @@ class UserNotifier extends StateNotifier<UserState> {
           // Preserve other preferences
           ...currentUser.preferences,
           // Override with fresh values from Supabase
-          'defaultCefrLevel': languageLevel ?? currentUser.preferences['defaultCefrLevel'] ?? AppDefaults.defaultLanguageLevel,
-          'languageVariant': englishVariant ?? currentUser.preferences['languageVariant'] ?? AppDefaults.defaultEnglishVariant,
+          'defaultCefrLevel': languageLevel ??
+              currentUser.preferences['defaultCefrLevel'] ??
+              AppDefaults.defaultLanguageLevel,
+          'languageVariant': englishVariant ??
+              currentUser.preferences['languageVariant'] ??
+              AppDefaults.defaultEnglishVariant,
         },
       );
 
-      print('📝 OLD: ${currentUser.displayName} → NEW: ${updatedUser.displayName}');
+      print(
+          '📝 OLD: ${currentUser.displayName} → NEW: ${updatedUser.displayName}');
       print('📝 OLD: ${currentUser.photoUrl} → NEW: ${updatedUser.photoUrl}');
-      print('📝 OLD quota: ${currentUser.quotaManager.getTodayUsage()}/${currentUser.quotaManager.dailyLimit}');
-      print('📝 NEW quota: ${updatedUser.quotaManager.getTodayUsage()}/${updatedUser.quotaManager.dailyLimit}');
+      print(
+          '📝 OLD quota: ${currentUser.quotaManager.getTodayUsage()}/${currentUser.quotaManager.dailyLimit}');
+      print(
+          '📝 NEW quota: ${updatedUser.quotaManager.getTodayUsage()}/${updatedUser.quotaManager.dailyLimit}');
 
       await _hiveService.saveUser(updatedUser);
       state = UserState(user: updatedUser);
@@ -979,15 +1071,19 @@ class VocabularyNotifier extends StateNotifier<VocabularyState> {
     final authState = Supabase.instance.client.auth.onAuthStateChange;
     _authSubscription = authState.listen((data) async {
       final AuthChangeEvent event = data.event;
-      final newUserId = data.session?.user.id ?? Supabase.instance.client.auth.currentUser?.id;
-      print('🔐 [VocabularyNotifier] Auth state changed: $event, user: $newUserId');
+      final newUserId = data.session?.user.id ??
+          Supabase.instance.client.auth.currentUser?.id;
+      print(
+          '🔐 [VocabularyNotifier] Auth state changed: $event, user: $newUserId');
 
       if (event == AuthChangeEvent.signedIn) {
-        print('🔄 [VocabularyNotifier] User signed in: $newUserId (previous: $_currentUserId)');
+        print(
+            '🔄 [VocabularyNotifier] User signed in: $newUserId (previous: $_currentUserId)');
 
         // Check if this is a different user signing in
         if (_currentUserId != null && _currentUserId != newUserId) {
-          print('🔄 [VocabularyNotifier] Different user detected, clearing local vocabulary & cards...');
+          print(
+              '🔄 [VocabularyNotifier] Different user detected, clearing local vocabulary & cards...');
           await _hiveService.clearAllVocabulary();
           await _hiveService.clearAllWordCards();
         }
@@ -996,7 +1092,8 @@ class VocabularyNotifier extends StateNotifier<VocabularyState> {
         await _loadVocabularies();
         await syncFromCloud();
       } else if (event == AuthChangeEvent.signedOut) {
-        print('👋 [VocabularyNotifier] User signed out, clearing local vocabulary & cards...');
+        print(
+            '👋 [VocabularyNotifier] User signed out, clearing local vocabulary & cards...');
         _currentUserId = null;
         await _hiveService.clearAllVocabulary();
         await _hiveService.clearAllWordCards();
@@ -1015,7 +1112,8 @@ class VocabularyNotifier extends StateNotifier<VocabularyState> {
         await _hiveService.saveVocabulary(vocab);
       }
       state = VocabularyState(vocabularies: syncedVocabs);
-      print('✅ VocabularyNotifier: Synced ${syncedVocabs.length} vocabularies from cloud');
+      print(
+          '✅ VocabularyNotifier: Synced ${syncedVocabs.length} vocabularies from cloud');
     } catch (e) {
       print('❌ VocabularyNotifier sync failed: $e');
       final localVocabs = await _hiveService.getAllVocabulary();
@@ -1029,6 +1127,7 @@ class VocabularyNotifier extends StateNotifier<VocabularyState> {
     await _hiveService.clearAllWordCards();
     state = const VocabularyState(vocabularies: []);
   }
+
   Future<void> _loadVocabularies() async {
     try {
       var vocabularies = await _hiveService.getAllVocabulary();
@@ -1038,7 +1137,8 @@ class VocabularyNotifier extends StateNotifier<VocabularyState> {
       if (vocabularies.isNotEmpty || !_syncService.isLoggedIn) {
         try {
           final scrapbooks = await _hiveService.getAllScrapbooks();
-          final existingWords = vocabularies.map((v) => v.word.toLowerCase().trim()).toSet();
+          final existingWords =
+              vocabularies.map((v) => v.word.toLowerCase().trim()).toSet();
           final missingVocabs = <VocabularyModel>[];
 
           for (final sb in scrapbooks) {
@@ -1049,7 +1149,9 @@ class VocabularyNotifier extends StateNotifier<VocabularyState> {
                 final newVocab = VocabularyModel(
                   id: 'sb_${sb.id}_${sbWord.word.replaceAll(' ', '_')}',
                   word: sbWord.word,
-                  partOfSpeech: sbWord.partOfSpeech.isNotEmpty ? sbWord.partOfSpeech : 'noun',
+                  partOfSpeech: sbWord.partOfSpeech.isNotEmpty
+                      ? sbWord.partOfSpeech
+                      : 'noun',
                   thaiTranslation: sbWord.thaiTranslation,
                   englishSentence: sb.englishSentence,
                   thaiSentence: sb.thaiSentence,
@@ -1067,7 +1169,8 @@ class VocabularyNotifier extends StateNotifier<VocabularyState> {
           }
 
           if (missingVocabs.isNotEmpty) {
-            print('🔄 [VocabularyNotifier] Backfilling ${missingVocabs.length} words from scrapbooks...');
+            print(
+                '🔄 [VocabularyNotifier] Backfilling ${missingVocabs.length} words from scrapbooks...');
             for (final vocab in missingVocabs) {
               await _hiveService.saveVocabulary(vocab);
               if (!_syncService.isLoggedIn) {
@@ -1087,15 +1190,24 @@ class VocabularyNotifier extends StateNotifier<VocabularyState> {
 
       for (final v in vocabularies) {
         final key = v.word.trim().toLowerCase();
-        if (!uniqueMap.containsKey(key)) {
+        final existing = uniqueMap[key];
+        if (existing == null) {
           uniqueMap[key] = v;
         } else {
+          uniqueMap[key] = existing.mergeExampleContexts(v);
           duplicateIds.add(v.id);
         }
       }
 
       if (duplicateIds.isNotEmpty) {
-        print('🧹 [VocabularyNotifier] Deduplicating ${duplicateIds.length} existing duplicate vocabularies...');
+        for (final vocab in uniqueMap.values) {
+          await _hiveService.saveVocabulary(vocab);
+          if (_syncService.isLoggedIn) {
+            await _syncService.updateInCloud(vocab);
+          }
+        }
+        print(
+            '🧹 [VocabularyNotifier] Deduplicating ${duplicateIds.length} existing duplicate vocabularies...');
         for (final dupId in duplicateIds) {
           await _hiveService.deleteVocabulary(dupId);
           await _hiveService.deleteWordCard(dupId);
@@ -1112,12 +1224,28 @@ class VocabularyNotifier extends StateNotifier<VocabularyState> {
   Future<void> addVocabulary(VocabularyModel vocabulary) async {
     try {
       final normWord = vocabulary.word.trim().toLowerCase();
-      final exists = state.vocabularies.any(
+      final existingIndex = state.vocabularies.indexWhere(
         (v) => v.word.trim().toLowerCase() == normWord,
       );
 
-      if (exists) {
-        print('ℹ️ [VocabularyNotifier] Word "$normWord" already exists in collection. Skipping duplicate.');
+      if (existingIndex >= 0) {
+        final existing = state.vocabularies[existingIndex];
+        final merged = existing.mergeExampleContexts(vocabulary);
+        if (merged == existing) {
+          print(
+              'ℹ️ [VocabularyNotifier] Duplicate context for "$normWord"; skipping.');
+          return;
+        }
+
+        await _hiveService.saveVocabulary(merged);
+        if (_syncService.isLoggedIn) {
+          await _syncService.updateInCloud(merged);
+        }
+        final updatedVocabs = List<VocabularyModel>.from(state.vocabularies);
+        updatedVocabs[existingIndex] = merged;
+        state = VocabularyState(vocabularies: updatedVocabs);
+        print(
+            '✅ [VocabularyNotifier] Added another photo/example context for "$normWord".');
         return;
       }
 
@@ -1134,7 +1262,8 @@ class VocabularyNotifier extends StateNotifier<VocabularyState> {
         print('✅ Word card created: ${vocabulary.word}');
       }
 
-      final currentWithoutNew = state.vocabularies.where((v) => v.id != vocabulary.id).toList();
+      final currentWithoutNew =
+          state.vocabularies.where((v) => v.id != vocabulary.id).toList();
       state = VocabularyState(
         vocabularies: [...currentWithoutNew, vocabulary],
       );
@@ -1149,19 +1278,29 @@ class VocabularyNotifier extends StateNotifier<VocabularyState> {
   Future<void> addVocabularies(List<VocabularyModel> vocabularies) async {
     if (vocabularies.isEmpty) return;
     try {
-      final addedVocabs = <VocabularyModel>[];
       final currentVocabs = List<VocabularyModel>.from(state.vocabularies);
-      final existingWords = currentVocabs.map((v) => v.word.trim().toLowerCase()).toSet();
+      final indexByWord = <String, int>{
+        for (var i = 0; i < currentVocabs.length; i++)
+          currentVocabs[i].word.trim().toLowerCase(): i,
+      };
+      var didChange = false;
 
       for (final vocabulary in vocabularies) {
         final normWord = vocabulary.word.trim().toLowerCase();
-        if (existingWords.contains(normWord)) {
-          print('ℹ️ [VocabularyNotifier] Word "$normWord" already exists in collection. Skipping duplicate.');
+        final existingIndex = indexByWord[normWord];
+        if (existingIndex != null) {
+          final existing = currentVocabs[existingIndex];
+          final merged = existing.mergeExampleContexts(vocabulary);
+          if (merged == existing) continue;
+
+          await _hiveService.saveVocabulary(merged);
+          if (_syncService.isLoggedIn) {
+            await _syncService.updateInCloud(merged);
+          }
+          currentVocabs[existingIndex] = merged;
+          didChange = true;
           continue;
         }
-
-        existingWords.add(normWord);
-        addedVocabs.add(vocabulary);
 
         await _hiveService.saveVocabulary(vocabulary);
         if (_syncService.isLoggedIn) {
@@ -1171,12 +1310,13 @@ class VocabularyNotifier extends StateNotifier<VocabularyState> {
           await _reviewService.createCard(vocabulary.id);
           print('✅ Word card created: ${vocabulary.word}');
         }
+        indexByWord[normWord] = currentVocabs.length;
+        currentVocabs.add(vocabulary);
+        didChange = true;
       }
 
-      if (addedVocabs.isNotEmpty) {
-        state = VocabularyState(
-          vocabularies: [...state.vocabularies, ...addedVocabs],
-        );
+      if (didChange) {
+        state = VocabularyState(vocabularies: currentVocabs);
       }
     } catch (e) {
       state = VocabularyState(

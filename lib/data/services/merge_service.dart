@@ -32,6 +32,9 @@ enum MergeStrategy {
   /// Use most recent by timestamp (e.g., last activity)
   mostRecent,
 
+  /// Select a value from the side with the latest activity date
+  latestActivity,
+
   /// Server wins if exists, otherwise guest (for new users)
   serverFallbackGuest,
 
@@ -66,7 +69,8 @@ class MergeFieldConfig {
 /// Result of a merge operation
 class MergeResult {
   final Map<String, dynamic> mergedData;
-  final Map<String, String> mergeDetails; // field -> description of what was merged
+  final Map<String, String>
+      mergeDetails; // field -> description of what was merged
 
   const MergeResult({
     required this.mergedData,
@@ -76,7 +80,8 @@ class MergeResult {
   /// Get human-readable summary of merge result
   String get summary {
     if (mergeDetails.isEmpty) return 'No data merged';
-    final merged = mergeDetails.entries.map((e) => '${e.key}: ${e.value}').join(', ');
+    final merged =
+        mergeDetails.entries.map((e) => '${e.key}: ${e.value}').join(', ');
     return 'Merged: $merged';
   }
 }
@@ -88,21 +93,33 @@ class MergeService {
     // Streak-related fields
     'current_streak': MergeFieldConfig(
       fieldKey: 'currentStreak',
-      strategy: MergeStrategy.max,
+      serverKeyName: 'current_streak',
+      strategy: MergeStrategy.latestActivity,
+      dependsOn: 'streak_state_updated_at',
+    ),
+    'streak_state_updated_at': MergeFieldConfig(
+      fieldKey: 'streakStateUpdatedAt',
+      serverKeyName: 'streak_state_updated_at',
+      strategy: MergeStrategy.mostRecent,
     ),
     'longest_streak': MergeFieldConfig(
       fieldKey: 'longestStreak',
+      serverKeyName: 'longest_streak',
       strategy: MergeStrategy.max,
     ),
     'last_activity_date': MergeFieldConfig(
       fieldKey: 'lastStreakActivityDate',
+      serverKeyName: 'last_activity_date',
       strategy: MergeStrategy.mostRecent,
     ),
     'shields_available': MergeFieldConfig(
       fieldKey: 'shields',
       serverKeyName: 'shields_available',
-      strategy: MergeStrategy.followWinner,
-      dependsOn: 'currentStreak', // Follow whoever won current_streak
+      strategy: MergeStrategy.max,
+    ),
+    'badges': MergeFieldConfig(
+      fieldKey: 'badges',
+      strategy: MergeStrategy.union,
     ),
 
     // Lists/Arrays - merge without duplicates
@@ -184,7 +201,8 @@ class MergeService {
     // Post-processing: resolve followWinner fields
     for (final entry in mergeConfig.entries) {
       final fieldConfig = entry.value;
-      if (fieldConfig.strategy == MergeStrategy.followWinner && fieldConfig.dependsOn != null) {
+      if (fieldConfig.strategy == MergeStrategy.followWinner &&
+          fieldConfig.dependsOn != null) {
         final dependsOnField = fieldConfig.dependsOn!;
 
         // Find which field the dependsOn field refers to in mergeConfig
@@ -196,7 +214,8 @@ class MergeService {
           }
         }
 
-        if (dependsOnConfigKey != null && merged.containsKey(dependsOnConfigKey)) {
+        if (dependsOnConfigKey != null &&
+            merged.containsKey(dependsOnConfigKey)) {
           // Determine winner by comparing original values
           final guestValue = _getNestedValue(guestData, fieldConfig.guestKey);
           final serverValue = hasServerData
@@ -217,17 +236,89 @@ class MergeService {
           if (depServer > depGuest) {
             // Server won, use server value
             merged[entry.key] = serverValue ?? guestValue ?? _defaultValue();
-            details[entry.key] = 'Followed server winner (based on $dependsOnField)';
+            details[entry.key] =
+                'Followed server winner (based on $dependsOnField)';
           } else if (depGuest > depServer) {
             // Guest won, use guest value
             merged[entry.key] = guestValue ?? serverValue ?? _defaultValue();
-            details[entry.key] = 'Followed guest winner (based on $dependsOnField)';
+            details[entry.key] =
+                'Followed guest winner (based on $dependsOnField)';
           } else {
             // Equal or no server, use any (prefer guest)
             merged[entry.key] = guestValue ?? serverValue ?? _defaultValue();
             details[entry.key] = 'Equal values, used guest';
           }
         }
+      }
+
+      if (fieldConfig.strategy == MergeStrategy.latestActivity &&
+          fieldConfig.dependsOn != null) {
+        final guestDate = _effectiveStreakStateTime(guestData);
+        final serverDate =
+            hasServerData ? _effectiveStreakStateTime(serverData!) : null;
+        final guestValue = _getNestedValue(guestData, fieldConfig.guestKey);
+        final serverValue = hasServerData
+            ? _getNestedValue(serverData!, fieldConfig.serverKey)
+            : null;
+
+        if (guestDate == null && serverDate == null) {
+          merged[entry.key] = _maxStrategy(
+            guestValue,
+            serverValue,
+            hasServerData,
+          ).value;
+          details[entry.key] = 'No activity dates; kept the higher streak';
+        } else if (serverDate == null ||
+            (guestDate != null && guestDate.isAfter(serverDate))) {
+          merged[entry.key] = guestValue ?? serverValue ?? _defaultValue();
+          final activityConfig = mergeConfig['last_activity_date'];
+          if (activityConfig != null) {
+            merged['last_activity_date'] =
+                _getNestedValue(guestData, activityConfig.guestKey);
+          }
+          details[entry.key] =
+              'Used streak from the guest with latest activity';
+        } else if (guestDate == null || serverDate.isAfter(guestDate)) {
+          merged[entry.key] = serverValue ?? guestValue ?? _defaultValue();
+          final activityConfig = mergeConfig['last_activity_date'];
+          if (activityConfig != null && hasServerData) {
+            merged['last_activity_date'] = _getNestedValue(
+              serverData!,
+              activityConfig.serverKey,
+            );
+          }
+          details[entry.key] =
+              'Used streak from the server with latest activity';
+        } else {
+          merged[entry.key] = _maxStrategy(
+            guestValue,
+            serverValue,
+            hasServerData,
+          ).value;
+          details[entry.key] = 'Same activity date; kept the higher streak';
+        }
+      }
+    }
+
+    // Keep the activity date paired with the streak state that won by state
+    // timestamp. A reset can be newer even when its last actual activity day
+    // is older than the other account's activity day.
+    if (hasServerData &&
+        mergeConfig.containsKey('current_streak') &&
+        mergeConfig.containsKey('last_activity_date')) {
+      final guestStateTime = _effectiveStreakStateTime(guestData);
+      final serverStateTime = _effectiveStreakStateTime(serverData!);
+      final activityConfig = mergeConfig['last_activity_date']!;
+
+      if (guestStateTime != null &&
+          (serverStateTime == null ||
+              guestStateTime.isAfter(serverStateTime))) {
+        merged['last_activity_date'] =
+            _getNestedValue(guestData, activityConfig.guestKey);
+      } else if (serverStateTime != null &&
+          (guestStateTime == null || serverStateTime.isAfter(guestStateTime))) {
+        merged['last_activity_date'] =
+            _getNestedValue(serverData, activityConfig.serverKey);
       }
     }
 
@@ -268,6 +359,13 @@ class MergeService {
 
       case MergeStrategy.mostRecent:
         return _mostRecentStrategy(guestValue, serverValue, hasServerData);
+
+      case MergeStrategy.latestActivity:
+        // Resolved after the activity dates have been merged.
+        return (
+          value: guestValue ?? serverValue ?? _defaultValue(),
+          description: 'Selected by latest activity date'
+        );
 
       case MergeStrategy.serverFallbackGuest:
         if (hasServerData && serverValue != null) {
@@ -336,7 +434,10 @@ class MergeService {
     final serverList = serverValue is List ? serverValue : <dynamic>[];
 
     if (!hasServerData || serverList.isEmpty) {
-      return (value: List.from(guestList), description: 'No server data, used guest');
+      return (
+        value: List.from(guestList),
+        description: 'No server data, used guest'
+      );
     }
 
     if (guestList.isEmpty) {
@@ -351,7 +452,8 @@ class MergeService {
       }
     }
 
-    final description = 'Merged: ${serverList.length} server + ${guestList.length} guest → ${merged.length} total';
+    final description =
+        'Merged: ${serverList.length} server + ${guestList.length} guest → ${merged.length} total';
     return (value: merged, description: description);
   }
 
@@ -408,6 +510,50 @@ class MergeService {
     if (value is DateTime) return value;
     if (value is String) return DateTime.tryParse(value);
     return null;
+  }
+
+  DateTime? _parseActivityDay(dynamic value) {
+    if (value == null) return null;
+    if (value is DateTime) {
+      return DateTime(value.year, value.month, value.day);
+    }
+    if (value is! String || value.isEmpty) return null;
+
+    final datePart = value.split('T').first;
+    final parts = datePart.split('-');
+    if (parts.length == 3) {
+      final year = int.tryParse(parts[0]);
+      final month = int.tryParse(parts[1]);
+      final day = int.tryParse(parts[2]);
+      if (year != null && month != null && day != null) {
+        return DateTime(year, month, day);
+      }
+    }
+    final parsed = DateTime.tryParse(value)?.toLocal();
+    return parsed == null
+        ? null
+        : DateTime(parsed.year, parsed.month, parsed.day);
+  }
+
+  DateTime? _effectiveStreakStateTime(Map<String, dynamic> data) {
+    final currentStreak = int.tryParse(
+      (data['currentStreak'] ?? data['current_streak'] ?? '').toString(),
+    );
+    final lastActivity =
+        data['lastStreakActivityDate'] ?? data['last_activity_date'];
+
+    // A zero streak with no actual activity date is an empty/reset guest
+    // profile (for example after logout), not a newer learning state. Real
+    // streak expiry keeps the last activity date and must remain mergeable.
+    if (currentStreak == 0 && lastActivity == null) return null;
+
+    final stateTime = _parseDateTime(
+        data['streakStateUpdatedAt'] ?? data['streak_state_updated_at']);
+    if (stateTime != null) return stateTime;
+
+    // Older local records predate streak_state_updated_at. Use their actual
+    // last activity date as a best-effort fallback until they are updated.
+    return _parseActivityDay(lastActivity);
   }
 
   /// Get nested value from map using dot notation

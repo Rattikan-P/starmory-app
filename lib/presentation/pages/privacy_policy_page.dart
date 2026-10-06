@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../widgets/galaxy_screen_background.dart';
+import '../../constants/design_tokens.dart';
 
 class PrivacyPolicyPage extends StatelessWidget {
   const PrivacyPolicyPage({super.key});
@@ -8,40 +8,36 @@ class PrivacyPolicyPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: GalaxyScreenBackground(
+      backgroundColor: Colors.white,
+      body: Container(
         child: SafeArea(
+          bottom: false,
           child: Column(
             children: [
                 // Top bar
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                   child: Row(
                     children: [
-                      Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.9),
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.08),
-                              blurRadius: 10,
-                              offset: const Offset(0, 2),
+                      InkWell(
+                        borderRadius: BorderRadius.circular(22),
+                        onTap: () => Navigator.pop(context),
+                        child: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: const Color(0xFFF3F4F6),
+                            border: Border.all(
+                              color: const Color(0xFFE5E7EB),
+                              width: 1,
                             ),
-                          ],
-                        ),
-                        child: IconButton(
-                          icon: const Icon(Icons.arrow_back_ios_new_rounded,
-                            color: Color(0xFF1F2937), size: 20),
-                          onPressed: () => Navigator.pop(context),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Text(
-                        'Privacy Policy',
-                        style: GoogleFonts.lexend(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFF5E3A8E),
+                          ),
+                          child: const Icon(
+                            Icons.arrow_back_ios_new_rounded,
+                            size: 20,
+                            color: Color(0xFF1F2937),
+                          ),
                         ),
                       ),
                     ],
@@ -56,46 +52,35 @@ class PrivacyPolicyPage extends StatelessWidget {
                       borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
                     ),
                     child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(24),
+                      padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           // Header
-                          Center(
-                            child: Container(
-                              width: 64,
-                              height: 64,
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [Color(0xFF8B5CF6), Color(0xFFA78BFA)],
-                                ),
-                                borderRadius: BorderRadius.circular(20),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: const Color(0xFF8B5CF6).withValues(alpha: 0.3),
-                                    blurRadius: 12,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
-                              ),
-                              child: const Icon(
-                                Icons.privacy_tip_rounded,
-                                size: 32,
-                                color: Colors.white,
+                          SizedBox(
+                            height: 90,
+                            child: Center(
+                              child: Image.asset(
+                                'assets/images/mascots/privacy_mascot.png',
+                                width: 90,
+                                height: 90,
+                                fit: BoxFit.contain,
                               ),
                             ),
                           ),
                           const SizedBox(height: 20),
 
-                          Center(
-                            child: Text(
-                              'Privacy Policy',
-                              style: GoogleFonts.cormorantUnicase(
-                                fontSize: 28,
-                                fontWeight: FontWeight.bold,
-                                color: const Color(0xFF1f2937),
+                          SizedBox(
+                            height: 36,
+                            child: Center(
+                              child: Text(
+                                'Privacy Policy',
+                                style: GoogleFonts.cormorantUnicase(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.bold,
+                                  color: const Color(0xFF1f2937),
+                                ),
+                                maxLines: 1,
                               ),
                             ),
                           ),
@@ -263,7 +248,7 @@ We are working on setting up direct email contact and will update this section s
             ),
           ),
         ),
-      );
+    );
   }
 }
 

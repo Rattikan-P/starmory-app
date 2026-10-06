@@ -168,7 +168,7 @@ class ReviewService {
       var query = _client
           .from('vocabularies')
           .select(
-              'id, word, part_of_speech, thai_translation, english_sentence, thai_sentence, cefr_level, communicative_function, language_variant, image_url, created_at, updated_at, tags, is_favorite, topic')
+              'id, word, part_of_speech, thai_translation, english_sentence, thai_sentence, cefr_level, communicative_function, language_variant, image_url, created_at, updated_at, tags, is_favorite, topic, additional_examples')
           .eq('user_id', userId);
 
       if (existingVocabIds.isNotEmpty) {

@@ -5,16 +5,22 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../constants/design_tokens.dart';
 import '../providers/providers.dart';
 import '../../data/models/vocabulary_model.dart';
 import '../../data/models/scrapbook_model.dart';
 import '../../data/services/gemini_service.dart';
 import '../../data/services/tts_service.dart';
 import 'generation_loading_screen.dart';
+import '../widgets/app_loading_widgets.dart';
 import 'edit_scrapbook_screen.dart';
 import 'auth/account_method_page.dart';
+import '../widgets/tokenized_notice_dialogs.dart';
+import '../widgets/bottom_sheet_chrome.dart';
+import '../widgets/app_empty_state.dart';
 import '../utils/reward_unlock_helper.dart';
 import 'dart:ui';
+import '../../utils/snackbar_helper.dart';
 
 /// Interactive Vocabulary Result Screen
 /// Shows image with clickable dots, word chips, and context customization
@@ -47,6 +53,7 @@ class _InteractiveVocabularyScreenState
   final Set<String> _regeneratingWordIds = {};
   bool _isRegenerating = false;
   _VocabularyDot? _selectedDotForOverlay;
+  double _initialSheetSize = 0.35;
 
   // Sheet Controller for auto-collapsing sheet when dot is tapped
   final DraggableScrollableController _sheetController =
@@ -352,6 +359,7 @@ class _InteractiveVocabularyScreenState
       debugPrint('📝 Using fallback sentences instead');
       // Use fallback sentences on error
       _applyFallbackSentences();
+      _showSentenceGenerationError();
     }
   }
 
@@ -508,7 +516,8 @@ class _InteractiveVocabularyScreenState
           width: double.infinity,
           height: 54,
           child: ElevatedButton(
-            onPressed: _selectedWordIds.isEmpty ? null : _navigateToEditScrapbook,
+            onPressed:
+                _selectedWordIds.isEmpty ? null : _navigateToEditScrapbook,
             style: ElevatedButton.styleFrom(
               elevation: 4,
               shadowColor: const Color(0xFF8B5CF6).withValues(alpha: 0.35),
@@ -571,6 +580,7 @@ class _InteractiveVocabularyScreenState
       ),
     );
   }
+
   Future<void> _handleToggleCombinedSentence() async {
     final value = !_useCombinedSentence;
 
@@ -828,7 +838,7 @@ class _InteractiveVocabularyScreenState
           builder: (context, snapshot) {
             // Show loading while waiting
             if (!snapshot.hasData && !snapshot.hasError) {
-              return const Center(child: CircularProgressIndicator());
+              return const Center(child: StarLoadingIndicator(size: 42));
             }
 
             // Handle error or null result
@@ -871,7 +881,8 @@ class _InteractiveVocabularyScreenState
                           children: [
                             OutlinedButton.icon(
                               onPressed: () => Navigator.pop(context),
-                              icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+                              icon: const Icon(Icons.arrow_back_ios_new_rounded,
+                                  size: 20),
                               label: const Text('Go Back'),
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: const Color(0xFF8B5CF6),
@@ -950,20 +961,27 @@ class _InteractiveVocabularyScreenState
             // Store dimensions for overlay use
             _containerSize = Size(constraints.maxWidth, constraints.maxHeight);
             _imageSize = imageSize;
-            _imageFit = _calculateBoxFitContain(
+            final fit = _calculateBoxFitContain(
               imageSize,
               constraints.maxWidth,
               constraints.maxHeight,
             );
+            _imageFit = fit;
+
+            final displayedWidth = imageSize.width * fit.scale;
+            final displayedHeight = imageSize.height * fit.scale;
 
             return Stack(
               clipBehavior: Clip.none,
               children: [
-                Align(
-                  alignment: Alignment.topCenter,
+                Positioned(
+                  left: fit.offsetX,
+                  top: fit.offsetY,
+                  width: displayedWidth,
+                  height: displayedHeight,
                   child: Image.file(
                     File(widget.imagePath),
-                    fit: BoxFit.contain,
+                    fit: BoxFit.fill,
                     errorBuilder: (context, error, stackTrace) {
                       return Center(
                         child: Column(
@@ -1002,6 +1020,7 @@ class _InteractiveVocabularyScreenState
         return FutureBuilder<Size?>(
           future: _getImageDimensions(),
           builder: (context, snapshot) {
+            double initialChildSize = 0.35;
             double minChildSize = 0.15;
             double maxChildSize = 0.85;
 
@@ -1018,8 +1037,17 @@ class _InteractiveVocabularyScreenState
               final displayedImageHeight = imageSize.height * fit.scale;
 
               final remainingHeight = screenHeight - displayedImageHeight;
-              minChildSize = (remainingHeight / screenHeight).clamp(0.08, 0.5);
+              final remainingRatio = remainingHeight / screenHeight;
+
+              // Seamlessly fit right below the image for landscape/square photos,
+              // while ensuring the sheet stays above the floating button (minimum 0.30) for very tall portrait photos.
+              initialChildSize = remainingRatio.clamp(0.30, 0.75);
+              minChildSize = initialChildSize; // Lock bottom boundary
+              _initialSheetSize = initialChildSize;
             }
+
+            // Ensure constraints: minChildSize <= initialChildSize <= maxChildSize
+            minChildSize = minChildSize.clamp(0.10, initialChildSize);
 
             return NotificationListener<Notification>(
               onNotification: (notification) {
@@ -1033,98 +1061,98 @@ class _InteractiveVocabularyScreenState
               },
               child: DraggableScrollableSheet(
                 controller: _sheetController,
-                initialChildSize: minChildSize.clamp(0.35, 0.85),
+                initialChildSize: initialChildSize,
                 minChildSize: minChildSize,
                 maxChildSize: maxChildSize,
                 builder: (context, scrollController) {
-                return ClipRRect(
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(32),
-                  ),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(
-                      sigmaX: 18,
-                      sigmaY: 18,
+                  return ClipRRect(
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(DesignTokens.bottomSheetRadius),
                     ),
-                    child: GestureDetector(
-                      onTap: _selectedDotForOverlay != null
-                          ? _hideWordOverlay
-                          : null,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.82),
-                          borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(32),
-                          ),
-                          border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.6)),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF8B5CF6)
-                                  .withValues(alpha: 0.08),
-                              blurRadius: 30,
-                              offset: const Offset(0, -10),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(
+                        sigmaX: 18,
+                        sigmaY: 18,
+                      ),
+                      child: GestureDetector(
+                        onTap: _selectedDotForOverlay != null
+                            ? _hideWordOverlay
+                            : null,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.82),
+                            borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(
+                                  DesignTokens.bottomSheetRadius),
                             ),
-                          ],
-                        ),
-                        child: CustomScrollView(
-                          controller: scrollController,
-                          slivers: [
-                            // Drag Handle
-                            SliverToBoxAdapter(
-                              child: Center(
-                                child: Container(
-                                  margin:
-                                      const EdgeInsets.only(top: 12, bottom: 8),
-                                  width: 40,
-                                  height: 4,
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFDDD6FE),
-                                    borderRadius: BorderRadius.circular(99),
+                            border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.6)),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF8B5CF6)
+                                    .withValues(alpha: 0.08),
+                                blurRadius: 30,
+                                offset: const Offset(0, -10),
+                              ),
+                            ],
+                          ),
+                          child: CustomScrollView(
+                            controller: scrollController,
+                            physics: const ClampingScrollPhysics(),
+                            slivers: [
+                              // Drag Handle
+                              SliverToBoxAdapter(
+                                child: Center(
+                                  child: AppBottomSheetDragHandle(
+                                    margin: const EdgeInsets.only(
+                                      top: 12,
+                                      bottom: 8,
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
 
-                            // Selected Words Chips
-                            SliverToBoxAdapter(
-                                child: _buildSelectedWordsChips()),
+                              // Selected Words Chips
+                              SliverToBoxAdapter(
+                                  child: _buildSelectedWordsChips()),
 
-                            // Combined Sentence Toggle & Display (Only when words are selected)
-                            if (_selectedWordIds.isNotEmpty) ...[
-                              SliverToBoxAdapter(
-                                  child: _buildCombinedSentenceToggle()),
-                              SliverToBoxAdapter(
-                                child: _buildCombinedSentenceDisplay(),
-                              ),
+                              // Combined Sentence Toggle & Display (Only when words are selected)
+                              if (_selectedWordIds.isNotEmpty) ...[
+                                SliverToBoxAdapter(
+                                    child: _buildCombinedSentenceToggle()),
+                                SliverToBoxAdapter(
+                                  child: _buildCombinedSentenceDisplay(),
+                                ),
+                              ],
+
+                              // Word Details / Empty State
+                              // Hide individual word cards when combined mode is ON
+                              if (_selectedWordIds.isEmpty)
+                                _buildEmptyStateSliver()
+                              else if (!_useCombinedSentence)
+                                _buildWordDetailsSliver(scrollController),
+
+                              // Bottom padding so content is never blocked by "Create Scrapbook" button
+                              if (_selectedWordIds.isNotEmpty)
+                                SliverToBoxAdapter(
+                                  child: SizedBox(
+                                    height: 110 +
+                                        MediaQuery.of(context).padding.bottom,
+                                  ),
+                                ),
                             ],
-
-                            // Word Details / Empty State
-                            // Hide individual word cards when combined mode is ON
-                            if (_selectedWordIds.isEmpty)
-                              _buildEmptyStateSliver(scrollController)
-                            else if (!_useCombinedSentence)
-                              _buildWordDetailsSliver(scrollController),
-
-                            // Bottom padding so content is never blocked by "Create Scrapbook" button
-                            SliverToBoxAdapter(
-                              child: SizedBox(
-                                height: 110 + MediaQuery.of(context).padding.bottom,
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                );
-              },
-            ),
-          );
-        },
-      );
-    },
-  );
+                  );
+                },
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   /// Build word overlay popup near the dot
@@ -1156,9 +1184,9 @@ class _InteractiveVocabularyScreenState
     double overlayX = displayedX - overlayWidth / 2;
     double overlayY = displayedY + dotSize / 2 + 8;
 
-    // Reserve space for bottom sheet (min height ~35% of screen) and safe area
+    // Reserve space for bottom sheet (based on dynamic initial sheet height) and safe area
     final bottomSafeArea = MediaQuery.of(context).padding.bottom;
-    final bottomSheetMinHeight = containerHeight * 0.35;
+    final bottomSheetMinHeight = containerHeight * _initialSheetSize;
     final reservedBottomSpace = bottomSheetMinHeight + bottomSafeArea;
     final maxBottomY =
         containerHeight - overlayHeight - reservedBottomSpace - 8;
@@ -1349,26 +1377,30 @@ class _InteractiveVocabularyScreenState
     return await File(widget.imagePath).readAsBytes();
   }
 
-  /// Calculate BoxFit.contain scaling and position (aligned top-center)
+  /// Calculate BoxFit.contain scaling and position (aligned top-center, with safe max height for excessively tall images)
   ({double scale, double offsetX, double offsetY}) _calculateBoxFitContain(
     Size imageSize,
     double containerWidth,
     double containerHeight,
   ) {
+    // Maximum height allowed for the image (68% of screen) to prevent excessively tall photos
+    // from extending into the bottom button/sheet area
+    final maxAllowedHeight = containerHeight * 0.68;
+
     final imageAspectRatio = imageSize.width / imageSize.height;
-    final containerAspectRatio = containerWidth / containerHeight;
+    final containerAspectRatio = containerWidth / maxAllowedHeight;
 
     double scale;
     double offsetX = 0;
     const double offsetY = 0;
 
-    // BoxFit.contain: scale to fit within container
+    // Scale to fit within containerWidth x maxAllowedHeight
     if (imageAspectRatio > containerAspectRatio) {
-      // Image is wider than container - scale to width
+      // Image is wider than safe container (Landscape, Square, Standard Portrait) - scale to full width
       scale = containerWidth / imageSize.width;
     } else {
-      // Image is taller than container - scale to height
-      scale = containerHeight / imageSize.height;
+      // Image is excessively tall (Ultra-tall portrait, full screenshot) - scale to safe max height
+      scale = maxAllowedHeight / imageSize.height;
       // Center horizontally
       offsetX = (containerWidth - imageSize.width * scale) / 2;
     }
@@ -1729,8 +1761,8 @@ class _InteractiveVocabularyScreenState
                           IconButton(
                             icon: Icon(
                               _playingAudioId == 'combined_sentence'
-                                    ? Icons.stop_rounded
-                                    : Icons.volume_up_rounded,
+                                  ? Icons.stop_rounded
+                                  : Icons.volume_up_rounded,
                               size: 22,
                             ),
                             color: const Color(0xFF8B5CF6),
@@ -1780,7 +1812,8 @@ class _InteractiveVocabularyScreenState
                 style: TextButton.styleFrom(
                   foregroundColor:
                       _isRegenerating ? Colors.grey : const Color(0xFF8B5CF6),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 ),
               ),
             ],
@@ -1790,34 +1823,15 @@ class _InteractiveVocabularyScreenState
     );
   }
 
-  Widget _buildEmptyStateSliver(ScrollController scrollController) {
-    return SliverFillRemaining(
-      hasScrollBody: false,
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.touch_app_rounded,
-              size: 70,
-              color: Color(0xFFDDD6FE),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Tap the dots on the image',
-              style: GoogleFonts.lexend(
-                fontSize: 18,
-                color: const Color(0xFF1F2937),
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'to select vocabulary words',
-              style: GoogleFonts.lexend(
-                  fontSize: 14, color: const Color(0xFF6B7280)),
-            ),
-          ],
+  Widget _buildEmptyStateSliver() {
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        child: AppEmptyState(
+          compact: true,
+          icon: Icons.touch_app_outlined,
+          title: 'Tap the dots on the image',
+          message: 'to select vocabulary words',
         ),
       ),
     );
@@ -1864,13 +1878,13 @@ class _InteractiveVocabularyScreenState
     final wasSelected = _selectedWordIds.contains(dot.id);
     final isDeselecting = _selectedDotForOverlay?.id == dot.id;
 
-    // Smoothly collapse bottom sheet if it's currently expanded high (> 0.45)
+    // Smoothly collapse bottom sheet if it's currently expanded higher than initial resting position
     // so the image area, dot, and word overlay popup are fully visible
     if (!isDeselecting &&
         _sheetController.isAttached &&
-        _sheetController.size > 0.45) {
+        _sheetController.size > (_initialSheetSize + 0.05)) {
       _sheetController.animateTo(
-        0.35,
+        _initialSheetSize,
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeOutCubic,
       );
@@ -1986,13 +2000,7 @@ class _InteractiveVocabularyScreenState
         ),
       );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('✗ Failed to update ${dot.word}. Please try again.'),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 2),
-        ),
-      );
+      _showSentenceGenerationError();
     }
   }
 
@@ -2037,12 +2045,7 @@ class _InteractiveVocabularyScreenState
         ),
       );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('✗ Failed to update some words. Please try again.'),
-          backgroundColor: Colors.orange,
-        ),
-      );
+      _showSentenceGenerationError();
     }
   }
 
@@ -2071,14 +2074,7 @@ class _InteractiveVocabularyScreenState
         ),
       );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-              '✗ Failed to generate new sentence for ${dot.word}. Please try again.'),
-          backgroundColor: Colors.orange,
-          duration: const Duration(seconds: 2),
-        ),
-      );
+      _showSentenceGenerationError();
     }
   }
 
@@ -2111,14 +2107,7 @@ class _InteractiveVocabularyScreenState
         ),
       );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-              '✗ Failed to generate new combined sentence. Please try again.'),
-          backgroundColor: Colors.orange,
-          duration: Duration(seconds: 2),
-        ),
-      );
+      _showSentenceGenerationError();
     }
   }
 
@@ -2499,9 +2488,12 @@ class _InteractiveVocabularyScreenState
       await ref
           .read(vocabularyStateProvider.notifier)
           .addVocabulary(vocabulary);
+    }
 
-      // Refresh review session to show newly added card
-      ref.invalidate(reviewStateProvider);
+    // Refresh after all selected words are saved. Invalidating the provider
+    // leaves the replacement notifier in its initial loading state forever.
+    if (selectedDots.isNotEmpty) {
+      await ref.read(reviewStateProvider.notifier).loadSession();
     }
 
     // Check if widget is still mounted before updating streak
@@ -2509,19 +2501,31 @@ class _InteractiveVocabularyScreenState
 
     // Update streak when saving vocabulary (only once per day)
     final streakNotifier = ref.read(streakProvider.notifier);
-    await streakNotifier.recordVocabularyAcquired();
+    final streakIncreased = await streakNotifier.recordVocabularyAcquired();
+    final streakDays =
+        streakIncreased ? ref.read(streakProvider)?.currentStreak : null;
 
     // Signal Home screen to trigger reward celebrations once landed
     ref.read(pendingRewardCheckProvider.notifier).state = true;
 
     if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('✓ Saved ${selectedDots.length} words to collection!'),
-        backgroundColor: Colors.green,
-      ),
-    );
+    if (streakDays != null) {
+      SnackBarHelper.streak(
+        context,
+        streakDays,
+        prefix: 'Saved ${selectedDots.length} words to collection',
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '✓ Saved ${selectedDots.length} words to collection!',
+          ),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
 
     if (!mounted) return;
     Navigator.popUntil(context, (route) => route.isFirst);
@@ -2534,171 +2538,63 @@ class _InteractiveVocabularyScreenState
       return;
     }
 
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Row(children: [const Text('Rescan Image')]),
-        content: const Text(
-          'Do you want to scan this same image again to generate new vocabulary?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context); // Close dialog
-
-              // Collect all existing words to exclude when regenerating
-              final existingWords =
-                  _vocabularyDots.map((dot) => dot.word).toList();
-
-              // Navigate to GenerationLoadingScreen with same image and exclude words
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => GenerationLoadingScreen(
-                    imagePath: widget.imagePath,
-                    cefrLevel: widget.cefrLevel,
-                    communicativeFunction: widget.communicativeFunction,
-                    englishVariant: widget.englishVariant,
-                    excludeWords: existingWords, // Exclude existing words
-                    isRegenerate: true, // Mark as regeneration
-                  ),
-                ),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF8B5CF6),
-              foregroundColor: Colors.white,
+    showTokenizedActionDialog(
+      context,
+      title: 'Rescan Image',
+      message: 'Do you want to scan this same image again to generate new vocabulary?',
+      icon: Icons.document_scanner_rounded,
+      accentColor: DesignTokens.dialogBrand,
+      accentTint: DesignTokens.dialogBrandTint,
+      primaryLabel: 'Rescan',
+      secondaryLabel: 'Cancel',
+      onPrimary: () {
+        final existingWords = _vocabularyDots.map((dot) => dot.word).toList();
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => GenerationLoadingScreen(
+              imagePath: widget.imagePath,
+              cefrLevel: widget.cefrLevel,
+              communicativeFunction: widget.communicativeFunction,
+              englishVariant: widget.englishVariant,
+              excludeWords: existingWords,
+              isRegenerate: true,
             ),
-            child: const Text('Rescan'),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
   void _showQuotaLimitDialog(bool isGuest) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: Colors.orange.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(
-                Icons.warning_amber_rounded,
-                color: Colors.orange,
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                isGuest ? 'Free Trial Limit' : 'Daily Limit Reached',
-                style: GoogleFonts.lexend(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF1f2937),
-                ),
-              ),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              isGuest
-                  ? "You've used all your guest generations. Sign up to get 15 daily generations!"
-                  : "You've reached your 15 daily generations. Come back tomorrow for more!",
-              style: GoogleFonts.lexend(
-                fontSize: 14,
-                fontWeight: FontWeight.w400,
-                color: const Color(0xFF6b7280),
-                height: 1.5,
-              ),
-            ),
-            if (isGuest) ...[
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF8b5cf6).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.star_rounded, color: Color(0xFF8b5cf6), size: 20),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        '15 generations everyday with free account!',
-                        style: GoogleFonts.lexend(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFF7c3aed),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ],
-        ),
-        actions: [
-          if (isGuest)
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                AccountMethodPage.show(context);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF8b5cf6),
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              ),
-              child: Text(
-                'Sign Up Free',
-                style: GoogleFonts.lexend(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFF6b7280),
-            ),
-            child: Text(
-              isGuest ? 'Later' : 'OK',
-              style: GoogleFonts.lexend(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        ],
-      ),
+    if (isGuest) {
+      showFreeTrialLimitDialog(
+        context,
+        onSignUp: () => AccountMethodPage.show(context),
+        isTotalLimitReached: ref
+                .read(userStateProvider)
+                .user
+                ?.quotaManager
+                .isTotalLimitReached() ??
+            false,
+      );
+      return;
+    }
+
+    showDailyLimitReachedDialog(context);
+  }
+
+  void _showSentenceGenerationError() {
+    if (!mounted) return;
+    showTokenizedErrorDialog(
+      context,
+      title: 'Connection Error',
+      message:
+          'We couldn’t generate sentences right now. Please check your connection and try again.',
+      icon: Icons.cloud_off_rounded,
     );
   }
 
-  /// Show context selector for combined sentences
   void _showCombinedContextSelector() {
     if (_selectedWordIds.isEmpty) return;
 
@@ -2749,13 +2645,7 @@ class _InteractiveVocabularyScreenState
         ),
       );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content:
-              Text('✗ Failed to update combined sentence. Please try again.'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _showSentenceGenerationError();
     }
   }
 
@@ -3047,7 +2937,8 @@ class _WordDetailCard extends StatelessWidget {
                   foregroundColor: isRegenerating || isSentenceRegenerating
                       ? Colors.grey
                       : const Color(0xFF8B5CF6),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 ),
               ),
             ],
@@ -3465,8 +3356,7 @@ class _ContextSelectorScreenState extends State<ContextSelectorScreen> {
                 onPressed: _handleApply,
                 style: ElevatedButton.styleFrom(
                   elevation: 2,
-                  shadowColor:
-                      const Color(0xFF8B5CF6).withValues(alpha: 0.3),
+                  shadowColor: const Color(0xFF8B5CF6).withValues(alpha: 0.3),
                   backgroundColor: const Color(0xFF8B5CF6),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
@@ -3984,8 +3874,7 @@ class _CombinedContextSelectorScreenState
                 onPressed: _handleApply,
                 style: ElevatedButton.styleFrom(
                   elevation: 2,
-                  shadowColor:
-                      const Color(0xFF8B5CF6).withValues(alpha: 0.3),
+                  shadowColor: const Color(0xFF8B5CF6).withValues(alpha: 0.3),
                   backgroundColor: const Color(0xFF8B5CF6),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(

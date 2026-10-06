@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../constants/design_tokens.dart';
+import '../../utils/snackbar_helper.dart';
 import '../providers/providers.dart';
 import '../utils/reward_unlock_helper.dart';
 import '../widgets/review_card_widget.dart';
+import '../widgets/app_loading_widgets.dart';
 
 /// Review Session Page
 /// Main review interface with flip cards, auto-advance, and cozy clean design
@@ -60,154 +63,142 @@ class _ReviewSessionPageState extends ConsumerState<ReviewSessionPage> {
       context: context,
       barrierDismissible: true,
       builder: (dialogContext) => Dialog(
+        backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(28),
+          borderRadius: BorderRadius.circular(DesignTokens.dialogRadius),
         ),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 360),
-          padding: const EdgeInsets.fromLTRB(22, 26, 22, 20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(28),
-            border: Border.all(color: const Color(0xFFEBE6FC), width: 1.5),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF7C5CFC).withValues(alpha: 0.16),
-                blurRadius: 28,
-                offset: const Offset(0, 10),
-              ),
-            ],
+        insetPadding: const EdgeInsets.symmetric(
+          horizontal: DesignTokens.dialogInsetHorizontal,
+          vertical: DesignTokens.dialogInsetVertical,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: DesignTokens.dialogPaddingHorizontal,
+            vertical: DesignTokens.dialogPaddingVertical,
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Top Lavender Circle with Pause Icon
-              Container(
-                width: 60,
-                height: 60,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFF1EDFF),
-                  shape: BoxShape.circle,
-                ),
-                child: const Center(
-                  child: Icon(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 360),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: DesignTokens.dialogIconSize,
+                  height: DesignTokens.dialogIconSize,
+                  decoration: const BoxDecoration(
+                    color: DesignTokens.dialogBrandTint,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
                     Icons.pause_rounded,
                     size: 32,
-                    color: Color(0xFF7C5CFC),
+                    color: DesignTokens.dialogBrand,
                   ),
                 ),
-              ),
-              const SizedBox(height: 18),
-
-              // Title
-              Text(
-                'Leave review session?',
-                style: GoogleFonts.lexend(
-                  fontSize: 18.5,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF221F33),
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-
-              // Auto-saved box matching mockup
-              Container(
-                width: double.infinity,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: const Color(0xFFE5DCFF),
-                    width: 1.2,
+                const SizedBox(height: DesignTokens.dialogIconTitleSpacing),
+                Text(
+                  'Leave review session?',
+                  style: GoogleFonts.lexend(
+                    fontSize: DesignTokens.dialogTitleFontSize,
+                    fontWeight: DesignTokens.weightSemiBold,
+                    color: DesignTokens.dialogTitleColor,
                   ),
+                  textAlign: TextAlign.center,
                 ),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.cloud_done_rounded,
-                          color: Color(0xFF22C55E),
-                          size: 18,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Your progress is auto-saved',
-                          style: GoogleFonts.lexend(
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w600,
-                            color: const Color(0xFF22C55E),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      'You reviewed $reviewedCount of $totalCount cards',
-                      style: GoogleFonts.lexend(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w400,
-                        color: const Color(0xFF9892A6),
+                const SizedBox(height: DesignTokens.dialogTitleBodySpacing),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(DesignTokens.spacingMedium),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius:
+                        BorderRadius.circular(DesignTokens.radiusMedium),
+                    border: Border.all(
+                      color: DesignTokens.dialogAccentBorderColor(
+                        DesignTokens.dialogBrand,
                       ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // Primary Button: Keep reviewing (Solid purple pill)
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: () => Navigator.pop(dialogContext, false),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF7C5CFC),
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(25),
                     ),
                   ),
-                  child: Text(
-                    'Keep reviewing',
-                    style: GoogleFonts.lexend(
-                      fontSize: 15.5,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-
-              // Secondary Button: Leave (Grey flat text)
-              SizedBox(
-                width: double.infinity,
-                height: 40,
-                child: TextButton(
-                  onPressed: () => Navigator.pop(dialogContext, true),
-                  style: TextButton.styleFrom(
-                    foregroundColor: const Color(0xFF9892A6),
-                    splashFactory: NoSplash.splashFactory,
-                  ),
-                  child: Text(
-                    'Leave',
-                    style: GoogleFonts.lexend(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF9892A6),
-                    ),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            Icons.cloud_done_rounded,
+                            color: Color(0xFF22C55E),
+                            size: 18,
+                          ),
+                          const SizedBox(width: DesignTokens.spacingBase),
+                          Text(
+                            'Your progress is auto-saved',
+                            style: GoogleFonts.lexend(
+                              fontSize: DesignTokens.dialogBodyFontSize,
+                              fontWeight: DesignTokens.weightSemiBold,
+                              color: const Color(0xFF22C55E),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: DesignTokens.spacingBase),
+                      Text(
+                        'You reviewed $reviewedCount of $totalCount cards',
+                        style: GoogleFonts.lexend(
+                          fontSize: DesignTokens.fontSizeSmall,
+                          fontWeight: DesignTokens.weightRegular,
+                          color: DesignTokens.dialogSupportingTextColor,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(height: DesignTokens.dialogActionsSpacing),
+                SizedBox(
+                  width: double.infinity,
+                  height: DesignTokens.dialogButtonHeight,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(dialogContext, false),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: DesignTokens.dialogBrand,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(
+                          DesignTokens.dialogButtonRadius,
+                        ),
+                      ),
+                    ),
+                    child: Text(
+                      'Keep reviewing',
+                      style: GoogleFonts.lexend(
+                        fontSize: DesignTokens.dialogButtonFontSize,
+                        fontWeight: DesignTokens.weightSemiBold,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: DesignTokens.spacingSmall),
+                SizedBox(
+                  width: double.infinity,
+                  height: DesignTokens.dialogButtonHeight,
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(dialogContext, true),
+                    style: TextButton.styleFrom(
+                      foregroundColor: DesignTokens.dialogDisabledActionColor,
+                      splashFactory: NoSplash.splashFactory,
+                    ),
+                    child: Text(
+                      'Leave',
+                      style: GoogleFonts.lexend(
+                        fontSize: DesignTokens.dialogButtonFontSize,
+                        fontWeight: DesignTokens.weightSemiBold,
+                        color: DesignTokens.dialogDisabledActionColor,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -342,7 +333,8 @@ class _ReviewSessionPageState extends ConsumerState<ReviewSessionPage> {
                     child: TweenAnimationBuilder<double>(
                       tween: Tween<double>(
                         begin: 0.0,
-                        end: reviewState.isComplete ? 1.0 : reviewState.progress,
+                        end:
+                            reviewState.isComplete ? 1.0 : reviewState.progress,
                       ),
                       duration: const Duration(milliseconds: 350),
                       curve: Curves.easeOutCubic,
@@ -375,7 +367,7 @@ class _ReviewSessionPageState extends ConsumerState<ReviewSessionPage> {
   Widget _buildBody(BuildContext context, WidgetRef ref, ReviewState state) {
     if (state.isLoading) {
       return const Center(
-        child: CircularProgressIndicator(color: Color(0xFF7C5CFC)),
+        child: StarLoadingIndicator(),
       );
     }
 
@@ -443,7 +435,9 @@ class _ReviewSessionPageState extends ConsumerState<ReviewSessionPage> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Future.delayed(const Duration(milliseconds: 350), () {
           if (mounted && context.mounted) {
-            final isPerfect = state.isComplete && state.notYetCount == 0 && state.sessionCount > 0;
+            final isPerfect = state.isComplete &&
+                state.notYetCount == 0 &&
+                state.sessionCount > 0;
             RewardUnlockHelper.checkAndShowUnlocks(
               context,
               ref,
@@ -661,7 +655,9 @@ class _ReviewSessionPageState extends ConsumerState<ReviewSessionPage> {
                   child: InkWell(
                     borderRadius: BorderRadius.circular(26),
                     onTap: () async {
-                      final isPerfect = state.isComplete && state.notYetCount == 0 && state.sessionCount > 0;
+                      final isPerfect = state.isComplete &&
+                          state.notYetCount == 0 &&
+                          state.sessionCount > 0;
                       await RewardUnlockHelper.checkAndShowUnlocks(
                         context,
                         ref,
@@ -692,6 +688,15 @@ class _ReviewSessionPageState extends ConsumerState<ReviewSessionPage> {
   }
 
   void _handleSwipe(WidgetRef ref, bool remembered) {
-    ref.read(reviewStateProvider.notifier).swipeCard(remembered);
+    ref
+        .read(reviewStateProvider.notifier)
+        .swipeCard(remembered)
+        .then((streakDays) {
+      if (!mounted || streakDays == null) return;
+      SnackBarHelper.streak(
+        context,
+        streakDays,
+      );
+    });
   }
 }

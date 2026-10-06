@@ -291,6 +291,8 @@ class BadgeState {
 class BadgeController extends StateNotifier<BadgeState> {
   final Ref _ref;
   final List<Badge> _pendingBadgesToCelebrate = [];
+  String? _lastSyncedUserId;
+  bool? _lastSyncedUserWasGuest;
 
   BadgeController(this._ref) : super(BadgeState.initial()) {
     _initializeBadges();
@@ -312,7 +314,16 @@ class BadgeController extends StateNotifier<BadgeState> {
   }
 
   void _syncWithUser(dynamic user) {
-    _pendingBadgesToCelebrate.clear();
+    final userId = user.id as String?;
+    final isGuest = user.isGuest as bool;
+    if (_lastSyncedUserId != null &&
+        (_lastSyncedUserId != userId || _lastSyncedUserWasGuest != isGuest)) {
+      // A guest's already-earned popup must not be replayed after account merge.
+      _pendingBadgesToCelebrate.clear();
+    }
+    _lastSyncedUserId = userId;
+    _lastSyncedUserWasGuest = isGuest;
+
     final rawStats = user.preferences['badge_stats'] as Map<String, dynamic>?;
     final stats = BadgeStats.fromMap(rawStats);
     final userBadges = Set<String>.from(user.badges);
@@ -340,6 +351,19 @@ class BadgeController extends StateNotifier<BadgeState> {
       stats: stats,
     );
   }
+
+  Future<void> showPendingUnlocks(BuildContext context) async {
+    if (!context.mounted || _pendingBadgesToCelebrate.isEmpty) return;
+
+    final pending = List<Badge>.from(_pendingBadgesToCelebrate);
+    _pendingBadgesToCelebrate.clear();
+    for (final badge in pending) {
+      if (!context.mounted) break;
+      await BadgeUnlockDialog.show(context, badge: badge);
+    }
+  }
+
+  void clearPendingUnlocks() => _pendingBadgesToCelebrate.clear();
 
   void _initializeBadges() {
     final badges = [
@@ -604,6 +628,14 @@ class BadgeController extends StateNotifier<BadgeState> {
     if (user == null) return [];
 
     final now = DateTime.now();
+    try {
+      await _ref
+          .read(learningActivityServiceProvider)
+          .recordActivityDay(user, now);
+      _ref.invalidate(learningActivityDaysProvider);
+    } catch (e) {
+      debugPrint('Failed to record learning day: $e');
+    }
     final hour = now.hour;
 
     bool isNightOwl = (hour >= 22 || hour < 4);
@@ -730,9 +762,36 @@ class BadgeController extends StateNotifier<BadgeState> {
       latestUnlockedBadge: newlyUnlocked.isNotEmpty ? newlyUnlocked.last : state.latestUnlockedBadge,
     );
 
-    if (newlyUnlocked.isNotEmpty && context != null && context.mounted) {
+    if (newlyUnlocked.isNotEmpty && (context == null || !context.mounted)) {
       for (final badge in newlyUnlocked) {
-        await BadgeUnlockDialog.show(context, badge: badge);
+        if (!_pendingBadgesToCelebrate.any((item) => item.id == badge.id)) {
+          _pendingBadgesToCelebrate.add(badge);
+        }
+      }
+    }
+
+    if (context != null && context.mounted) {
+      // Small delay to let state settle before showing dialogs
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      if (!context.mounted) return newlyUnlocked;
+
+      final badgesToCelebrate = <Badge>[];
+      for (final badge in _pendingBadgesToCelebrate) {
+        if (!badgesToCelebrate.any((item) => item.id == badge.id)) {
+          badgesToCelebrate.add(badge);
+        }
+      }
+      for (final badge in newlyUnlocked) {
+        if (!badgesToCelebrate.any((item) => item.id == badge.id)) {
+          badgesToCelebrate.add(badge);
+        }
+      }
+      _pendingBadgesToCelebrate.clear();
+
+      for (final badge in badgesToCelebrate) {
+        if (context.mounted) {
+          await BadgeUnlockDialog.show(context, badge: badge);
+        }
       }
     }
 
@@ -869,15 +928,11 @@ class BadgeController extends StateNotifier<BadgeState> {
       );
     }
 
-    if (newlyUnlocked.isNotEmpty && (context == null || !context.mounted)) {
-      for (final b in newlyUnlocked) {
-        if (!_pendingBadgesToCelebrate.any((item) => item.id == b.id)) {
-          _pendingBadgesToCelebrate.add(b);
-        }
-      }
-    }
-
     if (context != null && context.mounted) {
+      // Small delay to let state settle before showing dialogs
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      if (!context.mounted) return newlyUnlocked;
+
       final badgesToCelebrate = <Badge>[];
       for (final b in _pendingBadgesToCelebrate) {
         if (!badgesToCelebrate.any((item) => item.id == b.id)) {

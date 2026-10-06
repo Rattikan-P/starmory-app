@@ -10,6 +10,7 @@ import '../pages/edit_scrapbook_screen.dart';
 import '../providers/providers.dart';
 import 'scrapbook_polaroid.dart';
 import 'vocabulary_detail_bottom_sheet.dart';
+import 'bottom_sheet_chrome.dart';
 
 Future<void> showScrapbookDetailSheet(
   BuildContext context, {
@@ -52,9 +53,8 @@ class _ScrapbookDetailSheet extends StatelessWidget {
 
   ScrapbookModel get scrapbook => scrapbooks.first;
 
-  List<ScrapbookModel> get photoScrapbooks => scrapbooks
-      .where((entry) => entry.imagePath.trim().isNotEmpty)
-      .toList();
+  List<ScrapbookModel> get photoScrapbooks =>
+      scrapbooks.where((entry) => entry.imagePath.trim().isNotEmpty).toList();
 
   List<ScrapbookVocabularyWord> get vocabulary {
     final words = <String, ScrapbookVocabularyWord>{};
@@ -116,9 +116,11 @@ class _ScrapbookDetailSheet extends StatelessWidget {
       } catch (_) {}
     }
 
-    final matchingVocab = allVocabularies.where(
-      (v) => v.word.trim().toLowerCase() == word.word.trim().toLowerCase(),
-    ).firstOrNull;
+    final matchingVocab = allVocabularies
+        .where(
+          (v) => v.word.trim().toLowerCase() == word.word.trim().toLowerCase(),
+        )
+        .firstOrNull;
 
     final targetVocab = matchingVocab ??
         VocabularyModel(
@@ -152,19 +154,14 @@ class _ScrapbookDetailSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: Colors.white,
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      borderRadius: BorderRadius.vertical(
+        top: Radius.circular(DesignTokens.bottomSheetRadius),
+      ),
       clipBehavior: Clip.antiAlias,
       child: Column(
         children: [
           const SizedBox(height: 10),
-          Container(
-            width: 36,
-            height: 4,
-            decoration: BoxDecoration(
-              color: const Color(0xFFE5E7EB),
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
+          const AppBottomSheetDragHandle(),
           _buildHeader(context),
           const Divider(height: 1, thickness: 1, color: Color(0xFFF3F4F6)),
           Expanded(
@@ -228,11 +225,8 @@ class _ScrapbookDetailSheet extends StatelessWidget {
             ),
           ),
           _buildHeaderEmojis(context),
-          IconButton(
-            tooltip: 'Close',
+          AppBottomSheetCloseButton(
             onPressed: () => Navigator.of(context).pop(),
-            icon: const Icon(Icons.close_rounded, size: 24),
-            color: const Color(0xFF4B5563),
           ),
         ],
       ),
@@ -306,7 +300,8 @@ class _ScrapbookDetailSheet extends StatelessWidget {
                   ),
                 ),
                 constraints: const BoxConstraints(minWidth: 96),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 child: Text(
                   word.word,
                   textAlign: TextAlign.center,

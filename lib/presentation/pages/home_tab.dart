@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +10,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import '../../core/utils/safe_image_picker.dart';
+import '../../core/utils/image_picker_error_message.dart';
+import '../../constants/design_tokens.dart';
 import '../providers/providers.dart';
 import '../../data/models/scrapbook_model.dart';
 import 'image_preview_screen.dart';
@@ -17,8 +20,13 @@ import 'auth/account_method_page.dart';
 import 'profile_tab.dart';
 import '../utils/reward_unlock_helper.dart';
 import '../widgets/scrapbook_detail_sheet.dart';
+import '../widgets/app_empty_state.dart';
+import '../widgets/app_loading_widgets.dart';
 import '../widgets/scrapbook_polaroid.dart';
 import '../widgets/top_header_actions.dart';
+import '../widgets/permission_required_dialog.dart';
+import '../widgets/tokenized_notice_dialogs.dart';
+import '../widgets/bottom_sheet_chrome.dart';
 
 /// Home Tab - Main screen with AI generation
 /// Redesigned to feel warm, welcoming, and pressure-free
@@ -30,17 +38,56 @@ class HomeTab extends ConsumerStatefulWidget {
 }
 
 class _HomeTabState extends ConsumerState<HomeTab>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   final ScrollController _scrollController = ScrollController();
+  Timer? _quotaRefreshTimer;
+  bool _isRefreshingQuota = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _scheduleQuotaRefreshAtMidnight();
     // Refresh user data when home page is opened
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _refreshUserData();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _refreshQuota();
       _checkPendingRewards();
     });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_refreshQuota());
+      _scheduleQuotaRefreshAtMidnight();
+    }
+  }
+
+  void _scheduleQuotaRefreshAtMidnight() {
+    _quotaRefreshTimer?.cancel();
+    final nowUtc = DateTime.now().toUtc();
+    final nowBangkok = nowUtc.add(const Duration(hours: 7));
+    final nextBangkokMidnightUtc = DateTime.utc(
+      nowBangkok.year,
+      nowBangkok.month,
+      nowBangkok.day + 1,
+    ).subtract(const Duration(hours: 7)).add(const Duration(seconds: 1));
+    _quotaRefreshTimer =
+        Timer(nextBangkokMidnightUtc.difference(nowUtc), () async {
+      await _refreshQuota();
+      if (mounted) _scheduleQuotaRefreshAtMidnight();
+    });
+  }
+
+  Future<void> _refreshQuota() async {
+    if (_isRefreshingQuota) return;
+    _isRefreshingQuota = true;
+    try {
+      await _refreshUserData();
+      if (mounted) setState(() {});
+    } finally {
+      _isRefreshingQuota = false;
+    }
   }
 
   void _scrollToTop() {
@@ -68,14 +115,22 @@ class _HomeTabState extends ConsumerState<HomeTab>
   }
 
   void _checkPendingRewards() {
-    if (ref.read(pendingRewardCheckProvider)) {
+    final hasPendingRewardCheck = ref.read(pendingRewardCheckProvider);
+    if (hasPendingRewardCheck) {
       ref.read(pendingRewardCheckProvider.notifier).state = false;
-      Future.delayed(const Duration(milliseconds: 300), () {
-        if (mounted && context.mounted) {
-          RewardUnlockHelper.checkAndShowUnlocks(context, ref);
-        }
-      });
     }
+
+    // Activity badges need a BuildContext to show their queued unlock dialog.
+    // Only reevaluate badge eligibility when a flow explicitly requested it.
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (mounted && context.mounted) {
+        if (hasPendingRewardCheck) {
+          RewardUnlockHelper.checkAndShowUnlocks(context, ref);
+        } else {
+          ref.read(badgeStateProvider.notifier).showPendingUnlocks(context);
+        }
+      }
+    });
   }
 
   // Daily motivational quotes
@@ -109,6 +164,8 @@ class _HomeTabState extends ConsumerState<HomeTab>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _quotaRefreshTimer?.cancel();
     _scrollController.dispose();
     super.dispose();
   }
@@ -154,33 +211,47 @@ class _HomeTabState extends ConsumerState<HomeTab>
       backgroundColor: const Color(0xFFF9FAFC),
       body: SafeArea(
         bottom: false,
-        child: SingleChildScrollView(
-          controller: _scrollController,
-          padding: const EdgeInsets.fromLTRB(20, 14, 20, 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header with greeting and profile avatar
-              _buildHeader(context, userState),
+        child: Column(
+          children: [
+            // Keep the greeting and profile actions fixed while the content
+            // below can scroll and refresh independently.
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+              child: _buildHeader(context, userState),
+            ),
+            Expanded(
+              child: RefreshIndicator(
+                color: const Color(0xFF8957F5),
+                onRefresh: _refreshQuota,
+                child: SingleChildScrollView(
+                  controller: _scrollController,
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(20, 22, 20, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Hero Card with "Every photo hides a word you don't know yet."
+                      _buildHeroCard(context),
 
-              const SizedBox(height: 22),
+                      const SizedBox(height: 16),
 
-              // Hero Card with "Every photo hides a word you don't know yet."
-              _buildHeroCard(context),
+                      // Quota indicator card
+                      _buildQuotaCard(context),
 
-              const SizedBox(height: 16),
+                      const SizedBox(height: 24),
 
-              // Quota indicator card
-              _buildQuotaCard(context),
+                      // Recent Scrapbook
+                      _buildRecentScrapbook(context),
 
-              const SizedBox(height: 24),
-
-              // Recent Scrapbook
-              _buildRecentScrapbook(context),
-
-              const SizedBox(height: 120), // Extra space at bottom for floating nav
-            ],
-          ),
+                      const SizedBox(
+                        height: 120,
+                      ), // Extra space for floating nav
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -206,7 +277,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
     final photoUrl = userState.user?.photoUrl;
 
     return SizedBox(
-      height: 52,
+      height: 56,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -346,7 +417,8 @@ class _HomeTabState extends ConsumerState<HomeTab>
                               borderRadius: BorderRadius.circular(30),
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(0xFF7C3AED).withValues(alpha: 0.35),
+                                  color: const Color(0xFF7C3AED)
+                                      .withValues(alpha: 0.35),
                                   blurRadius: 10,
                                   offset: const Offset(0, 4),
                                 ),
@@ -396,7 +468,8 @@ class _HomeTabState extends ConsumerState<HomeTab>
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
+                                  color: const Color(0xFF8B5CF6)
+                                      .withValues(alpha: 0.08),
                                   blurRadius: 8,
                                   offset: const Offset(0, 2),
                                 ),
@@ -447,11 +520,15 @@ class _HomeTabState extends ConsumerState<HomeTab>
     final totalLimit = quotaManager?.totalLimit ?? 3;
 
     final remainingGenerations = isGuest
-        ? (totalLimit - totalUsage).clamp(0, (dailyLimit - todayUsage).clamp(0, dailyLimit))
+        ? (totalLimit - totalUsage)
+            .clamp(0, (dailyLimit - todayUsage).clamp(0, dailyLimit))
         : (dailyLimit - todayUsage).clamp(0, dailyLimit);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+      padding: EdgeInsets.symmetric(
+        horizontal: remainingGenerations == 0 && isGuest ? 14 : 18,
+        vertical: remainingGenerations == 0 && isGuest ? 10 : 14,
+      ),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
@@ -469,24 +546,39 @@ class _HomeTabState extends ConsumerState<HomeTab>
       ),
       child: Row(
         children: [
-          Container(
+          SizedBox(
             width: 44,
             height: 44,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: const Color(0xFF7C3AED),
-                width: 3,
+            child: TweenAnimationBuilder<double>(
+              tween: Tween<double>(
+                begin: 1,
+                end: (remainingGenerations / dailyLimit).clamp(0.0, 1.0),
               ),
-            ),
-            child: Center(
-              child: Text(
-                '$remainingGenerations',
-                style: GoogleFonts.lexend(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF1F2937),
-                ),
+              duration: const Duration(milliseconds: 350),
+              curve: Curves.easeOutCubic,
+              builder: (context, progress, _) => Stack(
+                fit: StackFit.expand,
+                children: [
+                  CircularProgressIndicator(
+                    value: progress,
+                    strokeWidth: 4,
+                    strokeCap: StrokeCap.round,
+                    backgroundColor: const Color(0xFFEDE9FE),
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                      Color(0xFF7C3AED),
+                    ),
+                  ),
+                  Center(
+                    child: Text(
+                      '$remainingGenerations',
+                      style: GoogleFonts.lexend(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF1F2937),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -498,16 +590,20 @@ class _HomeTabState extends ConsumerState<HomeTab>
                 Text(
                   '$remainingGenerations generation${remainingGenerations == 1 ? '' : 's'} left today',
                   style: GoogleFonts.lexend(
-                    fontSize: 15,
+                    fontSize: remainingGenerations == 0 && isGuest ? 12 : 15,
                     fontWeight: FontWeight.w600,
                     color: const Color(0xFF1F2937),
                   ),
                 ),
-                const SizedBox(height: 2),
+                SizedBox(height: remainingGenerations == 0 && isGuest ? 1 : 2),
                 Text(
-                  'Keep capturing memories',
+                  remainingGenerations == 0 && isGuest
+                      ? 'Sign in to create more memories'
+                      : 'Keep capturing memories',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.lexend(
-                    fontSize: 12,
+                    fontSize: remainingGenerations == 0 && isGuest ? 10 : 12,
                     fontWeight: FontWeight.w400,
                     color: const Color(0xFF9CA3AF),
                   ),
@@ -515,127 +611,53 @@ class _HomeTabState extends ConsumerState<HomeTab>
               ],
             ),
           ),
+          if (remainingGenerations == 0 && isGuest) ...[
+            const SizedBox(width: 10),
+            SizedBox(
+              height: 34,
+              child: ElevatedButton(
+                onPressed: () => AccountMethodPage.show(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF8957F5),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  minimumSize: const Size(72, 34),
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+                child: Text(
+                  'Create account',
+                  style: GoogleFonts.lexend(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
 
   void _showQuotaLimitDialog(bool isGuest) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: Colors.orange.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(
-                Icons.warning_amber_rounded,
-                color: Colors.orange,
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                isGuest ? 'Free Trial Limit' : 'Daily Limit Reached',
-                style: GoogleFonts.lexend(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF1f2937),
-                ),
-              ),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              isGuest
-                  ? "You've used all your guest generations. Sign up to get 15 daily generations!"
-                  : "You've reached your 15 daily generations. Come back tomorrow for more!",
-              style: GoogleFonts.lexend(
-                fontSize: 14,
-                fontWeight: FontWeight.w400,
-                color: const Color(0xFF6b7280),
-                height: 1.5,
-              ),
-            ),
-            if (isGuest) ...[
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF8b5cf6).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.star_rounded, color: Color(0xFF8b5cf6), size: 20),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        '15 generations everyday with free account!',
-                        style: GoogleFonts.lexend(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFF7c3aed),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ],
-        ),
-        actions: [
-          if (isGuest)
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                AccountMethodPage.show(context);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF8b5cf6),
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              ),
-              child: Text(
-                'Sign Up Free',
-                style: GoogleFonts.lexend(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFF6b7280),
-            ),
-            child: Text(
-              isGuest ? 'Later' : 'OK',
-              style: GoogleFonts.lexend(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+    if (isGuest) {
+      showFreeTrialLimitDialog(
+        context,
+        onSignUp: () => AccountMethodPage.show(context),
+        isTotalLimitReached: ref
+                .read(userStateProvider)
+                .user
+                ?.quotaManager
+                .isTotalLimitReached() ??
+            false,
+      );
+      return;
+    }
+
+    showDailyLimitReachedDialog(context);
   }
 
   Future<void> _pickImage(ImageSource source) async {
@@ -696,9 +718,10 @@ class _HomeTabState extends ConsumerState<HomeTab>
       }
     } on PlatformException catch (e) {
       if (e.code == 'already_active') return;
-      _showErrorDialog('Error', 'Failed to pick image: ${e.message ?? e.toString()}');
+      _showErrorDialog(
+          'Error', ImagePickerErrorMessage.failedToPick(e.message ?? e));
     } catch (e) {
-      _showErrorDialog('Error', 'Failed to pick image: ${e.toString()}');
+      _showErrorDialog('Error', ImagePickerErrorMessage.failedToPick(e));
     }
   }
 
@@ -735,98 +758,20 @@ class _HomeTabState extends ConsumerState<HomeTab>
   }
 
   void _showPermissionDialog(String type) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
-          '$type Permission Required',
-          style: GoogleFonts.lexend(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: const Color(0xFF1f2937),
-          ),
-        ),
-        content: Text(
-          'Please grant $type permission to continue.',
-          style: GoogleFonts.lexend(
-            fontSize: 14,
-            fontWeight: FontWeight.w400,
-            color: const Color(0xFF6b7280),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFF9ca3af),
-            ),
-            child: Text(
-              'Cancel',
-              style: GoogleFonts.lexend(
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: () {
-              openAppSettings();
-              Navigator.pop(context);
-            },
-            style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFF8b5cf6),
-            ),
-            child: Text(
-              'Settings',
-              style: GoogleFonts.lexend(
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+    showPermissionRequiredDialog(context, type);
   }
 
   void _showErrorDialog(String title, String message) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
-          title,
-          style: GoogleFonts.lexend(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: const Color(0xFF1f2937),
-          ),
-        ),
-        content: Text(
-          message,
-          style: GoogleFonts.lexend(
-            fontSize: 14,
-            fontWeight: FontWeight.w400,
-            color: const Color(0xFF6b7280),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFF8b5cf6),
-            ),
-            child: Text(
-              'OK',
-              style: GoogleFonts.lexend(
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        ],
-      ),
+    if (title == 'Unsupported Format') {
+      showUnsupportedFormatDialog(context);
+      return;
+    }
+
+    showTokenizedErrorDialog(
+      context,
+      title: title,
+      message: message,
+      icon: Icons.error_outline_rounded,
     );
   }
 
@@ -849,8 +794,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
               ),
             ),
             GestureDetector(
-              onTap: () =>
-                  ref.read(navigationProvider.notifier).goScrapbook(),
+              onTap: () => ref.read(navigationProvider.notifier).goScrapbook(),
               child: Text(
                 'See all',
                 style: GoogleFonts.lexend(
@@ -864,73 +808,25 @@ class _HomeTabState extends ConsumerState<HomeTab>
         ),
         const SizedBox(height: 16),
         recentScrapbooks.isEmpty
-            ? _buildEmptyScrapbookState(context)
+            ? _buildEmptyScrapbookState()
             : _buildScrapbookList(context, recentScrapbooks),
       ],
     );
   }
 
   /// Empty state for when no scrapbooks exist
-  Widget _buildEmptyScrapbookState(BuildContext context) {
-    return Container(
-      height: 140,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: const Color(0xFFE8E5EC),
-        ),
-      ),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    const Color(0xFFF3F4F6),
-                    const Color(0xFFE5E7EB).withValues(alpha: 0.5),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(
-                Icons.photo_library_outlined,
-                size: 28,
-                color: Color(0xFF9ca3af),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'No memories yet',
-              style: GoogleFonts.lexend(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFF6b7280),
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Start capturing moments today',
-              style: GoogleFonts.lexend(
-                fontSize: 12,
-                fontWeight: FontWeight.w400,
-                color: const Color(0xFF9ca3af),
-              ),
-            ),
-          ],
-        ),
-      ),
+  Widget _buildEmptyScrapbookState() {
+    return AppEmptyState(
+      compact: true,
+      icon: Icons.photo_library_outlined,
+      title: 'No memories yet',
+      message: 'Start capturing moments today',
     );
   }
 
   /// Horizontal list of scrapbook cards
-  Widget _buildScrapbookList(BuildContext context, List<ScrapbookModel> scrapbooks) {
+  Widget _buildScrapbookList(
+      BuildContext context, List<ScrapbookModel> scrapbooks) {
     return SizedBox(
       height: ScrapbookPolaroid.listExtent,
       child: ListView.separated(
@@ -946,7 +842,8 @@ class _HomeTabState extends ConsumerState<HomeTab>
     );
   }
 
-  Widget _buildScrapbookCard(BuildContext context, ScrapbookModel scrapbook, int index) {
+  Widget _buildScrapbookCard(
+      BuildContext context, ScrapbookModel scrapbook, int index) {
     final tiltAngle = index.isEven ? -0.018 : 0.018;
 
     if (MediaQuery.disableAnimationsOf(context)) {
@@ -986,7 +883,8 @@ class _HomeTabState extends ConsumerState<HomeTab>
     );
   }
 
-  Widget _buildLegacyScrapbookCardInteractive(BuildContext context, ScrapbookModel scrapbook) {
+  Widget _buildLegacyScrapbookCardInteractive(
+      BuildContext context, ScrapbookModel scrapbook) {
     final vocabCount = scrapbook.vocabularyWords.length;
 
     return GestureDetector(
@@ -1035,21 +933,8 @@ class _HomeTabState extends ConsumerState<HomeTab>
                               fit: BoxFit.cover,
                               width: double.infinity,
                               height: double.infinity,
-                              placeholder: (context, url) => Container(
-                                color: const Color(0xFFF3F4F6),
-                                child: const Center(
-                                  child: SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                        Color(0xFF8b5cf6),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
+                              placeholder: (context, url) =>
+                                  const AppImageSkeleton(),
                               errorWidget: (context, url, error) {
                                 return Container(
                                   color: const Color(0xFFE5E7EB),
@@ -1134,7 +1019,8 @@ class _HomeTabState extends ConsumerState<HomeTab>
     );
   }
 
-  void _showScrapbookBottomSheet(BuildContext context, ScrapbookModel scrapbook) {
+  void _showScrapbookBottomSheet(
+      BuildContext context, ScrapbookModel scrapbook) {
     showScrapbookDetailSheet(context, scrapbooks: [scrapbook]);
   }
 
@@ -1146,8 +1032,18 @@ class _HomeTabState extends ConsumerState<HomeTab>
 
   String _getMonthAbbreviation(int month) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
     ];
     return months[month - 1];
   }
@@ -1168,20 +1064,16 @@ class _ScrapbookDetailBottomSheet extends StatelessWidget {
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(DesignTokens.bottomSheetRadius),
+        ),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           // Handle bar
-          Container(
-            margin: const EdgeInsets.only(top: 12),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: const Color(0xFFE5E7EB),
-              borderRadius: BorderRadius.circular(2),
-            ),
+          const AppBottomSheetDragHandle(
+            margin: EdgeInsets.only(top: 12),
           ),
 
           // Header
@@ -1230,9 +1122,8 @@ class _ScrapbookDetailBottomSheet extends StatelessWidget {
                     ],
                   ),
                 ),
-                IconButton(
+                AppBottomSheetCloseButton(
                   onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close, color: Color(0xFF6b7280)),
                 ),
               ],
             ),
@@ -1297,17 +1188,23 @@ class _ScrapbookDetailBottomSheet extends StatelessWidget {
           children: [
             // Image
             ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(16)),
               child: AspectRatio(
                 aspectRatio: 16 / 10,
                 child: scrapbook.imagePath.startsWith('http')
                     ? Image.network(
                         scrapbook.imagePath,
                         fit: BoxFit.cover,
+                        loadingBuilder: (context, child, loadingProgress) =>
+                            loadingProgress == null
+                                ? child
+                                : const AppImageSkeleton(),
                         errorBuilder: (context, error, stackTrace) {
                           return Container(
                             color: Colors.grey.shade100,
-                            child: const Icon(Icons.broken_image, size: 48, color: Colors.grey),
+                            child: const Icon(Icons.broken_image,
+                                size: 48, color: Colors.grey),
                           );
                         },
                       )
@@ -1317,7 +1214,8 @@ class _ScrapbookDetailBottomSheet extends StatelessWidget {
                         errorBuilder: (context, error, stackTrace) {
                           return Container(
                             color: Colors.grey.shade100,
-                            child: const Icon(Icons.broken_image, size: 48, color: Colors.grey),
+                            child: const Icon(Icons.broken_image,
+                                size: 48, color: Colors.grey),
                           );
                         },
                       ),
@@ -1380,9 +1278,11 @@ class _ScrapbookDetailBottomSheet extends StatelessWidget {
                       runSpacing: 8,
                       children: scrapbook.vocabularyWords.map((word) {
                         return Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF8b5cf6).withValues(alpha: 0.08),
+                            color:
+                                const Color(0xFF8b5cf6).withValues(alpha: 0.08),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: RichText(
@@ -1398,7 +1298,8 @@ class _ScrapbookDetailBottomSheet extends StatelessWidget {
                                 ),
                                 const TextSpan(
                                   text: ' - ',
-                                  style: TextStyle(fontSize: 13, color: Color(0xFF6b7280)),
+                                  style: TextStyle(
+                                      fontSize: 13, color: Color(0xFF6b7280)),
                                 ),
                                 TextSpan(
                                   text: word.thaiTranslation,
@@ -1425,8 +1326,18 @@ class _ScrapbookDetailBottomSheet extends StatelessWidget {
 
   String _getMonthName(int month) {
     const months = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December'
     ];
     return months[month - 1];
   }

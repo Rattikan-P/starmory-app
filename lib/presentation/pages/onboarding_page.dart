@@ -2,17 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../constants/design_tokens.dart';
 import '../../data/services/app_state_service.dart';
 import '../../data/services/auth_service.dart';
 import '../../utils/snackbar_helper.dart';
-import '../widgets/galaxy_screen_background.dart';
 import '../widgets/auth_widgets.dart';
+import '../widgets/bottom_sheet_chrome.dart';
 import 'auth/otp_verification_page.dart';
 import 'language_selection_page.dart';
 import 'main_navigation.dart';
-import '../providers/providers.dart' show hiveServiceProvider, vocabularySyncServiceProvider;
+import '../providers/providers.dart'
+    show hiveServiceProvider, vocabularySyncServiceProvider;
 
-final onboardingServiceProvider = Provider<AppStateService>((ref) => AppStateService());
+final onboardingServiceProvider =
+    Provider<AppStateService>((ref) => AppStateService());
 
 class OnboardingPage extends ConsumerStatefulWidget {
   final bool skipToAuth;
@@ -22,8 +25,7 @@ class OnboardingPage extends ConsumerStatefulWidget {
   ConsumerState<OnboardingPage> createState() => _OnboardingPageState();
 }
 
-class _OnboardingPageState extends ConsumerState<OnboardingPage>
-    with TickerProviderStateMixin {
+class _OnboardingPageState extends ConsumerState<OnboardingPage> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
   final _emailController = TextEditingController();
@@ -32,17 +34,24 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
 
   final List<OnboardingItem> _items = const [
     OnboardingItem(
-      icon: Icons.camera_alt_rounded,
+      glowColor: Color(0xFF8B7CFF),
+      imageAsset: 'assets/images/mascots/LearnFromPhotos_mascot.png',
       title: 'Learn from Photos',
-      description: 'Snap a photo, learn a word.\nYour world is your language lesson.',
+      description:
+          'Snap a photo, learn a word.\nYour world is your language lesson.',
     ),
     OnboardingItem(
-      icon: Icons.schedule_rounded,
+      glowColor: Color(0xFFD98FB4),
+      imageAsset: 'assets/images/mascots/2MinutesaDay_mascot.png',
+      imageScale: 1.30,
       title: '2 Minutes a Day',
-      description: 'One word a day is enough.\nNo guilt, no pressure, just progress.',
+      description:
+          'One word a day is enough.\nNo guilt, no pressure, just progress.',
     ),
     OnboardingItem(
-      icon: Icons.auto_awesome_rounded,
+      glowColor: Color(0xFFFFC629),
+      imageAsset: 'assets/images/mascots/CollectYourStars_mascot.png',
+      imageScale: 0.95,
       title: 'Collect Your Stars',
       description: 'Coffee, cats, views.\nEvery little moment is a new star.',
     ),
@@ -112,7 +121,8 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
       }
 
       // Auto-accept terms on signup
-      await appStateService.setTermsVersion(appStateService.getCurrentTermsVersion());
+      await appStateService
+          .setTermsVersion(appStateService.getCurrentTermsVersion());
 
       final userData = await client
           .from('users')
@@ -152,7 +162,8 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
 
           if (localVocabs.isNotEmpty) {
             // Use mergeWithCloud to avoid duplicates
-            final syncedVocabs = await vocabSyncService.mergeWithCloud(localVocabs);
+            final syncedVocabs =
+                await vocabSyncService.mergeWithCloud(localVocabs);
             // Update local storage with merged vocabularies
             await hiveService.clearAllVocabulary();
             for (final vocab in syncedVocabs) {
@@ -174,8 +185,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
 
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(
-            builder: (_) =>
-                const MainNavigationScreen(),
+            builder: (_) => const MainNavigationScreen(),
           ),
           (route) => false,
         );
@@ -269,336 +279,241 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage>
 
   @override
   Widget build(BuildContext context) {
+    return _buildReferenceLayout();
+  }
+
+  Widget _buildReferenceLayout() {
     return Scaffold(
+      backgroundColor: Colors.white,
       resizeToAvoidBottomInset: false,
-      body: GalaxyScreenBackground(
-        child: SafeArea(
-          child: Stack(
-            children: [
-              Column(
+      body: SafeArea(
+        child: Column(
+          children: [
+            const SizedBox(height: DesignTokens.spacingXLarge),
+            SizedBox(
+              height: DesignTokens.touchTarget,
+              child: Image.asset(
+                'assets/images/text_logo.png',
+                width: 140,
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) => Text(
+                  'Starmory',
+                  style: GoogleFonts.cormorantUnicase(
+                      fontSize: 23, color: Colors.black),
+                ),
+              ),
+            ),
+            Expanded(
+              child: PageView.builder(
+                controller: _pageController,
+                onPageChanged: (index) => setState(() => _currentPage = index),
+                itemCount: _items.length,
+                itemBuilder: (context, index) =>
+                    _buildReferencePage(_items[index]),
+              ),
+            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(
+                _items.length,
+                (index) => AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  margin: const EdgeInsets.symmetric(horizontal: 2),
+                  width: _currentPage == index ? 22 : 5,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: _currentPage == index
+                        ? DesignTokens.brandColor
+                        : const Color(0xFFEDE9FE),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                DesignTokens.spacingXLarge,
+                DesignTokens.spacingXLarge,
+                DesignTokens.spacingXLarge,
+                DesignTokens.spacingMedium,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Top bar
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                    child: Row(
-                      children: [
-                        // App name
-                        Row(
-                          children: [
-                            Image.asset(
-                              'assets/images/logo.png',
-                              height: 40,
-                              errorBuilder: (context, error, stackTrace) {
-                                return Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(Icons.star, size: 18, color: Color(0xFFc4b5fd)),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      'Starmory',
-                                      style: GoogleFonts.cormorantUnicase(
-                                        fontSize: 22,
-                                        fontWeight: FontWeight.bold,
-                                        color: Color(0xFFc4b5fd),
-                                        letterSpacing: 1,
-                                      ),
-                                    ),
-                                  ],
-                                );
-                              },
-                            ),
-                            const SizedBox(width: 5),
-
-                            Padding(
-                              padding: const EdgeInsets.only(top: 8),
-                              child: Row(
-                                children: List.generate(
-                                  _items.length,
-                                  (index) => AnimatedContainer(
-                                    duration: const Duration(milliseconds: 300),
-                                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                                    width: _currentPage == index ? 28 : 8,
-                                    height: 8,
-                                    decoration: BoxDecoration(
-                                      gradient: _currentPage == index
-                                          ? const LinearGradient(
-                                              colors: [Color(0xFF8b7cf6), Color(0xFF7c6ff5)],
-                                            )
-                                          : null,
-                                      color: _currentPage == index
-                                          ? null
-                                          : const Color(0xFFc4b5fd),
-                                      borderRadius: BorderRadius.circular(4),
-                                      boxShadow: _currentPage == index
-                                          ? [
-                                              BoxShadow(
-                                                color: const Color(0xFF8b7cf6).withValues(alpha: 0.4),
-                                                blurRadius: 8,
-                                                offset: const Offset(0, 2),
-                                              ),
-                                            ]
-                                          : null,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
+                  SizedBox(
+                    width: double.infinity,
+                    height: 54,
+                    child: ElevatedButton(
+                      onPressed: _nextPage,
+                      style: ElevatedButton.styleFrom(
+                        elevation: 4,
+                        shadowColor:
+                            const Color(0xFF8B5CF6).withValues(alpha: 0.35),
+                        backgroundColor: const Color(0xFF8B5CF6),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(27),
                         ),
-
-                        const Spacer(),
-                      ],
+                      ),
+                      child: Text(
+                        _currentPage == _items.length - 1
+                            ? 'Get Started'
+                            : 'Next',
+                        style: GoogleFonts.lexend(
+                          fontSize: 15.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ),
-
-                  Expanded(
-                    child: PageView.builder(
-                      controller: _pageController,
-                      onPageChanged: (index) {
-                        setState(() => _currentPage = index);
-                      },
-                      itemCount: _items.length,
-                      itemBuilder: (context, index) {
-                        final item = _items[index];
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 32),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              // Gradient icon
-                              Stack(
-                                alignment: Alignment.center,
-                                children: [
-                                  // Glow rings
-                                  ...List.generate(3, (ringIndex) {
-                                    final ringSize = 200.0 + (ringIndex * 30);
-                                    return Container(
-                                      width: ringSize,
-                                      height: ringSize,
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        border: Border.all(
-                                          color: _getGradientColor(index)
-                                              .withValues(alpha:0.2 - (ringIndex * 0.05)),
-                                          width: 1.5,
-                                        ),
-                                      ),
-                                    );
-                                  }),
-                                  // Glow effect
-                                  Container(
-                                    width: 180,
-                                    height: 180,
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      gradient: RadialGradient(
-                                        colors: [
-                                          _getGradientColor(index).withValues(alpha:0.25),
-                                          Colors.transparent,
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                  // Icon container with shadow
-                                  Container(
-                                    width: 140,
-                                    height: 140,
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        begin: Alignment.topLeft,
-                                        end: Alignment.bottomRight,
-                                        colors: [
-                                          _getGradientColor(index),
-                                          _getGradientColor(index).withValues(alpha:0.8),
-                                        ],
-                                      ),
-                                      shape: BoxShape.circle,
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: _getGradientColor(index).withValues(alpha:0.4),
-                                          blurRadius: 28,
-                                          offset: const Offset(0, 8),
-                                        ),
-                                        BoxShadow(
-                                          color: _getGradientColor(index).withValues(alpha:0.2),
-                                          blurRadius: 50,
-                                          offset: const Offset(0, 20),
-                                        ),
-                                      ],
-                                    ),
-                                    child: Icon(
-                                      item.icon,
-                                      size: 65,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 56),
-
-                              // Title
-                              Text(
-                                item.title,
-                                style: GoogleFonts.lexend(
-                                  fontSize: 26,
-                                  fontWeight: FontWeight.w600,
-                                  color: const Color(0xFF1f2937),
-                                  height: 1.2,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: 8),
-
-                              // Description
-                              Text(
-                                item.description,
-                                style: GoogleFonts.lexend(
-                                  fontSize: 15,
-                                  color: const Color(0xFF4b5563),
-                                  height: 1.6,
-                                  fontWeight: FontWeight.w400,
-                                ),
-                                textAlign: TextAlign.center,
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 54,
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: _continueAsGuest,
+                        borderRadius: BorderRadius.circular(30),
+                        child: Ink(
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.88),
+                            borderRadius: BorderRadius.circular(30),
+                            border: Border.all(
+                              color: const Color(0xFFDDD6FE),
+                              width: 1.5,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF8B5CF6)
+                                    .withValues(alpha: 0.08),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
                               ),
                             ],
                           ),
-                        );
-                      },
-                    ),
-                  ),
-
-                  Container(
-                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Color(0x08000000),
-                          blurRadius: 20,
-                          offset: Offset(0, -4),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        SizedBox(
-                          width: double.infinity,
-                          height: 56,
-                          child: FilledButton(
-                            onPressed: _nextPage,
-                            style: FilledButton.styleFrom(
-                              backgroundColor: Colors.transparent,
-                              shadowColor: Colors.transparent,
-                              padding: EdgeInsets.zero,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                            ),
-                            child: Ink(
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [
-                                    Color(0xFF60a5fa), // soft blue
-                                    Color(0xFF818cf8), // soft indigo
-                                    Color(0xFFa78bfa), // soft violet
-                                    Color(0xFFc084fc), // soft purple
-                                  ],
-                                ),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  _currentPage == _items.length - 1 ? 'Get Started' : 'Next',
-                                  style: GoogleFonts.lexend(
-                                    fontSize: 17,
-                                    fontWeight: FontWeight.w400,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                            ),
-                          ),
-                        ),
-                        ),
-                        const SizedBox(height: 14),
-
-                        SizedBox(
-                          width: double.infinity,
-                          height: 54,
-                          child: OutlinedButton.icon(
-                            onPressed: _continueAsGuest,
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: const Color(0xFF8b5cf6),
-                              side: const BorderSide(
-                                color: Color(0xFFe5e7eb),
-                                width: 1.5,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(18),
-                              ),
-                            ),
-                            icon: const Icon(Icons.explore, size: 20),
-                            label: Text(
+                          child: Center(
+                            child: Text(
                               'Try without signing up',
                               style: GoogleFonts.lexend(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w400,
-                                color: const Color(0xFF8b5cf6),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-
-                        // Already have an account
-                        InkWell(
-                          onTap: _showAuthBottomSheet,
-                          borderRadius: BorderRadius.circular(8),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-                            child: Text(
-                              'Sign in or create account',
-                              style: GoogleFonts.lexend(
                                 fontSize: 15,
-                                fontWeight: FontWeight.w400,
-                                color: const Color(0xFF9ca3af),
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xFF7C3AED),
                               ),
-                              textAlign: TextAlign.center,
                             ),
                           ),
                         ),
-                      ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  InkWell(
+                    onTap: _showAuthBottomSheet,
+                    borderRadius: BorderRadius.circular(8),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: DesignTokens.spacingMedium,
+                        horizontal: DesignTokens.spacingSmall,
+                      ),
+                      child: Text(
+                        'Sign in or create account',
+                        style: GoogleFonts.lexend(
+                          fontSize: DesignTokens.fontSizeBody,
+                          color: DesignTokens.textMuted,
+                        ),
+                      ),
                     ),
                   ),
                 ],
               ),
-            ],
+            ),
+          ],
         ),
-      ),
       ),
     );
   }
 
-  Color _getGradientColor(int index) {
-    final colors = [
-      const Color(0xFFf472b6), // Soft pink
-      const Color(0xFF60a5fa), // Soft blue
-      const Color(0xFF34d399), // Soft mint
-    ];
-    return colors[index % colors.length];
+  Widget _buildReferencePage(OnboardingItem item) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Column(
+        children: [
+          Expanded(
+            child: Center(
+              child: SizedBox(
+                width: 380,
+                height: 380,
+                child: Stack(
+                  alignment: Alignment.center,
+                  clipBehavior: Clip.none,
+                  children: [
+                    Container(
+                      width: 552,
+                      height: 552,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: RadialGradient(
+                          colors: [
+                            item.glowColor.withValues(alpha: 0.48),
+                            item.glowColor.withValues(alpha: 0.30),
+                            item.glowColor.withValues(alpha: 0.12),
+                            item.glowColor.withValues(alpha: 0),
+                          ],
+                          stops: const [0, 0.38, 0.72, 1],
+                        ),
+                      ),
+                    ),
+                    Transform.scale(
+                      scale: item.imageScale,
+                      child: Image.asset(
+                        item.imageAsset,
+                        width: 255,
+                        height: 255,
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Text(
+            item.title,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.lexend(
+              fontSize: DesignTokens.fontSizeTitle,
+              fontWeight: DesignTokens.weightSemiBold,
+              color: DesignTokens.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            item.description,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.lexend(
+              fontSize: DesignTokens.fontSizeBody,
+              height: 1.35,
+              color: DesignTokens.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 17),
+        ],
+      ),
+    );
   }
 }
 
-// Simple falling star widget
 class OnboardingItem {
-  final IconData icon;
+  final Color glowColor;
+  final String imageAsset;
+  final double imageScale;
   final String title;
   final String description;
 
   const OnboardingItem({
-    required this.icon,
+    this.glowColor = const Color(0xFF8B7CFF),
+    this.imageScale = 1,
+    required this.imageAsset,
     required this.title,
     required this.description,
   });
@@ -629,55 +544,48 @@ class _AuthOptionsSheet extends StatelessWidget {
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       padding: EdgeInsets.only(
-        left: 28,
-        right: 28,
-        top: 28,
-        bottom: 28 + keyboardHeight,
+        left: 24,
+        right: 24,
+        top: 16,
+        bottom: 20 + keyboardHeight,
       ),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             // Handle bar
-            Container(
-              width: 48,
-              height: 5,
-              decoration: BoxDecoration(
-                color: const Color(0xFFd1d5db),
-                borderRadius: BorderRadius.circular(3),
-              ),
-            ),
-            const SizedBox(height: 28),
+            const AppBottomSheetDragHandle(),
+            const SizedBox(height: 18),
 
             // Header
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.star, size: 20, color: Color(0xFFc4b5fd)),
+                const Icon(Icons.star, size: 16, color: Color(0xFF8B5CF6)),
                 const SizedBox(width: 8),
                 Text(
                   'Sign in or create account',
                   style: GoogleFonts.lexend(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w400,
-                    color: const Color(0xFF1f2937),
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: DesignTokens.textPrimary,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
             Text(
               'Choose your preferred method',
               style: GoogleFonts.lexend(
                 fontSize: 14,
                 fontWeight: FontWeight.w400,
-                color: const Color(0xFF9ca3af),
+                color: DesignTokens.textMuted,
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 18),
 
             // Reusable AuthForm
             AuthForm(

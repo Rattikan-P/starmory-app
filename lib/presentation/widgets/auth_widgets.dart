@@ -64,10 +64,7 @@ class _EmailInputSection extends StatelessWidget {
                 borderRadius: BorderRadius.circular(16),
                 borderSide: const BorderSide(color: Color(0xFFef4444), width: 2),
               ),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 18,
-                vertical: 16,
-              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
             ),
             onFieldSubmitted: (_) => onContinue(),
             validator: (value) {
@@ -88,21 +85,12 @@ class _EmailInputSection extends StatelessWidget {
             height: 52,
             child: Container(
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Color(0xFF60a5fa), // soft blue
-                    Color(0xFF818cf8), // soft indigo
-                    Color(0xFFa78bfa), // soft violet
-                    Color(0xFFc084fc), // soft purple
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(16),
+                color: const Color(0xFF8B5CF6),
+                borderRadius: BorderRadius.circular(30),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFFa78bfa).withValues(alpha: 0.4),
-                    blurRadius: 16,
+                    color: const Color(0xFF8B5CF6).withValues(alpha: 0.2),
+                    blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
                 ],
@@ -111,7 +99,7 @@ class _EmailInputSection extends StatelessWidget {
                 color: Colors.transparent,
                 child: InkWell(
                   onTap: isLoading ? null : onContinue,
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(30),
                   child: Center(
                     child: isLoading
                         ? const SizedBox(
@@ -125,8 +113,8 @@ class _EmailInputSection extends StatelessWidget {
                         : Text(
                             'Continue with Email',
                             style: GoogleFonts.lexend(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w500,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
                               color: Colors.white,
                             ),
                           ),
@@ -158,12 +146,11 @@ class _AuthDivider extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14),
           child: Text(
-            'OR',
+            'or',
             style: GoogleFonts.lexend(
               fontSize: 12,
-              fontWeight: FontWeight.w500,
+              fontWeight: FontWeight.w400,
               color: const Color(0xFF9ca3af),
-              letterSpacing: 1.2,
             ),
           ),
         ),
@@ -195,9 +182,9 @@ class _GoogleAuthButton extends StatelessWidget {
         onPressed: onTap,
         style: OutlinedButton.styleFrom(
           foregroundColor: const Color(0xFF8b5cf6),
-          side: const BorderSide(color: Color(0xFFe5e7eb), width: 1.5),
+          side: const BorderSide(color: Color(0xFFDDD6FE), width: 1),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(30),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
         ),
@@ -209,7 +196,7 @@ class _GoogleAuthButton extends StatelessWidget {
         label: Text(
           'Continue with Google',
           style: GoogleFonts.lexend(
-            fontSize: 15,
+            fontSize: 14,
             fontWeight: FontWeight.w500,
             color: const Color(0xFF1f2937),
           ),
@@ -249,7 +236,7 @@ class _AuthTermsNotice extends StatelessWidget {
                 style: GoogleFonts.lexend(
                   fontSize: 12,
                   fontWeight: FontWeight.w400,
-                  color: Color(0xFFa5b4fc),
+                  color: Color(0xFF8b5cf6),
                 ),
               ),
             ),
@@ -270,7 +257,7 @@ class _AuthTermsNotice extends StatelessWidget {
                 style: GoogleFonts.lexend(
                   fontSize: 12,
                   fontWeight: FontWeight.w400,
-                  color: Color(0xFFa5b4fc),
+                  color: Color(0xFF8b5cf6),
                 ),
               ),
             ),

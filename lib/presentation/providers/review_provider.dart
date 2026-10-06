@@ -19,11 +19,13 @@ class ReviewState {
   final int sessionCount;
   final bool? lastRating; // true = remembered, false = forgot
   final int remainingDueCount;
-  final Set<String> reviewedCardIds; // Track cards already reviewed in this session
+  final Set<String>
+      reviewedCardIds; // Track cards already reviewed in this session
   final DateTime? sessionStartTime;
   final int totalReviewsCompleted;
   final bool canUndo; // Whether undo is available (for last swipe)
-  final WordCardModel? previousCardState; // Card state before last swipe (for undo)
+  final WordCardModel?
+      previousCardState; // Card state before last swipe (for undo)
   final String? currentTopicFilter; // Current topic filter being applied
   final int gotItCount; // Track number of recalled cards in session
   final int notYetCount; // Track number of forgotten cards in session
@@ -134,6 +136,18 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
         _recordLearningActivity = recordLearningActivity,
         super(const ReviewState(isLoading: true));
 
+  Future<int> _refreshRemainingDueCount() async {
+    try {
+      return await _reviewService.getRemainingDueCount(
+        topicFilter: state.currentTopicFilter,
+      );
+    } catch (e) {
+      // Keep the last known count if refreshing it fails after a saved rating.
+      print('⚠️ [Review] Failed to refresh remaining due count: $e');
+      return state.remainingDueCount;
+    }
+  }
+
   /// Load review session (due cards + new cards to fill batchSize)
   /// Optionally filter by topic
   Future<void> loadSession({String? topicFilter, int batchSize = 5}) async {
@@ -142,6 +156,17 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
 
       final sessionCards = await _reviewService.getReviewSession(
           topicFilter: topicFilter, batchSize: batchSize);
+      final vocabularyById = {
+        for (final vocabulary
+            in _ref?.read(vocabularyStateProvider).vocabularies ?? const [])
+          vocabulary.id: vocabulary,
+      };
+      final cardsWithExamples = sessionCards.map((card) {
+        final vocabulary = vocabularyById[card.vocabularyId];
+        return vocabulary == null
+            ? card
+            : card.copyWith(vocabulary: vocabulary);
+      }).toList();
 
       // Check if there are more due cards remaining (with same topic filter)
       final remainingDue =
@@ -152,10 +177,10 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
       _hasUpdatedStreakThisSession = false;
 
       state = ReviewState(
-        cards: sessionCards,
+        cards: cardsWithExamples,
         currentIndex: 0,
         isLoading: false,
-        sessionCount: sessionCards.length,
+        sessionCount: cardsWithExamples.length,
         remainingDueCount: remainingDue,
         reviewedCardIds: {}, // Clear reviewed cards on new session
         sessionStartTime: DateTime.now(),
@@ -181,11 +206,13 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
 
   /// Swipe card and process rating
   /// [remembered] = true for swipe right (recalled), false for swipe left (forgot)
-  Future<void> swipeCard(bool remembered) async {
+  Future<int?> swipeCard(bool remembered) async {
     final currentCard = state.currentCard;
-    if (currentCard == null) return;
+    if (currentCard == null) return null;
 
     try {
+      final streakBeforeReview = _ref?.read(streakProvider)?.lastActivityDate;
+      int? streakEarned;
       // Store previous card state for undo BEFORE updating
       final previousCard = currentCard;
 
@@ -194,22 +221,50 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
 
       // Save to storage
       await _reviewService.updateCard(updatedCard);
+      final remainingDueCount = await _refreshRemainingDueCount();
 
       // Update streak for first review of the day (guest mode)
       // For registered users, this is handled by database trigger
       if (!_hasUpdatedStreakThisSession) {
-        if (_recordLearningActivity != null) {
-          await _recordLearningActivity();
-        } else if (_ref != null) {
+        final currentUser = _ref?.read(userStateProvider).user;
+        if (currentUser?.isGuest == true && _recordLearningActivity != null) {
+          await _recordLearningActivity!();
+        } else if (currentUser?.isGuest == true && _ref != null) {
           final streakNotifier = _ref.read(streakProvider.notifier);
-          await streakNotifier.recordLearningActivity();
+          final streakIncreased =
+              await streakNotifier.recordLearningActivity();
+          if (streakIncreased) {
+            streakEarned = _ref.read(streakProvider)?.currentStreak;
+          }
+        } else if (currentUser != null &&
+            !currentUser.isGuest &&
+            _ref != null) {
+          // The word_cards database trigger owns registered-user streak updates.
+          await _ref.read(streakProvider.notifier).refresh();
+          final updatedStreak = _ref.read(streakProvider);
+          final today = DateTime.now();
+          final lastActivity = updatedStreak?.lastActivityDate?.toLocal();
+          final previousActivity = streakBeforeReview?.toLocal();
+          final activityIsToday = lastActivity != null &&
+              lastActivity.year == today.year &&
+              lastActivity.month == today.month &&
+              lastActivity.day == today.day;
+          final alreadyActiveToday = previousActivity != null &&
+              previousActivity.year == today.year &&
+              previousActivity.month == today.month &&
+              previousActivity.day == today.day;
+          if (activityIsToday && !alreadyActiveToday) {
+            streakEarned = updatedStreak?.currentStreak;
+          }
         }
         _hasUpdatedStreakThisSession = true;
       }
 
       // Record review activity for Badge system
       if (_ref != null) {
-        await _ref.read(badgeProvider.notifier).recordActivity(ActivityType.review);
+        await _ref
+            .read(badgeProvider.notifier)
+            .recordActivity(ActivityType.review);
       }
 
       final totalReviews = state.totalReviewsCompleted + 1;
@@ -218,11 +273,13 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
       final newReviewedIds = Set<String>.from(state.reviewedCardIds);
       newReviewedIds.add(currentCard.id);
 
-      print('🔍 [SwipeCard] Swiped: word=${currentCard.vocabulary?.word}, remembered=$remembered, oldDueDate=${currentCard.dueDate.toUtc()}, newDueDate=${updatedCard.dueDate.toUtc()}');
-      
+      print(
+          '🔍 [SwipeCard] Swiped: word=${currentCard.vocabulary?.word}, remembered=$remembered, oldDueDate=${currentCard.dueDate.toUtc()}, newDueDate=${updatedCard.dueDate.toUtc()}');
+
       // Auto-advance: Advance directly to next card
       state = state.copyWith(
         currentIndex: state.currentIndex + 1,
+        remainingDueCount: remainingDueCount,
         lastRating: remembered,
         reviewedCardIds: newReviewedIds,
         totalReviewsCompleted: totalReviews,
@@ -237,9 +294,11 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
 
       // Update home screen widget with next due card after each review
       WidgetService.updateWidgetWithDueCard(_reviewService).ignore();
+      return streakEarned;
     } catch (e) {
       print('❌ [SwipeCard] Error: $e');
       state = state.copyWith(error: e.toString());
+      return null;
     }
   }
 
@@ -250,17 +309,18 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
     try {
       // Restore previous card state
       final restoredCard = state.previousCardState!;
-      print('🔍 [UndoSwipe] Restoring: word=${restoredCard.vocabulary?.word}, restoredDueDate=${restoredCard.dueDate.toUtc()}');
+      print(
+          '🔍 [UndoSwipe] Restoring: word=${restoredCard.vocabulary?.word}, restoredDueDate=${restoredCard.dueDate.toUtc()}');
 
       // Save restored card to storage
       await _reviewService.updateCard(restoredCard);
+      final remainingDueCount = await _refreshRemainingDueCount();
 
       // Remove card from reviewed set
       final newReviewedIds = Set<String>.from(state.reviewedCardIds);
       newReviewedIds.remove(restoredCard.id);
-      final restoredTotal = state.totalReviewsCompleted > 0
-          ? state.totalReviewsCompleted - 1
-          : 0;
+      final restoredTotal =
+          state.totalReviewsCompleted > 0 ? state.totalReviewsCompleted - 1 : 0;
 
       final newIndex = state.currentIndex > 0 ? state.currentIndex - 1 : 0;
 
@@ -273,6 +333,7 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
       // Update state with restored values
       state = state.copyWith(
         cards: updatedCards,
+        remainingDueCount: remainingDueCount,
         currentIndex: newIndex,
         canUndo: false,
         previousCardState: null,

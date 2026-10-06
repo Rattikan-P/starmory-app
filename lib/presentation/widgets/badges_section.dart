@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart' hide Badge;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../constants/design_tokens.dart';
 import '../providers/providers.dart';
 import 'reward_icon_widget.dart';
+import 'bottom_sheet_chrome.dart';
+import 'rounded_progress_bar.dart';
 
 /// Helper function to show badge details bottom sheet modal
 void showBadgeDetailsModal(
@@ -37,14 +40,7 @@ void showBadgeDetailsModal(
           mainAxisSize: MainAxisSize.min,
           children: [
             // Handle bar
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: const Color(0xFFE2DBFD),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
+            const AppBottomSheetDragHandle(),
             const SizedBox(height: 20),
 
             // Badge Icon with Glow
@@ -53,11 +49,11 @@ void showBadgeDetailsModal(
               height: 84,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  colors: isUnlocked
-                      ? gradient
-                      : [const Color(0xFFEBE6FC), const Color(0xFFDED8F7)],
-                ),
+                gradient: isUnlocked ? LinearGradient(colors: gradient) : null,
+                color: isUnlocked ? null : const Color(0xFFF0EEF3),
+                border: isUnlocked
+                    ? null
+                    : Border.all(color: const Color(0xFFE1DDE6)),
                 boxShadow: isUnlocked
                     ? [
                         BoxShadow(
@@ -68,12 +64,36 @@ void showBadgeDetailsModal(
                       ]
                     : null,
               ),
-              child: Center(
-                child: RewardIconWidget(
-                  icon: badge.icon,
-                  size: 44,
-                  isLocked: !isUnlocked,
-                ),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  RewardIconWidget(
+                    icon: badge.icon,
+                    size: 44,
+                    isLocked: !isUnlocked,
+                  ),
+                  if (!isUnlocked)
+                    Positioned(
+                      right: 2,
+                      bottom: 2,
+                      child: Container(
+                        width: 26,
+                        height: 26,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: const Color(0xFFDAD6E0),
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.lock_rounded,
+                          size: 14,
+                          color: Color(0xFF817B89),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
             const SizedBox(height: 14),
@@ -146,52 +166,58 @@ void showBadgeDetailsModal(
                   style: GoogleFonts.lexend(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: isUnlocked ? const Color(0xFF059669) : const Color(0xFF655D80),
+                    color: isUnlocked
+                        ? const Color(0xFF059669)
+                        : const Color(0xFF655D80),
                   ),
                 ),
                 Text(
-                  isUnlocked ? 'Completed' : '$progress / ${badge.requiredStars}',
+                  isUnlocked
+                      ? 'Completed'
+                      : '$progress / ${badge.requiredStars}',
                   style: GoogleFonts.lexend(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
-                    color: isUnlocked ? const Color(0xFF059669) : const Color(0xFF7C5CFC),
+                    color: isUnlocked
+                        ? const Color(0xFF059669)
+                        : const Color(0xFF7C5CFC),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 6),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: LinearProgressIndicator(
-                value: isUnlocked ? 1.0 : (progress / badge.requiredStars).clamp(0.0, 1.0),
-                minHeight: 8,
-                backgroundColor: const Color(0xFFEBE6FC),
-                valueColor: AlwaysStoppedAnimation<Color>(
+            RoundedProgressBar(
+              value: isUnlocked
+                  ? 1.0
+                  : (progress / badge.requiredStars).clamp(0.0, 1.0),
+              height: 8,
+              trackColor: const Color(0xFFEBE6FC),
+              valueColor:
                   isUnlocked ? const Color(0xFF10B981) : gradient.first,
-                ),
-              ),
             ),
             const SizedBox(height: 24),
 
             // Close Button
             SizedBox(
               width: double.infinity,
-              height: 46,
+              height: DesignTokens.dialogButtonHeight,
               child: ElevatedButton(
                 onPressed: () => Navigator.of(context).pop(),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF7C5CFC),
+                  backgroundColor: DesignTokens.dialogBrand,
                   foregroundColor: Colors.white,
                   elevation: 0,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(
+                      DesignTokens.dialogButtonRadius,
+                    ),
                   ),
                 ),
                 child: Text(
                   'Close',
                   style: GoogleFonts.lexend(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
+                    fontSize: DesignTokens.dialogButtonFontSize,
+                    fontWeight: DesignTokens.weightSemiBold,
                   ),
                 ),
               ),
@@ -252,7 +278,7 @@ class BadgesSection extends ConsumerWidget {
                   width: 4,
                   height: 18,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF7C5CFC),
+                    color: const Color(0xFF8B5CF6),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -268,7 +294,8 @@ class BadgesSection extends ConsumerWidget {
                 ),
                 const Spacer(),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: const Color(0xFFF4EEFF),
                     borderRadius: BorderRadius.circular(12),
@@ -288,7 +315,8 @@ class BadgesSection extends ConsumerWidget {
                     onTap: onSeeAll,
                     borderRadius: BorderRadius.circular(8),
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 4, vertical: 2),
                       child: Row(
                         children: [
                           Text(
@@ -299,11 +327,19 @@ class BadgesSection extends ConsumerWidget {
                               color: const Color(0xFF7C5CFC),
                             ),
                           ),
-                          const SizedBox(width: 2),
-                          const Icon(
-                            Icons.arrow_forward_ios,
-                            size: 10,
-                            color: Color(0xFF7C5CFC),
+                          const SizedBox(width: 6),
+                          Container(
+                            width: 26,
+                            height: 26,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFF1F2F5),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.chevron_right_rounded,
+                              size: 20,
+                              color: Color(0xFF9CA3AF),
+                            ),
                           ),
                         ],
                       ),
@@ -340,14 +376,13 @@ class BadgesSection extends ConsumerWidget {
                     : const [Color(0xFF7C5CFC), Color(0xFF6366F1)];
 
                 return GestureDetector(
-                  onTap: () => showBadgeDetailsModal(context, badge, isUnlocked, progress),
+                  onTap: () => showBadgeDetailsModal(
+                      context, badge, isUnlocked, progress),
                   child: Container(
                     width: 104,
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: isUnlocked
-                          ? const Color(0xFFF4EEFF)
-                          : const Color(0xFFFBF9FE),
+                      color: isUnlocked ? Colors.white : const Color(0xFFF6F4F8),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
                         color: isUnlocked
@@ -362,31 +397,52 @@ class BadgesSection extends ConsumerWidget {
                       children: [
                         // Badge Icon Circle
                         Container(
-                          width: 48,
-                          height: 48,
+                          width: 52,
+                          height: 52,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            gradient: isUnlocked
-                                ? LinearGradient(colors: gradient)
-                                : const LinearGradient(
-                                    colors: [Color(0xFFEBE6FC), Color(0xFFDED8F7)],
-                                  ),
-                            boxShadow: isUnlocked
-                                ? [
-                                    BoxShadow(
-                                      color: gradient.first.withValues(alpha: 0.3),
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ]
-                                : null,
-                          ),
-                          child: Center(
-                            child: RewardIconWidget(
-                              icon: badge.icon,
-                              size: 26,
-                              isLocked: !isUnlocked,
+                            color: isUnlocked
+                                ? Color.alphaBlend(
+                                    gradient.first.withValues(alpha: 0.10),
+                                    Colors.white,
+                                  )
+                                : const Color(0xFFF0EEF3),
+                            border: Border.all(
+                              color: isUnlocked
+                                  ? gradient.first.withValues(alpha: 0.28)
+                                  : const Color(0xFFE9E5EF),
                             ),
+                          ),
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              RewardIconWidget(
+                                icon: badge.icon,
+                                size: 30,
+                                isLocked: !isUnlocked,
+                              ),
+                              if (!isUnlocked)
+                                Positioned(
+                                  right: 0,
+                                  bottom: 0,
+                                  child: Container(
+                                    width: 18,
+                                    height: 18,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: const Color(0xFFDAD6E0),
+                                      ),
+                                    ),
+                                    child: const Icon(
+                                      Icons.lock_rounded,
+                                      size: 10,
+                                      color: Color(0xFF817B89),
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
                         const SizedBox(height: 6),
@@ -410,9 +466,11 @@ class BadgesSection extends ConsumerWidget {
                         // Progress Indicator / Tag
                         if (isUnlocked)
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 1.5),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                              color: const Color(0xFF10B981)
+                                  .withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
@@ -430,16 +488,10 @@ class BadgesSection extends ConsumerWidget {
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(3),
-                                  child: LinearProgressIndicator(
-                                    value: progressRatio,
-                                    minHeight: 4,
-                                    backgroundColor: const Color(0xFFEBE6FC),
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      gradient.first,
-                                    ),
-                                  ),
+                                RoundedProgressBar(
+                                  value: progressRatio,
+                                  trackColor: const Color(0xFFEBE6FC),
+                                  valueColor: gradient.first,
                                 ),
                                 const SizedBox(height: 2),
                                 Text(

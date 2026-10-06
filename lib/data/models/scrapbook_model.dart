@@ -58,6 +58,7 @@ class ScrapbookTextOverlay extends ScrapbookElement {
     double? rotation,
     bool? flip,
     int? backgroundColor,
+    bool clearBackgroundColor = false,
     double? width,
   }) {
     return ScrapbookTextOverlay(
@@ -71,7 +72,9 @@ class ScrapbookTextOverlay extends ScrapbookElement {
       scale: scale ?? this.scale,
       rotation: rotation ?? this.rotation,
       flip: flip ?? this.flip,
-      backgroundColor: backgroundColor ?? this.backgroundColor,
+      backgroundColor: clearBackgroundColor
+          ? null
+          : backgroundColor ?? this.backgroundColor,
       width: width ?? this.width,
     );
   }

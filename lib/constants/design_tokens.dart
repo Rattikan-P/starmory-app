@@ -11,9 +11,51 @@ class DesignTokens {
   static const int brandColorValue = 0xFF8b5cf6;
   static const Color brandColor = Color(brandColorValue);
 
+  /// Four-color pastel gradient shared by Home's hero and profile/legal headers.
+  static const LinearGradient pageHeaderGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0xFFFFE5C2),
+      Color(0xFFFDCFE0),
+      Color(0xFFDFD2FD),
+      Color(0xFFCEC2FD),
+    ],
+    // Bring the lilac and violet into view in short page headers.
+    stops: [0.0, 0.20, 0.40, 0.60],
+  );
+
   /// Secondary brand accent - Light Purple
   static const int brandAccentValue = 0xFFC4B5FD;
   static const Color brandAccent = Color(brandAccentValue);
+
+  // ============= Dialog Semantic Colors =============
+
+  /// Informational dialogs and permission prompts.
+  static const int dialogInfoValue = 0xFF6DBAFC;
+  static const Color dialogInfo = Color(dialogInfoValue);
+  static const Color dialogInfoTint = Color(0xFFE8F6FF);
+
+  /// Brand, account, and user-management dialogs.
+  static const int dialogBrandValue = 0xFF8957F5;
+  static const Color dialogBrand = Color(dialogBrandValue);
+  static const Color dialogBrandTint = Color(0xFFF1EDFF);
+
+  /// Warning, rate-limit, caution, and user-guidance dialogs.
+  static const int dialogWarningValue = 0xFFFFBF29;
+  static const Color dialogWarning = Color(dialogWarningValue);
+  static const Color dialogWarningTint = Color(0xFFFFF1CF);
+
+  /// Critical, system-error, and danger dialogs.
+  static const int dialogDangerValue = 0xFFE44F54;
+  static const Color dialogDanger = Color(dialogDangerValue);
+  static const Color dialogDangerTint = Color(0xFFFFEDEE);
+
+  /// Shared opacity for semantic-color borders inside dialogs.
+  static const double dialogAccentBorderOpacity = 0.35;
+
+  static Color dialogAccentBorderColor(Color accent) =>
+      accent.withValues(alpha: dialogAccentBorderOpacity);
 
   // ============= Text Colors =============
 
@@ -37,8 +79,10 @@ class DesignTokens {
 
   /// Primary surface - White with opacity
   static const Color surfacePrimary = Colors.white;
-  static const Color surfacePrimary90 = Color(0xFFFFFFFF); // withValues(alpha: 0.9)
-  static const Color surfacePrimary80 = Color(0xFFFFFFFF); // withValues(alpha: 0.8)
+  static const Color surfacePrimary90 =
+      Color(0xFFFFFFFF); // withValues(alpha: 0.9)
+  static const Color surfacePrimary80 =
+      Color(0xFFFFFFFF); // withValues(alpha: 0.8)
 
   /// Error colors
   static const Color error = Colors.red;
@@ -46,6 +90,77 @@ class DesignTokens {
 
   /// Success colors
   static const Color success = Colors.green;
+
+  // ============= Component Sizes =============
+
+  /// Height shared by the Review and Progress hero banners.
+  static const double reviewProgressBannerHeight = 184.0;
+
+  /// Slightly taller Progress banner to fit the highlighted star count.
+  static const double progressStarsBannerHeight = 196.0;
+
+  // ============= Dialogs =============
+
+  /// Shared dimensions for app modal dialogs.
+  static const double dialogRadius = 28.0;
+  static const double dialogInsetHorizontal = 32.0;
+  static const double dialogInsetVertical = 24.0;
+  static const double dialogPaddingHorizontal = 24.0;
+  static const double dialogPaddingVertical = 26.0;
+  static const double dialogIconSize = 60.0;
+  static const double dialogTitleFontSize = 18.5;
+  static const double dialogBodyFontSize = 14.0;
+  static const double dialogBodyLineHeight = 1.45;
+  static const double dialogButtonHeight = 50.0;
+  static const double dialogButtonRadius = 25.0;
+  static const double dialogButtonFontSize = 15.5;
+  static const double dialogTitleBodySpacing = 16.0;
+
+  /// Compact gap used between a dialog title and its supporting message.
+  static const double dialogCompactTitleBodySpacing = 8.0;
+  static const double dialogIconTitleSpacing = 18.0;
+  static const double dialogActionsSpacing = 24.0;
+  static const Color dialogTitleColor = textPrimary;
+  static const Color dialogBodyColor = textPrimary;
+  static const Color dialogSupportingTextColor = textSecondary;
+  static const Color dialogDisabledActionColor = textMuted;
+  static const Color dialogDisabledActionBorderColor = Color(0xFFE7DEFF);
+
+  // ============= Bottom Sheets =============
+
+  /// Shared grabber and dismiss-button styling for modal bottom sheets.
+  static const double bottomSheetRadius = 28.0;
+  static const double bottomSheetHandleWidth = 44.0;
+  static const double bottomSheetHandleHeight = 4.0;
+  static const Color bottomSheetHandleColor = Color(0xFFD1D5DB);
+  static const double bottomSheetCloseButtonSize = 40.0;
+  static const double bottomSheetCloseIconSize = 20.0;
+  static const Color bottomSheetCloseButtonColor = Color(0xFFF3F4F6);
+  static const Color bottomSheetCloseIconColor = Color(0xFF221F33);
+
+  /// App-wide defaults for Material dialogs. Explicit dialog-specific styles
+  /// (for example semantic accent colors) can still override these defaults.
+  static DialogThemeData get dialogTheme => DialogThemeData(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(dialogRadius),
+        ),
+        insetPadding: const EdgeInsets.symmetric(
+          horizontal: dialogInsetHorizontal,
+          vertical: dialogInsetVertical,
+        ),
+        titleTextStyle: const TextStyle(
+          fontFamily: fontFamily,
+          fontSize: dialogTitleFontSize,
+          fontWeight: weightSemiBold,
+          color: dialogTitleColor,
+        ),
+        contentTextStyle: const TextStyle(
+          fontFamily: fontFamily,
+          fontSize: dialogBodyFontSize,
+          height: dialogBodyLineHeight,
+          color: dialogBodyColor,
+        ),
+      );
 
   // ============= Control Handle Colors =============
 

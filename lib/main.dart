@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:home_widget/home_widget.dart';
 
+import 'constants/design_tokens.dart';
 import 'core/config/app_constants.dart';
 import 'core/services/widget_service.dart';
 import 'data/services/app_state_service.dart';
@@ -24,6 +26,9 @@ Future<void> widgetBackgroundCallback(Uri? uri) async {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+  ]);
 
   // Load .env file
   await dotenv.load(fileName: '.env');
@@ -121,6 +126,7 @@ class _MyAppState extends ConsumerState<MyApp> {
           brightness: Brightness.light,
         ),
         useMaterial3: true,
+        dialogTheme: DesignTokens.dialogTheme,
         actionIconTheme: ActionIconThemeData(
           backButtonIconBuilder: (context) =>
               const Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: Color(0xFF1F2937)),
@@ -135,6 +141,7 @@ class _MyAppState extends ConsumerState<MyApp> {
           brightness: Brightness.dark,
         ),
         useMaterial3: true,
+        dialogTheme: DesignTokens.dialogTheme,
         actionIconTheme: ActionIconThemeData(
           backButtonIconBuilder: (context) =>
               const Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: Color(0xFF1F2937)),

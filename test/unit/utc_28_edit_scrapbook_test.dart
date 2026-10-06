@@ -239,7 +239,7 @@ void main() {
       await tester.tap(find.text('😀').first);
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byIcon(Icons.arrow_back_rounded));
+      await tester.tap(find.byIcon(Icons.arrow_back_ios_new_rounded));
       await tester.pumpAndSettle();
 
       expect(find.text('Unsaved Changes'), findsOneWidget);

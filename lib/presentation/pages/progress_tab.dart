@@ -3,14 +3,19 @@ import 'dart:io';
 import 'package:flutter/material.dart' hide Badge;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../constants/design_tokens.dart';
 import '../../data/models/vocabulary_model.dart';
 import '../../data/services/dictionary_service.dart';
 import '../../utils/topic_categories.dart';
 import '../providers/providers.dart';
 import '../widgets/reward_icon_widget.dart';
+import '../widgets/app_empty_state.dart';
+import '../widgets/app_loading_widgets.dart';
+import '../widgets/rounded_progress_bar.dart';
 import '../widgets/badges_section.dart';
 import '../widgets/top_header_actions.dart';
 import '../widgets/vocabulary_detail_bottom_sheet.dart';
+import '../widgets/bottom_sheet_chrome.dart';
 import 'badges_page.dart';
 import 'stickers_page.dart';
 import 'profile_tab.dart';
@@ -88,12 +93,11 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
     Future.delayed(const Duration(milliseconds: 300), () {
       if (mounted) {
         final nextIndex = _displayedVocabs.length;
-        final endIndex = (nextIndex + _itemsPerPage)
-            .clamp(0, _allFilteredVocabs.length);
+        final endIndex =
+            (nextIndex + _itemsPerPage).clamp(0, _allFilteredVocabs.length);
 
         setState(() {
-          _displayedVocabs =
-              _allFilteredVocabs.sublist(0, endIndex);
+          _displayedVocabs = _allFilteredVocabs.sublist(0, endIndex);
           _isLoadingMore = false;
         });
       }
@@ -134,15 +138,18 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
     _sortAndDisplayVocabs(filtered);
   }
 
-  Future<void> _sortAndDisplayVocabs(List<VocabularyModel> filteredVocabularies) async {
+  Future<void> _sortAndDisplayVocabs(
+      List<VocabularyModel> filteredVocabularies) async {
     try {
       final hiveService = ref.read(hiveServiceProvider);
-      final sorted = await _sortVocabulariesByDueDate(filteredVocabularies, hiveService);
+      final sorted =
+          await _sortVocabulariesByDueDate(filteredVocabularies, hiveService);
 
       setState(() {
         _allFilteredVocabs = sorted;
         // Keep existing displayed items if sorted list is the same
-        if (_displayedVocabs.isEmpty || !_listsAreEqual(_displayedVocabs, sorted)) {
+        if (_displayedVocabs.isEmpty ||
+            !_listsAreEqual(_displayedVocabs, sorted)) {
           // Load initial items only if list changed
           final initialCount = _itemsPerPage.clamp(0, sorted.length);
           _displayedVocabs = sorted.sublist(0, initialCount);
@@ -155,7 +162,8 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
         _allFilteredVocabs = filteredVocabularies;
         // Keep existing if error
         if (_displayedVocabs.isEmpty) {
-          final initialCount = _itemsPerPage.clamp(0, filteredVocabularies.length);
+          final initialCount =
+              _itemsPerPage.clamp(0, filteredVocabularies.length);
           _displayedVocabs = filteredVocabularies.sublist(0, initialCount);
         }
         _isLoadingMore = false;
@@ -164,10 +172,12 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
   }
 
   // Check if two lists are equal (same items in same order and same favorite state)
-  bool _listsAreEqual(List<VocabularyModel> list1, List<VocabularyModel> list2) {
+  bool _listsAreEqual(
+      List<VocabularyModel> list1, List<VocabularyModel> list2) {
     if (list1.length != list2.length) return false;
     for (int i = 0; i < list1.length; i++) {
-      if (list1[i].id != list2[i].id || list1[i].isFavorite != list2[i].isFavorite) return false;
+      if (list1[i].id != list2[i].id ||
+          list1[i].isFavorite != list2[i].isFavorite) return false;
     }
     return true;
   }
@@ -181,7 +191,8 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
 
   @override
   Widget build(BuildContext context) {
-    print('🔄 Build called - _isInitialized: $_isInitialized, _displayedVocabs: ${_displayedVocabs.length}');
+    print(
+        '🔄 Build called - _isInitialized: $_isInitialized, _displayedVocabs: ${_displayedVocabs.length}');
 
     // Listen for scroll to top signal from tab navigation
     ref.listen<int>(
@@ -197,7 +208,8 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
     ref.listen(userStateProvider, (previous, next) {
       final prevUser = previous?.user;
       final nextUser = next.user;
-      if (prevUser?.id != nextUser?.id || prevUser?.isGuest != nextUser?.isGuest) {
+      if (prevUser?.id != nextUser?.id ||
+          prevUser?.isGuest != nextUser?.isGuest) {
         setState(() {
           _isInitialized = false;
           _lastVocabLength = -1;
@@ -221,32 +233,14 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
     final uniqueImages = allVocabularies.map((v) => v.imageUrl).toSet();
     final totalPhotos = uniqueImages.where((url) => url.isNotEmpty).length;
     final streakDays = streakData?.currentStreak ?? 0;
-    final longestStreak = streakData?.longestStreak ?? 0;
+    final learningDaysAsync = ref.watch(learningActivityDaysProvider);
+    final daysLearning = learningDaysAsync.maybeWhen(
+      data: (days) => days.length,
+      orElse: () => 0,
+    );
 
-    // Calculate total unique learning days across all vocabularies, scrapbooks, and streak
-    final scrapbookState = ref.watch(scrapbookStateProvider);
-    final learningDates = <String>{};
-    for (final v in allVocabularies) {
-      final local = v.createdAt.toLocal();
-      learningDates.add('${local.year}-${local.month.toString().padLeft(2, '0')}-${local.day.toString().padLeft(2, '0')}');
-    }
-    for (final sb in scrapbookState.scrapbooks) {
-      final local = sb.createdAt.toLocal();
-      learningDates.add('${local.year}-${local.month.toString().padLeft(2, '0')}-${local.day.toString().padLeft(2, '0')}');
-    }
-    if (allVocabularies.isNotEmpty || scrapbookState.scrapbooks.isNotEmpty || streakDays > 0) {
-      final now = DateTime.now();
-      learningDates.add('${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}');
-    }
-    final daysLearning = [
-      learningDates.length,
-      streakDays,
-      longestStreak,
-    ].reduce((a, b) => a > b ? a : b);
-
-    final natureVocabCount = allVocabularies
-        .where((v) => v.topic.toLowerCase() == 'nature')
-        .length;
+    final natureVocabCount =
+        allVocabularies.where((v) => v.topic.toLowerCase() == 'nature').length;
 
     // Check and unlock badges / stickers if eligible (only when counts change, to prevent infinite loops)
     if (_lastCheckedStars != totalStars ||
@@ -459,15 +453,16 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
     required int daysLearning,
   }) {
     final badgeState = ref.watch(badgeStateProvider);
-    final upcoming = badgeState.getNextUpcomingBadge(totalStars, streakDays, category: 'Stars');
+    final upcoming = badgeState.getNextUpcomingBadge(totalStars, streakDays,
+        category: 'Stars');
 
-    final progressText = upcoming != null
-        ? upcoming.progressLabel
-        : 'All Badges Unlocked!';
+    final progressText =
+        upcoming != null ? upcoming.progressLabel : 'All Badges Unlocked!';
     final progressPercent = upcoming?.progressPercentage ?? 1.0;
 
     return Container(
       width: double.infinity,
+      height: DesignTokens.progressStarsBannerHeight,
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [
@@ -501,7 +496,8 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                 angle: 0.2,
                 child: const Opacity(
                   opacity: 0.3,
-                  child: Icon(Icons.star_border_rounded, size: 85, color: Colors.white),
+                  child: Icon(Icons.star_border_rounded,
+                      size: 85, color: Colors.white),
                 ),
               ),
             ),
@@ -512,63 +508,116 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                 angle: -0.15,
                 child: const Opacity(
                   opacity: 0.25,
-                  child: Icon(Icons.star_rounded, size: 50, color: Colors.white),
+                  child:
+                      Icon(Icons.star_rounded, size: 50, color: Colors.white),
                 ),
               ),
             ),
 
             // Content
             Padding(
-              padding: const EdgeInsets.all(20),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // Top Row: Stars count & label (vertically centered & aligned)
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Text(
-                        '$totalStars',
-                        style: GoogleFonts.lexend(
-                          fontSize: 44,
-                          fontWeight: FontWeight.w800,
-                          color: const Color(0xFF221F33),
-                          height: 1,
-                          letterSpacing: -1,
+                  // Keep the original side-by-side layout, with a larger count.
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final countWidth = constraints.maxWidth * 0.45;
+                      final countTextStyle = GoogleFonts.lexend(
+                        fontSize: 54,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF221F33),
+                        height: 1,
+                        letterSpacing: -1.2,
+                      );
+                      final countPainter = TextPainter(
+                        text: TextSpan(
+                          text: '$totalStars',
+                          style: countTextStyle,
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              'stars collected',
-                              style: GoogleFonts.lexend(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w800,
-                                color: const Color(0xFF221F33),
-                                height: 1.2,
+                        textDirection: Directionality.of(context),
+                        maxLines: 1,
+                      )..layout();
+                      final preferredChipWidth = countPainter.width + 24;
+                      final countChipWidth = preferredChipWidth < 76
+                          ? (countWidth < 76 ? countWidth : 76.0)
+                          : (preferredChipWidth > countWidth
+                              ? countWidth
+                              : preferredChipWidth);
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Container(
+                            width: countChipWidth,
+                            height: 76,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(38),
+                              color: Colors.white.withValues(alpha: 0.78),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.95),
+                                width: 1.2,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFF7C5CFC)
+                                      .withValues(alpha: 0.10),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: Center(
+                              child: Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 10),
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(
+                                    '$totalStars',
+                                    maxLines: 1,
+                                    style: countTextStyle,
+                                  ),
+                                ),
                               ),
                             ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'Words in your discovery galaxy',
-                              style: GoogleFonts.lexend(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w400,
-                                color: const Color(0xFF655D80),
-                                height: 1.2,
-                              ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'stars collected',
+                                  style: GoogleFonts.lexend(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800,
+                                    color: const Color(0xFF221F33),
+                                    height: 1.2,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Words in your discovery galaxy',
+                                  style: GoogleFonts.lexend(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w400,
+                                    color: const Color(0xFF655D80),
+                                    height: 1.2,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
-                      ),
-                    ],
+                          ),
+                        ],
+                      );
+                    },
                   ),
 
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
 
                   // Next Badge Progress Bar
                   Column(
@@ -625,25 +674,21 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                         ],
                       ),
                       const SizedBox(height: 7),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(6),
-                        child: LinearProgressIndicator(
-                          value: progressPercent,
-                          backgroundColor: Colors.white.withValues(alpha: 0.65),
-                          valueColor: const AlwaysStoppedAnimation<Color>(
-                            Color(0xFF7C5CFC),
-                          ),
-                          minHeight: 7,
-                        ),
+                      RoundedProgressBar(
+                        value: progressPercent,
+                        height: 7,
+                        trackColor: Colors.white.withValues(alpha: 0.65),
+                        valueColor: const Color(0xFF7C5CFC),
                       ),
                     ],
                   ),
 
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
 
                   // Bottom Mini Stats Strip inside Card
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.75),
                       borderRadius: BorderRadius.circular(16),
@@ -733,7 +778,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                                         ),
                                       ),
                                       TextSpan(
-                                        text: 'days learning',
+                                        text: 'learning days',
                                         style: GoogleFonts.lexend(
                                           fontSize: 11.5,
                                           fontWeight: FontWeight.w400,
@@ -787,12 +832,15 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 decoration: BoxDecoration(
-                  color: _selectedTab == 'Vocab' ? Colors.white : Colors.transparent,
+                  color: _selectedTab == 'Vocab'
+                      ? Colors.white
+                      : Colors.transparent,
                   borderRadius: BorderRadius.circular(22),
                   boxShadow: _selectedTab == 'Vocab'
                       ? [
                           BoxShadow(
-                            color: const Color(0xFF7C5CFC).withValues(alpha: 0.12),
+                            color:
+                                const Color(0xFF7C5CFC).withValues(alpha: 0.12),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
@@ -841,12 +889,15 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 decoration: BoxDecoration(
-                  color: _selectedTab == 'Reward' ? Colors.white : Colors.transparent,
+                  color: _selectedTab == 'Reward'
+                      ? Colors.white
+                      : Colors.transparent,
                   borderRadius: BorderRadius.circular(22),
                   boxShadow: _selectedTab == 'Reward'
                       ? [
                           BoxShadow(
-                            color: const Color(0xFF7C5CFC).withValues(alpha: 0.12),
+                            color:
+                                const Color(0xFF7C5CFC).withValues(alpha: 0.12),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
@@ -903,7 +954,9 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
 
         // Vocabulary list
         if (_displayedVocabs.isEmpty)
-          _buildEmptyState()
+          (_searchQuery.trim().isNotEmpty || _selectedCategory != 'All')
+              ? _buildFilteredEmptyState()
+              : _buildEmptyState()
         else
           _buildVocabularyList(),
       ],
@@ -913,9 +966,8 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
   Widget _buildRewardSection(int totalStars, int currentStreak) {
     final stickerState = ref.watch(stickerStateProvider);
     final allVocabularies = ref.watch(vocabularyStateProvider).vocabularies;
-    final natureVocabCount = allVocabularies
-        .where((v) => v.topic.toLowerCase() == 'nature')
-        .length;
+    final natureVocabCount =
+        allVocabularies.where((v) => v.topic.toLowerCase() == 'nature').length;
 
     return Column(
       children: [
@@ -995,7 +1047,8 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                 ),
                 const Spacer(),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: const Color(0xFFF4EEFF),
                     borderRadius: BorderRadius.circular(12),
@@ -1019,7 +1072,8 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                   },
                   borderRadius: BorderRadius.circular(8),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                     child: Row(
                       children: [
                         Text(
@@ -1030,11 +1084,19 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                             color: const Color(0xFF7C5CFC),
                           ),
                         ),
-                        const SizedBox(width: 2),
-                        const Icon(
-                          Icons.arrow_forward_ios,
-                          size: 10,
-                          color: Color(0xFF7C5CFC),
+                        const SizedBox(width: 6),
+                        Container(
+                          width: 26,
+                          height: 26,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFF1F2F5),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.chevron_right_rounded,
+                            size: 20,
+                            color: Color(0xFF9CA3AF),
+                          ),
                         ),
                       ],
                     ),
@@ -1084,9 +1146,8 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                     width: 104,
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: isUnlocked
-                          ? const Color(0xFFF4EEFF)
-                          : const Color(0xFFFBF9FE),
+                      color:
+                          isUnlocked ? Colors.white : const Color(0xFFF6F4F8),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
                         color: isUnlocked
@@ -1101,49 +1162,86 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                       children: [
                         // Pack Icon Circle with glow
                         Container(
-                          width: 48,
-                          height: 48,
-                          padding: const EdgeInsets.all(6),
+                          width: 52,
+                          height: 52,
+                          padding: const EdgeInsets.all(4),
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            gradient: isUnlocked
-                                ? LinearGradient(colors: gradient)
-                                : const LinearGradient(
-                                    colors: [Color(0xFFEBE6FC), Color(0xFFDED8F7)],
-                                  ),
-                            boxShadow: isUnlocked
-                                ? [
-                                    BoxShadow(
-                                      color: gradient.first.withValues(alpha: 0.3),
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ]
-                                : null,
+                            color: isUnlocked
+                                ? Color.alphaBlend(
+                                    gradient.first.withValues(alpha: 0.10),
+                                    Colors.white,
+                                  )
+                                : const Color(0xFFF0EEF3),
+                            border: Border.all(
+                              color: isUnlocked
+                                  ? gradient.first.withValues(alpha: 0.28)
+                                  : const Color(0xFFE9E5EF),
+                            ),
                           ),
-                          child: Center(
-                            child: ColorFiltered(
-                              colorFilter: isUnlocked
-                                  ? const ColorFilter.mode(
-                                      Colors.transparent,
-                                      BlendMode.dst,
-                                    )
-                                  : const ColorFilter.matrix(<double>[
-                                      0.2126, 0.7152, 0.0722, 0, 0,
-                                      0.2126, 0.7152, 0.0722, 0, 0,
-                                      0.2126, 0.7152, 0.0722, 0, 0,
-                                      0,      0,      0,      0.45, 0,
-                                    ]),
-                              child: Image.asset(
-                                pack.previewAsset,
-                                fit: BoxFit.contain,
-                                errorBuilder: (_, __, ___) => const Icon(
-                                  Icons.image_outlined,
-                                  size: 24,
-                                  color: Color(0xFF9892A6),
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              ColorFiltered(
+                                colorFilter: isUnlocked
+                                    ? const ColorFilter.mode(
+                                        Colors.transparent,
+                                        BlendMode.dst,
+                                      )
+                                    : const ColorFilter.matrix(<double>[
+                                        0.2126,
+                                        0.7152,
+                                        0.0722,
+                                        0,
+                                        0,
+                                        0.2126,
+                                        0.7152,
+                                        0.0722,
+                                        0,
+                                        0,
+                                        0.2126,
+                                        0.7152,
+                                        0.0722,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        0.7,
+                                        0,
+                                      ]),
+                                child: Image.asset(
+                                  pack.previewAsset,
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (_, __, ___) => const Icon(
+                                    Icons.image_outlined,
+                                    size: 24,
+                                    color: Color(0xFF9892A6),
+                                  ),
                                 ),
                               ),
-                            ),
+                              if (!isUnlocked)
+                                Positioned(
+                                  right: 0,
+                                  bottom: 0,
+                                  child: Container(
+                                    width: 18,
+                                    height: 18,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: const Color(0xFFDAD6E0),
+                                      ),
+                                    ),
+                                    child: const Icon(
+                                      Icons.lock_rounded,
+                                      size: 10,
+                                      color: Color(0xFF817B89),
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
                         const SizedBox(height: 6),
@@ -1167,9 +1265,11 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                         // Progress Indicator / Tag
                         if (isUnlocked)
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 1.5),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                              color: const Color(0xFF10B981)
+                                  .withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
@@ -1187,16 +1287,10 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(3),
-                                  child: LinearProgressIndicator(
-                                    value: progressRatio,
-                                    minHeight: 4,
-                                    backgroundColor: const Color(0xFFEBE6FC),
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      gradient.first,
-                                    ),
-                                  ),
+                                RoundedProgressBar(
+                                  value: progressRatio,
+                                  trackColor: const Color(0xFFEBE6FC),
+                                  valueColor: gradient.first,
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
@@ -1265,7 +1359,8 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
           ),
           suffixIcon: _searchQuery.isNotEmpty
               ? IconButton(
-                  icon: const Icon(Icons.close_rounded, size: 18, color: Color(0xFF9892A6)),
+                  icon: const Icon(Icons.close_rounded,
+                      size: 18, color: Color(0xFF9892A6)),
                   onPressed: () {
                     _searchController.clear();
                     setState(() {
@@ -1277,7 +1372,8 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                 )
               : null,
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         ),
         style: GoogleFonts.lexend(
           color: const Color(0xFF221F33),
@@ -1309,12 +1405,12 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
           // Popular category chips with spacing
           for (int i = 0; i < popularCategories.length; i++) ...[
             if (i > 0) const SizedBox(width: 8),
-            _buildCategoryChip(popularCategories[i], _getCategoryCount(popularCategories[i], totalCount)),
+            _buildCategoryChip(popularCategories[i],
+                _getCategoryCount(popularCategories[i], totalCount)),
           ],
           const SizedBox(width: 8),
           // More... dropdown if there are more categories
-          if (hasMore)
-            _buildMoreCategoryDropdown(),
+          if (hasMore) _buildMoreCategoryDropdown(),
         ],
       ),
     );
@@ -1404,7 +1500,8 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
           color: isSelected ? const Color(0xFFF4EEFF) : Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected ? const Color(0xFF7C5CFC) : const Color(0xFFEBE6FC),
+            color:
+                isSelected ? const Color(0xFF7C5CFC) : const Color(0xFFEBE6FC),
             width: isSelected ? 1.5 : 1.0,
           ),
           boxShadow: isSelected
@@ -1437,7 +1534,9 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
               style: GoogleFonts.lexend(
                 fontSize: 13,
                 fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                color: isSelected ? const Color(0xFF7C5CFC) : const Color(0xFF8E88A8),
+                color: isSelected
+                    ? const Color(0xFF7C5CFC)
+                    : const Color(0xFF8E88A8),
               ),
             ),
             const SizedBox(width: 6),
@@ -1454,7 +1553,9 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                 style: GoogleFonts.lexend(
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
-                  color: isSelected ? const Color(0xFF7C5CFC) : const Color(0xFF8E88A8),
+                  color: isSelected
+                      ? const Color(0xFF7C5CFC)
+                      : const Color(0xFF8E88A8),
                 ),
               ),
             ),
@@ -1467,7 +1568,8 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
   Widget _buildMoreCategoryDropdown() {
     final isCustomCategorySelected = _selectedCategory != 'All' &&
         _selectedCategory != 'Favorites' &&
-        !_getPopularCategories(_allFilteredVocabs.length).contains(_selectedCategory);
+        !_getPopularCategories(_allFilteredVocabs.length)
+            .contains(_selectedCategory);
 
     return InkWell(
       onTap: _showCategoryBottomSheet,
@@ -1475,7 +1577,8 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: isCustomCategorySelected ? const Color(0xFFF4EEFF) : Colors.white,
+          color:
+              isCustomCategorySelected ? const Color(0xFFF4EEFF) : Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isCustomCategorySelected
@@ -1488,10 +1591,14 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              isCustomCategorySelected ? _formatCategoryName(_selectedCategory) : 'More...',
+              isCustomCategorySelected
+                  ? _formatCategoryName(_selectedCategory)
+                  : 'More...',
               style: GoogleFonts.lexend(
                 fontSize: 13,
-                fontWeight: isCustomCategorySelected ? FontWeight.w700 : FontWeight.w500,
+                fontWeight: isCustomCategorySelected
+                    ? FontWeight.w700
+                    : FontWeight.w500,
                 color: isCustomCategorySelected
                     ? const Color(0xFF7C5CFC)
                     : const Color(0xFF8E88A8),
@@ -1518,9 +1625,9 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
     final popularCategories = _getPopularCategories(allVocabs.length);
 
     // Get categories NOT in popular list
-    final remainingCategories = allCategories.where((cat) =>
-      cat != 'All' && !popularCategories.contains(cat)
-    ).toList();
+    final remainingCategories = allCategories
+        .where((cat) => cat != 'All' && !popularCategories.contains(cat))
+        .toList();
 
     showModalBottomSheet(
       context: context,
@@ -1543,27 +1650,30 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
           mainAxisSize: MainAxisSize.min,
           children: [
             // Handle bar
-            Container(
-              margin: const EdgeInsets.only(top: 12),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: const Color(0xFFE2DBFD),
-                borderRadius: BorderRadius.circular(2),
-              ),
+            const AppBottomSheetDragHandle(
+              margin: EdgeInsets.only(top: 12),
             ),
             Padding(
               padding: const EdgeInsets.all(22),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'All Categories',
-                    style: GoogleFonts.lexend(
-                      fontSize: 19,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF221F33),
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'All Categories',
+                          style: GoogleFonts.lexend(
+                            fontSize: 19,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF221F33),
+                          ),
+                        ),
+                      ),
+                      AppBottomSheetCloseButton(
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 16),
                   Wrap(
@@ -1584,7 +1694,8 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                         },
                         borderRadius: BorderRadius.circular(20),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 8),
                           decoration: BoxDecoration(
                             color: isSelected
                                 ? const Color(0xFFF4EEFF)
@@ -1688,9 +1799,8 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
     return Column(
       children: [
         // Display all current vocabularies
-        ..._displayedVocabs.map((vocab) =>
-          _buildVocabularyItem(vocab, _displayedVocabs)
-        ),
+        ..._displayedVocabs
+            .map((vocab) => _buildVocabularyItem(vocab, _displayedVocabs)),
 
         // Loading indicator at bottom
         if (_isLoadingMore)
@@ -1705,7 +1815,8 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
     );
   }
 
-  Widget _buildVocabularyItem(VocabularyModel vocab, List<VocabularyModel> allVocabularies) {
+  Widget _buildVocabularyItem(
+      VocabularyModel vocab, List<VocabularyModel> allVocabularies) {
     final isFavorite = vocab.isFavorite;
 
     return Container(
@@ -1786,10 +1897,14 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                   onTap: () {
                     setState(() {
                       _displayedVocabs = _displayedVocabs.map((v) {
-                        return v.id == vocab.id ? v.copyWith(isFavorite: !v.isFavorite) : v;
+                        return v.id == vocab.id
+                            ? v.copyWith(isFavorite: !v.isFavorite)
+                            : v;
                       }).toList();
                     });
-                    ref.read(vocabularyStateProvider.notifier).toggleFavorite(vocab.id);
+                    ref
+                        .read(vocabularyStateProvider.notifier)
+                        .toggleFavorite(vocab.id);
                   },
                   borderRadius: BorderRadius.circular(19),
                   child: Container(
@@ -1797,15 +1912,21 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                     height: 38,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: isFavorite ? const Color(0xFFFDF2F8) : const Color(0xFFF9F7FD),
+                      color: isFavorite
+                          ? const Color(0xFFFDF2F8)
+                          : const Color(0xFFF9F7FD),
                       border: Border.all(
-                        color: isFavorite ? const Color(0xFFFCE7F3) : const Color(0xFFEBE6FC),
+                        color: isFavorite
+                            ? const Color(0xFFFCE7F3)
+                            : const Color(0xFFEBE6FC),
                         width: 1,
                       ),
                     ),
                     child: Center(
                       child: Icon(
-                        isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                        isFavorite
+                            ? Icons.favorite_rounded
+                            : Icons.favorite_border_rounded,
                         color: isFavorite
                             ? const Color(0xFFEC4899)
                             : const Color(0xFFA69EB8),
@@ -1831,69 +1952,29 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
     );
   }
 
-  Widget _buildEmptyState() {
-    return SizedBox(
-      width: double.infinity,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: const Color(0xFFEBE6FC),
-            width: 1.2,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF7C5CFC).withValues(alpha: 0.06),
-              blurRadius: 16,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          children: [
-            Container(
-              width: 68,
-              height: 68,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: const Color(0xFFF4EEFF),
-                border: Border.all(
-                  color: const Color(0xFFE2DBFD),
-                  width: 1.5,
-                ),
-              ),
-              child: const Center(
-                child: Icon(
-                  Icons.auto_awesome_rounded,
-                  size: 32,
-                  color: Color(0xFF7C5CFC),
-                ),
-              ),
-            ),
-            const SizedBox(height: 18),
-            Text(
-              'No vocabulary found',
-              style: GoogleFonts.lexend(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF221F33),
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Start discovering words with new photos to build your galaxy!',
-              style: GoogleFonts.lexend(
-                fontSize: 13.5,
-                fontWeight: FontWeight.w400,
-                color: const Color(0xFF9892A6),
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
+  Widget _buildEmptyState({
+    String? message,
+    IconData icon = Icons.auto_awesome_rounded,
+  }) {
+    return AppEmptyState(
+      compact: true,
+      icon: icon,
+      title: 'No vocabulary found',
+      message: message ??
+          'Start discovering words with new photos to build your galaxy!',
+    );
+  }
+
+  Widget _buildFilteredEmptyState() {
+    final message = _searchQuery.trim().isNotEmpty
+        ? 'Try a different word or translation'
+        : _selectedCategory == 'Favorites'
+            ? "You haven't saved any favorite words yet"
+            : 'There are no words in this category yet';
+
+    return _buildEmptyState(
+      message: message,
+      icon: Icons.search_off_rounded,
     );
   }
 
@@ -1901,7 +1982,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
     final vocabState = ref.read(vocabularyStateProvider);
     final allVocabularies = vocabState.vocabularies;
 
-    // Get unique images only (group vocabularies by image URL)
+    // Get unique primary photos and the vocabulary captured from each photo.
     final uniqueImagesMap = <String, List<VocabularyModel>>{};
 
     for (final vocab in allVocabularies) {
@@ -1922,9 +2003,14 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
 
     // Convert to list of unique photo entries
     final photoEntries = uniqueImagesMap.entries.map((entry) {
+      final vocabularies = entry.value;
+      final capturedAt = vocabularies
+          .map((vocabulary) => vocabulary.createdAt)
+          .reduce((first, second) => first.isBefore(second) ? first : second);
       return PhotoEntry(
         imageUrl: entry.key,
-        vocabularies: entry.value,
+        vocabularies: vocabularies,
+        capturedAt: capturedAt,
       );
     }).toList();
 
@@ -1944,15 +2030,19 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
 class PhotoEntry {
   final String imageUrl;
   final List<VocabularyModel> vocabularies;
+  final DateTime capturedAt;
 
   PhotoEntry({
     required this.imageUrl,
     required this.vocabularies,
+    required this.capturedAt,
   });
 }
 
+enum _PhotoSortOrder { newestFirst, oldestFirst }
+
 // Photos Gallery Page
-class PhotosGalleryPage extends StatelessWidget {
+class PhotosGalleryPage extends StatefulWidget {
   final List<PhotoEntry> photoEntries;
   final List<VocabularyModel> allVocabularies;
 
@@ -1963,16 +2053,57 @@ class PhotosGalleryPage extends StatelessWidget {
   });
 
   @override
+  State<PhotosGalleryPage> createState() => _PhotosGalleryPageState();
+}
+
+class _PhotosGalleryPageState extends State<PhotosGalleryPage> {
+  _PhotoSortOrder _sortOrder = _PhotoSortOrder.newestFirst;
+
+  @override
   Widget build(BuildContext context) {
+    final sortedPhotoEntries = [...widget.photoEntries]..sort((first, second) =>
+        _sortOrder == _PhotoSortOrder.newestFirst
+            ? second.capturedAt.compareTo(first.capturedAt)
+            : first.capturedAt.compareTo(second.capturedAt));
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF1F2937), size: 20),
-          onPressed: () => Navigator.pop(context),
+        leadingWidth: 64,
+        leading: Center(
+          child: GestureDetector(
+            onTap: () => Navigator.pop(context),
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: const Color(0xFFE5E7EB),
+                  width: 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: const Center(
+                child: Icon(
+                  Icons.arrow_back_ios_new_rounded,
+                  color: Color(0xFF1F2937),
+                  size: 17,
+                ),
+              ),
+            ),
+          ),
         ),
         title: Text(
           'My Photos',
@@ -1982,6 +2113,50 @@ class PhotosGalleryPage extends StatelessWidget {
             color: const Color(0xFF221F33),
           ),
         ),
+        actions: [
+          Theme(
+            data: Theme.of(context).copyWith(
+              hoverColor: Colors.transparent,
+              highlightColor: Colors.transparent,
+              focusColor: Colors.transparent,
+              splashColor: Colors.transparent,
+            ),
+            child: PopupMenuButton<_PhotoSortOrder>(
+              tooltip: 'Sort photos',
+              initialValue: _sortOrder,
+              onSelected: (value) => setState(() => _sortOrder = value),
+              position: PopupMenuPosition.under,
+              offset: const Offset(0, 8),
+              color: Colors.white,
+              elevation: 10,
+              shadowColor: DesignTokens.dialogBrand.withValues(alpha: 0.16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+                side: BorderSide(
+                  color: DesignTokens.dialogAccentBorderColor(
+                    DesignTokens.dialogBrand,
+                  ),
+                ),
+              ),
+              icon: const Icon(
+                Icons.sort_rounded,
+                color: DesignTokens.brandColor,
+              ),
+              itemBuilder: (context) => [
+                _buildSortMenuItem(
+                  order: _PhotoSortOrder.newestFirst,
+                  label: 'Newest first',
+                  icon: Icons.south_rounded,
+                ),
+                _buildSortMenuItem(
+                  order: _PhotoSortOrder.oldestFirst,
+                  label: 'Oldest first',
+                  icon: Icons.north_rounded,
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
       body: SafeArea(
         child: Padding(
@@ -1993,12 +2168,66 @@ class PhotosGalleryPage extends StatelessWidget {
               mainAxisSpacing: 12,
               childAspectRatio: 1,
             ),
-            itemCount: photoEntries.length,
+            itemCount: sortedPhotoEntries.length,
             itemBuilder: (context, index) {
-              final entry = photoEntries[index];
+              final entry = sortedPhotoEntries[index];
               return _buildPhotoCard(context, entry);
             },
           ),
+        ),
+      ),
+    );
+  }
+
+  PopupMenuItem<_PhotoSortOrder> _buildSortMenuItem({
+    required _PhotoSortOrder order,
+    required String label,
+    required IconData icon,
+  }) {
+    final isSelected = _sortOrder == order;
+    return PopupMenuItem<_PhotoSortOrder>(
+      value: order,
+      height: 46,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? DesignTokens.dialogBrandTint : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              size: 18,
+              color: isSelected
+                  ? DesignTokens.dialogBrand
+                  : DesignTokens.textSecondary,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                label,
+                style: GoogleFonts.lexend(
+                  fontSize: 13.5,
+                  fontWeight: isSelected
+                      ? DesignTokens.weightSemiBold
+                      : FontWeight.w400,
+                  color: isSelected
+                      ? DesignTokens.dialogBrand
+                      : DesignTokens.textPrimary,
+                ),
+              ),
+            ),
+            if (isSelected) ...[
+              const SizedBox(width: 8),
+              const Icon(
+                Icons.check_rounded,
+                size: 17,
+                color: DesignTokens.dialogBrand,
+              ),
+            ],
+          ],
         ),
       ),
     );
@@ -2016,7 +2245,7 @@ class PhotosGalleryPage extends StatelessWidget {
           backgroundColor: Colors.transparent,
           builder: (context) => PhotoWordsBottomSheet(
             photoEntry: entry,
-            allVocabularies: allVocabularies,
+            allVocabularies: widget.allVocabularies,
           ),
         );
       },
@@ -2043,10 +2272,15 @@ class PhotosGalleryPage extends StatelessWidget {
             fit: StackFit.expand,
             children: [
               // Photo
-              entry.imageUrl.startsWith('http://') || entry.imageUrl.startsWith('https://')
+              entry.imageUrl.startsWith('http://') ||
+                      entry.imageUrl.startsWith('https://')
                   ? Image.network(
                       entry.imageUrl,
                       fit: BoxFit.cover,
+                      loadingBuilder: (context, child, loadingProgress) =>
+                          loadingProgress == null
+                              ? child
+                              : const AppImageSkeleton(),
                       errorBuilder: (context, error, stackTrace) {
                         return Container(
                           color: const Color(0xFFF4EEFF),
@@ -2085,44 +2319,45 @@ class PhotosGalleryPage extends StatelessWidget {
                   ),
                 ),
               ),
-              // Word count badge (top right)
-              if (wordCount > 1)
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.95),
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.1),
-                          blurRadius: 4,
+              // Word count badge remains visible even when the photo has one word.
+              Positioned(
+                top: 8,
+                right: 8,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEF4444),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFEF4444).withValues(alpha: 0.35),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.star_rounded,
+                        size: 13,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '$wordCount',
+                        style: GoogleFonts.lexend(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
                         ),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.photo_library_rounded,
-                          size: 12,
-                          color: Color(0xFF7C5CFC),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '$wordCount',
-                          style: GoogleFonts.lexend(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: const Color(0xFF7C5CFC),
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
+              ),
               // Word label at bottom
               Positioned(
                 left: 0,
@@ -2201,14 +2436,8 @@ class PhotoWordsBottomSheet extends ConsumerWidget {
       child: Column(
         children: [
           // Handle bar
-          Container(
-            margin: const EdgeInsets.only(top: 12),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: const Color(0xFFE2DBFD),
-              borderRadius: BorderRadius.circular(2),
-            ),
+          const AppBottomSheetDragHandle(
+            margin: EdgeInsets.only(top: 12),
           ),
 
           // Header
@@ -2244,8 +2473,7 @@ class PhotoWordsBottomSheet extends ConsumerWidget {
                     ],
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.close_rounded, color: Color(0xFF9892A6), size: 24),
+                AppBottomSheetCloseButton(
                   onPressed: () => Navigator.pop(context),
                 ),
               ],
@@ -2283,7 +2511,8 @@ class PhotoWordsBottomSheet extends ConsumerWidget {
                             child: Row(
                               children: [
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 10, vertical: 3),
                                   decoration: BoxDecoration(
                                     color: const Color(0xFFF4EEFF),
                                     borderRadius: BorderRadius.circular(8),
@@ -2373,7 +2602,8 @@ class PhotoWordsBottomSheet extends ConsumerWidget {
                 bottom: 10,
                 right: 12,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
                     color: Colors.black.withValues(alpha: 0.55),
                     borderRadius: BorderRadius.circular(12),
@@ -2411,7 +2641,8 @@ class PhotoWordsBottomSheet extends ConsumerWidget {
     VocabularyModel vocab,
     List<VocabularyModel> allVocabs,
   ) {
-    final hasSentence = vocab.englishSentence.isNotEmpty || vocab.thaiSentence.isNotEmpty;
+    final hasSentence =
+        vocab.englishSentence.isNotEmpty || vocab.thaiSentence.isNotEmpty;
 
     return Material(
       color: Colors.transparent,
@@ -2442,7 +2673,8 @@ class PhotoWordsBottomSheet extends ConsumerWidget {
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
                       color: const Color(0xFFF4EEFF),
                       borderRadius: BorderRadius.circular(8),
@@ -2475,7 +2707,8 @@ class PhotoWordsBottomSheet extends ConsumerWidget {
                   if (vocab.partOfSpeech.isNotEmpty) ...[
                     const SizedBox(width: 6),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: const Color(0xFFF9FAFB),
                         borderRadius: BorderRadius.circular(8),
@@ -2490,24 +2723,6 @@ class PhotoWordsBottomSheet extends ConsumerWidget {
                           fontSize: 11,
                           fontWeight: FontWeight.w500,
                           color: const Color(0xFF6B7280),
-                        ),
-                      ),
-                    ),
-                  ],
-                  if (vocab.cefrLevel.isNotEmpty) ...[
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFEF3C7),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        vocab.cefrLevel,
-                        style: GoogleFonts.lexend(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: const Color(0xFFD97706),
                         ),
                       ),
                     ),
@@ -2641,13 +2856,16 @@ class PhotoWordsBottomSheet extends ConsumerWidget {
     double? width,
     double? height,
   }) {
-    final isNetwork = imageUrl.startsWith('http://') || imageUrl.startsWith('https://');
+    final isNetwork =
+        imageUrl.startsWith('http://') || imageUrl.startsWith('https://');
     if (isNetwork) {
       return Image.network(
         imageUrl,
         width: width,
         height: height,
         fit: fit,
+        loadingBuilder: (context, child, loadingProgress) =>
+            loadingProgress == null ? child : const AppImageSkeleton(),
         errorBuilder: (context, error, stackTrace) => Container(
           width: width,
           height: height,
@@ -2714,4 +2932,3 @@ class PhotoWordsBottomSheet extends ConsumerWidget {
     );
   }
 }
-

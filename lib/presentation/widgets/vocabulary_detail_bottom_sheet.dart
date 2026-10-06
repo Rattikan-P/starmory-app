@@ -1,13 +1,17 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../constants/design_tokens.dart';
 import '../../data/models/vocabulary_model.dart';
 import '../../data/services/dictionary_service.dart';
 import '../../data/services/tts_service.dart';
-import '../providers/scrapbook_provider.dart';
+import '../providers/providers.dart' show currentUserProvider;
+import 'bottom_sheet_chrome.dart';
+import 'app_loading_widgets.dart';
 
 // Vocabulary Detail Bottom Sheet - Shows word details from dictionary API
 class VocabularyDetailBottomSheet extends ConsumerStatefulWidget {
@@ -36,6 +40,7 @@ class _VocabularyDetailBottomSheetState
   final TTSService _ttsService = TTSService();
   bool _isPlayingUK = false; // Track UK TTS state
   bool _isPlayingUS = false; // Track US TTS state
+  bool _isPlayingSentence = false;
   StreamSubscription? _ttsCompletionSubscription;
   StreamSubscription? _ttsErrorSubscription;
 
@@ -117,6 +122,7 @@ class _VocabularyDetailBottomSheetState
         setState(() {
           _isPlayingUK = false;
           _isPlayingUS = false;
+          _isPlayingSentence = false;
         });
       }
     });
@@ -126,6 +132,7 @@ class _VocabularyDetailBottomSheetState
         setState(() {
           _isPlayingUK = false;
           _isPlayingUS = false;
+          _isPlayingSentence = false;
         });
       }
       print('🔊 TTS Error: $error');
@@ -134,8 +141,8 @@ class _VocabularyDetailBottomSheetState
 
   Future<void> _fetchDictionaryData() async {
     // Fetch dictionary for current word
-    final result =
-        await widget.dictionaryService.getWordDefinition(widget.vocabulary.word);
+    final result = await widget.dictionaryService
+        .getWordDefinition(widget.vocabulary.word);
 
     // Fetch dictionary for twin word if exists
     DictionaryEntry? twinResult;
@@ -193,6 +200,25 @@ class _VocabularyDetailBottomSheetState
     }
   }
 
+  Future<void> _playSentence(String sentence, String variant) async {
+    if (sentence.trim().isEmpty) return;
+    await _ttsService.stop();
+    if (!mounted) return;
+    setState(() {
+      _isPlayingSentence = true;
+      _isPlayingUK = false;
+      _isPlayingUS = false;
+    });
+    try {
+      await _ttsService.speak(
+        sentence,
+        language: TTSService.getLanguageCode(variant),
+      );
+    } catch (e) {
+      if (mounted) setState(() => _isPlayingSentence = false);
+    }
+  }
+
   @override
   void dispose() {
     _ttsCompletionSubscription?.cancel();
@@ -215,7 +241,7 @@ class _VocabularyDetailBottomSheetState
           style: GoogleFonts.lexend(
             fontSize: 13,
             fontWeight: FontWeight.w500,
-            color: const Color(0xFF8B5CF6),
+            color: DesignTokens.dialogBrand,
           ),
         ));
       }
@@ -237,7 +263,7 @@ class _VocabularyDetailBottomSheetState
           style: GoogleFonts.lexend(
             fontSize: 13,
             fontWeight: FontWeight.w500,
-            color: const Color(0xFF8B5CF6),
+            color: DesignTokens.dialogBrand,
           ),
         ));
       }
@@ -253,7 +279,7 @@ class _VocabularyDetailBottomSheetState
       style: GoogleFonts.lexend(
         fontSize: 14,
         fontWeight: FontWeight.w500,
-        color: const Color(0xFF8B5CF6),
+        color: DesignTokens.dialogBrand,
       ),
     );
   }
@@ -264,7 +290,9 @@ class _VocabularyDetailBottomSheetState
       height: MediaQuery.of(context).size.height * 0.75,
       decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(DesignTokens.bottomSheetRadius),
+        ),
         boxShadow: [
           BoxShadow(
             color: Color(0x1A000000),
@@ -276,14 +304,8 @@ class _VocabularyDetailBottomSheetState
       child: Column(
         children: [
           // Handle bar
-          Container(
-            margin: const EdgeInsets.only(top: 12),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: const Color(0xFFE5E7EB),
-              borderRadius: BorderRadius.circular(2),
-            ),
+          const AppBottomSheetDragHandle(
+            margin: EdgeInsets.only(top: 12),
           ),
 
           // Header
@@ -291,29 +313,6 @@ class _VocabularyDetailBottomSheetState
             padding: const EdgeInsets.all(20),
             child: Row(
               children: [
-                Container(
-                  width: 50,
-                  height: 50,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF8B5CF6), Color(0xFF60a5fa)],
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Center(
-                    child: Text(
-                      widget.vocabulary.word.isNotEmpty
-                          ? widget.vocabulary.word[0].toUpperCase()
-                          : '',
-                      style: GoogleFonts.lexend(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -326,17 +325,18 @@ class _VocabularyDetailBottomSheetState
                               TextSpan(
                                 text: widget.vocabulary.word,
                                 style: GoogleFonts.lexend(
-                                  fontSize: 20,
+                                  fontSize: 22,
                                   fontWeight: FontWeight.w700,
                                   color: const Color(0xFF1f2937),
                                 ),
                               ),
                               TextSpan(
-                                text: '\u00A0(${widget.vocabulary.languageVariant})',
+                                text:
+                                    '\u00A0(${widget.vocabulary.languageVariant})',
                                 style: GoogleFonts.lexend(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w500,
-                                  color: const Color(0xFF8B5CF6),
+                                  color: DesignTokens.dialogBrand,
                                 ),
                               ),
                               TextSpan(
@@ -350,7 +350,7 @@ class _VocabularyDetailBottomSheetState
                               TextSpan(
                                 text: _twinWord!.word,
                                 style: GoogleFonts.lexend(
-                                  fontSize: 20,
+                                  fontSize: 22,
                                   fontWeight: FontWeight.w700,
                                   color: const Color(0xFF1f2937),
                                 ),
@@ -360,7 +360,7 @@ class _VocabularyDetailBottomSheetState
                                 style: GoogleFonts.lexend(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w500,
-                                  color: const Color(0xFF8B5CF6),
+                                  color: DesignTokens.dialogBrand,
                                 ),
                               ),
                             ],
@@ -370,7 +370,7 @@ class _VocabularyDetailBottomSheetState
                         Text(
                           widget.vocabulary.word,
                           style: GoogleFonts.lexend(
-                            fontSize: 22,
+                            fontSize: 24,
                             fontWeight: FontWeight.w700,
                             color: const Color(0xFF1f2937),
                           ),
@@ -395,8 +395,7 @@ class _VocabularyDetailBottomSheetState
                     ],
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.close, color: Color(0xFF9ca3af)),
+                AppBottomSheetCloseButton(
                   onPressed: () => Navigator.pop(context),
                 ),
               ],
@@ -408,105 +407,28 @@ class _VocabularyDetailBottomSheetState
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Row(
               children: [
-                // UK Button
                 Expanded(
-                  child: InkWell(
-                    onTap: () => _playAudio(
-                      _twinWord?.languageVariant == 'UK'
-                          ? _twinWord!.word
-                          : widget.vocabulary.word,
-                      'UK',
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEDE9FE),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          if (_isPlayingUK)
-                            const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                    Color(0xFF8B5CF6)),
-                              ),
-                            )
-                          else
-                            const Icon(Icons.volume_up,
-                                color: Color(0xFF8B5CF6), size: 18),
-                          const SizedBox(width: 8),
-                          Text(
-                            '🇬🇧 UK',
-                            style: GoogleFonts.lexend(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xFF8B5CF6),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                  child: _buildPronunciationButton(
+                    variant: 'UK',
+                    word: _twinWord?.languageVariant == 'UK'
+                        ? _twinWord!.word
+                        : widget.vocabulary.word,
+                    isPlaying: _isPlayingUK,
                   ),
                 ),
                 const SizedBox(width: 12),
-                // US Button
                 Expanded(
-                  child: InkWell(
-                    onTap: () => _playAudio(
-                      _twinWord?.languageVariant == 'US'
-                          ? _twinWord!.word
-                          : widget.vocabulary.word,
-                      'US',
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEDE9FE),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          if (_isPlayingUS)
-                            const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                    Color(0xFF8B5CF6)),
-                              ),
-                            )
-                          else
-                            const Icon(Icons.volume_up,
-                                color: Color(0xFF8B5CF6), size: 18),
-                          const SizedBox(width: 8),
-                          Text(
-                            '🇺🇸 US',
-                            style: GoogleFonts.lexend(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xFF8B5CF6),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                  child: _buildPronunciationButton(
+                    variant: 'US',
+                    word: _twinWord?.languageVariant == 'US'
+                        ? _twinWord!.word
+                        : widget.vocabulary.word,
+                    isPlaying: _isPlayingUS,
                   ),
                 ),
               ],
             ),
           ),
-
           // Content
           Expanded(
             child: SingleChildScrollView(
@@ -519,10 +441,79 @@ class _VocabularyDetailBottomSheetState
     );
   }
 
+  Widget _buildPronunciationButton({
+    required String variant,
+    required String word,
+    required bool isPlaying,
+  }) {
+    final accentColor = DesignTokens.dialogBrand;
+    return Tooltip(
+      message: 'Listen to $variant pronunciation',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _playAudio(word, variant),
+          borderRadius: BorderRadius.circular(18),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            height: 52,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              color: isPlaying ? DesignTokens.dialogBrandTint : Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: isPlaying
+                    ? accentColor
+                    : DesignTokens.dialogAccentBorderColor(accentColor),
+                width: isPlaying ? 1.5 : 1,
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    color:
+                        isPlaying ? accentColor : DesignTokens.dialogBrandTint,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    isPlaying
+                        ? Icons.graphic_eq_rounded
+                        : Icons.volume_up_rounded,
+                    size: 17,
+                    color: isPlaying ? Colors.white : accentColor,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  variant == 'UK' ? '🇬🇧' : '🇺🇸',
+                  style: const TextStyle(fontSize: 13),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  variant,
+                  style: GoogleFonts.lexend(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: accentColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildContent() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        const SizedBox(height: 16),
         // Original vocab info - ALWAYS displayed immediately
         _buildOriginalVocabInfo(),
 
@@ -547,7 +538,7 @@ class _VocabularyDetailBottomSheetState
               height: 18,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
-                color: Color(0xFF8B5CF6),
+                color: DesignTokens.dialogBrand,
               ),
             ),
             const SizedBox(width: 12),
@@ -569,14 +560,22 @@ class _VocabularyDetailBottomSheetState
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFFF9FAFB),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFFE5E7EB)),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: DesignTokens.dialogAccentBorderColor(
+              DesignTokens.dialogBrand,
+            ),
+          ),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const Icon(Icons.info_outline, size: 20, color: Color(0xFF9CA3AF)),
+            const Icon(
+              Icons.info_outline,
+              size: 20,
+              color: DesignTokens.dialogBrand,
+            ),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
@@ -606,7 +605,7 @@ class _VocabularyDetailBottomSheetState
                 style: GoogleFonts.lexend(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: const Color(0xFF8B5CF6),
+                  color: DesignTokens.dialogBrand,
                 ),
               ),
             ),
@@ -628,18 +627,17 @@ class _VocabularyDetailBottomSheetState
   }
 
   Widget _buildOriginalVocabInfo() {
-    final scrapbookState = ref.watch(scrapbookStateProvider);
-    final normWord = widget.vocabulary.word.trim().toLowerCase();
-    final matchingScrapbooks = scrapbookState.scrapbooks.where((sb) {
-      return sb.vocabularyWords.any((w) => w.word.trim().toLowerCase() == normWord);
-    }).toList();
+    final examples = widget.vocabulary.allExamples;
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFF9FAFB),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        border: Border.all(
+          color: DesignTokens.dialogAccentBorderColor(DesignTokens.dialogBrand),
+          width: 1.2,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -647,28 +645,29 @@ class _VocabularyDetailBottomSheetState
           Row(
             children: [
               Text(
-                'YOUR VOCABULARY',
+                'MEANING',
                 style: GoogleFonts.lexend(
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
-                  color: const Color(0xFF8B5CF6),
+                  color: DesignTokens.dialogBrand,
                   letterSpacing: 1.2,
                 ),
               ),
-              if (matchingScrapbooks.length > 1) ...[
+              if (examples.length > 1) ...[
                 const Spacer(),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFEDE9FE),
+                    color: DesignTokens.dialogBrandTint,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
-                    '${matchingScrapbooks.length} memories',
+                    '${examples.length} examples',
                     style: GoogleFonts.lexend(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
-                      color: const Color(0xFF7C3AED),
+                      color: DesignTokens.dialogBrand,
                     ),
                   ),
                 ),
@@ -677,101 +676,47 @@ class _VocabularyDetailBottomSheetState
           ),
           const SizedBox(height: 8),
           Text(
-            widget.vocabulary.word,
-            style: GoogleFonts.lexend(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: const Color(0xFF1F2937),
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
             widget.vocabulary.thaiTranslation,
             style: GoogleFonts.lexend(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: const Color(0xFF6B7280),
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: DesignTokens.dialogTitleColor,
             ),
           ),
-
-          if (matchingScrapbooks.isNotEmpty) ...[
+          if (examples.isNotEmpty) ...[
             const SizedBox(height: 12),
-            const Divider(height: 1, color: Color(0xFFE5E7EB)),
+            Divider(
+              height: 1,
+              color: DesignTokens.dialogAccentBorderColor(
+                DesignTokens.dialogBrand,
+              ),
+            ),
             const SizedBox(height: 10),
             Text(
-              'Captured In Scrapbooks:',
+              'FROM YOUR MEMORIES',
               style: GoogleFonts.lexend(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: const Color(0xFF4B5563),
+                color: DesignTokens.dialogTitleColor,
               ),
             ),
             const SizedBox(height: 8),
-            ...matchingScrapbooks.map((sb) {
-              return Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFEDE9FE)),
+            if (examples.length == 1)
+              SizedBox(
+                height: 196,
+                child: _buildVocabularyExamplePage(examples.single),
+              )
+            else
+              SizedBox(
+                height: 196,
+                child: PageView.builder(
+                  itemCount: examples.length,
+                  itemBuilder: (context, index) => _buildVocabularyExamplePage(
+                    examples[index],
+                    position: '${index + 1} / ${examples.length}',
+                  ),
                 ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (sb.imagePath.isNotEmpty)
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: sb.imagePath.startsWith('http')
-                            ? Image.network(
-                                sb.imagePath,
-                                width: 44,
-                                height: 44,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => const Icon(Icons.image, size: 24, color: Colors.grey),
-                              )
-                            : Image.file(
-                                File(sb.imagePath),
-                                width: 44,
-                                height: 44,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => const Icon(Icons.image, size: 24, color: Colors.grey),
-                              ),
-                      ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (sb.englishSentence.isNotEmpty)
-                            Text(
-                              sb.englishSentence,
-                              style: GoogleFonts.lexend(
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w500,
-                                color: const Color(0xFF374151),
-                                fontStyle: FontStyle.italic,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          if (sb.thaiSentence.isNotEmpty)
-                            Text(
-                              sb.thaiSentence,
-                              style: GoogleFonts.lexend(
-                                fontSize: 11.5,
-                                color: const Color(0xFF6B7280),
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }),
+              ),
           ] else if (widget.vocabulary.englishSentence.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(
@@ -779,12 +724,212 @@ class _VocabularyDetailBottomSheetState
               style: GoogleFonts.lexend(
                 fontSize: 13,
                 fontWeight: FontWeight.w400,
-                color: const Color(0xFF5E3A8E),
+                color: DesignTokens.dialogBrand,
                 fontStyle: FontStyle.italic,
               ),
             ),
           ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildVocabularyExamplePage(
+    VocabularyExample example, {
+    String? position,
+  }) {
+    final selectedVariant = (ref
+            .watch(currentUserProvider)
+            ?.preferences['languageVariant'] as String?) ??
+        widget.vocabulary.languageVariant;
+    final sentence = example.englishSentence.trim();
+    final thaiSentence = example.thaiSentence.trim();
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          _buildScrapbookImage(example.imageUrl),
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Colors.transparent, Color(0xCC000000)],
+                stops: [0.3, 1],
+              ),
+            ),
+          ),
+          if (position != null)
+            Positioned(
+              top: 10,
+              right: 10,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: BackdropFilter(
+                  filter: ui.ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.22),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.45),
+                        width: 1,
+                      ),
+                    ),
+                    child: Text(
+                      position,
+                      style: GoogleFonts.lexend(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                        shadows: const [
+                          Shadow(color: Colors.black38, blurRadius: 3),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          Positioned(
+            left: 14,
+            right: 14,
+            bottom: 12,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 124),
+              child: ListView(
+                shrinkWrap: true,
+                padding: EdgeInsets.zero,
+                physics: const ClampingScrollPhysics(),
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (sentence.isNotEmpty)
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                sentence,
+                                style: GoogleFonts.lexend(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                  fontStyle: FontStyle.italic,
+                                  height: 1.35,
+                                  shadows: const [
+                                    Shadow(
+                                        color: Colors.black54, blurRadius: 4),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Semantics(
+                              button: true,
+                              label:
+                                  'Play sentence pronunciation in $selectedVariant',
+                              child: Material(
+                                color: Colors.white.withValues(alpha: 0.94),
+                                borderRadius: BorderRadius.circular(16),
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(16),
+                                  onTap: () =>
+                                      _playSentence(sentence, selectedVariant),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 9,
+                                      vertical: 6,
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          _isPlayingSentence
+                                              ? Icons.graphic_eq_rounded
+                                              : Icons.volume_up_rounded,
+                                          size: 15,
+                                          color: DesignTokens.dialogBrand,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          selectedVariant,
+                                          style: GoogleFonts.lexend(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w700,
+                                            color: DesignTokens.dialogBrand,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      if (thaiSentence.isNotEmpty) ...[
+                        if (sentence.isNotEmpty) const SizedBox(height: 4),
+                        Text(
+                          thaiSentence,
+                          style: GoogleFonts.lexend(
+                            fontSize: 11.5,
+                            color: Colors.white,
+                            height: 1.35,
+                            shadows: const [
+                              Shadow(color: Colors.black54, blurRadius: 4),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildScrapbookImage(String imagePath) {
+    if (imagePath.isEmpty) {
+      return _buildScrapbookImageFallback();
+    }
+
+    if (imagePath.startsWith('http')) {
+      return Image.network(
+        imagePath,
+        fit: BoxFit.cover,
+        loadingBuilder: (context, child, loadingProgress) =>
+            loadingProgress == null ? child : const AppImageSkeleton(),
+        errorBuilder: (_, __, ___) => _buildScrapbookImageFallback(),
+      );
+    }
+
+    return Image.file(
+      File(imagePath),
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => _buildScrapbookImageFallback(),
+    );
+  }
+
+  Widget _buildScrapbookImageFallback() {
+    return Container(
+      color: DesignTokens.dialogBrandTint,
+      alignment: Alignment.center,
+      child: Icon(
+        Icons.photo_outlined,
+        size: 34,
+        color: DesignTokens.dialogBrand.withValues(alpha: 0.6),
       ),
     );
   }
@@ -799,7 +944,7 @@ class _VocabularyDetailBottomSheetState
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: const Color(0xFFEDE9FE),
+              color: DesignTokens.dialogBrandTint,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
@@ -807,7 +952,7 @@ class _VocabularyDetailBottomSheetState
               style: GoogleFonts.lexend(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: const Color(0xFF8B5CF6),
+                color: DesignTokens.dialogBrand,
               ),
             ),
           ),
@@ -821,7 +966,7 @@ class _VocabularyDetailBottomSheetState
               style: GoogleFonts.lexend(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: const Color(0xFF1f2937),
+                color: DesignTokens.dialogTitleColor,
               ),
             ),
             const SizedBox(height: 8),
@@ -831,14 +976,14 @@ class _VocabularyDetailBottomSheetState
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text('• ',
-                          style: TextStyle(color: Color(0xFF8B5CF6))),
+                          style: TextStyle(color: DesignTokens.dialogBrand)),
                       Expanded(
                         child: Text(
                           def,
                           style: GoogleFonts.lexend(
                             fontSize: 14,
                             fontWeight: FontWeight.w400,
-                            color: const Color(0xFF4b5563),
+                            color: DesignTokens.dialogBodyColor,
                             height: 1.5,
                           ),
                         ),
@@ -856,7 +1001,7 @@ class _VocabularyDetailBottomSheetState
               style: GoogleFonts.lexend(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: const Color(0xFF1f2937),
+                color: DesignTokens.dialogTitleColor,
               ),
             ),
             const SizedBox(height: 8),
@@ -864,15 +1009,15 @@ class _VocabularyDetailBottomSheetState
                   margin: const EdgeInsets.only(bottom: 6),
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFEDE9FE).withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(8),
+                    color: DesignTokens.dialogBrandTint.withValues(alpha: 0.35),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     ex,
                     style: GoogleFonts.lexend(
                       fontSize: 13,
                       fontWeight: FontWeight.w400,
-                      color: const Color(0xFF5E3A8E),
+                      color: DesignTokens.dialogBodyColor,
                       fontStyle: FontStyle.italic,
                     ),
                   ),
@@ -887,29 +1032,32 @@ class _VocabularyDetailBottomSheetState
               style: GoogleFonts.lexend(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: const Color(0xFF1f2937),
+                color: DesignTokens.dialogTitleColor,
               ),
             ),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: meaning.synonyms.take(6).map((syn) => Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF3F4F6),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      syn,
-                      style: GoogleFonts.lexend(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: const Color(0xFF6b7280),
-                      ),
-                    ),
-                  )).toList(),
+              children: meaning.synonyms
+                  .take(6)
+                  .map((syn) => Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: DesignTokens.dialogBrandTint,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          syn,
+                          style: GoogleFonts.lexend(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: DesignTokens.dialogBrand,
+                          ),
+                        ),
+                      ))
+                  .toList(),
             ),
           ],
         ],

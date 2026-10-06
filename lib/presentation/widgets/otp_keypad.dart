@@ -76,12 +76,12 @@ class _OtpKeypadState extends State<OtpKeypad>
     ];
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: List.generate(4, (row) {
           return Padding(
-            padding: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.only(bottom: 8),
             child: Row(
               children: List.generate(3, (col) {
                 final value = keys[row][col];
@@ -118,7 +118,7 @@ class _OtpKeypadState extends State<OtpKeypad>
                       child: Text(
                         value.toString(),
                         style: GoogleFonts.lexend(
-                          fontSize: 28,
+                          fontSize: 26,
                           fontWeight: FontWeight.w600,
                           color: widget.enabled
                               ? const Color(0xFF1f2937)
@@ -155,9 +155,9 @@ class _KeypadButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       child: SizedBox(
-        height: 64,
+        height: 60,
         child: Material(
           color: Colors.transparent,
           child: InkWell(

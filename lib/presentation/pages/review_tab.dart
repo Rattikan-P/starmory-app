@@ -2,12 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
+import '../../constants/design_tokens.dart';
 import '../../utils/topic_categories.dart';
 import 'review_session_page.dart';
 import 'profile_tab.dart';
 import '../providers/providers.dart';
 import '../utils/photo_picker_flow.dart';
 import '../widgets/top_header_actions.dart';
+import '../widgets/bottom_sheet_chrome.dart';
+import '../widgets/app_loading_widgets.dart';
 
 /// Review Tab - Pixel-perfect implementation matching the latest design
 class ReviewTab extends ConsumerStatefulWidget {
@@ -17,7 +21,8 @@ class ReviewTab extends ConsumerStatefulWidget {
   ConsumerState<ReviewTab> createState() => _ReviewTabState();
 }
 
-class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserver {
+class _ReviewTabState extends ConsumerState<ReviewTab>
+    with WidgetsBindingObserver {
   final ScrollController _scrollController = ScrollController();
   bool _hasInitialized = false;
   DateTime? _lastLoadTime;
@@ -176,7 +181,7 @@ class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserv
       BuildContext context, WidgetRef ref, dynamic reviewState) {
     if (reviewState.isLoading) {
       return const Center(
-        child: CircularProgressIndicator(color: Color(0xFF7C5CFC)),
+        child: StarLoadingIndicator(),
       );
     }
 
@@ -184,14 +189,14 @@ class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserv
       color: const Color(0xFF7C5CFC),
       onRefresh: () => ref.read(reviewStateProvider.notifier).loadSession(),
       child: reviewState.error != null
-          ? _buildError(context, ref, reviewState.error!)
+          ? _buildError(context, ref)
           : reviewState.cards.isEmpty
               ? _buildEmpty(context)
               : _buildHasCards(context, ref, reviewState),
     );
   }
 
-  Widget _buildError(BuildContext context, WidgetRef ref, String error) {
+  Widget _buildError(BuildContext context, WidgetRef ref) {
     return LayoutBuilder(
       builder: (context, constraints) => SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(
@@ -200,49 +205,79 @@ class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserv
         child: ConstrainedBox(
           constraints: BoxConstraints(minHeight: constraints.maxHeight),
           child: Container(
-            color: Colors.transparent,
-            alignment: Alignment.center,
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 36),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(color: const Color(0xFFEBE6FC), width: 1.5),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF7C5CFC).withValues(alpha: 0.08),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Container(
-                  padding: const EdgeInsets.all(20),
+                  width: 72,
+                  height: 72,
                   decoration: BoxDecoration(
-                    color: Colors.red.withValues(alpha: 0.1),
+                    color: DesignTokens.dialogDanger.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                  child: const Icon(
+                    Icons.cloud_off_rounded,
+                    size: 38,
+                    color: DesignTokens.dialogDanger,
+                  ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 18),
                 Text(
-                  'Oops! Something went wrong',
+                  'Couldn’t load your review cards',
+                  textAlign: TextAlign.center,
                   style: GoogleFonts.lexend(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
                     color: const Color(0xFF221F33),
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
                 Text(
-                  error,
+                  'Check your connection and try again.',
+                  textAlign: TextAlign.center,
                   style: GoogleFonts.lexend(
                     fontSize: 14,
-                    color: const Color(0xFF655D80),
+                    color: const Color(0xFF4B5563),
                   ),
-                  textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 24),
-                ElevatedButton.icon(
-                  onPressed: () =>
-                      ref.read(reviewStateProvider.notifier).loadSession(),
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('Try Again'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF7C5CFC),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16)),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton.icon(
+                    onPressed: () =>
+                        ref.read(reviewStateProvider.notifier).loadSession(),
+                    icon: const Icon(Icons.refresh_rounded, size: 20),
+                    label: Text(
+                      'Try again',
+                      style: GoogleFonts.lexend(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: DesignTokens.dialogDanger,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(25),
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -268,11 +303,13 @@ class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserv
                 const SizedBox(height: 8),
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 36),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 36),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(28),
-                    border: Border.all(color: const Color(0xFFEBE6FC), width: 1.5),
+                    border:
+                        Border.all(color: const Color(0xFFEBE6FC), width: 1.5),
                     boxShadow: [
                       BoxShadow(
                         color: const Color(0xFF7C5CFC).withValues(alpha: 0.08),
@@ -363,7 +400,8 @@ class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserv
                                       context, ImageSource.camera),
                                   child: Center(
                                     child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
                                       children: [
                                         const Icon(Icons.camera_alt_rounded,
                                             color: Colors.white, size: 20),
@@ -403,10 +441,14 @@ class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserv
                                       context, ImageSource.gallery),
                                   child: Center(
                                     child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
                                       children: [
-                                        const Icon(Icons.photo_library_rounded,
-                                            color: Color(0xFF7C5CFC), size: 20),
+                                        const Icon(
+                                          Icons.photo_library_outlined,
+                                          color: Color(0xFF7C3AED),
+                                          size: 20,
+                                        ),
                                         const SizedBox(width: 8),
                                         Text(
                                           'Gallery',
@@ -481,9 +523,11 @@ class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserv
   }
 
   Widget _buildHeroCard(int dueCount) {
+    final dueCountLabel = _formatDueCount(dueCount);
+
     return Container(
       width: double.infinity,
-      height: 152,
+      height: DesignTokens.reviewProgressBannerHeight,
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [
@@ -604,8 +648,8 @@ class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserv
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
-                      width: 96,
-                      height: 96,
+                      width: 120,
+                      height: 120,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: Colors.white,
@@ -622,9 +666,9 @@ class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserv
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            '$dueCount',
+                            dueCountLabel,
                             style: GoogleFonts.lexend(
-                              fontSize: 42,
+                              fontSize: _dueCountFontSize(dueCount),
                               height: 1.0,
                               fontWeight: FontWeight.w800,
                               letterSpacing: -1.0,
@@ -635,7 +679,7 @@ class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserv
                           Text(
                             'words',
                             style: GoogleFonts.lexend(
-                              fontSize: 12,
+                              fontSize: 13,
                               fontWeight: FontWeight.w600,
                               color: const Color(0xFF6B647E),
                             ),
@@ -647,7 +691,7 @@ class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserv
                     Text(
                       'ready to review',
                       style: GoogleFonts.lexend(
-                        fontSize: 12,
+                        fontSize: 13,
                         fontWeight: FontWeight.w600,
                         color: const Color(0xFF63564A),
                       ),
@@ -659,27 +703,42 @@ class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserv
 
             // Right Side: Mascot Character Illustration
             Positioned(
-              right: 8,
-              bottom: 0,
-              top: 4,
-              child: Image.asset(
-                'assets/images/review_mascot.png',
-                fit: BoxFit.contain,
-                errorBuilder: (context, error, stackTrace) {
-                  return const Center(
-                    child: Icon(
-                      Icons.auto_awesome,
-                      size: 64,
-                      color: Color(0xFF7C5CFC),
-                    ),
-                  );
-                },
+              right: 12,
+              bottom: 4,
+              child: SizedBox(
+                width: 172,
+                height: 172,
+                child: Image.asset(
+                  'assets/images/mascots/review_mascot.png',
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) {
+                    return const Center(
+                      child: Icon(
+                        Icons.auto_awesome,
+                        size: 64,
+                        color: Color(0xFF7C5CFC),
+                      ),
+                    );
+                  },
+                ),
               ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  String _formatDueCount(int count) {
+    if (count < 1000) return '$count';
+    return NumberFormat.compact(locale: 'en').format(count).toLowerCase();
+  }
+
+  double _dueCountFontSize(int count) {
+    if (count >= 1000) return 32;
+    if (count >= 100) return 38;
+    if (count >= 10) return 44;
+    return 48;
   }
 
   Widget _buildHowItWorksCard() {
@@ -898,19 +957,31 @@ class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserv
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Top Lavender Circle with Question Mark Icon
+              // Review card with a four-point sparkle.
               Container(
                 width: 60,
                 height: 60,
                 decoration: const BoxDecoration(
-                  color: Color(0xFFF1EDFF),
+                  color: DesignTokens.dialogInfoTint,
                   shape: BoxShape.circle,
                 ),
-                child: const Center(
-                  child: Icon(
-                    Icons.question_mark_rounded,
-                    size: 32,
-                    color: Color(0xFF7C5CFC),
+                child: Center(
+                  child: Container(
+                    width: 32,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: DesignTokens.dialogInfo,
+                        width: 2,
+                      ),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Center(
+                      child: CustomPaint(
+                        size: Size(18, 18),
+                        painter: _FourPointStarPainter(DesignTokens.dialogInfo),
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -948,7 +1019,7 @@ class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserv
                 child: ElevatedButton(
                   onPressed: () => Navigator.pop(dialogContext),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF7C5CFC),
+                    backgroundColor: DesignTokens.dialogInfo,
                     foregroundColor: Colors.white,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
@@ -997,11 +1068,7 @@ class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserv
               customBorder: const CircleBorder(),
               onTap: () => _showSettingsBottomSheet(context),
               child: const Center(
-                child: Icon(
-                  Icons.tune_rounded,
-                  color: Color(0xFF7C5CFC),
-                  size: 24,
-                ),
+                child: _CustomReviewTuneIcon(color: Color(0xFF7C5CFC)),
               ),
             ),
           ),
@@ -1200,14 +1267,7 @@ class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserv
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     // Top Drag handle
-                    Container(
-                      width: 44,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFD1D5DB),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
+                    const AppBottomSheetDragHandle(),
                     const SizedBox(height: 16),
 
                     // Header Row: Custom review + Close button
@@ -1237,23 +1297,8 @@ class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserv
                             ],
                           ),
                         ),
-                        Container(
-                          width: 40,
-                          height: 40,
-                          decoration: const BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Color(0xFFF3F4F6),
-                          ),
-                          child: IconButton(
-                            padding: EdgeInsets.zero,
-                            tooltip: 'Close',
-                            onPressed: () => Navigator.pop(context),
-                            icon: const Icon(
-                              Icons.close_rounded,
-                              size: 20,
-                              color: Color(0xFF221F33),
-                            ),
-                          ),
+                        AppBottomSheetCloseButton(
+                          onPressed: () => Navigator.pop(context),
                         ),
                       ],
                     ),
@@ -1342,7 +1387,7 @@ class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserv
                                   count: allCount,
                                   isSelected: selectedTopic == null,
                                   isAvailable: allCount > 0,
-                                  icon: null,
+                                  icon: Icons.grid_view_rounded,
                                   onTap: () {
                                     setModalState(() => selectedTopic = null);
                                   },
@@ -1354,11 +1399,14 @@ class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserv
                                     label: 'Favorites',
                                     count: topicCounts['favorites'] ?? 0,
                                     isSelected: selectedTopic == 'favorites',
-                                    isAvailable: (topicCounts['favorites'] ?? 0) > 0,
+                                    isAvailable:
+                                        (topicCounts['favorites'] ?? 0) > 0,
                                     icon: Icons.favorite_rounded,
                                     onTap: () {
                                       setModalState(() => selectedTopic =
-                                          selectedTopic == 'favorites' ? null : 'favorites');
+                                          selectedTopic == 'favorites'
+                                              ? null
+                                              : 'favorites');
                                     },
                                   ),
 
@@ -1389,16 +1437,14 @@ class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserv
                                   InkWell(
                                     borderRadius: BorderRadius.circular(20),
                                     onTap: () {
-                                      setModalState(
-                                          () => showAllTopics = true);
+                                      setModalState(() => showAllTopics = true);
                                     },
                                     child: Container(
                                       padding: const EdgeInsets.symmetric(
                                           horizontal: 12, vertical: 8),
                                       decoration: BoxDecoration(
                                         color: Colors.white,
-                                        borderRadius:
-                                            BorderRadius.circular(20),
+                                        borderRadius: BorderRadius.circular(20),
                                         border: Border.all(
                                             color: const Color(0xFFE5E2F0),
                                             width: 1.0),
@@ -1426,8 +1472,7 @@ class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserv
                                           horizontal: 12, vertical: 8),
                                       decoration: BoxDecoration(
                                         color: Colors.white,
-                                        borderRadius:
-                                            BorderRadius.circular(20),
+                                        borderRadius: BorderRadius.circular(20),
                                         border: Border.all(
                                             color: const Color(0xFFE5E2F0),
                                             width: 1.0),
@@ -1543,8 +1588,8 @@ class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserv
                                 return InkWell(
                                   borderRadius: BorderRadius.circular(20),
                                   onTap: () {
-                                    setModalState(() =>
-                                        selectedBatchSize = opt['value']);
+                                    setModalState(
+                                        () => selectedBatchSize = opt['value']);
                                   },
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(
@@ -1732,6 +1777,111 @@ class _ReviewTabState extends ConsumerState<ReviewTab> with WidgetsBindingObserv
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _FourPointStarPainter extends CustomPainter {
+  final Color color;
+
+  const _FourPointStarPainter(this.color);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final scale = size.width / 24;
+    final path = Path()
+      ..moveTo(12, 1)
+      ..cubicTo(13.5, 8.5, 15.5, 10.5, 23, 12)
+      ..cubicTo(15.5, 13.5, 13.5, 15.5, 12, 23)
+      ..cubicTo(10.5, 15.5, 8.5, 13.5, 1, 12)
+      ..cubicTo(8.5, 10.5, 10.5, 8.5, 12, 1)
+      ..close();
+
+    canvas.save();
+    canvas.scale(scale);
+    canvas.drawPath(path, Paint()..color = color);
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_FourPointStarPainter oldDelegate) =>
+      oldDelegate.color != color;
+}
+
+class _CustomReviewTuneIcon extends StatelessWidget {
+  final Color color;
+
+  const _CustomReviewTuneIcon({required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 26,
+      height: 26,
+      child: Stack(
+        children: [
+          Positioned(
+            left: 10,
+            top: 4.5,
+            child: _TuneTrack(color: color, width: 16),
+          ),
+          Positioned(
+            left: 0,
+            top: 1,
+            child: _TuneKnob(color: color),
+          ),
+          Positioned(
+            left: 0,
+            top: 18.5,
+            child: _TuneTrack(color: color, width: 16),
+          ),
+          Positioned(
+            left: 16,
+            top: 15,
+            child: _TuneKnob(color: color),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TuneTrack extends StatelessWidget {
+  final Color color;
+  final double width;
+
+  const _TuneTrack({required this.color, required this.width});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: width,
+      height: 3,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(2),
+        ),
+      ),
+    );
+  }
+}
+
+class _TuneKnob extends StatelessWidget {
+  final Color color;
+
+  const _TuneKnob({required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 10,
+      height: 10,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        shape: BoxShape.circle,
+        border: Border.all(color: color, width: 2.5),
       ),
     );
   }

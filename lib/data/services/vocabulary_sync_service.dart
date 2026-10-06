@@ -35,6 +35,10 @@ class VocabularySyncService {
 
     try {
       final userId = currentUserId!;
+      final cloudExamples = await _additionalExamplesForCloud(
+        vocabulary.additionalExamples,
+        userId,
+      );
       print('☁️ [Cloud Sync] Inserting vocabulary "${vocabulary.word}" (trigger will fire)...');
 
       // Use INSERT (not upsert) so the streak trigger fires on new vocabulary
@@ -54,6 +58,7 @@ class VocabularySyncService {
         'topic': vocabulary.topic,
         'tags': vocabulary.tags,
         'is_favorite': vocabulary.isFavorite,
+        'additional_examples': cloudExamples,
         'created_at': vocabulary.createdAt.toIso8601String(),
         'updated_at': vocabulary.updatedAt?.toIso8601String() ?? vocabulary.createdAt.toIso8601String(),
       });
@@ -73,6 +78,10 @@ class VocabularySyncService {
     if (!isLoggedIn) return false;
 
     try {
+      final cloudExamples = await _additionalExamplesForCloud(
+        vocabulary.additionalExamples,
+        currentUserId!,
+      );
       await _client
           .from('vocabularies')
           .update({
@@ -88,6 +97,7 @@ class VocabularySyncService {
             'topic': vocabulary.topic,
             'tags': vocabulary.tags,
             'is_favorite': vocabulary.isFavorite,
+            'additional_examples': cloudExamples,
             'updated_at': DateTime.now().toIso8601String(),
           })
           .eq('id', vocabulary.id)
@@ -191,6 +201,10 @@ class VocabularySyncService {
           }
         }
 
+        final cloudExamples = await _additionalExamplesForCloud(
+          vocab.additionalExamples,
+          userId,
+        );
         data.add({
           'id': vocab.id,
           'user_id': userId,
@@ -206,6 +220,7 @@ class VocabularySyncService {
           'topic': vocab.topic,
           'tags': vocab.tags,
           'is_favorite': vocab.isFavorite,
+          'additional_examples': cloudExamples,
           'created_at': vocab.createdAt.toIso8601String(),
           'updated_at': vocab.updatedAt?.toIso8601String() ?? vocab.createdAt.toIso8601String(),
         });
@@ -240,49 +255,92 @@ class VocabularySyncService {
       // Fetch cloud vocabularies
       final cloudVocabs = await fetchFromCloud();
 
-      // Deduplicate cloud vocabularies by word
-      final uniqueCloudVocabs = <VocabularyModel>[];
-      final seenCloudWords = <String>{};
+      final uniqueCloudVocabs = <String, VocabularyModel>{};
       for (final v in cloudVocabs) {
         final key = v.word.trim().toLowerCase();
-        if (!seenCloudWords.contains(key)) {
-          seenCloudWords.add(key);
-          uniqueCloudVocabs.add(v);
+        final existing = uniqueCloudVocabs[key];
+        if (existing == null) {
+          uniqueCloudVocabs[key] = v;
+        } else {
+          final merged = existing.mergeExampleContexts(v);
+          uniqueCloudVocabs[key] = merged;
+          if (merged != existing) await updateInCloud(merged);
         }
       }
 
-      // Add local vocabularies that don't exist in cloud (by normalized word)
-      final localOnlyVocabs = <VocabularyModel>[];
+      final localOnlyVocabs = <String, VocabularyModel>{};
       for (final localVocab in localVocabs) {
         final key = localVocab.word.trim().toLowerCase();
-        if (!seenCloudWords.contains(key)) {
-          seenCloudWords.add(key);
-          localOnlyVocabs.add(localVocab);
+        final cloudMatch = uniqueCloudVocabs[key];
+        if (cloudMatch != null) {
+          final merged = cloudMatch.mergeExampleContexts(localVocab);
+          if (merged != cloudMatch) {
+            uniqueCloudVocabs[key] = merged;
+            await updateInCloud(merged);
+          }
+          continue;
         }
+
+        final localMatch = localOnlyVocabs[key];
+        localOnlyVocabs[key] = localMatch == null
+            ? localVocab
+            : localMatch.mergeExampleContexts(localVocab);
       }
 
       // Batch upload local-only vocabularies to cloud
       if (localOnlyVocabs.isNotEmpty) {
-        await batchUpload(localOnlyVocabs);
+        await batchUpload(localOnlyVocabs.values.toList());
         final updatedCloudVocabs = await fetchFromCloud();
-        final finalUnique = <VocabularyModel>[];
-        final finalSeen = <String>{};
+        final finalUnique = <String, VocabularyModel>{};
         for (final v in updatedCloudVocabs) {
           final key = v.word.trim().toLowerCase();
-          if (!finalSeen.contains(key)) {
-            finalSeen.add(key);
-            finalUnique.add(v);
-          }
+          final existing = finalUnique[key];
+          finalUnique[key] = existing == null
+              ? v
+              : existing.mergeExampleContexts(v);
         }
-        finalUnique.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-        return finalUnique;
+        final result = finalUnique.values.toList()
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        return result;
       }
 
-      uniqueCloudVocabs.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      return uniqueCloudVocabs;
+      final result = uniqueCloudVocabs.values.toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return result;
     } catch (e) {
       return localVocabs;
     }
+  }
+
+  Future<List<Map<String, dynamic>>> _additionalExamplesForCloud(
+    List<VocabularyExample> examples,
+    String userId,
+  ) async {
+    final result = <Map<String, dynamic>>[];
+    for (final example in examples) {
+      var imageUrl = example.imageUrl;
+      final localPath = imageUrl.startsWith('file://')
+          ? imageUrl.substring('file://'.length)
+          : imageUrl;
+      if (_imageStorageService != null &&
+          imageUrl.isNotEmpty &&
+          !imageUrl.startsWith('http') &&
+          await File(localPath).exists()) {
+        try {
+          imageUrl = await _imageStorageService!.uploadVocabularyImage(
+            imageFile: File(localPath),
+            userId: userId,
+          );
+        } catch (_) {
+          // Keep the local path as a fallback if upload fails.
+        }
+      }
+      result.add({
+        ...example.toJson(),
+        'imageUrl': imageUrl,
+      });
+    }
+    return result;
   }
 
   /// Clear all vocabularies from cloud (for testing or user request)

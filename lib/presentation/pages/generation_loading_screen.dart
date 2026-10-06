@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../providers/providers.dart';
+import '../widgets/tokenized_notice_dialogs.dart';
 import '../providers/auth_quota_provider.dart';
 import '../../data/services/gemini_service.dart';
+import '../../constants/design_tokens.dart';
 import 'interactive_vocabulary_screen.dart';
 import 'auth/account_method_page.dart';
 
@@ -79,128 +81,23 @@ class _GenerationLoadingScreenState
     if (!mounted) return;
 
     setState(() => _isProcessing = false);
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: Colors.orange.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(
-                Icons.warning_amber_rounded,
-                color: Colors.orange,
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                'Generation Limit Reached',
-                style: GoogleFonts.lexend(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF1f2937),
-                ),
-              ),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              isGuest
-                  ? 'You\'ve used all your free generations as a guest.'
-                  : 'You\'ve reached your daily generation limit.',
-              style: GoogleFonts.lexend(
-                fontSize: 14,
-                fontWeight: FontWeight.w400,
-                color: const Color(0xFF6b7280),
-              ),
-            ),
-            if (isGuest) ...[
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF8b5cf6).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.star_rounded,
-                        color: const Color(0xFF8b5cf6), size: 20),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Sign up for unlimited generations!',
-                        style: GoogleFonts.lexend(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFF7c3aed),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ],
-        ),
-        actions: [
-          if (isGuest)
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context); // Close dialog
-                // Show sign up bottom sheet
-                AccountMethodPage.show(context);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF8b5cf6),
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              ),
-              child: Text(
-                'Sign Up Free',
-                style: GoogleFonts.lexend(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context); // Close dialog
-              Navigator.popUntil(
-                  context, (route) => route.isFirst); // Go to home
-            },
-            style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFF6b7280),
-            ),
-            child: Text(
-              'Later',
-              style: GoogleFonts.lexend(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+    if (isGuest) {
+      showFreeTrialLimitDialog(
+        context,
+        isTotalLimitReached: ref
+                .read(authQuotaProvider)
+                .localUser
+                ?.quotaManager
+                .isTotalLimitReached() ??
+            false,
+        onSignUp: () => AccountMethodPage.show(context),
+      );
+    } else {
+      showDailyLimitReachedDialog(
+        context,
+        onOk: () => Navigator.popUntil(context, (route) => route.isFirst),
+      );
+    }
   }
 
   @override
@@ -331,20 +228,20 @@ class _GenerationLoadingScreenState
         final errorStr = e.toString();
         final errorStrLower = errorStr.toLowerCase();
 
-        // debugPrint('🔍 Generation loading caught error: "$errorStr"');
+        debugPrint('[Generation] Request failed: $errorStr');
 
-        // Handle QuotaExceededFailure with a friendly message (don't mention quota/backend limit)
+        // Gemini's provider quota is separate from the user's daily quota.
         if (errorStr.contains('QuotaExceededFailure') ||
             errorStr.contains('Starmory needs a rest') ||
             errorStrLower.contains('quota exceeded') ||
             errorStrLower.contains('please check your plan and billing')) {
-          // debugPrint('✅ Showing friendly quota message to userrrrrr');
-
           setState(() {
             _isProcessing = false;
           });
-          _handleNetworkError(
-              'Starmory needs a rest today 😴\nNew lessons will be ready again tomorrow!');
+          showGeminiQuotaErrorDialog(
+            context,
+            onOk: () => Navigator.popUntil(context, (route) => route.isFirst),
+          );
           return;
         }
 
@@ -399,7 +296,11 @@ class _GenerationLoadingScreenState
             errorMessage.toLowerCase().contains('api key')) {
           _handleNetworkError(errorMessage);
         } else {
-          _handleImageError('A1', errorMessage);
+          debugPrint('[Generation] Image analysis failed: $errorMessage');
+          _handleImageError(
+            'A1',
+            'We could not analyze this photo. Please try another photo.',
+          );
         }
       }
     }
@@ -428,148 +329,74 @@ class _GenerationLoadingScreenState
 
   void _handleImageError(String errorCode, String message) {
     if (!mounted) return;
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: Colors.orange.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(
-                Icons.error_outline_rounded,
-                color: Colors.orange,
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                'Image Analysis Failed',
-                style: GoogleFonts.lexend(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF1f2937),
-                ),
-              ),
-            ),
-          ],
-        ),
-        content: Text(
-          message,
-          style: GoogleFonts.lexend(
-            fontSize: 14,
-            fontWeight: FontWeight.w400,
-            color: const Color(0xFF6b7280),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context); // Close dialog
-              Navigator.popUntil(
-                context,
-                (route) => route.isFirst,
-              ); // Go to home
-            },
-            style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFF8b5cf6),
-            ),
-            child: Text(
-              'OK',
-              style: GoogleFonts.lexend(
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        ],
-      ),
+    showTokenizedErrorDialog(
+      context,
+      title: 'Image Analysis Failed',
+      message: message,
+      icon: Icons.image_search_rounded,
+      onOk: () => Navigator.popUntil(context, (route) => route.isFirst),
     );
   }
 
   void _handleNetworkError(String error) {
     if (!mounted) return;
 
-    // Check if it's the friendly quota message
-    final isQuotaMessage = error.contains('Starmory needs a rest');
+    // Keep backend/configuration details out of user-facing copy.
+    final errorLower = error.toLowerCase();
+    final friendlyMessage = errorLower.contains('timeout') ||
+            errorLower.contains('timed out')
+        ? 'Request timed out. Please check your connection and try again.'
+        : errorLower.contains('network') ||
+                errorLower.contains('connection') ||
+                errorLower.contains('socketexception') ||
+                errorLower.contains('host lookup') ||
+                errorLower.contains('handshakeexception')
+            ? 'We could not connect. Please check your internet and try again.'
+            : errorLower.contains('api key') ||
+                    errorLower.contains('notinitializederror') ||
+                    errorLower.contains('instance of')
+                ? 'The learning service is not available right now. Please try again later.'
+                : errorLower.contains('temporarily busy') ||
+                        errorLower.contains('high demand') ||
+                        errorLower.contains('unavailable') ||
+                        errorLower.contains('503')
+                    ? 'The learning service is busy right now. Please try again in a moment.'
+                    : 'We could not create your lesson right now. Please try again.';
+    final isTimeout =
+        errorLower.contains('timeout') || errorLower.contains('timed out');
+    final isConnection = errorLower.contains('network') ||
+        errorLower.contains('connection') ||
+        errorLower.contains('socketexception') ||
+        errorLower.contains('host lookup') ||
+        errorLower.contains('handshakeexception');
+    final isServiceSetup = errorLower.contains('api key') ||
+        errorLower.contains('notinitializederror') ||
+        errorLower.contains('instance of');
+    final isServiceBusy = errorLower.contains('temporarily busy') ||
+        errorLower.contains('high demand') ||
+        errorLower.contains('unavailable') ||
+        errorLower.contains('503');
+    final icon = isTimeout
+        ? Icons.access_time_rounded
+        : isConnection
+            ? Icons.cloud_off_rounded
+            : isServiceSetup
+                ? Icons.settings_rounded
+                : isServiceBusy
+                    ? Icons.hourglass_empty_rounded
+                    : Icons.error_outline_rounded;
 
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: isQuotaMessage
-                    ? Colors.purple.withValues(alpha: 0.15)
-                    : Colors.red.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(
-                isQuotaMessage
-                    ? Icons.bedtime_rounded
-                    : Icons.cloud_off_rounded,
-                color: isQuotaMessage ? Colors.purple : Colors.red,
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                isQuotaMessage ? 'Starmory' : 'Connection Error',
-                style: GoogleFonts.lexend(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF1f2937),
-                ),
-              ),
-            ),
-          ],
-        ),
-        content: Text(
-          error,
-          style: GoogleFonts.lexend(
-            fontSize: 14,
-            fontWeight: FontWeight.w400,
-            color: const Color(0xFF6b7280),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context); // Close dialog
-              Navigator.popUntil(
-                context,
-                (route) => route.isFirst,
-              ); // Go to home
-            },
-            style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFF8b5cf6),
-            ),
-            child: Text(
-              'OK',
-              style: GoogleFonts.lexend(
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        ],
-      ),
+    showTokenizedErrorDialog(
+      context,
+      title: 'Connection Error',
+      message: friendlyMessage,
+      icon: icon,
+      onOk: () => Navigator.popUntil(context, (route) => route.isFirst),
     );
   }
 
   static const List<String> _phases = [
-    'Analyzing your photo',
+    'AI is analyzing your photo',
     'Detecting vocabulary words',
     'Generating contextual sentences',
     'Done!',

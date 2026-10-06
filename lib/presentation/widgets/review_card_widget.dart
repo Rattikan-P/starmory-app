@@ -6,7 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../data/models/word_card_model.dart';
+import '../../data/models/vocabulary_model.dart';
 import '../../data/services/tts_service.dart';
+import 'app_loading_widgets.dart';
 
 /// Review Card Widget with Active Recall, Realistic Card Deck & Interactive Rating Stamps
 /// - Physical Deck: natural tilt angles, starmory card-back patterns, smooth spring deck-pop
@@ -63,10 +65,20 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
   bool _isPlaying = false;
   StreamSubscription? _ttsCompletionSubscription;
   StreamSubscription? _ttsErrorSubscription;
+  late final VocabularyExample _reviewExample;
 
   @override
   void initState() {
     super.initState();
+    final examples = widget.card.vocabulary?.allExamples ?? const [];
+    _reviewExample = examples.isEmpty
+        ? VocabularyExample(
+            imageUrl: '',
+            englishSentence: '',
+            thaiSentence: '',
+            createdAt: DateTime.now(),
+          )
+        : examples[Random().nextInt(examples.length)];
     _ttsService.initialize();
 
     _ttsCompletionSubscription = _ttsService.onComplete.listen((_) {
@@ -280,6 +292,8 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
       return Image.network(
         imageUrl,
         fit: fit ?? BoxFit.cover,
+        loadingBuilder: (context, child, loadingProgress) =>
+            loadingProgress == null ? child : const AppImageSkeleton(),
         errorBuilder: (context, error, stackTrace) {
           return Container(
             color: const Color(0xFF2D264B),
@@ -421,7 +435,9 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
             height: 90,
             child: _isRevealed
                 ? _buildRatingButtons(context)
-                : (widget.canUndo ? _buildUndoButton() : const SizedBox.shrink()),
+                : (widget.canUndo
+                    ? _buildUndoButton()
+                    : const SizedBox.shrink()),
           ),
         ),
 
@@ -618,11 +634,11 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
           fit: StackFit.expand,
           children: [
             // Blurred background image
-            if (vocab.imageUrl.isNotEmpty)
+            if (_reviewExample.imageUrl.isNotEmpty)
               Stack(
                 fit: StackFit.expand,
                 children: [
-                  _buildImage(vocab.imageUrl, fit: BoxFit.cover),
+                  _buildImage(_reviewExample.imageUrl, fit: BoxFit.cover),
                   // Gaussian Blur
                   Positioned.fill(
                     child: BackdropFilter(
@@ -720,9 +736,10 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
                 fit: StackFit.expand,
                 children: [
                   // Full clear image
-                  if (vocab.imageUrl.isNotEmpty)
+                  if (_reviewExample.imageUrl.isNotEmpty)
                     Positioned.fill(
-                      child: _buildImage(vocab.imageUrl, fit: BoxFit.cover),
+                      child: _buildImage(_reviewExample.imageUrl,
+                          fit: BoxFit.cover),
                     )
                   else
                     Container(color: const Color(0xFF221F33)),
@@ -756,8 +773,8 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
                     right: 0,
                     bottom: 0,
                     child: Padding(
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 22, vertical: 20),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
@@ -795,7 +812,7 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
                           const SizedBox(height: 10),
 
                           // "example" label & sentence
-                          if (vocab.englishSentence.isNotEmpty) ...[
+                          if (_reviewExample.englishSentence.isNotEmpty) ...[
                             Text(
                               'example',
                               style: GoogleFonts.lexend(
@@ -813,7 +830,7 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: Text(
-                                '"${vocab.englishSentence}"',
+                                '"${_reviewExample.englishSentence}"',
                                 style: GoogleFonts.lexend(
                                   fontSize: 11.5,
                                   color: Colors.white.withValues(alpha: 0.95),
@@ -917,7 +934,8 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
 
     final bool isGotIt = _feedbackRemembered == true;
     final double scale = 0.80 + (0.22 * _stampFeedbackAnimation.value);
-    final rotateAngle = isGotIt ? 0.18 : -0.18; // ~ +10 deg on right, -10 deg on left
+    final rotateAngle =
+        isGotIt ? 0.18 : -0.18; // ~ +10 deg on right, -10 deg on left
 
     return Transform.rotate(
       angle: rotateAngle,
@@ -994,9 +1012,8 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
     final bool isGotIt =
         isSwipeFlyOut ? (_feedbackRemembered == true) : (_dragOffsetX > 0);
 
-    final double opacity = isSwipeFlyOut
-        ? 1.0
-        : ((_dragOffsetX.abs() - 20) / 50).clamp(0.0, 1.0);
+    final double opacity =
+        isSwipeFlyOut ? 1.0 : ((_dragOffsetX.abs() - 20) / 50).clamp(0.0, 1.0);
 
     return Align(
       alignment: isGotIt ? Alignment.centerRight : Alignment.centerLeft,
@@ -1007,14 +1024,12 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
             decoration: BoxDecoration(
-              color: isGotIt
-                  ? const Color(0xFFEFF6FF)
-                  : const Color(0xFFFDF2F8),
+              color:
+                  isGotIt ? const Color(0xFFEFF6FF) : const Color(0xFFFDF2F8),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: isGotIt
-                    ? const Color(0xFF93C5FD)
-                    : const Color(0xFFF9A8D4),
+                color:
+                    isGotIt ? const Color(0xFF93C5FD) : const Color(0xFFF9A8D4),
                 width: 1.2,
               ),
               boxShadow: [
@@ -1032,9 +1047,7 @@ class _ReviewCardWidgetState extends State<ReviewCardWidget>
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  isGotIt
-                      ? Icons.star_rounded
-                      : Icons.local_florist_rounded,
+                  isGotIt ? Icons.star_rounded : Icons.local_florist_rounded,
                   color: isGotIt
                       ? const Color(0xFF2563EB)
                       : const Color(0xFFDB2777),
@@ -1205,8 +1218,8 @@ class _StarStampPainter extends CustomPainter {
           : const [Color(0xFFFF5287), Color(0xFFFA2C68)],
     );
     final fillPaint = Paint()
-      ..shader = gradient
-          .createShader(Rect.fromLTWH(0, 0, size.width, size.height))
+      ..shader =
+          gradient.createShader(Rect.fromLTWH(0, 0, size.width, size.height))
       ..style = PaintingStyle.fill;
     canvas.drawPath(starPath, fillPaint);
 

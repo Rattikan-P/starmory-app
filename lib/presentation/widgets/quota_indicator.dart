@@ -89,7 +89,7 @@ class QuotaIndicator extends ConsumerWidget {
             InkWell(
               onTap: onUpgradeTap,
               child: Text(
-                'Sign up',
+                'Create account',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.primary,
                   fontWeight: FontWeight.bold,

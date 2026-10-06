@@ -7,6 +7,8 @@ import '../../core/utils/image_clarity_checker.dart';
 import '../../core/utils/image_validator.dart';
 import '../../core/utils/internet_connection_checker.dart';
 import '../../constants/app_defaults.dart';
+import '../../constants/design_tokens.dart';
+import '../widgets/tokenized_notice_dialogs.dart';
 import 'generation_loading_screen.dart';
 import 'auth/account_method_page.dart';
 
@@ -149,13 +151,17 @@ class _ImagePreviewScreenState extends ConsumerState<ImagePreviewScreen> {
                         width: double.infinity,
                         height: 56,
                         child: ElevatedButton(
-                          onPressed: (_isProcessing || !canGenerate) ? null : _usePhoto,
+                          onPressed: (_isProcessing || !canGenerate)
+                              ? null
+                              : _usePhoto,
                           style: ElevatedButton.styleFrom(
                             elevation: 0,
                             backgroundColor: const Color(0xFF8B5CF6),
-                            disabledBackgroundColor: Colors.white.withValues(alpha: 0.25),
+                            disabledBackgroundColor:
+                                Colors.white.withValues(alpha: 0.25),
                             foregroundColor: Colors.white,
-                            disabledForegroundColor: Colors.white.withValues(alpha: 0.6),
+                            disabledForegroundColor:
+                                Colors.white.withValues(alpha: 0.6),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(28),
                             ),
@@ -299,7 +305,8 @@ class _ImagePreviewScreenState extends ConsumerState<ImagePreviewScreen> {
       }
 
       // Step 1.5: Check internet connection
-      final hasConnection = await InternetConnectionChecker.hasInternetConnection();
+      final hasConnection =
+          await InternetConnectionChecker.hasInternetConnection();
       if (!hasConnection) {
         if (mounted) {
           setState(() => _isProcessing = false);
@@ -309,11 +316,12 @@ class _ImagePreviewScreenState extends ConsumerState<ImagePreviewScreen> {
       }
 
       // Step 2: Check image format
-      final validationResult = ImageValidator.validateFromFile(widget.imagePath);
+      final validationResult =
+          ImageValidator.validateFromFile(widget.imagePath);
       if (!validationResult.valid) {
         if (mounted) {
           setState(() => _isProcessing = false);
-          _showImageFormatDialog(validationResult.error ?? 'Invalid image format');
+          _showImageFormatDialog();
         }
         return;
       }
@@ -334,10 +342,13 @@ class _ImagePreviewScreenState extends ConsumerState<ImagePreviewScreen> {
       final user = ref.read(currentUserProvider);
       debugPrint('🔍 User preferences: ${user?.preferences}');
       final defaultCefrLevel =
-          user?.preferences['defaultCefrLevel'] as String? ?? AppDefaults.defaultLanguageLevel;
+          user?.preferences['defaultCefrLevel'] as String? ??
+              AppDefaults.defaultLanguageLevel;
       final defaultEnglishVariant =
-          user?.preferences['languageVariant'] as String? ?? AppDefaults.defaultEnglishVariant;
-      debugPrint('📤 Using CEFR: $defaultCefrLevel, English Variant: $defaultEnglishVariant');
+          user?.preferences['languageVariant'] as String? ??
+              AppDefaults.defaultEnglishVariant;
+      debugPrint(
+          '📤 Using CEFR: $defaultCefrLevel, English Variant: $defaultEnglishVariant');
       final defaultCommunicativeFunction = 'Indicative'; // Default for now
 
       // Step 4: Navigate directly to Generation Loading Screen
@@ -363,413 +374,64 @@ class _ImagePreviewScreenState extends ConsumerState<ImagePreviewScreen> {
   }
 
   void _showErrorDialog(String title, String message) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
-          title,
-          style: GoogleFonts.lexend(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: const Color(0xFF1f2937),
-          ),
-        ),
-        content: Text(
-          message,
-          style: GoogleFonts.lexend(
-            fontSize: 14,
-            fontWeight: FontWeight.w400,
-            color: const Color(0xFF6b7280),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              setState(() => _isProcessing = false);
-            },
-            style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFF8b5cf6),
-            ),
-            child: Text(
-              'OK',
-              style: GoogleFonts.lexend(
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        ],
-      ),
+    showTokenizedErrorDialog(
+      context,
+      title: title,
+      message: message,
+      icon: Icons.error_outline_rounded,
+      onOk: () => setState(() => _isProcessing = false),
     );
   }
 
   void _showQuotaLimitDialog(bool isGuest) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Expanded(
-              child: Text(
-                isGuest ? 'Guest Limit Reached' : 'Daily Limit Reached',
-                style: GoogleFonts.lexend(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF1f2937),
-                ),
-              ),
-            ),
-          ],
-        ),
-        content: Text(
-          isGuest
-              ? "You've used all your guest generations. Create an account to get more generations!"
-              : "You've reached your 15 daily generations. Come back tomorrow for more!",
-          style: GoogleFonts.lexend(
-            fontSize: 14,
-            fontWeight: FontWeight.w400,
-            color: const Color(0xFF6b7280),
-            height: 1.5,
-          ),
-        ),
-        actions: [
-          if (isGuest)
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                setState(() => _isProcessing = false);
-              },
-              style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFF9ca3af),
-              ),
-              child: Text(
-                'Later',
-                style: GoogleFonts.lexend(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              setState(() => _isProcessing = false);
-              // Show sign up bottom sheet
-              if (isGuest) {
-                AccountMethodPage.show(context);
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              elevation: 0,
-              backgroundColor: const Color(0xFF8b7cf6),
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: Text(
-              isGuest ? 'Create Account' : 'Got it',
-              style: GoogleFonts.lexend(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
+    if (isGuest) {
+      showFreeTrialLimitDialog(
+        context,
+        isTotalLimitReached: ref
+                .read(userStateProvider)
+                .user
+                ?.quotaManager
+                .isTotalLimitReached() ??
+            false,
+        onSignUp: () {
+          setState(() => _isProcessing = false);
+          AccountMethodPage.show(context);
+        },
+      );
+      return;
+    }
+
+    showDailyLimitReachedDialog(
+      context,
+      onOk: () => setState(() => _isProcessing = false),
     );
   }
 
   void _showImageClarityDialog(ImageClarityResult result) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: Colors.orange.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(
-                Icons.blur_on_rounded,
-                color: Colors.orange,
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                'Image Quality Issue',
-                style: GoogleFonts.lexend(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF1f2937),
-                ),
-              ),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              result.message,
-              style: GoogleFonts.lexend(
-                fontSize: 14,
-                fontWeight: FontWeight.w400,
-                color: const Color(0xFF6b7280),
-                height: 1.5,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Please try with a clearer, well-lit photo for best results.',
-              style: GoogleFonts.lexend(
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-                color: const Color(0xFF9ca3af),
-                height: 1.5,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-            },
-            style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFF9ca3af),
-            ),
-            child: Text(
-              'Cancel',
-              style: GoogleFonts.lexend(
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _retakePhoto();
-            },
-            style: ElevatedButton.styleFrom(
-              elevation: 0,
-              backgroundColor: const Color(0xFF8b7cf6),
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: Text(
-              'Try Again',
-              style: GoogleFonts.lexend(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
+    showImageQualityIssueDialog(
+      context,
+      message:
+          '${result.message} Please try with a clearer, well-lit photo for best results.',
+      onTryAgain: _retakePhoto,
     );
   }
 
-  void _showImageFormatDialog(String errorMessage) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: Colors.red.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(
-                Icons.image_not_supported_rounded,
-                color: Colors.red,
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                'Unsupported Image Format',
-                style: GoogleFonts.lexend(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF1f2937),
-                ),
-              ),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              errorMessage,
-              style: GoogleFonts.lexend(
-                fontSize: 14,
-                fontWeight: FontWeight.w400,
-                color: const Color(0xFF6b7280),
-                height: 1.5,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Supported formats: JPEG (.jpg, .jpeg) and PNG (.png)',
-              style: GoogleFonts.lexend(
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-                color: const Color(0xFF9ca3af),
-                height: 1.5,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-            },
-            style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFF9ca3af),
-            ),
-            child: Text(
-              'Cancel',
-              style: GoogleFonts.lexend(
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _retakePhoto();
-            },
-            style: ElevatedButton.styleFrom(
-              elevation: 0,
-              backgroundColor: const Color(0xFF8b7cf6),
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: Text(
-              'Choose Another Photo',
-              style: GoogleFonts.lexend(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
+  void _showImageFormatDialog() {
+    showUnsupportedImageFormatDialog(
+      context,
+      onChooseAnother: _retakePhoto,
     );
   }
 
   void _showNoInternetDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: Colors.orange.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(
-                Icons.wifi_off_rounded,
-                color: Colors.orange,
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                'No Internet Connection',
-                style: GoogleFonts.lexend(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF1f2937),
-                ),
-              ),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Please check your internet connection and try again.',
-              style: GoogleFonts.lexend(
-                fontSize: 14,
-                fontWeight: FontWeight.w400,
-                color: const Color(0xFF6b7280),
-                height: 1.5,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-            },
-            style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFF9ca3af),
-            ),
-            child: Text(
-              'Cancel',
-              style: GoogleFonts.lexend(
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _usePhoto(); // Retry
-            },
-            style: ElevatedButton.styleFrom(
-              elevation: 0,
-              backgroundColor: const Color(0xFF8b7cf6),
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: Text(
-              'Try Again',
-              style: GoogleFonts.lexend(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
+    showTokenizedActionDialog(
+      context,
+      title: 'No Internet Connection',
+      message: 'Please check your internet connection and try again.',
+      icon: Icons.cloud_off_rounded,
+      secondaryLabel: 'Cancel',
+      primaryLabel: 'Try Again',
+      onPrimary: _usePhoto,
     );
   }
 }

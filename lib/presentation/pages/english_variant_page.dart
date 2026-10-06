@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../widgets/galaxy_screen_background.dart';
 import 'onboarding_page.dart';
 import 'main_navigation.dart';
 import '../../constants/app_defaults.dart';
@@ -88,20 +87,27 @@ class _EnglishVariantPageState extends ConsumerState<EnglishVariantPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: GalaxyScreenBackground(
-        child: SafeArea(
-          child: Column(
-              children: [
-                // Custom header
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-                  child: Row(
-                    children: [
-                      // Back button
-                      Container(
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Custom header
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  SizedBox(
+                    width: 64,
+                    height: 36,
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Container(
+                        width: 36,
+                        height: 36,
                         decoration: BoxDecoration(
                           color: Colors.white.withValues(alpha: 0.9),
-                          borderRadius: BorderRadius.circular(12),
+                          shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
                               color: Colors.black.withValues(alpha: 0.08),
@@ -111,167 +117,192 @@ class _EnglishVariantPageState extends ConsumerState<EnglishVariantPage> {
                           ],
                         ),
                         child: IconButton(
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints.tightFor(
+                            width: 36,
+                            height: 36,
+                          ),
                           icon: const Icon(Icons.arrow_back_ios_new_rounded,
-                            color: Color(0xFF1F2937), size: 20),
+                              color: Color(0xFF34343B), size: 18),
                           onPressed: () => Navigator.pop(context),
                         ),
                       ),
-                      const Spacer(),
-                      // Progress bar - hide when editing
-                      if (!widget.isEditing)
-                      Flexible(
-                        child: SizedBox(
-                          width: 200,
-                          height: 6,
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(3),
-                            child: Stack(
-                              children: [
-                                Container(
-                                  color: const Color(0xFFc4b5fd).withValues(alpha: 0.3),
-                                ),
-                                FractionallySizedBox(
-                                  widthFactor: 1.0, // 100% for step 2 of 2
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      gradient: const LinearGradient(
-                                        colors: [Color(0xFF8b7cf6), Color(0xFF7c6ff5)],
-                                      ),
-                                      borderRadius: BorderRadius.circular(3),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: const Color(0xFF8b7cf6).withValues(alpha: 0.4),
-                                          blurRadius: 6,
-                                          offset: const Offset(0, 2),
-                                        ),
+                    ),
+                  ),
+                  if (!widget.isEditing)
+                    SizedBox(
+                      width: 72,
+                      height: 6,
+                      child: ClipRRect(
+                          borderRadius: BorderRadius.circular(3),
+                          child: Stack(
+                            children: [
+                              Container(
+                                color: const Color(0xFFc4b5fd)
+                                    .withValues(alpha: 0.3),
+                              ),
+                              FractionallySizedBox(
+                                widthFactor: 1.0, // 100% for step 2 of 2
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      colors: [
+                                        Color(0xFF8b7cf6),
+                                        Color(0xFF7c6ff5)
                                       ],
                                     ),
+                                    borderRadius: BorderRadius.circular(3),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: const Color(0xFF8b7cf6)
+                                            .withValues(alpha: 0.4),
+                                        blurRadius: 6,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                      const Spacer(),
-                      // Skip button
-                      if (!widget.isEditing)
-                        TextButton(
-                          onPressed: () => _skip(context, ref),
-                          style: TextButton.styleFrom(
-                            foregroundColor: const Color(0xFF8b5cf6),
-                          ),
-                          child: Text(
-                            'Skip',
-                            style: GoogleFonts.lexend(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        )
-                      else
-                        const SizedBox(width: 48, height: 48),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 16),
-
-                // Content
-                Expanded(
-                  child: Stack(
-                    children: [
-                      SingleChildScrollView(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: Column(
-                          children: [
-                            const SizedBox(height: 12),
-
-                            // Title
-                            Text(
-                              widget.isEditing
-                                  ? 'Change your preference'
-                                  : 'Which English do you prefer?',
-                              style: GoogleFonts.lexend(
-                                fontSize: 26,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xFF1f2937),
-                                height: 1.2,
                               ),
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 8),
-
-                            // Subtitle
-                            Text(
-                              widget.isEditing
-                                  ? 'Choose English variant'
-                                  : 'This helps us create your learning experience',
-                              style: GoogleFonts.lexend(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w400,
-                                color: const Color(0xFF6b7280),
-                                height: 1.5,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 24),
-
-                            // Variant cards - consistent with language page
-                            ...variants.map((variant) {
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 12),
-                                child: _buildVariantCard(context, ref, variant),
-                              );
-                            }),
-
-                            const SizedBox(height: 80), // Extra space for bottom note
-                          ],
-                        ),
+                            ],
+                          ),
                       ),
-                      // Bottom note - fixed at bottom
-                      Positioned(
-                        bottom: 20,
-                        left: 0,
-                        right: 0,
-                        child: !widget.isEditing
-                            ? Text(
-                                "Don't worry, you can change this anytime",
+                    ),
+                  SizedBox(
+                    width: 64,
+                    height: 36,
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: widget.isEditing
+                          ? const SizedBox.shrink()
+                          : TextButton(
+                              onPressed: () => _skip(context, ref),
+                              style: TextButton.styleFrom(
+                                foregroundColor: const Color(0xFF8b5cf6),
+                                padding: EdgeInsets.zero,
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                              child: Text(
+                                'Skip',
                                 style: GoogleFonts.lexend(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w400,
-                                  color: const Color(0xFF9ca3af),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
                                 ),
-                                textAlign: TextAlign.center,
-                              )
-                            : const SizedBox.shrink(),
-                      ),
-                    ],
+                              ),
+                            ),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
+
+            const SizedBox(height: 8),
+
+            // Content
+            Expanded(
+              child: Stack(
+                children: [
+                  SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 22),
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 12),
+
+                        Image.asset(
+                          'assets/images/mascots/variant_mascot.png',
+                          width: 64,
+                          height: 64,
+                          fit: BoxFit.contain,
+                        ),
+                        const SizedBox(height: 6),
+
+                        // Title
+                        Text(
+                          widget.isEditing
+                              ? 'Change your preference'
+                              : 'Which English do you prefer?',
+                          style: GoogleFonts.lexend(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF1f2937),
+                            height: 1.2,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 6),
+
+                        // Subtitle
+                        Text(
+                          widget.isEditing
+                              ? 'Choose English variant'
+                              : 'This helps us create your learning experience',
+                          style: GoogleFonts.lexend(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w400,
+                            color: const Color(0xFF6b7280),
+                            height: 1.5,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 28),
+
+                        // Variant cards - consistent with language page
+                        ...variants.map((variant) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 14),
+                            child: _buildVariantCard(context, ref, variant),
+                          );
+                        }),
+
+                        const SizedBox(
+                            height: 80), // Extra space for bottom note
+                      ],
+                    ),
+                  ),
+                  // Bottom note - fixed at bottom
+                  Positioned(
+                    bottom: 10,
+                    left: 0,
+                    right: 0,
+                    child: !widget.isEditing
+                        ? Text(
+                            "Don't worry, you can change this anytime",
+                            style: GoogleFonts.lexend(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w400,
+                              color: const Color(0xFF9ca3af),
+                            ),
+                            textAlign: TextAlign.center,
+                          )
+                        : const SizedBox.shrink(),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
+      ),
     );
   }
 
-  Widget _buildVariantCard(BuildContext context, WidgetRef ref, EnglishVariant variant) {
+  Widget _buildVariantCard(
+      BuildContext context, WidgetRef ref, EnglishVariant variant) {
     final bool isSelected = _selectedVariant == variant.code;
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(20),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
         border: isSelected
-            ? Border.all(color: variant.color, width: 2)
-            : null,
+            ? Border.all(
+                color: variant.color.withValues(alpha: 0.8), width: 1.5)
+            : Border.all(color: const Color(0xFFF0F0F4), width: 1),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            color: Colors.black.withValues(alpha: 0.10),
+            blurRadius: 16,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
@@ -279,27 +310,28 @@ class _EnglishVariantPageState extends ConsumerState<EnglishVariantPage> {
         color: Colors.transparent,
         child: InkWell(
           onTap: () => _selectVariant(context, ref, variant.code),
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
             child: Row(
               children: [
                 // Flag with colored background - consistent with language page
                 Container(
-                  width: 56,
-                  height: 56,
+                  width: 44,
+                  height: 44,
                   decoration: BoxDecoration(
-                    color: variant.color.withValues(alpha: isSelected ? 0.3 : 0.15),
-                    borderRadius: BorderRadius.circular(16),
+                    color: variant.color.withValues(
+                        alpha: isSelected ? 0.3 : 0.15),
+                    shape: BoxShape.circle,
                   ),
                   child: Center(
                     child: Text(
                       variant.flag,
-                      style: const TextStyle(fontSize: 32),
+                      style: const TextStyle(fontSize: 25),
                     ),
                   ),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 12),
 
                 // Text content
                 Expanded(
@@ -309,7 +341,7 @@ class _EnglishVariantPageState extends ConsumerState<EnglishVariantPage> {
                       Text(
                         variant.name,
                         style: GoogleFonts.lexend(
-                          fontSize: 17,
+                          fontSize: 14,
                           fontWeight: FontWeight.w600,
                           color: const Color(0xFF1f2937),
                         ),
@@ -318,7 +350,7 @@ class _EnglishVariantPageState extends ConsumerState<EnglishVariantPage> {
                       Text(
                         variant.description,
                         style: GoogleFonts.lexend(
-                          fontSize: 13,
+                          fontSize: 12,
                           fontWeight: FontWeight.w400,
                           color: const Color(0xFF6b7280),
                         ),
@@ -327,24 +359,24 @@ class _EnglishVariantPageState extends ConsumerState<EnglishVariantPage> {
                   ),
                 ),
 
-                // Arrow icon or Checkmark - consistent with language page
+                // Continue arrow
                 Container(
-                  width: 36,
-                  height: 36,
+                  width: 26,
+                  height: 26,
                   decoration: BoxDecoration(
                     color: isSelected
-                        ? variant.color.withValues(alpha: 0.15)
-                        : const Color(0xFFf3f4f6),
-                    borderRadius: BorderRadius.circular(10),
+                        ? variant.color.withValues(alpha: 0.16)
+                        : const Color(0xFFF1F2F5),
+                    shape: BoxShape.circle,
                   ),
                   child: Icon(
                     isSelected
                         ? Icons.check_rounded
-                        : Icons.arrow_forward_ios_rounded,
-                    size: isSelected ? 20 : 16,
+                        : Icons.chevron_right_rounded,
+                    size: 20,
                     color: isSelected
                         ? variant.color
-                        : const Color(0xFF9ca3af),
+                        : const Color(0xFF9CA3AF),
                   ),
                 ),
               ],
@@ -378,7 +410,8 @@ class _EnglishVariantPageState extends ConsumerState<EnglishVariantPage> {
     } catch (e) {
       debugPrint('❌ Failed to update english variant: $e');
       if (mounted) {
-        SnackBarHelper.error(context, 'Failed to update preference. Please try again.');
+        SnackBarHelper.error(
+            context, 'Failed to update preference. Please try again.');
       }
     }
   }
@@ -403,18 +436,23 @@ class _EnglishVariantPageState extends ConsumerState<EnglishVariantPage> {
 
     if (currentUser != null) {
       // User exists, update with selected preferences
-      final updatedUser = currentUser.copyWith(preferences: selectedPreferences);
+      final updatedUser =
+          currentUser.copyWith(preferences: selectedPreferences);
       await userNotifier.updateUser(updatedUser);
-      debugPrint('✅ Updated UserModel with guest preferences: level=${widget.languageLevel}, variant=$_selectedVariant');
+      debugPrint(
+          '✅ Updated UserModel with guest preferences: level=${widget.languageLevel}, variant=$_selectedVariant');
     } else {
       // User doesn't exist yet, create guest user WITH selected preferences
-      debugPrint('⚠️ No UserModel found, creating guest with selected preferences');
-      final guestUser = UserModel.createGuest().copyWith(preferences: selectedPreferences);
+      debugPrint(
+          '⚠️ No UserModel found, creating guest with selected preferences');
+      final guestUser =
+          UserModel.createGuest().copyWith(preferences: selectedPreferences);
       await userNotifier.updateUser(guestUser);
       // Save initial quota backup for device-based trial
       final hiveService = ref.read(hiveServiceProvider);
       await hiveService.saveGuestQuotaBackup(guestUser.quotaManager);
-      debugPrint('✅ Created and saved guest user with preferences: level=${widget.languageLevel}, variant=$_selectedVariant');
+      debugPrint(
+          '✅ Created and saved guest user with preferences: level=${widget.languageLevel}, variant=$_selectedVariant');
     }
 
     if (!mounted) return;
@@ -439,8 +477,8 @@ class _EnglishVariantPageState extends ConsumerState<EnglishVariantPage> {
 
     // Get display name from Google metadata (if available), otherwise fallback to email
     final user = client.auth.currentUser;
-    String? displayName = user?.userMetadata?['full_name']
-                        ?? user?.userMetadata?['name'];
+    String? displayName =
+        user?.userMetadata?['full_name'] ?? user?.userMetadata?['name'];
 
     // Fallback: extract name from email (e.g., john.smith@gmail.com → John Smith)
     if (displayName == null && userEmail != null) {
@@ -459,7 +497,8 @@ class _EnglishVariantPageState extends ConsumerState<EnglishVariantPage> {
           userId: userId,
           email: userEmail ?? '',
           displayName: displayName,
-          languageLevel: widget.languageLevel ?? AppDefaults.defaultLanguageLevel,
+          languageLevel:
+              widget.languageLevel ?? AppDefaults.defaultLanguageLevel,
           englishVariant: code,
           termsVersion: preferenceService.getCurrentTermsVersion(),
         );
@@ -467,8 +506,7 @@ class _EnglishVariantPageState extends ConsumerState<EnglishVariantPage> {
         // Also mark onboarding as completed in database
         await client
             .from('users')
-            .update({'onboarding_completed': true})
-            .eq('id', userId);
+            .update({'onboarding_completed': true}).eq('id', userId);
       } catch (e) {
         if (mounted) {
           _handleSyncFailure(context);
@@ -511,7 +549,8 @@ class _EnglishVariantPageState extends ConsumerState<EnglishVariantPage> {
         await client.auth.updateUser(
           UserAttributes(
             data: {
-              'language_level': widget.languageLevel ?? AppDefaults.defaultLanguageLevel,
+              'language_level':
+                  widget.languageLevel ?? AppDefaults.defaultLanguageLevel,
               'english_variant': code,
             },
           ),
@@ -520,7 +559,8 @@ class _EnglishVariantPageState extends ConsumerState<EnglishVariantPage> {
         await client.auth.refreshSession();
         await client.from('users').upsert({
           'id': userId,
-          'language_level': widget.languageLevel ?? AppDefaults.defaultLanguageLevel,
+          'language_level':
+              widget.languageLevel ?? AppDefaults.defaultLanguageLevel,
           'english_variant': code,
           'onboarding_completed': true,
         });
