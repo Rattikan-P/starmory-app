@@ -12,32 +12,40 @@ import 'scrapbook_polaroid.dart';
 import 'vocabulary_detail_bottom_sheet.dart';
 import 'bottom_sheet_chrome.dart';
 
+bool _isDetailSheetActive = false;
+
 Future<void> showScrapbookDetailSheet(
   BuildContext context, {
   required List<ScrapbookModel> scrapbooks,
 }) async {
   if (scrapbooks.isEmpty) return;
+  if (_isDetailSheetActive) return;
+  _isDetailSheetActive = true;
 
-  await showModalBottomSheet<void>(
-    context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    backgroundColor: Colors.transparent,
-    barrierColor: Colors.black.withValues(alpha: 0.22),
-    builder: (sheetContext) => DraggableScrollableSheet(
-      initialChildSize: 0.76,
-      minChildSize: 0.56,
-      maxChildSize: 0.94,
-      expand: false,
-      snap: true,
-      snapSizes: const [0.76, 0.94],
-      builder: (_, scrollController) => _ScrapbookDetailSheet(
-        scrapbooks: scrapbooks,
-        scrollController: scrollController,
-        parentContext: context,
+  try {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.22),
+      builder: (sheetContext) => DraggableScrollableSheet(
+        initialChildSize: 0.76,
+        minChildSize: 0.56,
+        maxChildSize: 0.94,
+        expand: false,
+        snap: true,
+        snapSizes: const [0.76, 0.94],
+        builder: (_, scrollController) => _ScrapbookDetailSheet(
+          scrapbooks: scrapbooks,
+          scrollController: scrollController,
+          parentContext: context,
+        ),
       ),
-    ),
-  );
+    );
+  } finally {
+    _isDetailSheetActive = false;
+  }
 }
 
 class _ScrapbookDetailSheet extends StatelessWidget {

@@ -56,49 +56,57 @@ class _ScrapbookTabState extends ConsumerState<ScrapbookTab> {
     );
   }
 
+  bool _isOpeningDetailSheet = false;
+
   Future<void> _openDeepLinkedScrapbook(
     String scrapbookId, {
     String? word,
   }) async {
-    var scrapbooks = ref.read(scrapbookStateProvider).scrapbooks;
-    if (!scrapbooks.any((entry) => entry.id == scrapbookId)) {
-      await ref.read(scrapbookStateProvider.notifier).refresh();
-      if (!mounted) return;
-      scrapbooks = ref.read(scrapbookStateProvider).scrapbooks;
-    }
-
-    var match = scrapbooks.where((entry) => entry.id == scrapbookId).firstOrNull;
-    if (match == null) {
-      final vocabularies = ref.read(vocabularyStateProvider).vocabularies;
-      final vocabulary = vocabularies
-          .where((entry) => entry.id == scrapbookId)
-          .firstOrNull;
-
-      final searchWord = word ?? vocabulary?.word;
-      if (searchWord != null && searchWord.trim().isNotEmpty) {
-        final normalizedWord = searchWord.trim().toLowerCase();
-        final relatedScrapbooks = scrapbooks.where(
-          (entry) => entry.vocabularyWords.any(
-            (word) => word.word.trim().toLowerCase() == normalizedWord,
-          ),
-        );
-
-        // Prefer the scrapbook whose source photo is the same as the vocab image.
-        match = relatedScrapbooks
-            .where((entry) => entry.imagePath == vocabulary?.imageUrl)
-            .firstOrNull ??
-            relatedScrapbooks.firstOrNull;
+    if (_isOpeningDetailSheet) return;
+    _isOpeningDetailSheet = true;
+    try {
+      var scrapbooks = ref.read(scrapbookStateProvider).scrapbooks;
+      if (!scrapbooks.any((entry) => entry.id == scrapbookId)) {
+        await ref.read(scrapbookStateProvider.notifier).refresh();
+        if (!mounted) return;
+        scrapbooks = ref.read(scrapbookStateProvider).scrapbooks;
       }
-    }
-    if (match == null || !mounted) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('This scrapbook could not be found')),
-        );
+
+      var match = scrapbooks.where((entry) => entry.id == scrapbookId).firstOrNull;
+      if (match == null) {
+        final vocabularies = ref.read(vocabularyStateProvider).vocabularies;
+        final vocabulary = vocabularies
+            .where((entry) => entry.id == scrapbookId)
+            .firstOrNull;
+
+        final searchWord = word ?? vocabulary?.word;
+        if (searchWord != null && searchWord.trim().isNotEmpty) {
+          final normalizedWord = searchWord.trim().toLowerCase();
+          final relatedScrapbooks = scrapbooks.where(
+            (entry) => entry.vocabularyWords.any(
+              (word) => word.word.trim().toLowerCase() == normalizedWord,
+            ),
+          );
+
+          // Prefer the scrapbook whose source photo is the same as the vocab image.
+          match = relatedScrapbooks
+              .where((entry) => entry.imagePath == vocabulary?.imageUrl)
+              .firstOrNull ??
+              relatedScrapbooks.firstOrNull;
+        }
       }
-      return;
+      if (match == null || !mounted) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('This scrapbook could not be found')),
+          );
+        }
+        return;
+      }
+      await showScrapbookDetailSheet(context, scrapbooks: [match]);
+    } finally {
+      _isOpeningDetailSheet = false;
     }
-    await showScrapbookDetailSheet(context, scrapbooks: [match]);
   }
 
   @override
