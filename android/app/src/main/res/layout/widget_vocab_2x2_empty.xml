@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Widget: 2×2 Compact — Starmory Empty State
+  Purple background with large bunny mascot, Scan Photo title, Snap it, learn it subtitle
+-->
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:paddingLeft="8dp"
+    android:paddingTop="6dp"
+    android:paddingRight="8dp"
+    android:paddingBottom="6dp"
+    android:background="@drawable/widget_purple_background">
+
+    <!-- Mascot (Enlarged) -->
+    <ImageView
+        android:id="@+id/widget_mascot"
+        android:layout_width="90dp"
+        android:layout_height="90dp"
+        android:adjustViewBounds="true"
+        android:src="@drawable/widget_mascot_scan"
+        android:scaleType="fitCenter" />
+
+    <!-- Title: Scan Photo -->
+    <TextView
+        android:id="@+id/widget_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:textSize="17sp"
+        android:textColor="#FFFFFFFF"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:text="Scan Photo" />
+
+    <!-- Subtitle: Snap it, learn it -->
+    <TextView
+        android:id="@+id/widget_subtitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="1dp"
+        android:textSize="11.5sp"
+        android:textColor="#FFE9D5FF"
+        android:gravity="center"
+        android:text="Snap it, learn it" />
+
+</LinearLayout>

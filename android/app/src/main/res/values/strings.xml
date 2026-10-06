@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Starmory</string>
-    <string name="widget_description">Personal Vocab Widget — shows the word you\'re about to forget</string>
+    <string name="widget_4x2_name">Starmory Word of the Day</string>
+    <string name="widget_4x2_description">Daily vocabulary with photo, sentence context, learning streak, and camera shortcut</string>
+    <string name="widget_2x2_name">Starmory Word of the Day</string>
+    <string name="widget_2x2_description">Compact photo word card with learning streak and quick camera shortcut</string>
 </resources>

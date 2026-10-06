@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Widget: 4×2 Standard — Starmory Empty State
+  Purple background with large centered bunny mascot on left, Scan Photo and subtitle on right
+-->
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="horizontal"
+    android:gravity="center"
+    android:paddingLeft="12dp"
+    android:paddingTop="8dp"
+    android:paddingRight="12dp"
+    android:paddingBottom="8dp"
+    android:background="@drawable/widget_purple_background">
+
+    <!-- Centered Content Wrapper -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <!-- Mascot on Left (Large) -->
+        <ImageView
+            android:id="@+id/widget_mascot"
+            android:layout_width="120dp"
+            android:layout_height="120dp"
+            android:layout_marginRight="14dp"
+            android:layout_marginEnd="14dp"
+            android:adjustViewBounds="true"
+            android:src="@drawable/widget_mascot_scan"
+            android:scaleType="fitCenter" />
+
+        <!-- Text on Right -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <!-- Title -->
+            <TextView
+                android:id="@+id/widget_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="25sp"
+                android:textColor="#FFFFFFFF"
+                android:textStyle="bold"
+                android:text="Scan Photo" />
+
+            <!-- Subtitle -->
+            <TextView
+                android:id="@+id/widget_subtitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:textSize="13.5sp"
+                android:textColor="#FFE9D5FF"
+                android:lineSpacingMultiplier="1.15"
+                android:text="Snap your world,\nlearn your words" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</LinearLayout>

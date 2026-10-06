@@ -4,23 +4,22 @@ import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.BitmapShader
+import android.graphics.Canvas
+import android.graphics.Matrix
+import android.graphics.Paint
+import android.graphics.RectF
+import android.graphics.Shader
 import android.net.Uri
 import android.widget.RemoteViews
 import es.antonborri.home_widget.HomeWidgetLaunchIntent
 import java.io.File
 
 /**
- * Android App Widget Provider for Starmory Personal Vocab Widget.
- *
- * Reads vocab data written by Flutter's WidgetService via home_widget,
- * then renders the 4×2 RemoteViews layout.
- *
- * Tap Actions (PendingIntents):
- *   - Tap word/translation → open Review session
- *   - Tap camera icon     → open Camera/scrapbook capture
- *   - Tap photo area      → open Scrapbook detail for this vocab
+ * Android App Widget Provider for Starmory Personal Vocab Widget (4x2 Standard).
  */
 class VocabWidgetProvider : AppWidgetProvider() {
 
@@ -34,20 +33,7 @@ class VocabWidgetProvider : AppWidgetProvider() {
         }
     }
 
-    override fun onReceive(context: Context, intent: Intent) {
-        super.onReceive(context, intent)
-        // Handle refresh action from widget button
-        if (intent.action == ACTION_REFRESH) {
-            val appWidgetManager = AppWidgetManager.getInstance(context)
-            val ids = appWidgetManager.getAppWidgetIds(
-                android.content.ComponentName(context, VocabWidgetProvider::class.java)
-            )
-            onUpdate(context, appWidgetManager, ids)
-        }
-    }
-
     companion object {
-        const val ACTION_REFRESH = "com.example.starmory_app.WIDGET_REFRESH"
         private const val PREFS_NAME = "HomeWidgetPreferences"
 
         fun updateWidget(
@@ -57,128 +43,118 @@ class VocabWidgetProvider : AppWidgetProvider() {
         ) {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
-            // home_widget stores all values as Strings under the key directly
             val hasData   = prefs.getBoolean("widget_has_data", false)
             val word      = prefs.getString("widget_word", "") ?: ""
             val trans     = prefs.getString("widget_translation", "") ?: ""
-            val pos       = prefs.getString("widget_part_of_speech", "") ?: ""
-            val cefr      = prefs.getString("widget_cefr_level", "") ?: ""
+            val sentence  = prefs.getString("widget_sentence", "") ?: ""
             val imagePath = prefs.getString("widget_image_path", "") ?: ""
             val vocabId   = prefs.getString("widget_vocab_id", "") ?: ""
             val dateStr   = prefs.getString("widget_date", "") ?: ""
-            // home_widget saves int as Int in SharedPreferences
-            val retention = prefs.getInt("widget_retention", 0)
+            val streak    = getIntSafe(prefs, "widget_streak", 0)
 
-            // Choose layout based on whether we have data
             val views = if (!hasData || word.isEmpty()) {
                 buildEmptyView(context)
             } else {
                 buildVocabView(
-                    context, word, trans, pos, cefr,
-                    imagePath, vocabId, dateStr, retention
+                    context, word, trans, sentence,
+                    imagePath, vocabId, dateStr, streak
                 )
             }
 
             appWidgetManager.updateAppWidget(widgetId, views)
         }
 
-        // ─── Empty / No-data state ──────────────────────────────────────────
+        private fun getIntSafe(prefs: SharedPreferences, key: String, default: Int = 0): Int {
+            return try {
+                prefs.getInt(key, default)
+            } catch (e: Exception) {
+                try {
+                    prefs.getLong(key, default.toLong()).toInt()
+                } catch (e2: Exception) {
+                    try {
+                        prefs.getString(key, null)?.toIntOrNull() ?: default
+                    } catch (e3: Exception) {
+                        default
+                    }
+                }
+            }
+        }
+
+        // ─── Empty State: Purple background + Mascot + "Scan Photo" ───────
         private fun buildEmptyView(context: Context): RemoteViews {
-            val views = RemoteViews(context.packageName, R.layout.widget_vocab_4x2)
-            views.setTextViewText(R.id.widget_word, "All caught up! ✨")
-            views.setTextViewText(R.id.widget_translation, "No reviews due right now")
-            views.setTextViewText(R.id.widget_date, "")
-            views.setTextViewText(R.id.widget_pos_badge, "")
-            views.setTextViewText(R.id.widget_retention, "")
-            views.setImageViewResource(R.id.widget_image, R.drawable.widget_placeholder)
-            setTapActions(context, views, "", "", "review")
+            val views = RemoteViews(context.packageName, R.layout.widget_vocab_4x2_empty)
+            val requestCode = System.currentTimeMillis().toInt()
+            val cameraIntent = buildDeepLinkIntent(context, "starmory://camera", requestCode)
+            views.setOnClickPendingIntent(R.id.widget_root, cameraIntent)
             return views
         }
 
-        // ─── Main vocab card view ───────────────────────────────────────────
+        // ─── Data State: White Card + Image (Rounded) + Word + Sentence + Camera ─────
         private fun buildVocabView(
             context: Context,
             word: String,
             trans: String,
-            pos: String,
-            cefr: String,
+            sentence: String,
             imagePath: String,
             vocabId: String,
             dateStr: String,
-            retention: Int
+            streak: Int
         ): RemoteViews {
             val views = RemoteViews(context.packageName, R.layout.widget_vocab_4x2)
 
             // Text fields
             views.setTextViewText(R.id.widget_word, word)
             views.setTextViewText(R.id.widget_translation, trans)
-            views.setTextViewText(R.id.widget_date, dateStr)
             views.setTextViewText(
-                R.id.widget_pos_badge,
-                if (pos.isNotEmpty()) pos.take(4).uppercase() else ""
+                R.id.widget_sentence,
+                if (sentence.isNotEmpty()) "“$sentence”" else ""
             )
+            views.setTextViewText(R.id.widget_date, if (dateStr.isNotEmpty()) dateStr else "Today")
             views.setTextViewText(
-                R.id.widget_retention,
-                if (retention > 0) "$retention%" else ""
+                R.id.widget_streak_badge,
+                if (streak > 0) "🔥$streak" else "🔥0"
             )
 
-            // Image — local file path only
-            val bitmap = loadBitmapSafe(imagePath)
-            if (bitmap != null) {
-                views.setImageViewBitmap(R.id.widget_image, bitmap)
+            // Image: Process with Matrix center-crop and 18dp rounded corners (preserving aspect ratio)
+            val rawBitmap = loadBitmapSafe(imagePath)
+            if (rawBitmap != null) {
+                val roundedBitmap = getRoundedCroppedBitmap(rawBitmap, 320, 320, 18f, context)
+                views.setImageViewBitmap(R.id.widget_image, roundedBitmap)
             } else {
                 views.setImageViewResource(R.id.widget_image, R.drawable.widget_placeholder)
             }
 
-            // Tap actions
-            setTapActions(context, views, vocabId, word, "review")
+            // Deep link tap actions
+            setTapActions(context, views, vocabId, word)
 
             return views
         }
 
-        // ─── PendingIntents for all tap zones ──────────────────────────────
         private fun setTapActions(
             context: Context,
             views: RemoteViews,
             vocabId: String,
-            word: String,
-            defaultAction: String
+            word: String
         ) {
             val requestCode = System.currentTimeMillis().toInt()
 
-            // Tap word / translation → open Review tab
-            val reviewIntent = buildDeepLinkIntent(context, "starmory://review", requestCode)
-            views.setOnClickPendingIntent(R.id.widget_content_area, reviewIntent)
-
-            // Tap camera icon → open Camera/capture
-            val cameraIntent = buildDeepLinkIntent(context, "starmory://camera", requestCode + 1)
-            views.setOnClickPendingIntent(R.id.widget_camera_btn, cameraIntent)
-
-            // Tap image → open Scrapbook detail for this vocab
-            val scrapbookUri = if (vocabId.isNotEmpty()) {
-                Uri.Builder()
-                    .scheme("starmory")
-                    .authority("scrapbook")
-                    .appendPath(vocabId)
-                    .appendQueryParameter("word", word)
-                    .build()
-                    .toString()
+            // 1. Tap word / image / content → open Vocab detail
+            val wordDeepLink = if (vocabId.isNotEmpty()) {
+                "starmory://vocab?id=$vocabId&word=$word"
             } else {
                 "starmory://review"
             }
-            val scrapbookIntent = buildDeepLinkIntent(context, scrapbookUri, requestCode + 2)
-            views.setOnClickPendingIntent(R.id.widget_image, scrapbookIntent)
+            val wordIntent = buildDeepLinkIntent(context, wordDeepLink, requestCode)
+            views.setOnClickPendingIntent(R.id.widget_content_area, wordIntent)
+            views.setOnClickPendingIntent(R.id.widget_image, wordIntent)
 
-            // Refresh button
-            val refreshIntent = android.app.PendingIntent.getBroadcast(
-                context,
-                requestCode + 3,
-                Intent(ACTION_REFRESH).apply {
-                    setClass(context, VocabWidgetProvider::class.java)
-                },
-                android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
-            )
-            views.setOnClickPendingIntent(R.id.widget_refresh_btn, refreshIntent)
+            // 2. Tap streak badge → open Progress tab
+            val progressIntent = buildDeepLinkIntent(context, "starmory://home?tab=progress", requestCode + 1)
+            views.setOnClickPendingIntent(R.id.widget_streak_badge, progressIntent)
+
+            // 3. Tap camera icon → open Camera
+            val cameraIntent = buildDeepLinkIntent(context, "starmory://camera", requestCode + 2)
+            views.setOnClickPendingIntent(R.id.widget_camera_btn, cameraIntent)
         }
 
         private fun buildDeepLinkIntent(
@@ -199,20 +175,68 @@ class VocabWidgetProvider : AppWidgetProvider() {
             )
         }
 
+        private fun getRoundedCroppedBitmap(
+            src: Bitmap,
+            targetW: Int,
+            targetH: Int,
+            cornerRadiusDp: Float,
+            context: Context
+        ): Bitmap {
+            return try {
+                val density = context.resources.displayMetrics.density
+                val radiusPx = cornerRadiusDp * density
+
+                val srcW = src.width.toFloat()
+                val srcH = src.height.toFloat()
+                val scale = Math.max(targetW / srcW, targetH / srcH)
+                val scaledW = srcW * scale
+                val scaledH = srcH * scale
+                val dx = (targetW - scaledW) / 2f
+                val dy = (targetH - scaledH) / 2f
+
+                val output = Bitmap.createBitmap(targetW, targetH, Bitmap.Config.ARGB_8888)
+                val canvas = Canvas(output)
+
+                val shader = BitmapShader(src, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP)
+                val matrix = Matrix().apply {
+                    setScale(scale, scale)
+                    postTranslate(dx, dy)
+                }
+                shader.setLocalMatrix(matrix)
+
+                val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    this.shader = shader
+                }
+
+                val rect = RectF(0f, 0f, targetW.toFloat(), targetH.toFloat())
+                canvas.drawRoundRect(rect, radiusPx, radiusPx, paint)
+
+                output
+            } catch (e: Exception) {
+                src
+            }
+        }
+
         private fun loadBitmapSafe(path: String): Bitmap? {
             return try {
                 if (path.isEmpty()) return null
-                val file = File(path)
-                if (!file.exists()) return null
+                val cleanPath = if (path.startsWith("file://")) {
+                    Uri.parse(path).path ?: path.substring(7)
+                } else {
+                    path
+                }
+                val file = File(cleanPath)
+                if (!file.exists() || file.length() == 0L) return null
 
-                // Decode with downsampling to avoid OOM in widget process
                 val options = BitmapFactory.Options().apply {
                     inJustDecodeBounds = true
                 }
-                BitmapFactory.decodeFile(path, options)
-                options.inSampleSize = calculateInSampleSize(options, 200, 200)
+                BitmapFactory.decodeFile(cleanPath, options)
+                if (options.outWidth <= 0 || options.outHeight <= 0) return null
+
+                options.inSampleSize = calculateInSampleSize(options, 320, 320)
                 options.inJustDecodeBounds = false
-                BitmapFactory.decodeFile(path, options)
+                BitmapFactory.decodeFile(cleanPath, options)
             } catch (e: Exception) {
                 null
             }
