@@ -3,14 +3,16 @@ import 'dart:math' as math;
 import 'package:home_widget/home_widget.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../data/models/word_card_model.dart';
+import '../../data/models/vocabulary_model.dart';
 import '../../data/services/review_service.dart';
 
 /// Bridges Flutter app data → Android Home Screen Widget.
-/// Writes the "most urgent due vocab" to SharedPreferences
-/// so the native widget can read it without Flutter running.
+/// Writes the "Word of the Day" (prioritizing FSRS due cards) and streak
+/// to SharedPreferences so the native widget can read it without Flutter running.
 class WidgetService {
   static const String _appGroupId = 'com.example.starmory_app';
   static const String _widgetName = 'VocabWidgetProvider';
+  static const String _compactWidgetName = 'VocabCompactWidgetProvider';
 
   // SharedPreferences keys (must match VocabWidgetProvider.kt)
   static const String _keyWord = 'widget_word';
@@ -20,7 +22,9 @@ class WidgetService {
   static const String _keyImagePath = 'widget_image_path';
   static const String _keyVocabId = 'widget_vocab_id';
   static const String _keyDate = 'widget_date';
+  static const String _keyStreak = 'widget_streak';
   static const String _keyRetention = 'widget_retention';
+  static const String _keySentence = 'widget_sentence';
   static const String _keyHasData = 'widget_has_data';
 
   /// Initialize home_widget — call once at app startup.
@@ -28,82 +32,138 @@ class WidgetService {
     await HomeWidget.setAppGroupId(_appGroupId);
   }
 
-  /// Push the most urgent due card to the widget.
-  /// Call after: app open, review session complete, or background refresh.
-  static Future<void> updateWidgetWithDueCard(ReviewService reviewService) async {
+  /// Push the Word of the Day (prioritizing due cards) and streak to the widget.
+  /// Call after: app open, review session complete, or learning activity.
+  static Future<void> updateWidgetWithDueCard(
+    ReviewService reviewService, {
+    int? streak,
+  }) async {
     try {
-      final dueCards = await reviewService.getDueCards(limit: 1);
+      final currentStreak = streak ?? 0;
+      final now = DateTime.now();
+      final dayOfYear = now.difference(DateTime(now.year, 1, 1)).inDays;
+      final daySeed = now.year * 366 + dayOfYear;
 
-      if (dueCards.isEmpty) {
-        await _clearWidgetData();
+      // 1. Try due cards first (FSRS review queue, rotated by date)
+      final dueCards = await reviewService.getDueCards(limit: 50);
+
+      if (dueCards.isNotEmpty) {
+        final cardIndex = daySeed % dueCards.length;
+        final card = dueCards[cardIndex];
+        final vocab = card.vocabulary;
+        if (vocab != null) {
+          await _writeVocabToWidget(
+            vocab: vocab,
+            card: card,
+            streak: currentStreak,
+          );
+          return;
+        }
+      }
+
+      // 2. Fallback: If no due cards, pick from general vocabulary collection rotated by date
+      final allVocab = await reviewService.hiveService.getAllVocabulary();
+      if (allVocab.isNotEmpty) {
+        final vocabIndex = daySeed % allVocab.length;
+        final fallbackVocab = allVocab[vocabIndex];
+        await _writeVocabToWidget(
+          vocab: fallbackVocab,
+          card: null,
+          streak: currentStreak,
+        );
         return;
       }
 
-      final card = dueCards.first;
-      final vocab = card.vocabulary;
-      if (vocab == null) {
-        await _clearWidgetData();
-        return;
-      }
-
-      // Resolve local image path — widget cannot load URLs directly.
-      // Downloads Supabase URL to local cache if needed.
-      final imagePath = await _resolveLocalImagePath(vocab.imageUrl);
-
-      // Calculate approximate retention % from FSRS stability
-      final retentionPct = _calculateRetentionPercent(card);
-
-      // Format date nicely (e.g. "Sep 26")
-      final dateStr = _formatDate(DateTime.now());
-
-      // Write all data to SharedPreferences via home_widget
-      await HomeWidget.saveWidgetData(_keyWord, vocab.word);
-      await HomeWidget.saveWidgetData(_keyTranslation, vocab.thaiTranslation);
-      await HomeWidget.saveWidgetData(_keyPartOfSpeech, vocab.partOfSpeech);
-      await HomeWidget.saveWidgetData(_keyCefrLevel, vocab.cefrLevel);
-      await HomeWidget.saveWidgetData(_keyImagePath, imagePath);
-      await HomeWidget.saveWidgetData(_keyVocabId, vocab.id);
-      await HomeWidget.saveWidgetData(_keyDate, dateStr);
-      await HomeWidget.saveWidgetData(_keyRetention, retentionPct);
-      await HomeWidget.saveWidgetData(_keyHasData, true);
-
-      // Tell Android to redraw the widget
-      await HomeWidget.updateWidget(androidName: _widgetName);
+      // 3. No vocabulary exists at all -> Empty State
+      await _clearWidgetData(streak: currentStreak);
     } catch (_) {
       // Never crash the app due to widget update failure
     }
   }
 
-  /// Clear widget when no due cards available.
-  static Future<void> _clearWidgetData() async {
+  static Future<void> _writeVocabToWidget({
+    required VocabularyModel vocab,
+    WordCardModel? card,
+    required int streak,
+  }) async {
+    final imagePath = await _resolveLocalImagePath(vocab.imageUrl);
+    final retentionPct =
+        card != null ? _calculateRetentionPercent(card) : 0;
+    final dateStr = _formatDate(DateTime.now());
+
+    await HomeWidget.saveWidgetData(_keyWord, vocab.word);
+    await HomeWidget.saveWidgetData(_keyTranslation, vocab.thaiTranslation);
+    await HomeWidget.saveWidgetData(_keySentence, vocab.englishSentence);
+    await HomeWidget.saveWidgetData(_keyPartOfSpeech, vocab.partOfSpeech);
+    await HomeWidget.saveWidgetData(_keyCefrLevel, vocab.cefrLevel);
+    await HomeWidget.saveWidgetData(_keyImagePath, imagePath);
+    await HomeWidget.saveWidgetData(_keyVocabId, vocab.id);
+    await HomeWidget.saveWidgetData(_keyDate, dateStr);
+    await HomeWidget.saveWidgetData(_keyStreak, streak);
+    await HomeWidget.saveWidgetData(_keyRetention, retentionPct);
+    await HomeWidget.saveWidgetData(_keyHasData, true);
+
+    await HomeWidget.updateWidget(androidName: _widgetName);
+    await HomeWidget.updateWidget(androidName: _compactWidgetName);
+  }
+
+  /// Clear widget when no cards or vocabularies are available.
+  static Future<void> _clearWidgetData({int streak = 0}) async {
     await HomeWidget.saveWidgetData(_keyHasData, false);
     await HomeWidget.saveWidgetData(_keyWord, '');
     await HomeWidget.saveWidgetData(_keyTranslation, '');
+    await HomeWidget.saveWidgetData(_keyStreak, streak);
     await HomeWidget.updateWidget(androidName: _widgetName);
+    await HomeWidget.updateWidget(androidName: _compactWidgetName);
   }
 
   // ─────────────────────────────────────────────────────────────────────────
   // Image Cache Bridge
   // Android RemoteViews can only show Bitmaps from local files — not URLs.
-  // So Supabase signed URLs must be downloaded and cached locally first.
   // ─────────────────────────────────────────────────────────────────────────
 
   /// Resolve image URL/path → absolute local file path the widget can read.
   static Future<String> _resolveLocalImagePath(String imageUrl) async {
     if (imageUrl.isEmpty) return '';
-    if (imageUrl.startsWith('/')) return imageUrl;
-    if (imageUrl.startsWith('file://')) return imageUrl.substring(7);
-    if (imageUrl.startsWith('http')) return _downloadAndCache(imageUrl);
+
+    // 1. If file:// URI
+    String cleanPath = imageUrl;
+    if (cleanPath.startsWith('file://')) {
+      try {
+        cleanPath = Uri.parse(cleanPath).toFilePath();
+      } catch (_) {
+        cleanPath = cleanPath.substring(7);
+      }
+    }
+
+    // 2. Direct existing file on disk
+    final directFile = File(cleanPath);
+    if (directFile.existsSync() && directFile.lengthSync() > 0) {
+      return directFile.path;
+    }
+
+    // 3. HTTP / HTTPS URL
+    if (cleanPath.startsWith('http://') || cleanPath.startsWith('https://')) {
+      return await _downloadAndCache(cleanPath);
+    }
+
+    // 4. Try finding inside App Documents / Temporary directory
+    try {
+      final docDir = await getApplicationDocumentsDirectory();
+      final docFile = File('${docDir.path}/$cleanPath');
+      if (docFile.existsSync() && docFile.lengthSync() > 0) return docFile.path;
+
+      final tempDir = await getTemporaryDirectory();
+      final tempFile = File('${tempDir.path}/$cleanPath');
+      if (tempFile.existsSync() && tempFile.lengthSync() > 0) return tempFile.path;
+    } catch (_) {}
+
     return '';
   }
 
-  /// Download a remote image (Supabase signed URL) and cache it locally.
-  ///
-  /// Cache key = URL hash → same vocab image won't be re-downloaded within 24h.
-  /// Returns the local file path on success, or '' on any error.
+  /// Download a remote image and cache it locally.
   static Future<String> _downloadAndCache(String url) async {
     try {
-      // Stable cache filename: urlHash + original filename (without query params)
       final uri = Uri.parse(url);
       final baseName = uri.pathSegments.isNotEmpty
           ? uri.pathSegments.last.split('?').first
@@ -114,20 +174,21 @@ class WidgetService {
       final cacheDir = await _getWidgetCacheDir();
       final cacheFile = File('${cacheDir.path}/$cacheFileName');
 
-      // Serve from cache if fresh (< 24 hours old)
-      if (await cacheFile.exists()) {
+      if (await cacheFile.exists() && await cacheFile.length() > 0) {
         final age = DateTime.now().difference((await cacheFile.stat()).modified);
         if (age.inHours < 24) return cacheFile.path;
       }
 
-      // Download from Supabase
-      final httpClient = HttpClient();
+      final httpClient = HttpClient()
+        ..badCertificateCallback = ((cert, host, port) => true);
       try {
         final request = await httpClient.getUrl(uri);
         final response = await request.close();
-        if (response.statusCode != 200) return '';
+        if (response.statusCode != 200) {
+          print('⚠️ [Widget] Image download failed with status ${response.statusCode}');
+          return '';
+        }
 
-        // Stream bytes to disk
         final sink = cacheFile.openWrite();
         await response.pipe(sink);
         await sink.flush();
@@ -136,13 +197,15 @@ class WidgetService {
         httpClient.close();
       }
 
-      return cacheFile.path;
-    } catch (_) {
+      return (await cacheFile.exists() && await cacheFile.length() > 0)
+          ? cacheFile.path
+          : '';
+    } catch (e) {
+      print('⚠️ [Widget] Error caching widget image: $e');
       return '';
     }
   }
 
-  /// Returns the widget image cache directory, creating it if needed.
   static Future<Directory> _getWidgetCacheDir() async {
     final base = await getTemporaryDirectory();
     final dir = Directory('${base.path}/widget_image_cache');
@@ -154,11 +217,6 @@ class WidgetService {
   // FSRS Retention Calculation
   // ─────────────────────────────────────────────────────────────────────────
 
-  /// Approximate FSRS retrieval probability as integer percent (0–100).
-  ///
-  /// Formula: R(t) = 0.9^(t/S)
-  ///   t = days since last review
-  ///   S = stability (FSRS parameter)
   static int _calculateRetentionPercent(WordCardModel card) {
     if (card.stability <= 0 || card.lastReview == null) return 0;
 
@@ -167,7 +225,6 @@ class WidgetService {
 
     if (daysSinceReview <= 0) return 90;
 
-    // Use dart:math pow — safe for floating-point exponents
     final retention = math.pow(0.9, daysSinceReview / card.stability).toDouble();
     return (retention * 100).round().clamp(0, 100);
   }

@@ -191,7 +191,11 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
       );
 
       // Update home screen widget with next due card
-      WidgetService.updateWidgetWithDueCard(_reviewService).ignore();
+      final user = _ref?.read(userStateProvider).user;
+      final streak = (user != null && user.isGuest)
+          ? user.currentStreak
+          : _ref?.read(currentStreakProvider) ?? 0;
+      WidgetService.updateWidgetWithDueCard(_reviewService, streak: streak).ignore();
     } catch (e) {
       state = ReviewState(
         isLoading: false,
@@ -293,7 +297,11 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
       );
 
       // Update home screen widget with next due card after each review
-      WidgetService.updateWidgetWithDueCard(_reviewService).ignore();
+      final reviewUser = _ref?.read(userStateProvider).user;
+      final streak = (reviewUser != null && reviewUser.isGuest)
+          ? reviewUser.currentStreak
+          : _ref?.read(currentStreakProvider) ?? 0;
+      WidgetService.updateWidgetWithDueCard(_reviewService, streak: streak).ignore();
       return streakEarned;
     } catch (e) {
       print('❌ [SwipeCard] Error: $e');

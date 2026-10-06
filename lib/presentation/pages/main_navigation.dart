@@ -12,6 +12,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/utils/safe_image_picker.dart';
 import '../../core/utils/image_picker_error_message.dart';
+import '../../core/services/widget_service.dart';
 import 'home_tab.dart';
 import 'review_tab.dart';
 import 'scrapbook_tab.dart';
@@ -52,6 +53,7 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
     _listenToWidgetTaps();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _syncOnAppOpen();
+      _updateWidgetOnLaunch();
       // Also handle the launch URI if the app was cold-started from widget tap
       _handleInitialWidgetUri();
     });
@@ -79,6 +81,30 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
     } catch (_) {}
   }
 
+  Future<void> _updateWidgetOnLaunch() async {
+    await _updateWidgetWithStreak();
+  }
+
+  Future<void> _updateWidgetWithStreak([int? explicitStreak]) async {
+    try {
+      final reviewService = ref.read(reviewServiceProvider);
+
+      // 1. If explicit streak passed, use it
+      // 2. Otherwise try streakProvider (SSOT for streak)
+      // 3. Otherwise try userStateProvider (SSOT for user/guest)
+      // 4. Fallback to currentStreakProvider
+      final streak = explicitStreak ??
+          ref.read(streakProvider)?.currentStreak ??
+          ref.read(userStateProvider).user?.currentStreak ??
+          ref.read(currentStreakProvider);
+
+      await WidgetService.updateWidgetWithDueCard(reviewService, streak: streak);
+    } catch (_) {}
+  }
+
+  String? _lastHandledUriStr;
+  DateTime? _lastHandledTime;
+
   /// Route a starmory:// deep link to the correct tab or action.
   ///
   /// starmory://review             → Review tab (index 1)
@@ -86,6 +112,16 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
   /// starmory://scrapbook/{vocabId}→ Scrapbook tab (index 2)
   void _routeWidgetDeepLink(Uri? uri) {
     if (uri == null || !mounted) return;
+
+    final uriStr = uri.toString();
+    final now = DateTime.now();
+    if (_lastHandledUriStr == uriStr &&
+        _lastHandledTime != null &&
+        now.difference(_lastHandledTime!).inMilliseconds < 2000) {
+      return;
+    }
+    _lastHandledUriStr = uriStr;
+    _lastHandledTime = now;
 
     final host = uri.host; // "review", "camera", "scrapbook"
     final segments = uri.pathSegments; // e.g. ["abc123"] for scrapbook/{id}
@@ -95,6 +131,19 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
         ref.read(navigationProvider.notifier).goReview();
         break;
 
+      case 'progress':
+        ref.read(navigationProvider.notifier).setIndex(3);
+        break;
+
+      case 'home':
+        final tab = uri.queryParameters['tab'];
+        if (tab == 'progress') {
+          ref.read(navigationProvider.notifier).setIndex(3);
+        } else {
+          ref.read(navigationProvider.notifier).goHome();
+        }
+        break;
+
       case 'camera':
         // Navigate to review tab first so we're on a stable screen,
         // then open the camera modal after a frame
@@ -102,6 +151,20 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) _pickImage(ImageSource.camera);
         });
+        break;
+
+      case 'vocab':
+        final vocabId = uri.queryParameters['id'] ??
+            (segments.isNotEmpty ? segments.first : null);
+        final word = uri.queryParameters['word'];
+        if (vocabId != null && vocabId.isNotEmpty) {
+          ref.read(navigationProvider.notifier).goScrapbook(
+                scrapbookId: vocabId,
+                scrapbookWord: word,
+              );
+        } else {
+          ref.read(navigationProvider.notifier).goReview();
+        }
         break;
 
       case 'scrapbook':
@@ -401,6 +464,17 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Keep widget in sync whenever streak or user state changes (e.g. after async load/sync)
+    ref.listen<int>(currentStreakProvider, (prev, next) {
+      _updateWidgetWithStreak(next);
+    });
+    ref.listen<UserState>(userStateProvider, (prev, next) {
+      final streak = next.user?.currentStreak;
+      if (streak != null) {
+        _updateWidgetWithStreak(streak);
+      }
+    });
+
     final currentIndex = ref.watch(navigationProvider).currentIndex;
 
     return Scaffold(
