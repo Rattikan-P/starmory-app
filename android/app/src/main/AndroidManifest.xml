@@ -46,11 +46,11 @@
             android:name="flutterEmbedding"
             android:value="2" />
 
-        <!-- ─── Personal Vocab Widget ─────────────────────────────────────── -->
+        <!-- ─── Starmory Home Widgets (4x2 and 2x2) ────────────────────────── -->
         <receiver
             android:name=".VocabWidgetProvider"
             android:exported="true"
-            android:label="Vocab Widget">
+            android:label="Starmory Word of the Day">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
                 <action android:name="com.example.starmory_app.WIDGET_REFRESH" />
@@ -58,6 +58,19 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/widget_info_4x2" />
+        </receiver>
+
+        <receiver
+            android:name=".VocabCompactWidgetProvider"
+            android:exported="true"
+            android:label="Starmory Word of the Day">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.example.starmory_app.WIDGET_COMPACT_REFRESH" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info_2x2" />
         </receiver>
 
         <!-- ─── Deep link support (widget tap → specific screen) ─────────── -->

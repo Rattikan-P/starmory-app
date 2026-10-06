@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Widget Preview: 4×2 Standard — Starmory Word of the Day
+  Uses purple gradient instead of blank photo placeholder for a clean, branded preview.
+-->
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="horizontal"
+    android:padding="10dp"
+    android:background="@drawable/widget_background"
+    android:gravity="center_vertical">
+
+    <!-- Left: Purple gradient placeholder (mimics photo area) -->
+    <ImageView
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1.0"
+        android:layout_marginRight="10dp"
+        android:layout_marginEnd="10dp"
+        android:scaleType="fitXY"
+        android:src="@drawable/widget_preview_photo_bg" />
+
+    <!-- Right: Content area -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1.45"
+        android:orientation="vertical">
+
+        <!-- Top Row: Streak Pill & Date Pill -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="end|center_vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:paddingLeft="8dp"
+                android:paddingTop="3dp"
+                android:paddingRight="8dp"
+                android:paddingBottom="3dp"
+                android:background="@drawable/widget_streak_pill"
+                android:layout_marginRight="6dp"
+                android:layout_marginEnd="6dp"
+                android:textSize="11.5sp"
+                android:textColor="#FF1F2937"
+                android:textStyle="bold"
+                android:text="🔥 7" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:paddingLeft="8dp"
+                android:paddingTop="3dp"
+                android:paddingRight="8dp"
+                android:paddingBottom="3dp"
+                android:background="@drawable/widget_date_pill"
+                android:textSize="11sp"
+                android:textColor="#FF1F2937"
+                android:text="Oct 7" />
+        </LinearLayout>
+
+        <!-- English Word -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="26sp"
+            android:textColor="#FF111827"
+            android:textStyle="bold"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:layout_marginTop="2dp"
+            android:text="ADORABLE" />
+
+        <!-- Thai Translation -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="13.5sp"
+            android:textColor="#FF4B5563"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:layout_marginTop="1dp"
+            android:text="น่ารัก ชวนให้อยากกอด" />
+
+        <!-- Example Sentence -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:textSize="11.5sp"
+            android:textColor="#FF6B7280"
+            android:maxLines="2"
+            android:ellipsize="end"
+            android:layout_marginTop="3dp"
+            android:text="&quot;She gave me the most adorable smile when I handed her the flowers.&quot;" />
+
+        <!-- Camera Button -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="end|center_vertical">
+
+            <ImageView
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                android:background="@drawable/widget_camera_circle_btn"
+                android:src="@drawable/ic_widget_camera"
+                android:padding="8dp"
+                android:contentDescription="Take photo" />
+        </LinearLayout>
+
+    </LinearLayout>
+
+</LinearLayout>

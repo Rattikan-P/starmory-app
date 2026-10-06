@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Widget Preview: 2×2 Compact — Starmory Word of the Day
+  Uses purple gradient + scrim overlay instead of blank photo, with sample data.
+-->
+<RelativeLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <!-- 1. Purple gradient background (mimics photo, 24dp rounded) -->
+    <ImageView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="fitXY"
+        android:src="@drawable/widget_preview_photo_bg_2x2" />
+
+    <!-- 2. Bottom scrim overlay -->
+    <ImageView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="fitXY"
+        android:src="@drawable/widget_scrim_bottom" />
+
+    <!-- 3. Top-Left: Glassmorphism Streak Badge -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentStart="true"
+        android:layout_marginTop="10dp"
+        android:layout_marginLeft="10dp"
+        android:layout_marginStart="10dp"
+        android:paddingLeft="9dp"
+        android:paddingTop="4dp"
+        android:paddingRight="9dp"
+        android:paddingBottom="4dp"
+        android:background="@drawable/widget_streak_circle_glass"
+        android:textSize="12sp"
+        android:textColor="#FF1F2937"
+        android:textStyle="bold"
+        android:text="🔥 7" />
+
+    <!-- 4. Bottom: Word + Translation + Camera -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:orientation="horizontal"
+        android:gravity="bottom"
+        android:paddingLeft="12dp"
+        android:paddingRight="12dp"
+        android:paddingBottom="12dp">
+
+        <!-- Word & Translation -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="23sp"
+                android:textColor="#FFFFFFFF"
+                android:textStyle="bold"
+                android:shadowColor="#CC000000"
+                android:shadowDx="0"
+                android:shadowDy="1"
+                android:shadowRadius="4"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:text="ADORABLE" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="13sp"
+                android:textColor="#FFF3F4F6"
+                android:shadowColor="#CC000000"
+                android:shadowDx="0"
+                android:shadowDy="1"
+                android:shadowRadius="3"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:layout_marginTop="1dp"
+                android:text="น่ารัก ชวนให้อยากกอด" />
+        </LinearLayout>
+
+        <!-- Camera Button -->
+        <ImageView
+            android:layout_width="38dp"
+            android:layout_height="38dp"
+            android:layout_marginLeft="6dp"
+            android:layout_marginStart="6dp"
+            android:background="@drawable/widget_camera_circle_btn"
+            android:src="@drawable/ic_widget_camera"
+            android:padding="8dp"
+            android:contentDescription="Take photo" />
+
+    </LinearLayout>
+
+</RelativeLayout>
