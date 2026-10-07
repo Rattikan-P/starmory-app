@@ -68,18 +68,35 @@ void main() {
       expect(updated.shields, equals(0));
     });
 
-    test('Missed 1 day without shield resets streak to 1', () {
-      final twoDaysAgo = DateTime.now().subtract(const Duration(days: 2));
+    test('Missed multiple days without shield resets streak to 1 and preserves longest', () {
+      final fiveDaysAgo = DateTime.now().subtract(const Duration(days: 5));
       final user = UserModel.createGuest().copyWith(
-        currentStreak: 5,
-        longestStreak: 5,
+        currentStreak: 6,
+        longestStreak: 6,
         shields: 0,
-        lastStreakActivityDate: twoDaysAgo,
+        lastStreakActivityDate: fiveDaysAgo,
       );
 
       final updated = user.incrementStreak();
       expect(updated.currentStreak, equals(1));
-      expect(updated.longestStreak, equals(5)); // longest preserved
+      expect(updated.longestStreak, equals(6));
+      expect(updated.shields, equals(0));
+    });
+
+    test('Missed multiple days with insufficient shields resets streak to 1', () {
+      final fiveDaysAgo = DateTime.now().subtract(const Duration(days: 5));
+      final user = UserModel.createGuest().copyWith(
+        currentStreak: 10,
+        longestStreak: 10,
+        shields: 1, // missed 4 days, need 4 shields, only 1 available
+        lastStreakActivityDate: fiveDaysAgo,
+      );
+
+      final updated = user.incrementStreak();
+      expect(updated.currentStreak, equals(1));
+      expect(updated.longestStreak, equals(10));
+      expect(updated.shields, equals(0));
     });
   });
 }
+

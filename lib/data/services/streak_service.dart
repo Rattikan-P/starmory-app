@@ -30,6 +30,22 @@ class StreakData {
     );
   }
 
+  StreakData copyWith({
+    int? currentStreak,
+    int? longestStreak,
+    int? shieldsAvailable,
+    DateTime? lastActivityDate,
+    DateTime? streakStateUpdatedAt,
+  }) {
+    return StreakData(
+      currentStreak: currentStreak ?? this.currentStreak,
+      longestStreak: longestStreak ?? this.longestStreak,
+      shieldsAvailable: shieldsAvailable ?? this.shieldsAvailable,
+      lastActivityDate: lastActivityDate ?? this.lastActivityDate,
+      streakStateUpdatedAt: streakStateUpdatedAt ?? this.streakStateUpdatedAt,
+    );
+  }
+
   /// Consecutive days since last shield (calculated)
   int get consecutiveDays => currentStreak % 7;
 

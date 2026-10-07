@@ -37,7 +37,7 @@ class StreakNotifier extends StateNotifier<StreakData?> {
     int? lastShields;
     DateTime? lastActivity;
     DateTime? lastStateUpdate;
-    _userStateSubscription = _userNotifier.stream.listen((userState) {
+    _userStateSubscription = _userNotifier.stream.listen((userState) async {
       final user = userState.user;
       final userId = user?.id;
       final streak = user?.currentStreak;
@@ -55,15 +55,13 @@ class StreakNotifier extends StateNotifier<StreakData?> {
         lastActivity = activity;
         lastStateUpdate = stateUpdate;
         if (!_userStateSubscription!.isPaused) {
-          refresh();
+          await refresh();
         }
       }
     }, onError: (error) {
       print('❌ Error in user state stream: $error');
     });
     await refresh();
-    // Auto-check and reset streak if expired (on app open)
-    await checkAndResetStreakIfExpired();
   }
 
   @override
@@ -72,7 +70,7 @@ class StreakNotifier extends StateNotifier<StreakData?> {
     super.dispose();
   }
 
-  /// Refresh streak data from appropriate source (cloud or local)
+  /// Refresh streak data from appropriate source (cloud or local) and check expiration
   Future<void> refresh() async {
     print('🔄 [Streak] refresh() called');
 
@@ -85,6 +83,7 @@ class StreakNotifier extends StateNotifier<StreakData?> {
       _loadFromUserModel(currentUser);
       print(
           '✅ [Streak] Guest streak loaded: streak=${state?.currentStreak ?? 0}');
+      await checkAndResetStreakIfExpired();
       return;
     }
 
@@ -100,9 +99,15 @@ class StreakNotifier extends StateNotifier<StreakData?> {
         if (state != streakData) {
           state = streakData;
         }
+        await checkAndResetStreakIfExpired();
       } catch (e) {
         print('⚠️ [Streak] Failed to load from cloud: $e');
-        state = null;
+        if (currentUser != null) {
+          _loadFromUserModel(currentUser);
+          await checkAndResetStreakIfExpired();
+        } else {
+          state = null;
+        }
       }
     } else {
       // No user - null state
@@ -476,7 +481,7 @@ class StreakNotifier extends StateNotifier<StreakData?> {
     return await recordVocabularyAcquired();
   }
 
-  /// Check if streak should be reset due to inactivity (called on app open)
+  /// Check if streak should be reset due to inactivity (called on app open or refresh)
   Future<void> checkAndResetStreakIfExpired() async {
     print('🔍 [Streak] checkAndResetStreakIfExpired() called');
 
@@ -484,6 +489,16 @@ class StreakNotifier extends StateNotifier<StreakData?> {
 
     if (currentUser == null) {
       print('⚠️ [Streak] No current user - skipping reset check');
+      return;
+    }
+
+    final currentStreak = currentUser.isGuest
+        ? currentUser.currentStreak
+        : (state?.currentStreak ?? currentUser.currentStreak);
+
+    // If streak is already 0, nothing to expire
+    if (currentStreak <= 0) {
+      print('ℹ️ [Streak] Current streak is already 0 - no reset needed');
       return;
     }
 
@@ -502,7 +517,8 @@ class StreakNotifier extends StateNotifier<StreakData?> {
     final lastDay = DateTime(lastLocal.year, lastLocal.month, lastLocal.day);
     final daysDifference = today.difference(lastDay).inDays;
 
-    print('   [Streak] Days since last activity: $daysDifference');
+    print(
+        '   [Streak] Days since last activity: $daysDifference (current: $currentStreak)');
 
     // daysDifference <= 1: active today or yesterday -> streak safe
     if (daysDifference <= 1) {
@@ -524,12 +540,14 @@ class StreakNotifier extends StateNotifier<StreakData?> {
 
     // Not enough shields -> streak expired (currentStreak becomes 0)
     // Note: NEVER reset longestStreak!
-    print('🔥 [Streak] Streak expired! Resetting current streak to 0...');
+    print(
+        '🔥 [Streak] Streak expired! Resetting current streak to 0 (was $currentStreak, longest: ${currentUser.longestStreak} preserved)...');
+    final nowTime = DateTime.now();
     if (currentUser.isGuest) {
       final updatedUser = currentUser.copyWith(
         currentStreak: 0,
         shields: 0,
-        streakStateUpdatedAt: DateTime.now(),
+        streakStateUpdatedAt: nowTime,
       );
       await _userNotifier.updateUser(updatedUser);
       _loadFromUserModel(updatedUser);
@@ -537,17 +555,25 @@ class StreakNotifier extends StateNotifier<StreakData?> {
       await _service.updateStreakData(
         currentStreak: 0,
         shieldsAvailable: 0,
-        streakStateUpdatedAt: DateTime.now(),
+        streakStateUpdatedAt: nowTime,
       );
       final updatedUser = currentUser.copyWith(
         currentStreak: 0,
         shields: 0,
-        streakStateUpdatedAt: DateTime.now(),
+        streakStateUpdatedAt: nowTime,
       );
       await _userNotifier.updateUser(updatedUser);
-      await refresh();
+      if (state != null) {
+        state = state!.copyWith(
+          currentStreak: 0,
+          shieldsAvailable: 0,
+          streakStateUpdatedAt: nowTime,
+        );
+      } else {
+        _loadFromUserModel(updatedUser);
+      }
     }
-    print('✅ [Streak] Expiration reset complete');
+    print('✅ [Streak] Expiration reset complete: streak is now 0');
   }
 }
 
