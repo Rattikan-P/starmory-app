@@ -24,11 +24,17 @@ import java.io.File
  */
 class VocabCompactWidgetProvider : AppWidgetProvider() {
 
+    override fun onEnabled(context: Context) {
+        super.onEnabled(context)
+        WidgetMidnightScheduler.scheduleNextMidnight(context)
+    }
+
     override fun onUpdate(
         context: Context,
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray
     ) {
+        WidgetMidnightScheduler.scheduleNextMidnight(context)
         for (widgetId in appWidgetIds) {
             updateWidget(context, appWidgetManager, widgetId)
         }

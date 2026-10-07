@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 import 'package:home_widget/home_widget.dart';
@@ -26,6 +27,7 @@ class WidgetService {
   static const String _keyRetention = 'widget_retention';
   static const String _keySentence = 'widget_sentence';
   static const String _keyHasData = 'widget_has_data';
+  static const String _keyVocabQueue = 'widget_vocab_queue';
 
   /// Initialize home_widget — call once at app startup.
   static Future<void> initialize() async {
@@ -47,6 +49,29 @@ class WidgetService {
       // 1. Try due cards first (FSRS review queue, rotated by date)
       final dueCards = await reviewService.getDueCards(limit: 50);
 
+      // Cache vocabulary queue for Native Midnight AlarmManager (so it can update at 00:00 without opening app)
+      final allVocab = await reviewService.hiveService.getAllVocabulary();
+      final queueSource = dueCards.isNotEmpty
+          ? dueCards.map((c) => c.vocabulary).whereType<VocabularyModel>().toList()
+          : allVocab;
+
+      if (queueSource.isNotEmpty) {
+        final queue = <Map<String, String>>[];
+        for (final v in queueSource.take(30)) {
+          final img = await _resolveLocalImagePath(v.imageUrl);
+          queue.add({
+            'word': v.word,
+            'translation': v.thaiTranslation,
+            'sentence': v.englishSentence,
+            'imagePath': img,
+            'vocabId': v.id,
+          });
+        }
+        await HomeWidget.saveWidgetData(_keyVocabQueue, jsonEncode(queue));
+      } else {
+        await HomeWidget.saveWidgetData(_keyVocabQueue, '[]');
+      }
+
       if (dueCards.isNotEmpty) {
         final cardIndex = daySeed % dueCards.length;
         final card = dueCards[cardIndex];
@@ -62,7 +87,6 @@ class WidgetService {
       }
 
       // 2. Fallback: If no due cards, pick from general vocabulary collection rotated by date
-      final allVocab = await reviewService.hiveService.getAllVocabulary();
       if (allVocab.isNotEmpty) {
         final vocabIndex = daySeed % allVocab.length;
         final fallbackVocab = allVocab[vocabIndex];
