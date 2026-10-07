@@ -46,18 +46,28 @@ class WidgetService {
       final dayOfYear = now.difference(DateTime(now.year, 1, 1)).inDays;
       final daySeed = now.year * 366 + dayOfYear;
 
-      // 1. Try due cards first (FSRS review queue, rotated by date)
-      final dueCards = await reviewService.getDueCards(limit: 50);
+      // 1. Due cards from FSRS review queue (prioritized)
+      final dueCards = await reviewService.getDueCards(limit: 100);
+      final dueVocabs = dueCards.map((c) => c.vocabulary).whereType<VocabularyModel>().toList();
 
-      // Cache vocabulary queue for Native Midnight AlarmManager (so it can update at 00:00 without opening app)
+      // 2. All vocabulary collection in user's library
       final allVocab = await reviewService.hiveService.getAllVocabulary();
-      final queueSource = dueCards.isNotEmpty
-          ? dueCards.map((c) => c.vocabulary).whereType<VocabularyModel>().toList()
-          : allVocab;
 
-      if (queueSource.isNotEmpty) {
+      // 3. Build unified queue: Prioritize due cards first, then all remaining words without duplicates
+      final seenIds = <String>{};
+      final orderedVocabs = <VocabularyModel>[];
+
+      for (final v in dueVocabs) {
+        if (seenIds.add(v.id)) orderedVocabs.add(v);
+      }
+      for (final v in allVocab) {
+        if (seenIds.add(v.id)) orderedVocabs.add(v);
+      }
+
+      // Cache all vocabulary for Native Midnight AlarmManager
+      if (orderedVocabs.isNotEmpty) {
         final queue = <Map<String, String>>[];
-        for (final v in queueSource.take(30)) {
+        for (final v in orderedVocabs) {
           final img = await _resolveLocalImagePath(v.imageUrl);
           queue.add({
             'word': v.word,
@@ -72,33 +82,21 @@ class WidgetService {
         await HomeWidget.saveWidgetData(_keyVocabQueue, '[]');
       }
 
-      if (dueCards.isNotEmpty) {
-        final cardIndex = daySeed % dueCards.length;
-        final card = dueCards[cardIndex];
-        final vocab = card.vocabulary;
-        if (vocab != null) {
-          await _writeVocabToWidget(
-            vocab: vocab,
-            card: card,
-            streak: currentStreak,
-          );
-          return;
-        }
-      }
+      // Pick today's word from ordered queue based on day-of-year rotation
+      if (orderedVocabs.isNotEmpty) {
+        final cardIndex = daySeed % orderedVocabs.length;
+        final selectedVocab = orderedVocabs[cardIndex];
+        final matchingCard = dueCards.where((c) => c.vocabulary?.id == selectedVocab.id).firstOrNull;
 
-      // 2. Fallback: If no due cards, pick from general vocabulary collection rotated by date
-      if (allVocab.isNotEmpty) {
-        final vocabIndex = daySeed % allVocab.length;
-        final fallbackVocab = allVocab[vocabIndex];
         await _writeVocabToWidget(
-          vocab: fallbackVocab,
-          card: null,
+          vocab: selectedVocab,
+          card: matchingCard,
           streak: currentStreak,
         );
         return;
       }
 
-      // 3. No vocabulary exists at all -> Empty State
+      // 4. No vocabulary exists at all -> Empty State
       await _clearWidgetData(streak: currentStreak);
     } catch (_) {
       // Never crash the app due to widget update failure
