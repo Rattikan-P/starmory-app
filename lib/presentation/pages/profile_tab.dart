@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -467,13 +469,17 @@ class _PreferencesSectionState extends ConsumerState<_PreferencesSection> {
   }
 
   Future<void> _toggleNotification(bool enabled) async {
-    if (enabled) {
-      final granted = await NotificationService.instance.requestPermission();
-      if (!granted) {
-        if (mounted) {
-          showPermissionRequiredDialog(context, 'Notification');
+    if (enabled && !kIsWeb) {
+      // Check if permission is already granted before requesting
+      final alreadyGranted = await NotificationService.instance.isPermissionGranted();
+      if (!alreadyGranted) {
+        final granted = await NotificationService.instance.requestPermission();
+        if (!granted) {
+          if (mounted) {
+            showPermissionRequiredDialog(context, 'Notification');
+          }
+          return;
         }
-        return;
       }
     }
 
@@ -513,22 +519,157 @@ class _PreferencesSectionState extends ConsumerState<_PreferencesSection> {
     final initialHour = int.tryParse(parts[0]) ?? 20;
     final initialMinute = parts.length > 1 ? (int.tryParse(parts[1]) ?? 0) : 0;
 
-    final picked = await showTimePicker(
+    // Track selected time inside the dialog
+    DateTime pickerTime = DateTime(2000, 1, 1, initialHour, initialMinute);
+
+    const accentColor = DesignTokens.brandColor;
+    const accentTint = DesignTokens.dialogBrandTint;
+
+    final picked = await showDialog<DateTime>(
       context: context,
-      initialTime: TimeOfDay(hour: initialHour, minute: initialMinute),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: DesignTokens.brandColor,
-              onPrimary: Colors.white,
-              surface: Colors.white,
-              onSurface: DesignTokens.textPrimary,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (ctx, setDialogState) => Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(DesignTokens.dialogRadius),
+          ),
+          backgroundColor: Colors.white,
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: DesignTokens.dialogInsetHorizontal,
+            vertical: DesignTokens.dialogInsetVertical,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: DesignTokens.dialogPaddingHorizontal,
+              vertical: DesignTokens.dialogPaddingVertical,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Icon
+                Container(
+                  width: DesignTokens.dialogIconSize,
+                  height: DesignTokens.dialogIconSize,
+                  decoration: const BoxDecoration(
+                    color: accentTint,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Center(
+                    child: Icon(
+                      Icons.notifications_active_rounded,
+                      color: accentColor,
+                      size: 30,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: DesignTokens.dialogIconTitleSpacing),
+                // Title
+                Text(
+                  'Reminder Time',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.lexend(
+                    fontSize: DesignTokens.dialogTitleFontSize,
+                    fontWeight: DesignTokens.weightSemiBold,
+                    color: DesignTokens.dialogTitleColor,
+                  ),
+                ),
+                const SizedBox(height: DesignTokens.dialogCompactTitleBodySpacing),
+                Text(
+                  'Choose when to receive your daily vocab reminder.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.lexend(
+                    fontSize: DesignTokens.dialogBodyFontSize,
+                    height: DesignTokens.dialogBodyLineHeight,
+                    fontWeight: FontWeight.w400,
+                    color: DesignTokens.dialogSupportingTextColor,
+                  ),
+                ),
+                const SizedBox(height: DesignTokens.dialogTitleBodySpacing),
+                // Cupertino scroll wheel
+                SizedBox(
+                  height: 160,
+                  child: CupertinoTheme(
+                    data: const CupertinoThemeData(
+                      textTheme: CupertinoTextThemeData(
+                        dateTimePickerTextStyle: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w500,
+                          color: DesignTokens.textPrimary,
+                        ),
+                      ),
+                    ),
+                    child: CupertinoDatePicker(
+                      mode: CupertinoDatePickerMode.time,
+                      initialDateTime: pickerTime,
+                      use24hFormat: false,
+                      onDateTimeChanged: (dt) {
+                        setDialogState(() => pickerTime = dt);
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(height: DesignTokens.dialogActionsSpacing),
+                // Buttons
+                Row(
+                  children: [
+                    Expanded(
+                      child: SizedBox(
+                        height: DesignTokens.dialogButtonHeight,
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.pop(dialogContext),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: DesignTokens.dialogDisabledActionColor,
+                            side: const BorderSide(
+                              color: DesignTokens.dialogDisabledActionBorderColor,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(
+                                DesignTokens.dialogButtonRadius,
+                              ),
+                            ),
+                          ),
+                          child: Text(
+                            'Cancel',
+                            style: GoogleFonts.lexend(
+                              fontSize: DesignTokens.dialogButtonFontSize,
+                              fontWeight: DesignTokens.weightBold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: SizedBox(
+                        height: DesignTokens.dialogButtonHeight,
+                        child: ElevatedButton(
+                          onPressed: () => Navigator.pop(dialogContext, pickerTime),
+                          style: ElevatedButton.styleFrom(
+                            elevation: 0,
+                            backgroundColor: accentColor,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(
+                                DesignTokens.dialogButtonRadius,
+                              ),
+                            ),
+                          ),
+                          child: Text(
+                            'Confirm',
+                            style: GoogleFonts.lexend(
+                              fontSize: DesignTokens.dialogButtonFontSize,
+                              fontWeight: DesignTokens.weightBold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
-          child: child!,
-        );
-      },
+        ),
+      ),
     );
 
     if (picked != null) {
@@ -560,6 +701,7 @@ class _PreferencesSectionState extends ConsumerState<_PreferencesSection> {
       widget.onPreferenceChanged?.call();
     }
   }
+
 
   @override
   Widget build(BuildContext context) {

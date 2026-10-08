@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
@@ -51,14 +52,14 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
   @override
   void initState() {
     super.initState();
-    _listenToWidgetTaps();
+    if (!kIsWeb) _listenToWidgetTaps();
     _initNotifications();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _syncOnAppOpen();
-      _updateWidgetOnLaunch();
+      if (!kIsWeb) _updateWidgetOnLaunch();
       _syncDailyNotification();
       // Also handle the launch URI if the app was cold-started from widget tap
-      _handleInitialWidgetUri();
+      if (!kIsWeb) _handleInitialWidgetUri();
     });
   }
 

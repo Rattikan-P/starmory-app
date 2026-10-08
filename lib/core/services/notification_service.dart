@@ -32,6 +32,7 @@ class NotificationService {
 
   /// Initialize notification plugin & timezone
   Future<void> initialize({void Function(String? payload)? onSelectNotification}) async {
+    if (kIsWeb) return;
     if (_isInitialized) return;
 
     if (onSelectNotification != null) {
@@ -72,6 +73,7 @@ class NotificationService {
 
   /// Request notification permission on Android 13+ and iOS
   Future<bool> requestPermission() async {
+    if (kIsWeb) return false;
     if (Platform.isAndroid) {
       final androidImplementation = _notificationsPlugin
           .resolvePlatformSpecificImplementation<
@@ -95,6 +97,7 @@ class NotificationService {
 
   /// Check if notification permission is currently granted
   Future<bool> isPermissionGranted() async {
+    if (kIsWeb) return false;
     if (Platform.isAndroid) {
       final androidImplementation = _notificationsPlugin
           .resolvePlatformSpecificImplementation<
@@ -106,6 +109,7 @@ class NotificationService {
     return true;
   }
 
+
   /// Schedule daily glanceable vocabulary reminder
   Future<void> scheduleDailyReminder({
     required int hour,
@@ -114,6 +118,8 @@ class NotificationService {
     required int currentStreak,
     bool skipIfCompletedToday = true,
   }) async {
+    if (kIsWeb) return;
+
     try {
       // 1. Check if user already completed learning activity today
       if (skipIfCompletedToday) {
@@ -219,6 +225,7 @@ class NotificationService {
     required String body,
     String? payload = 'starmory://review',
   }) async {
+    if (kIsWeb) return;
     final androidDetails = AndroidNotificationDetails(
       _channelId,
       _channelName,
@@ -255,6 +262,7 @@ class NotificationService {
 
   /// Cancel all scheduled learning reminders
   Future<void> cancelDailyReminder() async {
+    if (kIsWeb) return;
     await _notificationsPlugin.cancel(id: _dailyReminderNotificationId);
     debugPrint('🔔 [NotificationService] Cancelled daily reminder.');
   }
@@ -267,6 +275,7 @@ class NotificationService {
     required ReviewService reviewService,
     required int currentStreak,
   }) async {
+    if (kIsWeb) return;
     debugPrint('🔔 [NotificationService] Activity completed today -> Rescheduling for tomorrow');
     await scheduleDailyReminder(
       hour: hour,
