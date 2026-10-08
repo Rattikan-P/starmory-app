@@ -13,6 +13,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/utils/safe_image_picker.dart';
 import '../../core/utils/image_picker_error_message.dart';
 import '../../core/services/widget_service.dart';
+import '../../core/services/notification_service.dart';
 import 'home_tab.dart';
 import 'review_tab.dart';
 import 'scrapbook_tab.dart';
@@ -51,12 +52,56 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
   void initState() {
     super.initState();
     _listenToWidgetTaps();
+    _initNotifications();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _syncOnAppOpen();
       _updateWidgetOnLaunch();
+      _syncDailyNotification();
       // Also handle the launch URI if the app was cold-started from widget tap
       _handleInitialWidgetUri();
     });
+  }
+
+  Future<void> _initNotifications() async {
+    try {
+      await NotificationService.instance.initialize(
+        onSelectNotification: (payload) {
+          if (payload != null && payload.isNotEmpty) {
+            try {
+              _routeWidgetDeepLink(Uri.parse(payload));
+            } catch (_) {}
+          }
+        },
+      );
+    } catch (_) {}
+  }
+
+  Future<void> _syncDailyNotification() async {
+    try {
+      final user = ref.read(userStateProvider).user;
+      final enabled = user?.preferences['notificationEnabled'] as bool? ?? true;
+      if (!enabled) {
+        await NotificationService.instance.cancelDailyReminder();
+        return;
+      }
+
+      final timeStr = user?.preferences['reviewReminderTime'] as String? ?? '20:00';
+      final parts = timeStr.split(':');
+      final hour = int.tryParse(parts[0]) ?? 20;
+      final minute = parts.length > 1 ? (int.tryParse(parts[1]) ?? 0) : 0;
+
+      final reviewService = ref.read(reviewServiceProvider);
+      final streak = ref.read(streakProvider)?.currentStreak ??
+          ref.read(userStateProvider).user?.currentStreak ??
+          ref.read(currentStreakProvider);
+
+      await NotificationService.instance.scheduleDailyReminder(
+        hour: hour,
+        minute: minute,
+        reviewService: reviewService,
+        currentStreak: streak ?? 0,
+      );
+    } catch (_) {}
   }
 
   @override
