@@ -51,7 +51,7 @@
         <receiver
             android:name=".VocabWidgetProvider"
             android:exported="true"
-            android:label="Starmory Word of the Day">
+            android:label="@string/widget_4x2_name">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
                 <action android:name="com.example.starmory_app.WIDGET_REFRESH" />
@@ -64,7 +64,7 @@
         <receiver
             android:name=".VocabCompactWidgetProvider"
             android:exported="true"
-            android:label="Starmory Word of the Day">
+            android:label="@string/widget_2x2_name">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
                 <action android:name="com.example.starmory_app.WIDGET_COMPACT_REFRESH" />

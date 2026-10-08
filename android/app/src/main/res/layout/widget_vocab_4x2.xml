@@ -44,16 +44,17 @@
                 android:id="@+id/widget_streak_badge"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:paddingLeft="8dp"
-                android:paddingTop="3dp"
-                android:paddingRight="8dp"
-                android:paddingBottom="3dp"
+                android:paddingLeft="10dp"
+                android:paddingTop="4.5dp"
+                android:paddingRight="10dp"
+                android:paddingBottom="4.5dp"
                 android:background="@drawable/widget_streak_pill"
                 android:layout_marginRight="6dp"
                 android:layout_marginEnd="6dp"
                 android:textSize="11.5sp"
                 android:textColor="#FF1F2937"
                 android:textStyle="bold"
+                android:gravity="center"
                 android:text="🔥7" />
 
             <!-- Date Pill -->
@@ -61,13 +62,15 @@
                 android:id="@+id/widget_date"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:paddingLeft="8dp"
-                android:paddingTop="3dp"
-                android:paddingRight="8dp"
-                android:paddingBottom="3dp"
+                android:paddingLeft="10dp"
+                android:paddingTop="4.5dp"
+                android:paddingRight="10dp"
+                android:paddingBottom="4.5dp"
                 android:background="@drawable/widget_date_pill"
-                android:textSize="11sp"
-                android:textColor="#FF1F2937"
+                android:textSize="11.5sp"
+                android:textColor="#FF7C3AED"
+                android:textStyle="bold"
+                android:gravity="center"
                 android:text="Feb 22" />
         </LinearLayout>
 

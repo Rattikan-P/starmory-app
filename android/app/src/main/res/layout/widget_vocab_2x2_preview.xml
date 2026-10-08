@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   Widget Preview: 2×2 Compact — Starmory Word of the Day
-  Uses purple gradient + scrim overlay instead of blank photo, with sample data.
+  Centered Word + Translation, Top-Left Solid White Streak Badge, Bottom-Right Camera Button
 -->
 <RelativeLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
@@ -15,14 +15,14 @@
         android:scaleType="fitXY"
         android:src="@drawable/widget_preview_photo_bg_2x2" />
 
-    <!-- 2. Bottom scrim overlay -->
+    <!-- 2. Scrim overlay -->
     <ImageView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:scaleType="fitXY"
         android:src="@drawable/widget_scrim_bottom" />
 
-    <!-- 3. Top-Left: Glassmorphism Streak Badge -->
+    <!-- 3. Top-Left: Solid White Streak Badge (taller) -->
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -32,74 +32,71 @@
         android:layout_marginTop="10dp"
         android:layout_marginLeft="10dp"
         android:layout_marginStart="10dp"
-        android:paddingLeft="9dp"
-        android:paddingTop="4dp"
-        android:paddingRight="9dp"
-        android:paddingBottom="4dp"
-        android:background="@drawable/widget_streak_circle_glass"
-        android:textSize="12sp"
+        android:paddingLeft="10dp"
+        android:paddingTop="4.5dp"
+        android:paddingRight="10dp"
+        android:paddingBottom="4.5dp"
+        android:background="@drawable/widget_streak_pill"
+        android:textSize="11.5sp"
         android:textColor="#FF1F2937"
         android:textStyle="bold"
+        android:gravity="center"
         android:text="🔥 7" />
 
-    <!-- 4. Bottom: Word + Translation + Camera -->
+    <!-- 4. Center: Word + Translation Container -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_alignParentBottom="true"
-        android:orientation="horizontal"
-        android:gravity="bottom"
+        android:layout_centerInParent="true"
+        android:orientation="vertical"
+        android:gravity="center_horizontal"
         android:paddingLeft="12dp"
-        android:paddingRight="12dp"
-        android:paddingBottom="12dp">
+        android:paddingRight="12dp">
 
-        <!-- Word & Translation -->
-        <LinearLayout
-            android:layout_width="0dp"
+        <TextView
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical">
+            android:textSize="26sp"
+            android:textColor="#FFFFFFFF"
+            android:textStyle="bold"
+            android:gravity="center"
+            android:shadowColor="#D9000000"
+            android:shadowDx="0"
+            android:shadowDy="2"
+            android:shadowRadius="6"
+            android:maxLines="2"
+            android:ellipsize="end"
+            android:text="ADORABLE" />
 
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textSize="23sp"
-                android:textColor="#FFFFFFFF"
-                android:textStyle="bold"
-                android:shadowColor="#CC000000"
-                android:shadowDx="0"
-                android:shadowDy="1"
-                android:shadowRadius="4"
-                android:maxLines="1"
-                android:ellipsize="end"
-                android:text="ADORABLE" />
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textSize="13sp"
-                android:textColor="#FFF3F4F6"
-                android:shadowColor="#CC000000"
-                android:shadowDx="0"
-                android:shadowDy="1"
-                android:shadowRadius="3"
-                android:maxLines="1"
-                android:ellipsize="end"
-                android:layout_marginTop="1dp"
-                android:text="น่ารัก ชวนให้อยากกอด" />
-        </LinearLayout>
-
-        <!-- Camera Button -->
-        <ImageView
-            android:layout_width="38dp"
-            android:layout_height="38dp"
-            android:layout_marginLeft="6dp"
-            android:layout_marginStart="6dp"
-            android:background="@drawable/widget_camera_circle_btn"
-            android:src="@drawable/ic_widget_camera"
-            android:padding="8dp"
-            android:contentDescription="Take photo" />
-
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="14sp"
+            android:textColor="#FFF3F4F6"
+            android:gravity="center"
+            android:shadowColor="#D9000000"
+            android:shadowDx="0"
+            android:shadowDy="1.5"
+            android:shadowRadius="4"
+            android:maxLines="2"
+            android:ellipsize="end"
+            android:layout_marginTop="3dp"
+            android:text="น่ารัก ชวนให้อยากกอด" />
     </LinearLayout>
+
+    <!-- 5. Bottom-Right: Camera Button -->
+    <ImageView
+        android:layout_width="38dp"
+        android:layout_height="38dp"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentRight="true"
+        android:layout_alignParentEnd="true"
+        android:layout_marginRight="10dp"
+        android:layout_marginEnd="10dp"
+        android:layout_marginBottom="10dp"
+        android:background="@drawable/widget_camera_circle_btn"
+        android:src="@drawable/ic_widget_camera"
+        android:padding="8dp"
+        android:contentDescription="Take photo" />
 
 </RelativeLayout>
