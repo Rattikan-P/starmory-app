@@ -406,7 +406,7 @@ class _PreferencesSection extends ConsumerStatefulWidget {
 class _PreferencesSectionState extends ConsumerState<_PreferencesSection> {
   late String _currentLevel;
   late String _currentVariant;
-  bool _notificationEnabled = true;
+  bool _notificationEnabled = false;
   String _reminderTime = '20:00';
 
   @override
@@ -417,7 +417,7 @@ class _PreferencesSectionState extends ConsumerState<_PreferencesSection> {
     final currentUser = ref.read(userStateProvider).user;
     if (currentUser != null) {
       _notificationEnabled =
-          currentUser.preferences['notificationEnabled'] as bool? ?? true;
+          currentUser.preferences['notificationEnabled'] as bool? ?? false;
       _reminderTime =
           currentUser.preferences['reviewReminderTime'] as String? ?? '20:00';
     }
@@ -443,7 +443,7 @@ class _PreferencesSectionState extends ConsumerState<_PreferencesSection> {
         _currentLevel = currentUser.languageLevel;
         _currentVariant = currentUser.englishVariant;
         _notificationEnabled =
-            currentUser.preferences['notificationEnabled'] as bool? ?? true;
+            currentUser.preferences['notificationEnabled'] as bool? ?? false;
         _reminderTime =
             currentUser.preferences['reviewReminderTime'] as String? ?? '20:00';
       });

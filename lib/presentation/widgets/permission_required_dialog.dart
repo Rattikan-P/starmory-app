@@ -10,6 +10,7 @@ Future<void> showPermissionRequiredDialog(
   String type,
 ) async {
   final isCamera = type == 'Camera';
+  final isNotification = type == 'Notification';
   const accentColor = DesignTokens.dialogInfo;
   const accentTint = DesignTokens.dialogInfoTint;
 
@@ -41,9 +42,11 @@ Future<void> showPermissionRequiredDialog(
               ),
               child: Center(
                 child: Icon(
-                  isCamera
-                      ? Icons.no_photography_rounded
-                      : Icons.hide_image_rounded,
+                  isNotification
+                      ? Icons.notifications_off_rounded
+                      : isCamera
+                          ? Icons.no_photography_rounded
+                          : Icons.hide_image_rounded,
                   color: accentColor,
                   size: 34,
                 ),

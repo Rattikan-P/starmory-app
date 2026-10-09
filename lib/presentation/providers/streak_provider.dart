@@ -168,7 +168,7 @@ class StreakNotifier extends StateNotifier<StreakData?> {
       final parts = timeStr.split(':');
       final hour = int.tryParse(parts[0]) ?? 20;
       final minute = parts.length > 1 ? (int.tryParse(parts[1]) ?? 0) : 0;
-      final enabled = user.preferences['notificationEnabled'] as bool? ?? true;
+      final enabled = user.preferences['notificationEnabled'] as bool? ?? false;
       if (enabled) {
         final reviewService = _ref.read(reviewServiceProvider);
         final currentStreak = state?.currentStreak ?? user.currentStreak ?? 0;

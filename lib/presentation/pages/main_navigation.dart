@@ -80,7 +80,7 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
   Future<void> _syncDailyNotification() async {
     try {
       final user = ref.read(userStateProvider).user;
-      final enabled = user?.preferences['notificationEnabled'] as bool? ?? true;
+      final enabled = user?.preferences['notificationEnabled'] as bool? ?? false;
       if (!enabled) {
         await NotificationService.instance.cancelDailyReminder();
         return;
