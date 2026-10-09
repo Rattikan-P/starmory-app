@@ -407,7 +407,7 @@ class _PreferencesSectionState extends ConsumerState<_PreferencesSection> {
   late String _currentLevel;
   late String _currentVariant;
   bool _notificationEnabled = false;
-  String _reminderTime = '20:00';
+  String _reminderTime = '19:00';
 
   @override
   void initState() {
@@ -419,7 +419,7 @@ class _PreferencesSectionState extends ConsumerState<_PreferencesSection> {
       _notificationEnabled =
           currentUser.preferences['notificationEnabled'] as bool? ?? false;
       _reminderTime =
-          currentUser.preferences['reviewReminderTime'] as String? ?? '20:00';
+          currentUser.preferences['reviewReminderTime'] as String? ?? '19:00';
     }
     _reloadFromSource();
   }
@@ -445,7 +445,7 @@ class _PreferencesSectionState extends ConsumerState<_PreferencesSection> {
         _notificationEnabled =
             currentUser.preferences['notificationEnabled'] as bool? ?? false;
         _reminderTime =
-            currentUser.preferences['reviewReminderTime'] as String? ?? '20:00';
+            currentUser.preferences['reviewReminderTime'] as String? ?? '19:00';
       });
     }
   }
@@ -459,10 +459,10 @@ class _PreferencesSectionState extends ConsumerState<_PreferencesSection> {
       final parts = time24.split(':');
       final hour = int.parse(parts[0]);
       final minute = int.parse(parts[1]);
-      final period = hour >= 12 ? 'PM' : 'AM';
-      final h = hour % 12 == 0 ? 12 : hour % 12;
-      final m = minute.toString().padLeft(2, '0');
-      return '$h:$m $period';
+      if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+        return time24;
+      }
+      return '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
     } catch (_) {
       return time24;
     }
@@ -471,7 +471,8 @@ class _PreferencesSectionState extends ConsumerState<_PreferencesSection> {
   Future<void> _toggleNotification(bool enabled) async {
     if (enabled && !kIsWeb) {
       // Check if permission is already granted before requesting
-      final alreadyGranted = await NotificationService.instance.isPermissionGranted();
+      final alreadyGranted =
+          await NotificationService.instance.isPermissionGranted();
       if (!alreadyGranted) {
         final granted = await NotificationService.instance.requestPermission();
         if (!granted) {
@@ -494,21 +495,21 @@ class _PreferencesSectionState extends ConsumerState<_PreferencesSection> {
 
     if (enabled) {
       final parts = _reminderTime.split(':');
-      final hour = int.tryParse(parts[0]) ?? 20;
+      final hour = int.tryParse(parts[0]) ?? 19;
       final minute = parts.length > 1 ? (int.tryParse(parts[1]) ?? 0) : 0;
       final reviewService = ref.read(reviewServiceProvider);
       final streak = ref.read(streakProvider)?.currentStreak ??
           ref.read(userStateProvider).user?.currentStreak ??
           ref.read(currentStreakProvider);
 
-      await NotificationService.instance.scheduleDailyReminder(
+      await NotificationService.instance.scheduleDailyReminders(
         hour: hour,
         minute: minute,
         reviewService: reviewService,
         currentStreak: streak ?? 0,
       );
     } else {
-      await NotificationService.instance.cancelDailyReminder();
+      await NotificationService.instance.cancelDailyReminders();
     }
 
     widget.onPreferenceChanged?.call();
@@ -516,7 +517,7 @@ class _PreferencesSectionState extends ConsumerState<_PreferencesSection> {
 
   Future<void> _pickReminderTime() async {
     final parts = _reminderTime.split(':');
-    final initialHour = int.tryParse(parts[0]) ?? 20;
+    final initialHour = int.tryParse(parts[0]) ?? 19;
     final initialMinute = parts.length > 1 ? (int.tryParse(parts[1]) ?? 0) : 0;
 
     // Track selected time inside the dialog
@@ -572,7 +573,8 @@ class _PreferencesSectionState extends ConsumerState<_PreferencesSection> {
                     color: DesignTokens.dialogTitleColor,
                   ),
                 ),
-                const SizedBox(height: DesignTokens.dialogCompactTitleBodySpacing),
+                const SizedBox(
+                    height: DesignTokens.dialogCompactTitleBodySpacing),
                 Text(
                   'Choose when to receive your daily vocab reminder.',
                   textAlign: TextAlign.center,
@@ -600,7 +602,7 @@ class _PreferencesSectionState extends ConsumerState<_PreferencesSection> {
                     child: CupertinoDatePicker(
                       mode: CupertinoDatePickerMode.time,
                       initialDateTime: pickerTime,
-                      use24hFormat: false,
+                      use24hFormat: true,
                       onDateTimeChanged: (dt) {
                         setDialogState(() => pickerTime = dt);
                       },
@@ -617,9 +619,11 @@ class _PreferencesSectionState extends ConsumerState<_PreferencesSection> {
                         child: OutlinedButton(
                           onPressed: () => Navigator.pop(dialogContext),
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: DesignTokens.dialogDisabledActionColor,
+                            foregroundColor:
+                                DesignTokens.dialogDisabledActionColor,
                             side: const BorderSide(
-                              color: DesignTokens.dialogDisabledActionBorderColor,
+                              color:
+                                  DesignTokens.dialogDisabledActionBorderColor,
                             ),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(
@@ -642,7 +646,8 @@ class _PreferencesSectionState extends ConsumerState<_PreferencesSection> {
                       child: SizedBox(
                         height: DesignTokens.dialogButtonHeight,
                         child: ElevatedButton(
-                          onPressed: () => Navigator.pop(dialogContext, pickerTime),
+                          onPressed: () =>
+                              Navigator.pop(dialogContext, pickerTime),
                           style: ElevatedButton.styleFrom(
                             elevation: 0,
                             backgroundColor: accentColor,
@@ -690,7 +695,7 @@ class _PreferencesSectionState extends ConsumerState<_PreferencesSection> {
             ref.read(userStateProvider).user?.currentStreak ??
             ref.read(currentStreakProvider);
 
-        await NotificationService.instance.scheduleDailyReminder(
+        await NotificationService.instance.scheduleDailyReminders(
           hour: picked.hour,
           minute: picked.minute,
           reviewService: reviewService,

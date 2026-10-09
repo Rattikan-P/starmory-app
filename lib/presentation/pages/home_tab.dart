@@ -377,6 +377,60 @@ class _HomeTabState extends ConsumerState<HomeTab>
               color: Colors.white.withValues(alpha: 0.35),
             ),
           ),
+          Positioned(
+            top: 76,
+            left: 190,
+            child: Icon(
+              Icons.star_rounded,
+              size: 34,
+              color: Colors.white.withValues(alpha: 0.28),
+            ),
+          ),
+          Positioned(
+            top: 30,
+            left: 118,
+            child: Icon(
+              Icons.star_border_rounded,
+              size: 25,
+              color: Colors.white.withValues(alpha: 0.4),
+            ),
+          ),
+          Positioned(
+            bottom: 120,
+            left: 152,
+            child: Icon(
+              Icons.star_rounded,
+              size: 18,
+              color: Colors.white.withValues(alpha: 0.38),
+            ),
+          ),
+          Positioned(
+            bottom: 78,
+            right: 132,
+            child: Icon(
+              Icons.star_border_rounded,
+              size: 16,
+              color: Colors.white.withValues(alpha: 0.45),
+            ),
+          ),
+          Positioned(
+            top: 146,
+            right: 34,
+            child: Icon(
+              Icons.star_rounded,
+              size: 12,
+              color: Colors.white.withValues(alpha: 0.4),
+            ),
+          ),
+          Positioned(
+            bottom: 42,
+            left: 46,
+            child: Icon(
+              Icons.star_border_rounded,
+              size: 13,
+              color: Colors.white.withValues(alpha: 0.36),
+            ),
+          ),
           // Content
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 26),

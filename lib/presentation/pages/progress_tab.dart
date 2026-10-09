@@ -513,11 +513,106 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
                 ),
               ),
             ),
+            const Positioned(
+              top: 18,
+              left: 164,
+              child: Opacity(
+                opacity: 0.42,
+                child: Icon(
+                  Icons.star_rounded,
+                  size: 17,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+            const Positioned(
+              top: 54,
+              right: 190,
+              child: Opacity(
+                opacity: 0.28,
+                child: Icon(
+                  Icons.star_outline_rounded,
+                  size: 30,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+            const Positioned(
+              bottom: 28,
+              left: 116,
+              child: Opacity(
+                opacity: 0.34,
+                child: Icon(
+                  Icons.star_rounded,
+                  size: 24,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+            const Positioned(
+              top: 88,
+              right: 108,
+              child: Opacity(
+                opacity: 0.48,
+                child: Icon(
+                  Icons.star_outline_rounded,
+                  size: 19,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+            const Positioned(
+              top: 36,
+              right: 82,
+              child: Opacity(
+                opacity: 0.4,
+                child: Icon(
+                  Icons.star_rounded,
+                  size: 10,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+            const Positioned(
+              bottom: 8,
+              right: 164,
+              child: Opacity(
+                opacity: 0.38,
+                child: Icon(
+                  Icons.star_rounded,
+                  size: 14,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+            const Positioned(
+              bottom: 66,
+              right: 22,
+              child: Opacity(
+                opacity: 0.42,
+                child: Icon(
+                  Icons.star_outline_rounded,
+                  size: 15,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+            const Positioned(
+              top: 104,
+              left: 12,
+              child: Opacity(
+                opacity: 0.35,
+                child: Icon(
+                  Icons.star_outline_rounded,
+                  size: 13,
+                  color: Colors.white,
+                ),
+              ),
+            ),
 
             // Content
             Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,

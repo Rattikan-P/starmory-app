@@ -74,21 +74,27 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
           }
         },
       );
-    } catch (_) {}
+    } catch (error, stackTrace) {
+      debugPrint(
+        'Failed to initialize notifications: $error\n$stackTrace',
+      );
+    }
   }
 
   Future<void> _syncDailyNotification() async {
     try {
       final user = ref.read(userStateProvider).user;
-      final enabled = user?.preferences['notificationEnabled'] as bool? ?? false;
+      final enabled =
+          user?.preferences['notificationEnabled'] as bool? ?? false;
       if (!enabled) {
-        await NotificationService.instance.cancelDailyReminder();
+        await NotificationService.instance.cancelDailyReminders();
         return;
       }
 
-      final timeStr = user?.preferences['reviewReminderTime'] as String? ?? '20:00';
+      final timeStr =
+          user?.preferences['reviewReminderTime'] as String? ?? '19:00';
       final parts = timeStr.split(':');
-      final hour = int.tryParse(parts[0]) ?? 20;
+      final hour = int.tryParse(parts[0]) ?? 19;
       final minute = parts.length > 1 ? (int.tryParse(parts[1]) ?? 0) : 0;
 
       final reviewService = ref.read(reviewServiceProvider);
@@ -96,13 +102,17 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
           ref.read(userStateProvider).user?.currentStreak ??
           ref.read(currentStreakProvider);
 
-      await NotificationService.instance.scheduleDailyReminder(
+      await NotificationService.instance.scheduleDailyReminders(
         hour: hour,
         minute: minute,
         reviewService: reviewService,
         currentStreak: streak ?? 0,
       );
-    } catch (_) {}
+    } catch (error, stackTrace) {
+      debugPrint(
+        'Failed to refresh daily learning reminders: $error\n$stackTrace',
+      );
+    }
   }
 
   @override
@@ -144,7 +154,8 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
           ref.read(userStateProvider).user?.currentStreak ??
           ref.read(currentStreakProvider);
 
-      await WidgetService.updateWidgetWithDueCard(reviewService, streak: streak);
+      await WidgetService.updateWidgetWithDueCard(reviewService,
+          streak: streak);
     } catch (_) {}
   }
 
@@ -154,6 +165,7 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
   /// Route a starmory:// deep link to the correct tab or action.
   ///
   /// starmory://review             → Review tab (index 1)
+  /// starmory://home               → Home tab (index 0)
   /// starmory://camera             → Camera modal (same as FAB + camera)
   /// starmory://scrapbook/{vocabId}→ Scrapbook tab (index 2)
   void _routeWidgetDeepLink(Uri? uri) {
@@ -190,12 +202,19 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
         break;
 
       case 'home':
-        final tab = uri.queryParameters['tab'];
-        if (tab == 'progress') {
-          ref.read(navigationProvider.notifier).setIndex(3);
-        } else {
-          ref.read(navigationProvider.notifier).goHome();
-        }
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          final mainRoute = ModalRoute.of(context);
+          if (mainRoute != null) {
+            Navigator.of(context).popUntil((route) => route == mainRoute);
+          }
+          final tab = uri.queryParameters['tab'];
+          if (tab == 'progress') {
+            ref.read(navigationProvider.notifier).setIndex(3);
+          } else {
+            ref.read(navigationProvider.notifier).goHome();
+          }
+        });
         break;
 
       case 'camera':
