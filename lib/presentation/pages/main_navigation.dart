@@ -174,7 +174,15 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
 
     switch (host) {
       case 'review':
-        ref.read(navigationProvider.notifier).goReview();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            final mainRoute = ModalRoute.of(context);
+            if (mainRoute != null) {
+              Navigator.of(context).popUntil((route) => route == mainRoute);
+            }
+            ref.read(navigationProvider.notifier).goReview();
+          }
+        });
         break;
 
       case 'progress':

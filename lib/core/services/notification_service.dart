@@ -35,11 +35,11 @@ class NotificationService {
   /// Initialize notification plugin & timezone
   Future<void> initialize({void Function(String? payload)? onSelectNotification}) async {
     if (kIsWeb) return;
-    if (_isInitialized) return;
 
     if (onSelectNotification != null) {
       onNotificationTapped = onSelectNotification;
     }
+    if (_isInitialized) return;
 
     // 1. Initialize timezone & set device local timezone
     tz.initializeTimeZones();
@@ -75,6 +75,14 @@ class NotificationService {
         onNotificationTapped?.call(payload);
       },
     );
+
+    final launchDetails =
+        await _notificationsPlugin.getNotificationAppLaunchDetails();
+    if (launchDetails?.didNotificationLaunchApp ?? false) {
+      final payload = launchDetails?.notificationResponse?.payload;
+      debugPrint('🔔 [Notification] Launched app with payload: $payload');
+      onNotificationTapped?.call(payload);
+    }
 
     // 4. Create high-priority Notification Channel on Android
     final androidImplementation = _notificationsPlugin
@@ -133,23 +141,17 @@ class NotificationService {
     return true;
   }
 
-
   /// Schedule daily glanceable vocabulary reminder
   Future<void> scheduleDailyReminder({
     required int hour,
     required int minute,
     required ReviewService reviewService,
     required int currentStreak,
-    bool skipIfCompletedToday = true,
+    bool scheduleForTomorrow = false,
   }) async {
     if (kIsWeb) return;
 
     try {
-      // 1. Check if user already completed learning activity today
-      if (skipIfCompletedToday) {
-        // Handled via scheduling calculation
-      }
-
       // 2. Retrieve Word of the Day (prioritizing FSRS due card)
       final dueCards = await reviewService.getDueCards(limit: 5);
       VocabularyModel? targetVocab;
@@ -162,7 +164,6 @@ class NotificationService {
           targetVocab = allVocabs[dayOfYear % allVocabs.length];
         }
       }
-
       // 3. Build rich glanceable title and body
       String title;
       String body;
@@ -201,9 +202,15 @@ class NotificationService {
         minute,
       );
 
-      // If scheduled time has already passed today, advance to tomorrow
-      if (scheduledDate.isBefore(now)) {
-        scheduledDate = scheduledDate.add(const Duration(days: 1));
+      if (scheduleForTomorrow || scheduledDate.isBefore(now)) {
+        scheduledDate = tz.TZDateTime(
+          tz.local,
+          now.year,
+          now.month,
+          now.day + 1,
+          hour,
+          minute,
+        );
       }
 
       final androidDetails = AndroidNotificationDetails(
@@ -335,7 +342,7 @@ class NotificationService {
   }
 
   /// Smart Skip: Triggered when user completes a study/review session today
-  /// If today's reminder hasn't fired yet, advance it to tomorrow so user isn't disturbed
+  /// Skip the remaining reminder for today after the user studies.
   Future<void> onActivityCompletedToday({
     required int hour,
     required int minute,
@@ -349,9 +356,7 @@ class NotificationService {
       minute: minute,
       reviewService: reviewService,
       currentStreak: currentStreak,
-      skipIfCompletedToday: true,
+      scheduleForTomorrow: true,
     );
   }
 }
-
-
