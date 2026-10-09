@@ -699,9 +699,15 @@ class _PreferencesSectionState extends ConsumerState<_PreferencesSection> {
       }
 
       widget.onPreferenceChanged?.call();
+
+      if (mounted) {
+        SnackBarHelper.success(
+          context,
+          'Reminder time set to ${_formatDisplayTime(newTimeStr)}',
+        );
+      }
     }
   }
-
 
   @override
   Widget build(BuildContext context) {

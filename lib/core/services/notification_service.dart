@@ -1,8 +1,10 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
+import '../../constants/design_tokens.dart';
 import '../../data/models/vocabulary_model.dart';
 import '../../data/services/review_service.dart';
 
@@ -39,8 +41,15 @@ class NotificationService {
       onNotificationTapped = onSelectNotification;
     }
 
-    // 1. Initialize timezone
+    // 1. Initialize timezone & set device local timezone
     tz.initializeTimeZones();
+    try {
+      final timeZoneInfo = await FlutterTimezone.getLocalTimezone();
+      tz.setLocalLocation(tz.getLocation(timeZoneInfo.identifier));
+      debugPrint('🔔 [NotificationService] Device timezone configured: ${timeZoneInfo.identifier}');
+    } catch (e) {
+      debugPrint('⚠️ [NotificationService] Could not set local timezone from device: $e');
+    }
 
     // 2. Android Initialization Settings
     const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -67,8 +76,23 @@ class NotificationService {
       },
     );
 
+    // 4. Create high-priority Notification Channel on Android
+    final androidImplementation = _notificationsPlugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
+    await androidImplementation?.createNotificationChannel(
+      const AndroidNotificationChannel(
+        _channelId,
+        _channelName,
+        description: _channelDescription,
+        importance: Importance.max,
+        playSound: true,
+        enableVibration: true,
+      ),
+    );
+
     _isInitialized = true;
-    debugPrint('🔔 [NotificationService] Initialized successfully.');
+    debugPrint('🔔 [NotificationService] Initialized successfully with channel.');
   }
 
   /// Request notification permission on Android 13+ and iOS
@@ -145,14 +169,25 @@ class NotificationService {
       String bigText;
 
       if (targetVocab != null) {
-        final streakPrefix = currentStreak > 0 ? '🔥 $currentStreak-Day Streak!' : '🌟 Daily Vocab';
-        title = '$streakPrefix • ${targetVocab.word.toUpperCase()}';
-        body = '${targetVocab.thaiTranslation} • "${targetVocab.englishSentence}"';
-        bigText = '${targetVocab.thaiTranslation}\n\n"${targetVocab.englishSentence}"\n\nTap to start a quick 2-minute review!';
+        title = currentStreak > 0 ? '🔥 $currentStreak-Day Streak!' : '⭐ Daily Vocab';
+        body = '${targetVocab.word.toUpperCase()} (${targetVocab.thaiTranslation}) • "${targetVocab.englishSentence}"';
+        bigText =
+            '${targetVocab.word.toUpperCase()} (${targetVocab.thaiTranslation})\n\n"${targetVocab.englishSentence}"\n\nTap to start a quick 2-minute review!';
       } else {
-        title = currentStreak > 0 ? '🔥 Keep your $currentStreak-day streak alive!' : '🌟 Time for your daily word!';
+        title = currentStreak > 0
+            ? '🔥 Keep your $currentStreak-day streak alive!'
+            : '📸 Time for your daily word!';
         body = 'Snap a photo or review your cards to collect stars today.';
-        bigText = 'Take 2 minutes to scan a new photo or review your saved cards.';
+        bigText =
+            'Take 2 minutes to scan a new photo or review your saved cards.';
+      }
+
+      // Ensure local timezone is configured
+      if (tz.local.name == 'UTC') {
+        try {
+          final timeZoneInfo = await FlutterTimezone.getLocalTimezone();
+          tz.setLocalLocation(tz.getLocation(timeZoneInfo.identifier));
+        } catch (_) {}
       }
 
       // 4. Calculate next scheduled time in local timezone
@@ -182,7 +217,9 @@ class NotificationService {
           contentTitle: title,
           summaryText: 'Starmory Daily Word',
         ),
-        icon: '@mipmap/ic_launcher',
+        icon: '@drawable/ic_stat_notification',
+        largeIcon: const DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
+        color: DesignTokens.brandColor,
       );
 
       const darwinDetails = DarwinNotificationDetails(
@@ -199,20 +236,48 @@ class NotificationService {
       // Cancel previous reminder first
       await _notificationsPlugin.cancel(id: _dailyReminderNotificationId);
 
-      // Schedule exact daily reminder
-      await _notificationsPlugin.zonedSchedule(
-        id: _dailyReminderNotificationId,
-        title: title,
-        body: body,
-        scheduledDate: scheduledDate,
-        notificationDetails: details,
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        matchDateTimeComponents: DateTimeComponents.time,
-        payload: 'starmory://review',
-      );
+      // Schedule daily reminder (try alarmClock first for guaranteed wakeup across all Android devices)
+      try {
+        await _notificationsPlugin.zonedSchedule(
+          id: _dailyReminderNotificationId,
+          title: title,
+          body: body,
+          scheduledDate: scheduledDate,
+          notificationDetails: details,
+          androidScheduleMode: AndroidScheduleMode.alarmClock,
+          matchDateTimeComponents: DateTimeComponents.time,
+          payload: 'starmory://review',
+        );
+      } catch (e) {
+        debugPrint('⚠️ [NotificationService] alarmClock schedule failed, trying exactAllowWhileIdle: $e');
+        try {
+          await _notificationsPlugin.zonedSchedule(
+            id: _dailyReminderNotificationId,
+            title: title,
+            body: body,
+            scheduledDate: scheduledDate,
+            notificationDetails: details,
+            androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+            matchDateTimeComponents: DateTimeComponents.time,
+            payload: 'starmory://review',
+          );
+        } catch (e2) {
+          debugPrint('⚠️ [NotificationService] exact schedule failed, fallback to inexact: $e2');
+          await _notificationsPlugin.zonedSchedule(
+            id: _dailyReminderNotificationId,
+            title: title,
+            body: body,
+            scheduledDate: scheduledDate,
+            notificationDetails: details,
+            androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+            matchDateTimeComponents: DateTimeComponents.time,
+            payload: 'starmory://review',
+          );
+        }
+      }
 
       debugPrint(
-        '🔔 [NotificationService] Scheduled daily reminder for ${scheduledDate.toString()} (payload: starmory://review)',
+        '🔔 [NotificationService] Scheduled daily reminder for ${scheduledDate.toString()} (local tz: ${tz.local.name}) (payload: starmory://review)',
       );
     } catch (e) {
       debugPrint('⚠️ [NotificationService] Error scheduling reminder: $e');
@@ -237,7 +302,9 @@ class NotificationService {
         contentTitle: title,
         summaryText: 'Starmory Daily Word',
       ),
-      icon: '@mipmap/ic_launcher',
+      icon: '@drawable/ic_stat_notification',
+      largeIcon: const DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
+      color: DesignTokens.brandColor,
     );
 
     const darwinDetails = DarwinNotificationDetails(
@@ -286,3 +353,5 @@ class NotificationService {
     );
   }
 }
+
+
