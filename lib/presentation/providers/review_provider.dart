@@ -192,10 +192,17 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
 
       // Update home screen widget with next due card
       final user = _ref?.read(userStateProvider).user;
+      final streakData = _ref?.read(streakProvider);
       final streak = (user != null && user.isGuest)
           ? user.currentStreak
           : _ref?.read(currentStreakProvider) ?? 0;
-      WidgetService.updateWidgetWithDueCard(_reviewService, streak: streak).ignore();
+      WidgetService.updateWidgetWithDueCard(
+        _reviewService,
+        streak: streak,
+        lastActivityDate:
+            streakData?.lastActivityDate ?? user?.lastStreakActivityDate,
+        shields: streakData?.shieldsAvailable ?? user?.shields ?? 0,
+      ).ignore();
     } catch (e) {
       state = ReviewState(
         isLoading: false,
@@ -235,8 +242,7 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
           await _recordLearningActivity!();
         } else if (currentUser?.isGuest == true && _ref != null) {
           final streakNotifier = _ref.read(streakProvider.notifier);
-          final streakIncreased =
-              await streakNotifier.recordLearningActivity();
+          final streakIncreased = await streakNotifier.recordLearningActivity();
           if (streakIncreased) {
             streakEarned = _ref.read(streakProvider)?.currentStreak;
           }
@@ -298,10 +304,17 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
 
       // Update home screen widget with next due card after each review
       final reviewUser = _ref?.read(userStateProvider).user;
+      final streakData = _ref?.read(streakProvider);
       final streak = (reviewUser != null && reviewUser.isGuest)
           ? reviewUser.currentStreak
           : _ref?.read(currentStreakProvider) ?? 0;
-      WidgetService.updateWidgetWithDueCard(_reviewService, streak: streak).ignore();
+      WidgetService.updateWidgetWithDueCard(
+        _reviewService,
+        streak: streak,
+        lastActivityDate:
+            streakData?.lastActivityDate ?? reviewUser?.lastStreakActivityDate,
+        shields: streakData?.shieldsAvailable ?? reviewUser?.shields ?? 0,
+      ).ignore();
       return streakEarned;
     } catch (e) {
       print('❌ [SwipeCard] Error: $e');

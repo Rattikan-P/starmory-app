@@ -103,35 +103,28 @@ void main() {
     );
   });
 
-  test('UTC-29-TC05: Consume freeze shield to preserve streak on missed day (SRS-501)', () {
+  test('UTC-29-TC05: Consume one freeze shield after a longer gap (SRS-501)',
+      () {
     var user = UserModel.createGuest().copyWith(
       currentStreak: 5,
       shields: 1,
-      lastStreakActivityDate: DateTime.now().subtract(const Duration(days: 2)),
+      lastStreakActivityDate: DateTime.now().subtract(const Duration(days: 3)),
     );
 
-    // Simulate streak shield protection logic
-    bool streakPreserved = false;
-    if (user.shields > 0) {
-      user = user.copyWith(shields: user.shields - 1);
-      streakPreserved = true;
-    }
+    user = user.incrementStreak();
 
-    expect(streakPreserved, isTrue);
     expect(user.currentStreak, 5);
     expect(user.shields, 0);
 
     printTestOutputSimple(
       testId: 'UTC-29-TC05',
-      description: 'Consume freeze shield to preserve streak on missed day (SRS-501)',
-      input: 'TD05: Missed 1 day with 1 shield available',
-      expectedOutput: {'streakPreserved': true, 'currentStreak': 5, 'shieldsRemaining': 0},
+      description: 'Consume one freeze shield after a longer gap (SRS-501)',
+      input: 'TD05: Missed 2 days with 1 shield available',
+      expectedOutput: {'currentStreak': 5, 'shieldsRemaining': 0},
       actualOutput: {
-        'streakPreserved': streakPreserved,
         'currentStreak': user.currentStreak,
         'shieldsRemaining': user.shields,
       },
     );
   });
 }
-

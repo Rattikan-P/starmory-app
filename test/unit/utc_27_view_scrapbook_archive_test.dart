@@ -28,12 +28,19 @@ void main() {
     test('UT-27-TC01: Date range filtering and newest first sorting', () {
       final selectedDate = DateTime(2026, 8, 15);
       final state = ScrapbookState(scrapbooks: [
-        scrapbook(id: 'old', date: selectedDate, createdAt: DateTime(2026, 8, 15, 9)),
+        scrapbook(
+            id: 'old', date: selectedDate, createdAt: DateTime(2026, 8, 15, 9)),
         scrapbook(id: 'other-day', date: DateTime(2026, 8, 16)),
-        scrapbook(id: 'new', date: selectedDate, createdAt: DateTime(2026, 8, 15, 12)),
+        scrapbook(
+            id: 'new',
+            date: selectedDate,
+            createdAt: DateTime(2026, 8, 15, 12)),
       ]);
 
-      final filteredIds = state.getScrapbooksForDate(selectedDate).map((item) => item.id).toList();
+      final filteredIds = state
+          .getScrapbooksForDate(selectedDate)
+          .map((item) => item.id)
+          .toList();
 
       expect(state.totalCount, 3);
       expect(filteredIds, ['new', 'old']);
@@ -43,8 +50,14 @@ void main() {
         testId: 'UT-27-TC01',
         description: 'Date range filtering and newest first sorting',
         input: 'Date = 2026-08-15, Scrapbooks = 3 items',
-        expectedOutput: {'totalCount': 3, 'selectedIds': ['new', 'old']},
-        actualOutput: {'totalCount': state.totalCount, 'selectedIds': filteredIds},
+        expectedOutput: {
+          'totalCount': 3,
+          'selectedIds': ['new', 'old']
+        },
+        actualOutput: {
+          'totalCount': state.totalCount,
+          'selectedIds': filteredIds
+        },
       );
     });
 
@@ -81,7 +94,20 @@ void main() {
     testWidgets('UT-27-TC03: Selecting a day with memories opens Detail Sheet',
         (tester) async {
       final now = DateTime.now();
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const months = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec'
+      ];
       final targetDay = now.day == 10 ? 12 : 10;
       final selectedDate = DateTime(now.year, now.month, targetDay);
       final expectedHeader = '$targetDay ${months[now.month - 1]} ${now.year}';
@@ -104,9 +130,20 @@ void main() {
         testId: 'UT-27-TC03',
         description: 'Selecting a day with memories opens Detail Sheet',
         input: 'Selected Date = $expectedHeader',
-        expectedOutput: {'detailSheetVisible': true, 'dateHeader': expectedHeader, 'emoji': '🌟'},
-        actualOutput: {'detailSheetVisible': true, 'dateHeader': expectedHeader, 'emoji': '🌟'},
+        expectedOutput: {
+          'detailSheetVisible': true,
+          'dateHeader': expectedHeader,
+          'emoji': '🌟'
+        },
+        actualOutput: {
+          'detailSheetVisible': true,
+          'dateHeader': expectedHeader,
+          'emoji': '🌟'
+        },
       );
+
+      await tester.tap(find.byTooltip('Close'));
+      await tester.pumpAndSettle();
     });
 
     testWidgets('UT-27-TC04: Selecting an empty day shows SnackBar feedback',
@@ -137,7 +174,8 @@ void main() {
       );
     });
 
-    testWidgets('UT-27-TC05: Renders empty-state add-photo icon and guidance message',
+    testWidgets(
+        'UT-27-TC05: Renders empty-state add-photo icon and guidance message',
         (tester) async {
       await tester.pumpWidget(scrapbookTestApp(child: const ScrapbookTab()));
       await tester.pump();
@@ -180,22 +218,38 @@ void main() {
         testId: 'UT-27-TC06',
         description: 'Month navigation and Today button visibility',
         input: 'User taps Previous month arrow then Today button',
-        expectedOutput: {'afterPrevious': 'Today button visible', 'afterToday': 'Today button hidden'},
-        actualOutput: {'afterPrevious': 'Today button visible', 'afterToday': 'Today button hidden'},
+        expectedOutput: {
+          'afterPrevious': 'Today button visible',
+          'afterToday': 'Today button hidden'
+        },
+        actualOutput: {
+          'afterPrevious': 'Today button visible',
+          'afterToday': 'Today button hidden'
+        },
       );
     });
 
-    testWidgets('UT-27-TC07: Detail Sheet displays date, count, emojis, and vocabulary UI',
+    testWidgets(
+        'UT-27-TC07: Detail Sheet displays date, count, emojis, and vocabulary UI',
         (tester) async {
       final memories = [
-        scrapbook(id: 'one', date: DateTime(2026, 8, 15), emoji: '😊', imagePath: 'img1.jpg'),
-        scrapbook(id: 'two', date: DateTime(2026, 8, 15), emoji: '🌟', imagePath: 'img2.jpg'),
+        scrapbook(
+            id: 'one',
+            date: DateTime(2026, 8, 15),
+            emoji: '😊',
+            imagePath: 'img1.jpg'),
+        scrapbook(
+            id: 'two',
+            date: DateTime(2026, 8, 15),
+            emoji: '🌟',
+            imagePath: 'img2.jpg'),
       ];
       await tester.pumpWidget(MaterialApp(
         home: Builder(
           builder: (context) => Scaffold(
             body: TextButton(
-              onPressed: () => showScrapbookDetailSheet(context, scrapbooks: memories),
+              onPressed: () =>
+                  showScrapbookDetailSheet(context, scrapbooks: memories),
               child: const Text('Open'),
             ),
           ),
@@ -212,7 +266,8 @@ void main() {
 
       printTestOutputSimple(
         testId: 'UT-27-TC07',
-        description: 'Detail Sheet displays date, count, emojis, and vocabulary UI',
+        description:
+            'Detail Sheet displays date, count, emojis, and vocabulary UI',
         input: 'Two memories on 15 Aug 2026 with emojis 😊 and 🌟',
         expectedOutput: {
           'date': '15 Aug 2026',
@@ -227,9 +282,13 @@ void main() {
           'vocabSection': true,
         },
       );
+
+      await tester.tap(find.byTooltip('Close'));
+      await tester.pumpAndSettle();
     });
 
-    test('UT-27-TC08: Pull-to-refresh merges cloud and local data with cloud priority',
+    test(
+        'UT-27-TC08: Pull-to-refresh merges cloud and local data with cloud priority',
         () {
       final time = DateTime(2026, 8, 15);
       final cloud = [
@@ -237,7 +296,10 @@ void main() {
       ];
       final local = [
         scrapbook(id: 'shared', date: time, emoji: '😊', createdAt: time),
-        scrapbook(id: 'local-only', date: time, createdAt: time.subtract(const Duration(hours: 1))),
+        scrapbook(
+            id: 'local-only',
+            date: time,
+            createdAt: time.subtract(const Duration(hours: 1))),
       ];
 
       final merged = ScrapbookNotifier.mergeCloudAndLocal(cloud, local);
@@ -248,10 +310,17 @@ void main() {
 
       printTestOutputSimple(
         testId: 'UT-27-TC08',
-        description: 'Pull-to-refresh merges cloud and local data with cloud priority',
+        description:
+            'Pull-to-refresh merges cloud and local data with cloud priority',
         input: 'Cloud = ["shared"], Local = ["shared", "local-only"]',
-        expectedOutput: {'mergedIds': ['shared', 'local-only'], 'sharedEmoji': '🌟'},
-        actualOutput: {'mergedIds': mergedIds, 'sharedEmoji': merged.first.selectedEmoji},
+        expectedOutput: {
+          'mergedIds': ['shared', 'local-only'],
+          'sharedEmoji': '🌟'
+        },
+        actualOutput: {
+          'mergedIds': mergedIds,
+          'sharedEmoji': merged.first.selectedEmoji
+        },
       );
     });
 
@@ -270,12 +339,19 @@ void main() {
         testId: 'UT-27-TC09',
         description: 'Sync failure error state display and retry button',
         input: 'Error = network failure',
-        expectedOutput: {'errorMessage': 'We couldn’t load your scrapbook.', 'retryButton': true},
-        actualOutput: {'errorMessage': 'We couldn’t load your scrapbook.', 'retryButton': true},
+        expectedOutput: {
+          'errorMessage': 'We couldn’t load your scrapbook.',
+          'retryButton': true
+        },
+        actualOutput: {
+          'errorMessage': 'We couldn’t load your scrapbook.',
+          'retryButton': true
+        },
       );
     });
 
-    testWidgets('UT-27-TC10: Detail Sheet header emoji tap opens Edit Scrapbook Screen (SRS-140)',
+    testWidgets(
+        'UT-27-TC10: Detail Sheet header emoji tap opens Edit Scrapbook Screen (SRS-140)',
         (tester) async {
       final memory = scrapbook(
         id: 'edit-emoji-test',
@@ -288,7 +364,8 @@ void main() {
         child: Builder(
           builder: (context) => Scaffold(
             body: TextButton(
-              onPressed: () => showScrapbookDetailSheet(context, scrapbooks: [memory]),
+              onPressed: () =>
+                  showScrapbookDetailSheet(context, scrapbooks: [memory]),
               child: const Text('Open Sheet'),
             ),
           ),
@@ -305,21 +382,26 @@ void main() {
 
       printTestOutputSimple(
         testId: 'UT-27-TC10',
-        description: 'Detail Sheet header emoji tap opens Edit Scrapbook Screen',
+        description:
+            'Detail Sheet header emoji tap opens Edit Scrapbook Screen',
         input: 'Tap emoji 🌟 in Detail Sheet header',
         expectedOutput: {'navigatedToEditScreen': true},
         actualOutput: {'navigatedToEditScreen': true},
       );
     });
 
-    testWidgets('UT-27-TC11: Detail Sheet vocabulary word chip tap opens VocabularyDetailBottomSheet (SRS-141)',
+    testWidgets(
+        'UT-27-TC11: Detail Sheet vocabulary word chip tap opens VocabularyDetailBottomSheet (SRS-141)',
         (tester) async {
       final memory = scrapbook(
         id: 'vocab-test',
         date: DateTime(2026, 8, 15),
         emoji: '😊',
         vocabulary: [
-          const ScrapbookVocabularyWord(word: 'Galaxy', thaiTranslation: 'กาแล็กซี', partOfSpeech: 'noun'),
+          const ScrapbookVocabularyWord(
+              word: 'Galaxy',
+              thaiTranslation: 'กาแล็กซี',
+              partOfSpeech: 'noun'),
         ],
       );
 
@@ -327,7 +409,8 @@ void main() {
         child: Builder(
           builder: (context) => Scaffold(
             body: TextButton(
-              onPressed: () => showScrapbookDetailSheet(context, scrapbooks: [memory]),
+              onPressed: () =>
+                  showScrapbookDetailSheet(context, scrapbooks: [memory]),
               child: const Text('Open Sheet'),
             ),
           ),
@@ -345,17 +428,26 @@ void main() {
 
       printTestOutputSimple(
         testId: 'UT-27-TC11',
-        description: 'Detail Sheet vocabulary word chip tap opens VocabularyDetailBottomSheet',
+        description:
+            'Detail Sheet vocabulary word chip tap opens VocabularyDetailBottomSheet',
         input: 'Tap vocabulary chip Galaxy',
         expectedOutput: {'detailBottomSheetOpened': true},
         actualOutput: {'detailBottomSheetOpened': true},
       );
+
+      Navigator.of(tester.element(find.byType(VocabularyDetailBottomSheet)))
+          .pop();
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Close'));
+      await tester.pumpAndSettle();
     });
 
-    testWidgets('UT-27-TC12: Tapping memory card in horizontal strip opens Edit Scrapbook Screen (SRS-142)',
+    testWidgets(
+        'UT-27-TC12: Tapping memory card in horizontal strip opens Edit Scrapbook Screen (SRS-142)',
         (tester) async {
       final day = DateTime.now();
-      final memory = scrapbook(id: 'card-test', date: day, imagePath: 'test_card.jpg');
+      final memory =
+          scrapbook(id: 'card-test', date: day, imagePath: 'test_card.jpg');
 
       await tester.pumpWidget(scrapbookTestApp(
         child: const ScrapbookTab(),
@@ -374,7 +466,8 @@ void main() {
 
       printTestOutputSimple(
         testId: 'UT-27-TC12',
-        description: 'Tapping memory card in horizontal strip opens Edit Scrapbook Screen',
+        description:
+            'Tapping memory card in horizontal strip opens Edit Scrapbook Screen',
         input: 'Tap Polaroid memory card in strip',
         expectedOutput: {'navigatedToEditScreen': true},
         actualOutput: {'navigatedToEditScreen': true},

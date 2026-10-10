@@ -52,19 +52,23 @@ class StreakData {
   /// Days since last activity
   int get daysSinceLastActivity {
     if (lastActivityDate == null) return 999;
-    return DateTime.now().difference(lastActivityDate!).inDays;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final lastLocal = lastActivityDate!.toLocal();
+    final lastDay = DateTime(lastLocal.year, lastLocal.month, lastLocal.day);
+    return today.difference(lastDay).inDays;
   }
 
-  /// Is streak at risk (missed 1 day, have shields)
+  /// Is streak at risk (longer gap, with a shield available)
   bool get isAtRisk {
     final missed = daysSinceLastActivity;
-    return missed >= 1 && shieldsAvailable > 0;
+    return missed >= 3 && shieldsAvailable > 0;
   }
 
-  /// Is streak broken (missed day, no shields)
+  /// Is streak broken (longer gap, with no shield available)
   bool get isBroken {
     final missed = daysSinceLastActivity;
-    return missed >= 2 && shieldsAvailable == 0;
+    return missed >= 3 && shieldsAvailable == 0;
   }
 
   /// Days until shield is earned (0-6, or null if not counting)
@@ -257,17 +261,16 @@ class StreakService {
 
     print('   [StreakService] Days since last activity: $daysDifference');
 
-    // daysDifference <= 1: active today or yesterday -> streak safe
-    if (daysDifference <= 1) {
+    // One missed calendar day is allowed without consuming a shield.
+    if (daysDifference <= 2) {
       print('✅ [StreakService] Streak still active');
       return false;
     }
 
-    // Check if user has enough shields to cover missed days
-    final missedDays = daysDifference - 1;
-    if (current.shieldsAvailable >= missedDays) {
+    // Keep the streak while a shield can protect it; consume one on resumed activity.
+    if (current.shieldsAvailable > 0) {
       print(
-          '🛡️ [StreakService] Protected by shields ($missedDays missed, ${current.shieldsAvailable} shields available)');
+          '🛡️ [StreakService] Protected by an available shield (${current.shieldsAvailable} available)');
       return false;
     }
 

@@ -1,11 +1,14 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:home_widget/home_widget.dart';
 import 'package:path_provider/path_provider.dart';
+import '../../data/models/scrapbook_model.dart';
 import '../../data/models/word_card_model.dart';
 import '../../data/models/vocabulary_model.dart';
 import '../../data/services/review_service.dart';
+import 'widget_vocabulary_selection.dart';
 
 /// Bridges Flutter app data → Android Home Screen Widget.
 /// Writes the "Word of the Day" (prioritizing FSRS due cards) and streak
@@ -24,10 +27,14 @@ class WidgetService {
   static const String _keyVocabId = 'widget_vocab_id';
   static const String _keyDate = 'widget_date';
   static const String _keyStreak = 'widget_streak';
+  static const String _keyStreakShields = 'widget_streak_shields';
+  static const String _keyLastActivityDate = 'widget_last_activity_date';
   static const String _keyRetention = 'widget_retention';
   static const String _keySentence = 'widget_sentence';
   static const String _keyHasData = 'widget_has_data';
+  static const String _keyHasError = 'widget_has_error';
   static const String _keyVocabQueue = 'widget_vocab_queue';
+  static const String _keyDueVocabularyCount = 'widget_due_vocabulary_count';
 
   /// Initialize home_widget — call once at app startup.
   static Future<void> initialize() async {
@@ -39,79 +46,123 @@ class WidgetService {
   static Future<void> updateWidgetWithDueCard(
     ReviewService reviewService, {
     int? streak,
+    DateTime? lastActivityDate,
+    int? shields,
   }) async {
+    final currentStreak = streak ?? 0;
+    final currentShields = shields ?? 0;
+    late final List<WordCardModel> dueCards;
+    late final List<VocabularyModel> allVocab;
+    late final List<ScrapbookModel> scrapbooks;
     try {
-      final currentStreak = streak ?? 0;
+      dueCards = await reviewService.getDueCards(limit: 1000);
+      allVocab = await reviewService.hiveService.getAllVocabulary();
+      scrapbooks = await reviewService.hiveService.getAllScrapbooks();
+    } catch (error, stackTrace) {
+      debugPrint('Failed to load vocabulary for widget: $error\n$stackTrace');
+      await _writeErrorState(
+        streak: currentStreak,
+        lastActivityDate: lastActivityDate,
+        shields: currentShields,
+      );
+      return;
+    }
+
+    try {
       final now = DateTime.now();
-      final dayOfYear = now.difference(DateTime(now.year, 1, 1)).inDays;
+      final localDate = DateTime.utc(now.year, now.month, now.day);
+      final dayOfYear =
+          localDate.difference(DateTime.utc(now.year, 1, 1)).inDays + 1;
       final daySeed = now.year * 366 + dayOfYear;
 
-      // 1. Due cards from FSRS review queue (prioritized)
-      final dueCards = await reviewService.getDueCards(limit: 100);
-      final dueVocabs = dueCards.map((c) => c.vocabulary).whereType<VocabularyModel>().toList();
-
-      // 2. All vocabulary collection in user's library
-      final allVocab = await reviewService.hiveService.getAllVocabulary();
-
-      // 3. Build unified queue: Prioritize due cards first, then all remaining words without duplicates
-      final seenIds = <String>{};
-      final orderedVocabs = <VocabularyModel>[];
-
-      for (final v in dueVocabs) {
-        if (seenIds.add(v.id)) orderedVocabs.add(v);
-      }
-      for (final v in allVocab) {
-        if (seenIds.add(v.id)) orderedVocabs.add(v);
-      }
+      final dueVocabs = dueCards
+          .map((c) => c.vocabulary)
+          .whereType<VocabularyModel>()
+          .toList();
+      final orderedVocabs = WidgetVocabularySelection.buildQueue(
+        dueVocabulary: dueVocabs,
+        libraryVocabulary: allVocab,
+      );
+      final scrapbookDateByVocabulary =
+          WidgetVocabularySelection.buildScrapbookDateLookup(
+        vocabularies: orderedVocabs,
+        scrapbooks: scrapbooks,
+      );
+      final dueVocabularyCount =
+          dueVocabs.map((vocabulary) => vocabulary.id).toSet().length;
 
       // Cache all vocabulary for Native Midnight AlarmManager
       if (orderedVocabs.isNotEmpty) {
         final queue = <Map<String, String>>[];
         for (final v in orderedVocabs) {
           final img = await _resolveLocalImagePath(v.imageUrl);
+          final scrapbookDate = scrapbookDateByVocabulary[v.id] ?? v.createdAt;
           queue.add({
             'word': v.word,
             'translation': v.thaiTranslation,
             'sentence': v.englishSentence,
             'imagePath': img,
             'vocabId': v.id,
+            'date': _formatDate(scrapbookDate),
           });
         }
         await HomeWidget.saveWidgetData(_keyVocabQueue, jsonEncode(queue));
       } else {
         await HomeWidget.saveWidgetData(_keyVocabQueue, '[]');
       }
+      await HomeWidget.saveWidgetData(
+        _keyDueVocabularyCount,
+        dueVocabularyCount,
+      );
 
-      // Pick today's word from ordered queue based on day-of-year rotation
-      if (orderedVocabs.isNotEmpty) {
-        final cardIndex = daySeed % orderedVocabs.length;
-        final selectedVocab = orderedVocabs[cardIndex];
-        final matchingCard = dueCards.where((c) => c.vocabulary?.id == selectedVocab.id).firstOrNull;
+      final selectedVocab = WidgetVocabularySelection.selectForDay(
+        queue: orderedVocabs,
+        dueVocabularyCount: dueVocabularyCount,
+        daySeed: daySeed,
+      );
+      if (selectedVocab != null) {
+        final matchingCard = dueCards
+            .where((c) => c.vocabulary?.id == selectedVocab.id)
+            .firstOrNull;
 
         await _writeVocabToWidget(
           vocab: selectedVocab,
           card: matchingCard,
+          scrapbookDate: scrapbookDateByVocabulary[selectedVocab.id] ??
+              selectedVocab.createdAt,
           streak: currentStreak,
+          lastActivityDate: lastActivityDate,
+          shields: currentShields,
         );
         return;
       }
 
-      // 4. No vocabulary exists at all -> Empty State
-      await _clearWidgetData(streak: currentStreak);
-    } catch (_) {
-      // Never crash the app due to widget update failure
+      await _clearWidgetData(
+        streak: currentStreak,
+        lastActivityDate: lastActivityDate,
+        shields: currentShields,
+      );
+    } catch (error, stackTrace) {
+      debugPrint('Failed to update home screen widget: $error\n$stackTrace');
+      await _writeErrorState(
+        streak: currentStreak,
+        lastActivityDate: lastActivityDate,
+        shields: currentShields,
+      );
     }
   }
 
   static Future<void> _writeVocabToWidget({
     required VocabularyModel vocab,
     WordCardModel? card,
+    required DateTime scrapbookDate,
     required int streak,
+    required DateTime? lastActivityDate,
+    required int shields,
   }) async {
     final imagePath = await _resolveLocalImagePath(vocab.imageUrl);
-    final retentionPct =
-        card != null ? _calculateRetentionPercent(card) : 0;
-    final dateStr = _formatDate(DateTime.now());
+    final retentionPct = card != null ? _calculateRetentionPercent(card) : 0;
+    final dateStr = _formatDate(scrapbookDate);
 
     await HomeWidget.saveWidgetData(_keyWord, vocab.word);
     await HomeWidget.saveWidgetData(_keyTranslation, vocab.thaiTranslation);
@@ -121,22 +172,68 @@ class WidgetService {
     await HomeWidget.saveWidgetData(_keyImagePath, imagePath);
     await HomeWidget.saveWidgetData(_keyVocabId, vocab.id);
     await HomeWidget.saveWidgetData(_keyDate, dateStr);
-    await HomeWidget.saveWidgetData(_keyStreak, streak);
+    await _saveStreakData(
+      streak: streak,
+      lastActivityDate: lastActivityDate,
+      shields: shields,
+    );
     await HomeWidget.saveWidgetData(_keyRetention, retentionPct);
     await HomeWidget.saveWidgetData(_keyHasData, true);
+    await HomeWidget.saveWidgetData(_keyHasError, false);
 
     await HomeWidget.updateWidget(androidName: _widgetName);
     await HomeWidget.updateWidget(androidName: _compactWidgetName);
   }
 
   /// Clear widget when no cards or vocabularies are available.
-  static Future<void> _clearWidgetData({int streak = 0}) async {
+  static Future<void> _clearWidgetData({
+    required int streak,
+    required DateTime? lastActivityDate,
+    required int shields,
+  }) async {
     await HomeWidget.saveWidgetData(_keyHasData, false);
+    await HomeWidget.saveWidgetData(_keyHasError, false);
     await HomeWidget.saveWidgetData(_keyWord, '');
     await HomeWidget.saveWidgetData(_keyTranslation, '');
-    await HomeWidget.saveWidgetData(_keyStreak, streak);
+    await _saveStreakData(
+      streak: streak,
+      lastActivityDate: lastActivityDate,
+      shields: shields,
+    );
+    await HomeWidget.saveWidgetData(_keyDueVocabularyCount, 0);
+    await HomeWidget.saveWidgetData(_keyVocabQueue, '[]');
     await HomeWidget.updateWidget(androidName: _widgetName);
     await HomeWidget.updateWidget(androidName: _compactWidgetName);
+  }
+
+  static Future<void> _writeErrorState({
+    required int streak,
+    required DateTime? lastActivityDate,
+    required int shields,
+  }) async {
+    await HomeWidget.saveWidgetData(_keyHasData, false);
+    await HomeWidget.saveWidgetData(_keyHasError, true);
+    await HomeWidget.saveWidgetData(_keyWord, '');
+    await _saveStreakData(
+      streak: streak,
+      lastActivityDate: lastActivityDate,
+      shields: shields,
+    );
+    await HomeWidget.updateWidget(androidName: _widgetName);
+    await HomeWidget.updateWidget(androidName: _compactWidgetName);
+  }
+
+  static Future<void> _saveStreakData({
+    required int streak,
+    required DateTime? lastActivityDate,
+    required int shields,
+  }) async {
+    await HomeWidget.saveWidgetData(_keyStreak, streak);
+    await HomeWidget.saveWidgetData(_keyStreakShields, shields);
+    await HomeWidget.saveWidgetData(
+      _keyLastActivityDate,
+      lastActivityDate?.toLocal().toIso8601String().split('T').first ?? '',
+    );
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -177,7 +274,8 @@ class WidgetService {
 
       final tempDir = await getTemporaryDirectory();
       final tempFile = File('${tempDir.path}/$cleanPath');
-      if (tempFile.existsSync() && tempFile.lengthSync() > 0) return tempFile.path;
+      if (tempFile.existsSync() && tempFile.lengthSync() > 0)
+        return tempFile.path;
     } catch (_) {}
 
     return '';
@@ -197,7 +295,8 @@ class WidgetService {
       final cacheFile = File('${cacheDir.path}/$cacheFileName');
 
       if (await cacheFile.exists() && await cacheFile.length() > 0) {
-        final age = DateTime.now().difference((await cacheFile.stat()).modified);
+        final age =
+            DateTime.now().difference((await cacheFile.stat()).modified);
         if (age.inHours < 24) return cacheFile.path;
       }
 
@@ -207,7 +306,8 @@ class WidgetService {
         final request = await httpClient.getUrl(uri);
         final response = await request.close();
         if (response.statusCode != 200) {
-          print('⚠️ [Widget] Image download failed with status ${response.statusCode}');
+          print(
+              '⚠️ [Widget] Image download failed with status ${response.statusCode}');
           return '';
         }
 
@@ -247,7 +347,8 @@ class WidgetService {
 
     if (daysSinceReview <= 0) return 90;
 
-    final retention = math.pow(0.9, daysSinceReview / card.stability).toDouble();
+    final retention =
+        math.pow(0.9, daysSinceReview / card.stability).toDouble();
     return (retention * 100).round().clamp(0, 100);
   }
 
@@ -257,8 +358,18 @@ class WidgetService {
 
   static String _formatDate(DateTime date) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${months[date.month - 1]} ${date.day}';
   }

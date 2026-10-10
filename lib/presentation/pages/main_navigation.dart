@@ -1,15 +1,18 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:home_widget/home_widget.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import 'package:permission_handler/permission_handler.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../data/models/scrapbook_model.dart';
+import '../../data/models/vocabulary_model.dart';
+import '../../data/services/dictionary_service.dart';
 import '../../core/utils/safe_image_picker.dart';
 import '../../core/utils/image_picker_error_message.dart';
 import '../../core/services/widget_service.dart';
@@ -22,6 +25,8 @@ import 'auth/account_method_page.dart';
 import '../widgets/permission_required_dialog.dart';
 import '../widgets/tokenized_notice_dialogs.dart';
 import '../widgets/bottom_sheet_chrome.dart';
+import '../widgets/scrapbook_detail_sheet.dart';
+import '../widgets/vocabulary_detail_bottom_sheet.dart';
 import '../providers/providers.dart';
 
 // Track last synced user ID to ensure syncing when switching accounts
@@ -29,7 +34,9 @@ String? _lastSyncedUserId;
 
 /// Main Navigation Screen with Floating Bottom Navigation Bar
 class MainNavigationScreen extends ConsumerStatefulWidget {
-  const MainNavigationScreen({super.key});
+  final Uri? initialWidgetUri;
+
+  const MainNavigationScreen({super.key, this.initialWidgetUri});
 
   @override
   ConsumerState<MainNavigationScreen> createState() =>
@@ -44,41 +51,17 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
     ProgressTab(),
   ];
 
-  // Widget deep link subscription
-  StreamSubscription? _widgetClickSubscription;
-
   @override
   void initState() {
     super.initState();
-    _listenToWidgetTaps();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _syncOnAppOpen();
       _updateWidgetOnLaunch();
-      // Also handle the launch URI if the app was cold-started from widget tap
-      _handleInitialWidgetUri();
+      final initialWidgetUri = widget.initialWidgetUri;
+      if (initialWidgetUri != null) {
+        _routeWidgetDeepLink(initialWidgetUri);
+      }
     });
-  }
-
-  @override
-  void dispose() {
-    _widgetClickSubscription?.cancel();
-    super.dispose();
-  }
-
-  /// Listen to widget tap events while app is in foreground/background.
-  void _listenToWidgetTaps() {
-    _widgetClickSubscription = HomeWidget.widgetClicked.listen(
-      (Uri? uri) => _routeWidgetDeepLink(uri),
-      onError: (_) {}, // ignore errors — widget taps are non-critical
-    );
-  }
-
-  /// Handle the URI that launched the app cold (app was not in memory).
-  Future<void> _handleInitialWidgetUri() async {
-    try {
-      final uri = await HomeWidget.initiallyLaunchedFromHomeWidget();
-      if (uri != null) _routeWidgetDeepLink(uri);
-    } catch (_) {}
   }
 
   Future<void> _updateWidgetOnLaunch() async {
@@ -97,8 +80,16 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
           ref.read(streakProvider)?.currentStreak ??
           ref.read(userStateProvider).user?.currentStreak ??
           ref.read(currentStreakProvider);
+      final streakData = ref.read(streakProvider);
+      final user = ref.read(userStateProvider).user;
 
-      await WidgetService.updateWidgetWithDueCard(reviewService, streak: streak);
+      await WidgetService.updateWidgetWithDueCard(
+        reviewService,
+        streak: streak,
+        lastActivityDate:
+            streakData?.lastActivityDate ?? user?.lastStreakActivityDate,
+        shields: streakData?.shieldsAvailable ?? user?.shields ?? 0,
+      );
     } catch (_) {}
   }
 
@@ -109,7 +100,8 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
   ///
   /// starmory://review             → Review tab (index 1)
   /// starmory://camera             → Camera modal (same as FAB + camera)
-  /// starmory://scrapbook/{vocabId}→ Scrapbook tab (index 2)
+  /// starmory://scrapbook/{id}     → A scrapbook entry
+  /// starmory://scrapbook-day      → Today's scrapbook detail sheet
   void _routeWidgetDeepLink(Uri? uri) {
     if (uri == null || !mounted) return;
 
@@ -145,11 +137,8 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
         break;
 
       case 'camera':
-        // Navigate to review tab first so we're on a stable screen,
-        // then open the camera modal after a frame
-        ref.read(navigationProvider.notifier).goReview();
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _pickImage(ImageSource.camera);
+          if (mounted) unawaited(_pickImage(ImageSource.camera));
         });
         break;
 
@@ -158,10 +147,7 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
             (segments.isNotEmpty ? segments.first : null);
         final word = uri.queryParameters['word'];
         if (vocabId != null && vocabId.isNotEmpty) {
-          ref.read(navigationProvider.notifier).goScrapbook(
-                scrapbookId: vocabId,
-                scrapbookWord: word,
-              );
+          unawaited(_openVocabularyDetails(vocabId, word: word));
         } else {
           ref.read(navigationProvider.notifier).goReview();
         }
@@ -173,7 +159,138 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
               scrapbookWord: uri.queryParameters['word'],
             );
         break;
+
+      case 'scrapbook-day':
+        unawaited(
+          _openWidgetScrapbook(
+            vocabularyId: uri.queryParameters['vocabId'],
+            word: uri.queryParameters['word'],
+            imagePath: uri.queryParameters['image'],
+          ),
+        );
+        break;
     }
+  }
+
+  Future<void> _openWidgetScrapbook({
+    String? vocabularyId,
+    String? word,
+    String? imagePath,
+  }) async {
+    if (_isOpeningWidgetScrapbook) return;
+    _isOpeningWidgetScrapbook = true;
+
+    try {
+      var vocabularies = ref.read(vocabularyStateProvider).vocabularies;
+      VocabularyModel? vocabulary =
+          vocabularies.where((item) => item.id == vocabularyId).firstOrNull;
+      if (vocabularyId != null && vocabulary == null) {
+        await ref.read(vocabularyStateProvider.notifier).refresh();
+        if (!mounted) return;
+        vocabularies = ref.read(vocabularyStateProvider).vocabularies;
+        vocabulary =
+            vocabularies.where((item) => item.id == vocabularyId).firstOrNull;
+      }
+
+      var scrapbookState = ref.read(scrapbookStateProvider);
+      if (scrapbookState.isLoading) {
+        await ref.read(scrapbookStateProvider.notifier).refresh();
+        if (!mounted) return;
+        scrapbookState = ref.read(scrapbookStateProvider);
+      }
+
+      final targetWord = (word ?? vocabulary?.word)?.trim().toLowerCase();
+      final relatedScrapbooks = targetWord == null || targetWord.isEmpty
+          ? <ScrapbookModel>[]
+          : scrapbookState.scrapbooks.where((entry) {
+              return entry.vocabularyWords.any(
+                (entryWord) =>
+                    entryWord.word.trim().toLowerCase() == targetWord,
+              );
+            }).toList();
+
+      final targetImage =
+          _normalizeImageReference(vocabulary?.imageUrl ?? imagePath ?? '');
+      final matchingScrapbook = (targetImage.isEmpty
+              ? null
+              : relatedScrapbooks
+                  .where(
+                    (entry) =>
+                        _normalizeImageReference(entry.imagePath) ==
+                        targetImage,
+                  )
+                  .firstOrNull) ??
+          (targetImage.isEmpty ? relatedScrapbooks.firstOrNull : null);
+
+      if (matchingScrapbook != null && mounted) {
+        await showScrapbookDetailSheet(
+          context,
+          scrapbooks: [matchingScrapbook],
+        );
+        return;
+      }
+
+      if (mounted) {
+        ref.read(navigationProvider.notifier).goScrapbook();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No matching memory found')),
+        );
+      }
+    } finally {
+      _isOpeningWidgetScrapbook = false;
+    }
+  }
+
+  bool _isOpeningWidgetScrapbook = false;
+
+  String _normalizeImageReference(String reference) {
+    final trimmed = reference.trim();
+    if (trimmed.isEmpty) return '';
+    final uri = Uri.tryParse(trimmed);
+    if (uri?.scheme == 'file') return uri!.path;
+    return trimmed.replaceAll(r'\', '/');
+  }
+
+  Future<void> _openVocabularyDetails(String vocabularyId,
+      {String? word}) async {
+    var vocabularies = ref.read(vocabularyStateProvider).vocabularies;
+    var vocabulary =
+        vocabularies.where((item) => item.id == vocabularyId).firstOrNull;
+    if (vocabulary == null) {
+      await ref.read(vocabularyStateProvider.notifier).refresh();
+      if (!mounted) return;
+      vocabularies = ref.read(vocabularyStateProvider).vocabularies;
+      vocabulary =
+          vocabularies.where((item) => item.id == vocabularyId).firstOrNull;
+    }
+
+    final selectedVocabulary = vocabulary;
+    if (selectedVocabulary == null || !mounted) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              word == null
+                  ? 'This vocabulary could not be found'
+                  : '“$word” could not be found in your collection',
+            ),
+          ),
+        );
+      }
+      return;
+    }
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => VocabularyDetailBottomSheet(
+        vocabulary: selectedVocabulary,
+        dictionaryService: DictionaryService(),
+        allVocabularies: vocabularies,
+      ),
+    );
   }
 
   Future<void> _syncOnAppOpen() async {
@@ -465,14 +582,28 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
   @override
   Widget build(BuildContext context) {
     // Keep widget in sync whenever streak or user state changes (e.g. after async load/sync)
-    ref.listen<int>(currentStreakProvider, (prev, next) {
-      _updateWidgetWithStreak(next);
+    ref.listen(streakProvider, (prev, next) {
+      if (next != null) {
+        _updateWidgetWithStreak(next.currentStreak);
+      }
     });
     ref.listen<UserState>(userStateProvider, (prev, next) {
       final streak = next.user?.currentStreak;
       if (streak != null) {
         _updateWidgetWithStreak(streak);
       }
+    });
+    ref.listen<VocabularyState>(vocabularyStateProvider, (previous, next) {
+      if (previous == null ||
+          next.isLoading ||
+          next.error != null ||
+          listEquals(previous.vocabularies, next.vocabularies)) {
+        return;
+      }
+      final streak = ref.read(streakProvider)?.currentStreak ??
+          ref.read(userStateProvider).user?.currentStreak ??
+          ref.read(currentStreakProvider);
+      unawaited(_updateWidgetWithStreak(streak));
     });
 
     final currentIndex = ref.watch(navigationProvider).currentIndex;

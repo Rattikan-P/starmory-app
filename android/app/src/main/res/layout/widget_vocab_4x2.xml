@@ -9,7 +9,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="horizontal"
-    android:padding="10dp"
+    android:padding="8dp"
     android:background="@drawable/widget_background"
     android:gravity="center_vertical">
 
@@ -103,21 +103,22 @@
         <TextView
             android:id="@+id/widget_sentence"
             android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
+            android:layout_height="wrap_content"
             android:textSize="11.5sp"
             android:textColor="#FF6B7280"
             android:maxLines="2"
             android:ellipsize="end"
             android:layout_marginTop="3dp"
+            android:includeFontPadding="false"
             android:text="“While waiting for you at the cafe, I couldn’t help but smile at this adorable little pastry sitting on my plate”" />
 
         <!-- Bottom Row: Camera Button aligned to bottom right (38dp) -->
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="0dp"
+            android:layout_weight="1"
             android:orientation="horizontal"
-            android:gravity="end|center_vertical">
+            android:gravity="end|bottom">
 
             <ImageView
                 android:id="@+id/widget_camera_btn"

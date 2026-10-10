@@ -520,21 +520,20 @@ class StreakNotifier extends StateNotifier<StreakData?> {
     print(
         '   [Streak] Days since last activity: $daysDifference (current: $currentStreak)');
 
-    // daysDifference <= 1: active today or yesterday -> streak safe
-    if (daysDifference <= 1) {
+    // One missed calendar day is allowed without consuming a shield.
+    if (daysDifference <= 2) {
       print('✅ [Streak] Streak still active');
       return;
     }
 
-    // daysDifference >= 2: user missed at least 1 day
-    final missedDays = daysDifference - 1;
     final currentShields = currentUser.isGuest
         ? currentUser.shields
         : (state?.shieldsAvailable ?? currentUser.shields);
 
-    if (currentShields >= missedDays) {
+    // Keep the streak while a shield can protect it; consume one on resumed activity.
+    if (currentShields > 0) {
       print(
-          '🛡️ [Streak] Inactivity protected by shields ($currentShields available, $missedDays needed)');
+          '🛡️ [Streak] Inactivity protected by an available shield ($currentShields available)');
       return;
     }
 
