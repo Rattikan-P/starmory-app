@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -10,6 +11,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 Future<void> setupTestEnvironment() async {
   // Ensure Flutter binding is initialized
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  // Register mock platform channels so tests don't throw MissingPluginException
+  // on headless Linux CI where no native plugins are registered.
+  _registerTestChannelMocks();
 
   // Check if already initialized
   try {
@@ -29,6 +34,51 @@ Future<void> setupTestEnvironment() async {
     url: 'https://test.supabase.co',
     anonKey: 'test-anon-key-for-unit-tests',
     debug: false, // Disable debug logs for cleaner test output
+  );
+}
+
+/// Register mock handlers for all platform channels used by production code.
+/// Must be safe to call multiple times (each registration simply overwrites).
+void _registerTestChannelMocks() {
+  final messenger =
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+
+  // flutter_timezone — used by NotificationService._initializePlugin()
+  messenger.setMockMethodCallHandler(
+    const MethodChannel('flutter_timezone'),
+    (MethodCall call) async {
+      if (call.method == 'getLocalTimezone') return 'Asia/Bangkok';
+      return null;
+    },
+  );
+
+  // flutter_local_notifications — used by NotificationService
+  messenger.setMockMethodCallHandler(
+    const MethodChannel('dexterous.com/flutter/local_notifications'),
+    (MethodCall call) async {
+      switch (call.method) {
+        case 'initialize':
+        case 'createNotificationChannel':
+        case 'requestNotificationsPermission':
+        case 'areNotificationsEnabled':
+          return true;
+        case 'getNotificationAppLaunchDetails':
+          return null;
+        case 'zonedSchedule':
+        case 'cancel':
+        case 'cancelAll':
+        case 'pendingNotificationRequests':
+          return null;
+        default:
+          return null;
+      }
+    },
+  );
+
+  // home_widget — used by MainNavigationScreen._listenToWidgetTaps()
+  messenger.setMockMethodCallHandler(
+    const MethodChannel('home_widget'),
+    (MethodCall call) async => null,
   );
 }
 

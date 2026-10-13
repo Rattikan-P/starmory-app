@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:starmory_app/data/models/scrapbook_model.dart';
 import 'package:starmory_app/data/services/hive_service.dart';
@@ -15,6 +16,42 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// Widget tests never make a network request.
 Future<void> initializeScrapbookTestDependencies() async {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  // Register mock platform channels so tests don't throw MissingPluginException
+  // on headless Linux CI where no native plugins are registered.
+  final messenger =
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+
+  messenger.setMockMethodCallHandler(
+    const MethodChannel('flutter_timezone'),
+    (MethodCall call) async {
+      if (call.method == 'getLocalTimezone') return 'Asia/Bangkok';
+      return null;
+    },
+  );
+
+  messenger.setMockMethodCallHandler(
+    const MethodChannel('dexterous.com/flutter/local_notifications'),
+    (MethodCall call) async {
+      switch (call.method) {
+        case 'initialize':
+        case 'createNotificationChannel':
+        case 'requestNotificationsPermission':
+        case 'areNotificationsEnabled':
+          return true;
+        case 'getNotificationAppLaunchDetails':
+          return null;
+        default:
+          return null;
+      }
+    },
+  );
+
+  messenger.setMockMethodCallHandler(
+    const MethodChannel('home_widget'),
+    (MethodCall call) async => null,
+  );
+
   try {
     Supabase.instance.client;
     return;
