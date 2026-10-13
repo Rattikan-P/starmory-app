@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Widget: 2×2 Compact Card (No Photo / Image Load Fallback)
+  Solid white background, dark legible text, top-left streak pill, bottom-right camera button
+-->
+<RelativeLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_background">
+
+    <!-- 1. Top-Left: Solid White Streak Badge with subtle border -->
+    <TextView
+        android:id="@+id/widget_streak_badge"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentStart="true"
+        android:layout_marginTop="10dp"
+        android:layout_marginLeft="10dp"
+        android:layout_marginStart="10dp"
+        android:paddingLeft="10dp"
+        android:paddingTop="4.5dp"
+        android:paddingRight="10dp"
+        android:paddingBottom="4.5dp"
+        android:background="@drawable/widget_streak_pill"
+        android:textSize="11.5sp"
+        android:textColor="#FF1F2937"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:text="🔥7" />
+
+    <!-- 2. Center: Word & Translation Container (High contrast on white card) -->
+    <LinearLayout
+        android:id="@+id/widget_content_area"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_centerInParent="true"
+        android:orientation="vertical"
+        android:gravity="center_horizontal"
+        android:paddingLeft="12dp"
+        android:paddingRight="12dp">
+
+        <TextView
+            android:id="@+id/widget_word"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="26sp"
+            android:textColor="#FF111827"
+            android:textStyle="bold"
+            android:gravity="center"
+            android:maxLines="2"
+            android:ellipsize="end"
+            android:text="ADORABLE" />
+
+        <TextView
+            android:id="@+id/widget_translation"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="14sp"
+            android:textColor="#FF4B5563"
+            android:gravity="center"
+            android:maxLines="2"
+            android:ellipsize="end"
+            android:layout_marginTop="3dp"
+            android:text="น่ารัก ชวนให้อยากกอด" />
+    </LinearLayout>
+
+    <!-- 3. Bottom-Right: Circular Camera Button (38dp) -->
+    <ImageView
+        android:id="@+id/widget_camera_btn"
+        android:layout_width="38dp"
+        android:layout_height="38dp"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentRight="true"
+        android:layout_alignParentEnd="true"
+        android:layout_marginRight="10dp"
+        android:layout_marginEnd="10dp"
+        android:layout_marginBottom="10dp"
+        android:background="@drawable/widget_camera_circle_btn"
+        android:src="@drawable/ic_widget_camera"
+        android:padding="8dp"
+        android:contentDescription="Take photo" />
+
+</RelativeLayout>

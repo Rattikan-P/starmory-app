@@ -6,6 +6,9 @@ class NavigationState {
   final int homeScrollToTopTrigger;
   final int reviewScrollToTopTrigger;
   final int scrapbookScrollToTopTrigger;
+  final int scrapbookDeepLinkTrigger;
+  final String? scrapbookDeepLinkId;
+  final String? scrapbookDeepLinkWord;
   final int progressScrollToTopTrigger;
 
   const NavigationState({
@@ -13,6 +16,9 @@ class NavigationState {
     this.homeScrollToTopTrigger = 0,
     this.reviewScrollToTopTrigger = 0,
     this.scrapbookScrollToTopTrigger = 0,
+    this.scrapbookDeepLinkTrigger = 0,
+    this.scrapbookDeepLinkId,
+    this.scrapbookDeepLinkWord,
     this.progressScrollToTopTrigger = 0,
   });
 
@@ -21,6 +27,9 @@ class NavigationState {
     int? homeScrollToTopTrigger,
     int? reviewScrollToTopTrigger,
     int? scrapbookScrollToTopTrigger,
+    int? scrapbookDeepLinkTrigger,
+    String? scrapbookDeepLinkId,
+    String? scrapbookDeepLinkWord,
     int? progressScrollToTopTrigger,
   }) {
     return NavigationState(
@@ -31,6 +40,10 @@ class NavigationState {
           reviewScrollToTopTrigger ?? this.reviewScrollToTopTrigger,
       scrapbookScrollToTopTrigger:
           scrapbookScrollToTopTrigger ?? this.scrapbookScrollToTopTrigger,
+      scrapbookDeepLinkTrigger:
+          scrapbookDeepLinkTrigger ?? this.scrapbookDeepLinkTrigger,
+      scrapbookDeepLinkId: scrapbookDeepLinkId ?? this.scrapbookDeepLinkId,
+      scrapbookDeepLinkWord: scrapbookDeepLinkWord ?? this.scrapbookDeepLinkWord,
       progressScrollToTopTrigger:
           progressScrollToTopTrigger ?? this.progressScrollToTopTrigger,
     );
@@ -87,7 +100,19 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
   void goReview() => setIndex(1);
 
   /// Navigate to Scrapbook tab
-  void goScrapbook() => setIndex(2);
+  void goScrapbook({String? scrapbookId, String? scrapbookWord}) {
+    if (scrapbookId == null || scrapbookId.isEmpty) {
+      setIndex(2);
+      return;
+    }
+    state = state.copyWith(
+      currentIndex: 2,
+      scrapbookScrollToTopTrigger: state.scrapbookScrollToTopTrigger + 1,
+      scrapbookDeepLinkTrigger: state.scrapbookDeepLinkTrigger + 1,
+      scrapbookDeepLinkId: scrapbookId,
+      scrapbookDeepLinkWord: scrapbookWord,
+    );
+  }
 
   /// Navigate to Progress tab
   void goProgress() => setIndex(3);

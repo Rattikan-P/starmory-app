@@ -31,15 +31,24 @@ void main() {
     final photoEntries = [
       PhotoEntry(
         imageUrl: 'https://example.com/apple.jpg',
-        vocabularies: [createMockVocab('v1', 'apple', 'https://example.com/apple.jpg')],
+        vocabularies: [
+          createMockVocab('v1', 'apple', 'https://example.com/apple.jpg')
+        ],
+        capturedAt: DateTime.now(),
       ),
       PhotoEntry(
         imageUrl: 'https://example.com/cat.jpg',
-        vocabularies: [createMockVocab('v2', 'cat', 'https://example.com/cat.jpg')],
+        vocabularies: [
+          createMockVocab('v2', 'cat', 'https://example.com/cat.jpg')
+        ],
+        capturedAt: DateTime.now(),
       ),
       PhotoEntry(
         imageUrl: 'https://example.com/car.jpg',
-        vocabularies: [createMockVocab('v3', 'car', 'https://example.com/car.jpg')],
+        vocabularies: [
+          createMockVocab('v3', 'car', 'https://example.com/car.jpg')
+        ],
+        capturedAt: DateTime.now(),
       ),
     ];
 
@@ -63,6 +72,7 @@ void main() {
     // TD02: Selected PhotoEntry containing 2 linked vocabulary words
     final selectedPhotoEntry = PhotoEntry(
       imageUrl: 'https://example.com/apple.jpg',
+      capturedAt: DateTime.now(),
       vocabularies: [
         createMockVocab('v1', 'apple', 'https://example.com/apple.jpg'),
         createMockVocab('v2', 'cat', 'https://example.com/cat.jpg'),
@@ -97,10 +107,12 @@ void main() {
     final emptyPhotoEntry = PhotoEntry(
       imageUrl: 'https://example.com/empty.jpg',
       vocabularies: [],
+      capturedAt: DateTime.now(),
     );
 
     const isModalOpen = true;
-    final emptyStateMessage = emptyPhotoEntry.vocabularies.isEmpty ? 'No linked words found' : '';
+    final emptyStateMessage =
+        emptyPhotoEntry.vocabularies.isEmpty ? 'No linked words found' : '';
 
     expect(emptyPhotoEntry.vocabularies.isEmpty, isTrue);
     expect(emptyStateMessage, 'No linked words found');
@@ -125,7 +137,8 @@ void main() {
   test('UTC-34-TC04: Fallback placeholder on missing image asset', () {
     // TD04: Photo entry with corrupted/non-existent file path = "/invalid/path/missing_photo.png"
     const corruptedPath = '/invalid/path/missing_photo.png';
-    final isInvalid = corruptedPath.contains('invalid') || corruptedPath.contains('missing');
+    final isInvalid =
+        corruptedPath.contains('invalid') || corruptedPath.contains('missing');
     final fallbackIcon = isInvalid ? 'Icons.image_outlined' : 'Image.network';
     final errorHandled = isInvalid;
 
@@ -150,4 +163,3 @@ void main() {
     );
   });
 }
-

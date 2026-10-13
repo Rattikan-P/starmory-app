@@ -139,14 +139,22 @@ class UserModel extends Equatable {
 
     print('   Calendar days since last activity: $daysDifference');
 
+    if (daysDifference < 0) {
+      print('   ℹ️ Future activity date clamped to today');
+      return copyWith(
+        lastStreakActivityDate: today,
+        streakStateUpdatedAt: now,
+      );
+    }
+
     // Already did activity today
     if (daysDifference == 0) {
       print('   ℹ️ Already updated today → no change');
       return copyWith(streakStateUpdatedAt: now);
     }
 
-    // Consecutive day (yesterday -> today, daysDifference == 1)
-    if (daysDifference == 1) {
+    // Allow one missed calendar day, matching the registered-user streak rule.
+    if (daysDifference <= 2) {
       final newStreak = currentStreak + 1;
       final newLongestStreak =
           newStreak > longestStreak ? newStreak : longestStreak;
@@ -156,7 +164,7 @@ class UserModel extends Equatable {
         newShields = shields + 1;
       }
 
-      print('   ✅ Consecutive day → streak=$newStreak, shields=$newShields');
+      print('   ✅ Within grace period → streak=$newStreak, shields=$newShields');
       return copyWith(
         currentStreak: newStreak,
         longestStreak: newLongestStreak,
@@ -166,55 +174,19 @@ class UserModel extends Equatable {
       );
     }
 
-    // Missed 1 day (e.g. Monday -> Wednesday, missed Tuesday, daysDifference == 2)
-    if (daysDifference == 2) {
-      if (shields > 0) {
-        final newShields = shields - 1;
-        final newStreak = currentStreak + 1;
-        final newLongestStreak =
-            newStreak > longestStreak ? newStreak : longestStreak;
-        print(
-            '   🛡️ Protected by shield! → streak=$newStreak, shields=$newShields');
-        return copyWith(
-          currentStreak: newStreak,
-          longestStreak: newLongestStreak,
-          shields: newShields,
-          lastStreakActivityDate: now,
-          streakStateUpdatedAt: now,
-        );
-      } else {
-        print('   💀 Missed 1 day without shields → streak reset to 1');
-        return copyWith(
-          currentStreak: 1,
-          shields: shields,
-          lastStreakActivityDate: now,
-          streakStateUpdatedAt: now,
-        );
-      }
-    }
-
-    // Missed multiple days (daysDifference > 2)
-    final missedDays = daysDifference - 1;
-    if (shields >= missedDays) {
-      final newShields = shields - missedDays;
-      final newStreak = currentStreak + 1;
-      final newLongestStreak =
-          newStreak > longestStreak ? newStreak : longestStreak;
-      print(
-          '   🛡️ Protected by $missedDays shields! → streak=$newStreak, shields=$newShields');
+    // Longer gaps consume one shield and preserve the current streak value.
+    if (shields > 0) {
+      final newShields = shields - 1;
+      print('   🛡️ Protected by shield! → streak=$currentStreak, shields=$newShields');
       return copyWith(
-        currentStreak: newStreak,
-        longestStreak: newLongestStreak,
         shields: newShields,
         lastStreakActivityDate: now,
         streakStateUpdatedAt: now,
       );
     } else {
-      print(
-          '   💀 Missed $missedDays days (insufficient shields) → streak reset to 1');
+      print('   💀 Missed multiple days without shields → streak reset to 1');
       return copyWith(
         currentStreak: 1,
-        shields: 0,
         lastStreakActivityDate: now,
         streakStateUpdatedAt: now,
       );

@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -8,8 +10,12 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import 'package:permission_handler/permission_handler.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../data/models/scrapbook_model.dart';
+import '../../data/models/vocabulary_model.dart';
+import '../../data/services/dictionary_service.dart';
 import '../../core/utils/safe_image_picker.dart';
 import '../../core/utils/image_picker_error_message.dart';
+import '../../core/services/widget_service.dart';
 import 'home_tab.dart';
 import 'review_tab.dart';
 import 'scrapbook_tab.dart';
@@ -19,6 +25,8 @@ import 'auth/account_method_page.dart';
 import '../widgets/permission_required_dialog.dart';
 import '../widgets/tokenized_notice_dialogs.dart';
 import '../widgets/bottom_sheet_chrome.dart';
+import '../widgets/scrapbook_detail_sheet.dart';
+import '../widgets/vocabulary_detail_bottom_sheet.dart';
 import '../providers/providers.dart';
 
 // Track last synced user ID to ensure syncing when switching accounts
@@ -26,7 +34,9 @@ String? _lastSyncedUserId;
 
 /// Main Navigation Screen with Floating Bottom Navigation Bar
 class MainNavigationScreen extends ConsumerStatefulWidget {
-  const MainNavigationScreen({super.key});
+  final Uri? initialWidgetUri;
+
+  const MainNavigationScreen({super.key, this.initialWidgetUri});
 
   @override
   ConsumerState<MainNavigationScreen> createState() =>
@@ -46,7 +56,241 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _syncOnAppOpen();
+      _updateWidgetOnLaunch();
+      final initialWidgetUri = widget.initialWidgetUri;
+      if (initialWidgetUri != null) {
+        _routeWidgetDeepLink(initialWidgetUri);
+      }
     });
+  }
+
+  Future<void> _updateWidgetOnLaunch() async {
+    await _updateWidgetWithStreak();
+  }
+
+  Future<void> _updateWidgetWithStreak([int? explicitStreak]) async {
+    try {
+      final reviewService = ref.read(reviewServiceProvider);
+
+      // 1. If explicit streak passed, use it
+      // 2. Otherwise try streakProvider (SSOT for streak)
+      // 3. Otherwise try userStateProvider (SSOT for user/guest)
+      // 4. Fallback to currentStreakProvider
+      final streak = explicitStreak ??
+          ref.read(streakProvider)?.currentStreak ??
+          ref.read(userStateProvider).user?.currentStreak ??
+          ref.read(currentStreakProvider);
+      final streakData = ref.read(streakProvider);
+      final user = ref.read(userStateProvider).user;
+
+      await WidgetService.updateWidgetWithDueCard(
+        reviewService,
+        streak: streak,
+        lastActivityDate:
+            streakData?.lastActivityDate ?? user?.lastStreakActivityDate,
+        shields: streakData?.shieldsAvailable ?? user?.shields ?? 0,
+      );
+    } catch (_) {}
+  }
+
+  String? _lastHandledUriStr;
+  DateTime? _lastHandledTime;
+
+  /// Route a starmory:// deep link to the correct tab or action.
+  ///
+  /// starmory://review             → Review tab (index 1)
+  /// starmory://camera             → Camera modal (same as FAB + camera)
+  /// starmory://scrapbook/{id}     → A scrapbook entry
+  /// starmory://scrapbook-day      → Today's scrapbook detail sheet
+  void _routeWidgetDeepLink(Uri? uri) {
+    if (uri == null || !mounted) return;
+
+    final uriStr = uri.toString();
+    final now = DateTime.now();
+    if (_lastHandledUriStr == uriStr &&
+        _lastHandledTime != null &&
+        now.difference(_lastHandledTime!).inMilliseconds < 2000) {
+      return;
+    }
+    _lastHandledUriStr = uriStr;
+    _lastHandledTime = now;
+
+    final host = uri.host; // "review", "camera", "scrapbook"
+    final segments = uri.pathSegments; // e.g. ["abc123"] for scrapbook/{id}
+
+    switch (host) {
+      case 'review':
+        ref.read(navigationProvider.notifier).goReview();
+        break;
+
+      case 'progress':
+        ref.read(navigationProvider.notifier).setIndex(3);
+        break;
+
+      case 'home':
+        final tab = uri.queryParameters['tab'];
+        if (tab == 'progress') {
+          ref.read(navigationProvider.notifier).setIndex(3);
+        } else {
+          ref.read(navigationProvider.notifier).goHome();
+        }
+        break;
+
+      case 'camera':
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) unawaited(_pickImage(ImageSource.camera));
+        });
+        break;
+
+      case 'vocab':
+        final vocabId = uri.queryParameters['id'] ??
+            (segments.isNotEmpty ? segments.first : null);
+        final word = uri.queryParameters['word'];
+        if (vocabId != null && vocabId.isNotEmpty) {
+          unawaited(_openVocabularyDetails(vocabId, word: word));
+        } else {
+          ref.read(navigationProvider.notifier).goReview();
+        }
+        break;
+
+      case 'scrapbook':
+        ref.read(navigationProvider.notifier).goScrapbook(
+              scrapbookId: segments.isEmpty ? null : segments.first,
+              scrapbookWord: uri.queryParameters['word'],
+            );
+        break;
+
+      case 'scrapbook-day':
+        unawaited(
+          _openWidgetScrapbook(
+            vocabularyId: uri.queryParameters['vocabId'],
+            word: uri.queryParameters['word'],
+            imagePath: uri.queryParameters['image'],
+          ),
+        );
+        break;
+    }
+  }
+
+  Future<void> _openWidgetScrapbook({
+    String? vocabularyId,
+    String? word,
+    String? imagePath,
+  }) async {
+    if (_isOpeningWidgetScrapbook) return;
+    _isOpeningWidgetScrapbook = true;
+
+    try {
+      var vocabularies = ref.read(vocabularyStateProvider).vocabularies;
+      VocabularyModel? vocabulary =
+          vocabularies.where((item) => item.id == vocabularyId).firstOrNull;
+      if (vocabularyId != null && vocabulary == null) {
+        await ref.read(vocabularyStateProvider.notifier).refresh();
+        if (!mounted) return;
+        vocabularies = ref.read(vocabularyStateProvider).vocabularies;
+        vocabulary =
+            vocabularies.where((item) => item.id == vocabularyId).firstOrNull;
+      }
+
+      var scrapbookState = ref.read(scrapbookStateProvider);
+      if (scrapbookState.isLoading) {
+        await ref.read(scrapbookStateProvider.notifier).refresh();
+        if (!mounted) return;
+        scrapbookState = ref.read(scrapbookStateProvider);
+      }
+
+      final targetWord = (word ?? vocabulary?.word)?.trim().toLowerCase();
+      final relatedScrapbooks = targetWord == null || targetWord.isEmpty
+          ? <ScrapbookModel>[]
+          : scrapbookState.scrapbooks.where((entry) {
+              return entry.vocabularyWords.any(
+                (entryWord) =>
+                    entryWord.word.trim().toLowerCase() == targetWord,
+              );
+            }).toList();
+
+      final targetImage =
+          _normalizeImageReference(vocabulary?.imageUrl ?? imagePath ?? '');
+      final matchingScrapbook = (targetImage.isEmpty
+              ? null
+              : relatedScrapbooks
+                  .where(
+                    (entry) =>
+                        _normalizeImageReference(entry.imagePath) ==
+                        targetImage,
+                  )
+                  .firstOrNull) ??
+          (targetImage.isEmpty ? relatedScrapbooks.firstOrNull : null);
+
+      if (matchingScrapbook != null && mounted) {
+        await showScrapbookDetailSheet(
+          context,
+          scrapbooks: [matchingScrapbook],
+        );
+        return;
+      }
+
+      if (mounted) {
+        ref.read(navigationProvider.notifier).goScrapbook();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No matching memory found')),
+        );
+      }
+    } finally {
+      _isOpeningWidgetScrapbook = false;
+    }
+  }
+
+  bool _isOpeningWidgetScrapbook = false;
+
+  String _normalizeImageReference(String reference) {
+    final trimmed = reference.trim();
+    if (trimmed.isEmpty) return '';
+    final uri = Uri.tryParse(trimmed);
+    if (uri?.scheme == 'file') return uri!.path;
+    return trimmed.replaceAll(r'\', '/');
+  }
+
+  Future<void> _openVocabularyDetails(String vocabularyId,
+      {String? word}) async {
+    var vocabularies = ref.read(vocabularyStateProvider).vocabularies;
+    var vocabulary =
+        vocabularies.where((item) => item.id == vocabularyId).firstOrNull;
+    if (vocabulary == null) {
+      await ref.read(vocabularyStateProvider.notifier).refresh();
+      if (!mounted) return;
+      vocabularies = ref.read(vocabularyStateProvider).vocabularies;
+      vocabulary =
+          vocabularies.where((item) => item.id == vocabularyId).firstOrNull;
+    }
+
+    final selectedVocabulary = vocabulary;
+    if (selectedVocabulary == null || !mounted) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              word == null
+                  ? 'This vocabulary could not be found'
+                  : '“$word” could not be found in your collection',
+            ),
+          ),
+        );
+      }
+      return;
+    }
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => VocabularyDetailBottomSheet(
+        vocabulary: selectedVocabulary,
+        dictionaryService: DictionaryService(),
+        allVocabularies: vocabularies,
+      ),
+    );
   }
 
   Future<void> _syncOnAppOpen() async {
@@ -337,6 +581,31 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Keep widget in sync whenever streak or user state changes (e.g. after async load/sync)
+    ref.listen(streakProvider, (prev, next) {
+      if (next != null) {
+        _updateWidgetWithStreak(next.currentStreak);
+      }
+    });
+    ref.listen<UserState>(userStateProvider, (prev, next) {
+      final streak = next.user?.currentStreak;
+      if (streak != null) {
+        _updateWidgetWithStreak(streak);
+      }
+    });
+    ref.listen<VocabularyState>(vocabularyStateProvider, (previous, next) {
+      if (previous == null ||
+          next.isLoading ||
+          next.error != null ||
+          listEquals(previous.vocabularies, next.vocabularies)) {
+        return;
+      }
+      final streak = ref.read(streakProvider)?.currentStreak ??
+          ref.read(userStateProvider).user?.currentStreak ??
+          ref.read(currentStreakProvider);
+      unawaited(_updateWidgetWithStreak(streak));
+    });
+
     final currentIndex = ref.watch(navigationProvider).currentIndex;
 
     return Scaffold(

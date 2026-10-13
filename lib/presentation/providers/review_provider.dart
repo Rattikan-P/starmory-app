@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/word_card_model.dart';
 import '../../data/services/review_service.dart';
 import '../../core/utils/fsrs_helper.dart';
+import '../../core/services/widget_service.dart';
 import 'providers.dart';
 
 // Flag to track if streak has been updated in current session
@@ -188,6 +189,20 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
         previousCardState: null,
         currentTopicFilter: topicFilter, // Save current topic filter
       );
+
+      // Update home screen widget with next due card
+      final user = _ref?.read(userStateProvider).user;
+      final streakData = _ref?.read(streakProvider);
+      final streak = (user != null && user.isGuest)
+          ? user.currentStreak
+          : _ref?.read(currentStreakProvider) ?? 0;
+      WidgetService.updateWidgetWithDueCard(
+        _reviewService,
+        streak: streak,
+        lastActivityDate:
+            streakData?.lastActivityDate ?? user?.lastStreakActivityDate,
+        shields: streakData?.shieldsAvailable ?? user?.shields ?? 0,
+      ).ignore();
     } catch (e) {
       state = ReviewState(
         isLoading: false,
@@ -227,8 +242,7 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
           await _recordLearningActivity!();
         } else if (currentUser?.isGuest == true && _ref != null) {
           final streakNotifier = _ref.read(streakProvider.notifier);
-          final streakIncreased =
-              await streakNotifier.recordLearningActivity();
+          final streakIncreased = await streakNotifier.recordLearningActivity();
           if (streakIncreased) {
             streakEarned = _ref.read(streakProvider)?.currentStreak;
           }
@@ -287,6 +301,20 @@ class ReviewNotifier extends StateNotifier<ReviewState> {
       await _reviewService.saveUserStats(
         totalReviewsCompleted: totalReviews,
       );
+
+      // Update home screen widget with next due card after each review
+      final reviewUser = _ref?.read(userStateProvider).user;
+      final streakData = _ref?.read(streakProvider);
+      final streak = (reviewUser != null && reviewUser.isGuest)
+          ? reviewUser.currentStreak
+          : _ref?.read(currentStreakProvider) ?? 0;
+      WidgetService.updateWidgetWithDueCard(
+        _reviewService,
+        streak: streak,
+        lastActivityDate:
+            streakData?.lastActivityDate ?? reviewUser?.lastStreakActivityDate,
+        shields: streakData?.shieldsAvailable ?? reviewUser?.shields ?? 0,
+      ).ignore();
       return streakEarned;
     } catch (e) {
       print('❌ [SwipeCard] Error: $e');
