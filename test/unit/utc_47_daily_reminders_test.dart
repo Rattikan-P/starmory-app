@@ -16,8 +16,8 @@ import '../test_helpers.mocks.dart';
 /// Test Function: NotificationService.scheduleDailyReminders(), NotificationService.cancelDailyReminders(),
 ///               NotificationService.onActivityCompletedToday(), NotificationService.requestPermission(),
 ///               ReminderVocabularyRotation.buildCandidates(), ReminderVocabularyRotation.selectBatch(),
-///               ProfileTabState._toggleNotification(), ProfileTabState._pickReminderTime(),
-///               MainNavigationState._initNotifications()
+///               _PreferencesSectionState._toggleNotification(), _PreferencesSectionState._pickReminderTime(),
+///               _MainNavigationScreenState._initNotifications()
 ///
 /// Description: This test verifies that the system correctly manages daily learning reminders in the Profile screen (UC-22).
 /// It checks the default-off toggle state, permission request and denial dialog handling, time selection and 24-hour persistence,
