@@ -12,8 +12,9 @@ import '../test_helpers.mocks.dart';
 /// UTC-46: Interact with Home Screen Widget (UC-21)
 /// Test ID: UTC-46
 /// Test Function: WidgetService.updateWidgetWithDueCard(), WidgetVocabularySelection.buildQueue(),
-///               WidgetVocabularySelection.selectForDay(), VocabCompactWidgetProvider,
-///               VocabWidgetProvider, WidgetMidnightReceiver.onReceive(), MainNavigationState._handleDeepLink()
+///               WidgetVocabularySelection.selectForDay(), WidgetVocabularySelection.buildScrapbookDateLookup(),
+///               VocabCompactWidgetProvider.updateWidget(), VocabWidgetProvider.updateWidget(),
+///               WidgetMidnightReceiver.onReceive(), _MainNavigationScreenState._routeWidgetDeepLink()
 ///
 /// Description: This test case is created to test the Interact with Home Screen Widget functionality (UC-21).
 /// It checks Compact (2x2) and Expanded (4x2) widget layout data binding, FSRS-due vocabulary prioritization queue,
@@ -368,14 +369,32 @@ void main() {
     // UTC-46-TC08: Midnight auto-refresh rotates word and streak (SRS-255)
     // ------------------------------------------------------------------------
     test('UTC-46-TC08: Midnight auto-refresh rotates word and streak', () {
-      final cachedQueue = [
-        {'word': 'ASTRONAUT', 'streak': '5'},
-        {'word': 'TELESCOPE', 'streak': '5'},
-        {'word': 'NEBULA', 'streak': '5'},
-      ];
+      final vocab1 = makeVocab('vocab-1', word: 'ASTRONAUT');
+      final vocab2 = makeVocab('vocab-2', word: 'TELESCOPE');
+      final vocab3 = makeVocab('vocab-3', word: 'NEBULA');
 
-      final nextWord = cachedQueue[1]['word'];
-      expect(nextWord, 'TELESCOPE');
+      final queue = WidgetVocabularySelection.buildQueue(
+        dueVocabulary: [vocab1, vocab2, vocab3],
+        libraryVocabulary: [],
+      );
+
+      // Simulates WidgetMidnightReceiver.onReceive() advancing daySeed (year * 366 + dayOfYear)
+      final day1Word = WidgetVocabularySelection.selectForDay(
+        queue: queue,
+        dueVocabularyCount: 3,
+        daySeed: 100, // 100 % 3 = index 1 -> TELESCOPE
+      );
+      final day2Word = WidgetVocabularySelection.selectForDay(
+        queue: queue,
+        dueVocabularyCount: 3,
+        daySeed: 101, // 101 % 3 = index 2 -> NEBULA
+      );
+
+      expect(day1Word, isNotNull);
+      expect(day2Word, isNotNull);
+      expect(day1Word?.word, 'TELESCOPE');
+      expect(day2Word?.word, 'NEBULA');
+      expect(day2Word?.word, isNot(equals(day1Word?.word)));
 
       final expected = {
         'midnightAlarmFired': true,
@@ -384,7 +403,7 @@ void main() {
       };
       final actual = {
         'midnightAlarmFired': true,
-        'nextWordSelected': nextWord != cachedQueue[0]['word'],
+        'nextWordSelected': day2Word?.word != day1Word?.word,
         'appLaunched': false,
       };
 
