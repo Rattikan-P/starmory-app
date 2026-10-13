@@ -18,6 +18,7 @@ import '../../core/utils/safe_image_picker.dart';
 import '../../core/utils/image_picker_error_message.dart';
 import '../../core/services/widget_service.dart';
 import '../../core/services/notification_service.dart';
+import 'package:home_widget/home_widget.dart';
 import 'home_tab.dart';
 import 'review_tab.dart';
 import 'scrapbook_tab.dart';
@@ -46,6 +47,8 @@ class MainNavigationScreen extends ConsumerStatefulWidget {
 }
 
 class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
+  StreamSubscription<Uri?>? _widgetClickSubscription;
+
   final List<Widget> _tabs = const [
     HomeTab(),
     ReviewTab(),
