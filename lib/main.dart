@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -48,12 +49,18 @@ void main() async {
   // Pre-resolve onboarding status before runApp so first frame goes directly to the app
   final onboardingCompleted = await appStateService.isOnboardingCompleted();
 
+  Uri? initialWidgetUri;
   // Initialize Home Screen Widget bridge (Android/iOS only)
   if (!kIsWeb) {
     await WidgetService.initialize();
+    // Register interactivity callback so WorkManager can trigger widget updates
     HomeWidget.registerInteractivityCallback(widgetBackgroundCallback);
+    try {
+      initialWidgetUri = await HomeWidget.initiallyLaunchedFromHomeWidget();
+    } catch (error, stackTrace) {
+      debugPrint('Failed to retrieve initial widget URI: $error\n$stackTrace');
+    }
   }
-
   runApp(
     ProviderScope(
       overrides: [
@@ -62,6 +69,7 @@ void main() async {
       child: MyApp(
         appStateService: appStateService,
         initialOnboardingCompleted: onboardingCompleted,
+        initialWidgetUri: initialWidgetUri,
       ),
     ),
   );
@@ -70,11 +78,13 @@ void main() async {
 class MyApp extends ConsumerStatefulWidget {
   final AppStateService appStateService;
   final bool? initialOnboardingCompleted;
+  final Uri? initialWidgetUri;
 
   const MyApp({
     super.key,
     required this.appStateService,
     this.initialOnboardingCompleted,
+    this.initialWidgetUri,
   });
 
   @override
@@ -83,12 +93,69 @@ class MyApp extends ConsumerStatefulWidget {
 
 class _MyAppState extends ConsumerState<MyApp> {
   bool? _onboardingCompleted; // เก็บค่าไว้ใน state
+  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+  Uri? _widgetLaunchUri;
+  StreamSubscription<Uri?>? _widgetClickSubscription;
+  String? _lastWidgetUri;
+  DateTime? _lastWidgetUriTime;
 
   @override
   void initState() {
     super.initState();
     _onboardingCompleted = widget.initialOnboardingCompleted;
+    _widgetLaunchUri = widget.initialWidgetUri;
+    if (_widgetLaunchUri?.scheme == 'starmory') {
+      _lastWidgetUri = _widgetLaunchUri.toString();
+      _lastWidgetUriTime = DateTime.now();
+    }
+    _widgetClickSubscription = HomeWidget.widgetClicked.listen(
+      _handleWidgetClick,
+      onError: (Object error) {
+        debugPrint('Failed to receive widget launch URI: $error');
+      },
+    );
     _initializeApp();
+  }
+
+  void _handleWidgetClick(Uri? uri) {
+    if (!mounted || uri?.scheme != 'starmory') return;
+
+    final uriString = uri.toString();
+    final now = DateTime.now();
+    if (_lastWidgetUri == uriString &&
+        _lastWidgetUriTime != null &&
+        now.difference(_lastWidgetUriTime!).inMilliseconds < 2000) {
+      return;
+    }
+    _lastWidgetUri = uriString;
+    _lastWidgetUriTime = now;
+    _widgetLaunchUri = uri;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (!ref.read(appInitializationProvider).isInitialized) {
+        setState(() {});
+        return;
+      }
+      final navigator = _navigatorKey.currentState;
+      if (navigator == null) {
+        setState(() {});
+        return;
+      }
+
+      navigator.pushAndRemoveUntil<void>(
+        MaterialPageRoute<void>(
+          builder: (_) => MainNavigationScreen(initialWidgetUri: uri),
+        ),
+        (_) => false,
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _widgetClickSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _initializeApp() async {
@@ -108,7 +175,8 @@ class _MyAppState extends ConsumerState<MyApp> {
         }
       }
 
-      ref.read(appInitializationProvider.notifier).state = AppInitialization.initialized;
+      ref.read(appInitializationProvider.notifier).state =
+          AppInitialization.initialized;
     } catch (e) {
       ref.read(appInitializationProvider.notifier).state =
           AppInitialization(isInitialized: false, error: e.toString());
@@ -121,6 +189,7 @@ class _MyAppState extends ConsumerState<MyApp> {
     final initializationState = ref.watch(appInitializationProvider);
 
     return MaterialApp(
+      navigatorKey: _navigatorKey,
       debugShowCheckedModeBanner: false,
       title: 'Starmory',
       theme: ThemeData(
@@ -131,8 +200,10 @@ class _MyAppState extends ConsumerState<MyApp> {
         useMaterial3: true,
         dialogTheme: DesignTokens.dialogTheme,
         actionIconTheme: ActionIconThemeData(
-          backButtonIconBuilder: (context) =>
-              const Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: Color(0xFF1F2937)),
+          backButtonIconBuilder: (context) => const Icon(
+              Icons.arrow_back_ios_new_rounded,
+              size: 20,
+              color: Color(0xFF1F2937)),
         ),
         textTheme: GoogleFonts.notoSansThaiTextTheme(
           GoogleFonts.poppinsTextTheme(ThemeData.light().textTheme),
@@ -146,8 +217,10 @@ class _MyAppState extends ConsumerState<MyApp> {
         useMaterial3: true,
         dialogTheme: DesignTokens.dialogTheme,
         actionIconTheme: ActionIconThemeData(
-          backButtonIconBuilder: (context) =>
-              const Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: Color(0xFF1F2937)),
+          backButtonIconBuilder: (context) => const Icon(
+              Icons.arrow_back_ios_new_rounded,
+              size: 20,
+              color: Color(0xFF1F2937)),
         ),
         textTheme: GoogleFonts.notoSansThaiTextTheme(
           GoogleFonts.poppinsTextTheme(ThemeData.dark().textTheme),
@@ -165,8 +238,16 @@ class _MyAppState extends ConsumerState<MyApp> {
     }
 
     Widget currentScreen;
-    // Show splash screen while loading and checking onboarding
-    if (_onboardingCompleted == null) {
+    if (_widgetLaunchUri?.scheme == 'starmory' &&
+        initializationState.isInitialized) {
+      currentScreen = MainNavigationScreen(
+        key: const ValueKey('main_nav'),
+        initialWidgetUri: _widgetLaunchUri,
+      );
+    } else if (_widgetLaunchUri?.scheme == 'starmory') {
+      currentScreen = const SplashScreen(key: ValueKey('splash'));
+    } else if (_onboardingCompleted == null) {
+      // Show splash screen while loading and checking onboarding
       currentScreen = const SplashScreen(key: ValueKey('splash'));
     } else if (_onboardingCompleted!) {
       currentScreen = const MainNavigationScreen(key: ValueKey('main_nav'));
@@ -175,7 +256,9 @@ class _MyAppState extends ConsumerState<MyApp> {
     }
 
     return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 400),
+      duration: _widgetLaunchUri?.scheme == 'starmory'
+          ? Duration.zero
+          : const Duration(milliseconds: 400),
       child: currentScreen,
     );
   }

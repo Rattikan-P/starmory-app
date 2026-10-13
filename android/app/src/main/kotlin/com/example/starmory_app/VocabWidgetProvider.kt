@@ -50,6 +50,7 @@ class VocabWidgetProvider : AppWidgetProvider() {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
             val hasData   = prefs.getBoolean("widget_has_data", false)
+            val hasError  = prefs.getBoolean("widget_has_error", false)
             val word      = prefs.getString("widget_word", "") ?: ""
             val trans     = prefs.getString("widget_translation", "") ?: ""
             val sentence  = prefs.getString("widget_sentence", "") ?: ""
@@ -58,7 +59,9 @@ class VocabWidgetProvider : AppWidgetProvider() {
             val dateStr   = prefs.getString("widget_date", "") ?: ""
             val streak    = getIntSafe(prefs, "widget_streak", 0)
 
-            val views = if (!hasData || word.isEmpty()) {
+            val views = if (hasError) {
+                buildErrorView(context)
+            } else if (!hasData || word.isEmpty()) {
                 buildEmptyView(context)
             } else {
                 buildVocabView(
@@ -92,6 +95,14 @@ class VocabWidgetProvider : AppWidgetProvider() {
             val requestCode = System.currentTimeMillis().toInt()
             val cameraIntent = buildDeepLinkIntent(context, "starmory://camera", requestCode)
             views.setOnClickPendingIntent(R.id.widget_root, cameraIntent)
+            return views
+        }
+
+        private fun buildErrorView(context: Context): RemoteViews {
+            val views = RemoteViews(context.packageName, R.layout.widget_vocab_4x2_error)
+            val requestCode = System.currentTimeMillis().toInt()
+            val homeIntent = buildDeepLinkIntent(context, "starmory://home", requestCode)
+            views.setOnClickPendingIntent(R.id.widget_root, homeIntent)
             return views
         }
 
@@ -131,7 +142,7 @@ class VocabWidgetProvider : AppWidgetProvider() {
             }
 
             // Deep link tap actions
-            setTapActions(context, views, vocabId, word)
+            setTapActions(context, views, vocabId, word, imagePath)
 
             return views
         }
@@ -140,19 +151,22 @@ class VocabWidgetProvider : AppWidgetProvider() {
             context: Context,
             views: RemoteViews,
             vocabId: String,
-            word: String
+            word: String,
+            imagePath: String
         ) {
             val requestCode = System.currentTimeMillis().toInt()
 
-            // 1. Tap word / image / content → open Vocab detail
-            val wordDeepLink = if (vocabId.isNotEmpty()) {
-                "starmory://vocab?id=$vocabId&word=$word"
-            } else {
-                "starmory://review"
-            }
-            val wordIntent = buildDeepLinkIntent(context, wordDeepLink, requestCode)
-            views.setOnClickPendingIntent(R.id.widget_content_area, wordIntent)
-            views.setOnClickPendingIntent(R.id.widget_image, wordIntent)
+            // Open the scrapbook created from this photo and vocabulary.
+            val scrapbookUri = Uri.parse("starmory://scrapbook-day").buildUpon()
+                .appendQueryParameter("vocabId", vocabId)
+                .appendQueryParameter("word", word)
+                .appendQueryParameter("image", imagePath)
+                .build()
+            val scrapbookIntent = buildDeepLinkIntent(context, scrapbookUri.toString(), requestCode)
+            views.setOnClickPendingIntent(R.id.widget_root, scrapbookIntent)
+            views.setOnClickPendingIntent(R.id.widget_content_area, scrapbookIntent)
+            views.setOnClickPendingIntent(R.id.widget_image, scrapbookIntent)
+            views.setOnClickPendingIntent(R.id.widget_date, scrapbookIntent)
 
             // 2. Tap streak badge → open Progress tab
             val progressIntent = buildDeepLinkIntent(context, "starmory://home?tab=progress", requestCode + 1)

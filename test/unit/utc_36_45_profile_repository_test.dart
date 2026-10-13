@@ -33,10 +33,12 @@ import '../test_helpers.dart';
 import 'utc_36_45_profile_repository_test.mocks.dart';
 
 // Custom Fake implementation for PostgrestFilterBuilder that can be awaited
-class FakePostgrestFilterBuilder<T> extends Fake implements PostgrestFilterBuilder<T> {
+class FakePostgrestFilterBuilder<T> extends Fake
+    implements PostgrestFilterBuilder<T> {
   final Future<T> _future;
 
-  FakePostgrestFilterBuilder([Future<T>? future]) : _future = future ?? Future.value(null as T);
+  FakePostgrestFilterBuilder([Future<T>? future])
+      : _future = future ?? Future.value(null as T);
 
   @override
   Future<R> then<R>(FutureOr<R> Function(T) onValue, {Function? onError}) {
@@ -125,10 +127,16 @@ void main() {
     // Mock successful auth and database operations by default
     when(mockGoTrueClient.updateUser(any))
         .thenAnswer((_) async => mockUserResponse);
-    when(mockSupabaseClient.from('users')).thenAnswer((_) => mockSupabaseQueryBuilder as dynamic);
+    when(mockSupabaseClient.from('users'))
+        .thenAnswer((_) => mockSupabaseQueryBuilder as dynamic);
     // Use FakePostgrestFilterBuilder instead of Mock for better await support
     final fakeFilterBuilder = FakePostgrestFilterBuilder<dynamic>();
-    when(mockSupabaseQueryBuilder.update(any)).thenAnswer((_) => fakeFilterBuilder as dynamic);
+    when(mockSupabaseQueryBuilder.update(any))
+        .thenAnswer((_) => fakeFilterBuilder as dynamic);
+    when(mockSupabaseClient.from('learning_activity_days'))
+        .thenAnswer((_) => mockSupabaseQueryBuilder as dynamic);
+    when(mockSupabaseQueryBuilder.delete())
+        .thenAnswer((_) => fakeFilterBuilder as dynamic);
 
     repository = ProfileRepository(
       authService: mockAuthService,
@@ -179,10 +187,13 @@ void main() {
         verify(mockSupabaseQueryBuilder.update(any)).called(1);
 
         // Assert the result is successful
-        expect(result.success, isTrue, reason: 'Update should succeed with proper mocking, got error: ${result.error}');
+        expect(result.success, isTrue,
+            reason:
+                'Update should succeed with proper mocking, got error: ${result.error}');
       });
 
-      test('UT-36-TC02: Validation fails - name too short (< 2 chars)', () async {
+      test('UT-36-TC02: Validation fails - name too short (< 2 chars)',
+          () async {
         // Arrange - TD02: Valid display name = "A" (min 2 chars = fails)
         const displayName = TestData.displayNameSingleChar;
 
@@ -358,7 +369,8 @@ void main() {
 
         // Verify the result is a failure
         expect(result.success, isFalse);
-        expect(result.error, equals('Failed to save changes. Please try again.'));
+        expect(
+            result.error, equals('Failed to save changes. Please try again.'));
       });
 
       test('UT-36-TC08: Database update fails (auth success)', () async {
@@ -383,7 +395,6 @@ void main() {
           actualOutput: actual,
         );
       });
-
     });
   });
 
@@ -410,7 +421,8 @@ void main() {
         printTestOutputSimple(
           testId: 'UT-37-TC01',
           description: 'Upload valid JPEG via camera',
-          input: 'File: ${TestData.validJpegPhoto}, Source: camera, Permission granted',
+          input:
+              'File: ${TestData.validJpegPhoto}, Source: camera, Permission granted',
           expectedOutput: expected,
           actualOutput: actual,
         );
@@ -732,7 +744,8 @@ void main() {
     group('Expected Output Structures', () {
       test('UT-39-TC01: Guest user - Save A1 to local storage', () async {
         // Arrange - TD01: Guest user, selects A1
-        when(mockHiveService.getCurrentUser()).thenAnswer((_) async => guestUser);
+        when(mockHiveService.getCurrentUser())
+            .thenAnswer((_) async => guestUser);
         when(mockHiveService.saveUser(any)).thenAnswer((_) async {});
 
         // Act
@@ -768,7 +781,8 @@ void main() {
         final guestWithB2 = guestUser.copyWith(
           preferences: {'defaultCefrLevel': 'B2'},
         );
-        when(mockHiveService.getCurrentUser()).thenAnswer((_) async => guestWithB2);
+        when(mockHiveService.getCurrentUser())
+            .thenAnswer((_) async => guestWithB2);
         when(mockHiveService.saveUser(any)).thenAnswer((_) async {});
 
         // Act
@@ -800,7 +814,8 @@ void main() {
 
       test('UT-39-TC03: Registered user - Sync A2 to database', () async {
         // Arrange - TD03: Registered user, selects A2
-        when(mockHiveService.getCurrentUser()).thenAnswer((_) async => registeredUser);
+        when(mockHiveService.getCurrentUser())
+            .thenAnswer((_) async => registeredUser);
         when(mockHiveService.saveUser(any)).thenAnswer((_) async {});
 
         // Act
@@ -832,7 +847,8 @@ void main() {
 
       test('UT-39-TC04: Registered user - Sync B1 to database', () async {
         // Arrange - TD04: Registered user, selects B1
-        when(mockHiveService.getCurrentUser()).thenAnswer((_) async => registeredUser);
+        when(mockHiveService.getCurrentUser())
+            .thenAnswer((_) async => registeredUser);
         when(mockHiveService.saveUser(any)).thenAnswer((_) async {});
 
         // Act
@@ -864,7 +880,8 @@ void main() {
 
       test('UT-39-TC05: Local storage update fails', () async {
         // Arrange - TD01, TD05: Update to local storage fails
-        when(mockHiveService.getCurrentUser()).thenAnswer((_) async => guestUser);
+        when(mockHiveService.getCurrentUser())
+            .thenAnswer((_) async => guestUser);
         when(mockHiveService.saveUser(any)).thenThrow(Exception('Save failed'));
 
         // Act
@@ -872,7 +889,8 @@ void main() {
 
         // Assert
         expect(result.success, isFalse);
-        expect(result.error, equals('Failed to update preference. Please try again.'));
+        expect(result.error,
+            equals('Failed to update preference. Please try again.'));
 
         final expected = {
           'saved': false,
@@ -919,7 +937,6 @@ void main() {
           actualOutput: actual,
         );
       });
-
     });
   });
 
@@ -947,7 +964,8 @@ void main() {
     group('Expected Output Structures', () {
       test('UT-40-TC01: Guest user - Save US to local storage', () async {
         // Arrange - TD01: Guest user, selects US
-        when(mockHiveService.getCurrentUser()).thenAnswer((_) async => guestUser);
+        when(mockHiveService.getCurrentUser())
+            .thenAnswer((_) async => guestUser);
         when(mockHiveService.saveUser(any)).thenAnswer((_) async {});
 
         // Act
@@ -983,7 +1001,8 @@ void main() {
         final guestWithUK = guestUser.copyWith(
           preferences: {'languageVariant': 'UK'},
         );
-        when(mockHiveService.getCurrentUser()).thenAnswer((_) async => guestWithUK);
+        when(mockHiveService.getCurrentUser())
+            .thenAnswer((_) async => guestWithUK);
         when(mockHiveService.saveUser(any)).thenAnswer((_) async {});
 
         // Act
@@ -1015,7 +1034,8 @@ void main() {
 
       test('UT-40-TC03: Registered user - Sync US to database', () async {
         // Arrange - TD03: Registered user, selects US
-        when(mockHiveService.getCurrentUser()).thenAnswer((_) async => registeredUser);
+        when(mockHiveService.getCurrentUser())
+            .thenAnswer((_) async => registeredUser);
         when(mockHiveService.saveUser(any)).thenAnswer((_) async {});
 
         // Act
@@ -1047,7 +1067,8 @@ void main() {
 
       test('UT-40-TC04: Registered user - Sync UK to database', () async {
         // Arrange - TD04: Registered user, selects UK
-        when(mockHiveService.getCurrentUser()).thenAnswer((_) async => registeredUser);
+        when(mockHiveService.getCurrentUser())
+            .thenAnswer((_) async => registeredUser);
         when(mockHiveService.saveUser(any)).thenAnswer((_) async {});
 
         // Act
@@ -1126,7 +1147,6 @@ void main() {
           actualOutput: actual,
         );
       });
-
     });
   });
 
@@ -1154,11 +1174,13 @@ void main() {
     group('Expected Output Structures', () {
       test('UT-41-TC01: Guest - Successful Start Over', () async {
         // Arrange - TD01, TD02, TD03, TD06: All operations succeed
-        when(mockHiveService.getCurrentUser()).thenAnswer((_) async => guestUser);
+        when(mockHiveService.getCurrentUser())
+            .thenAnswer((_) async => guestUser);
         when(mockHiveService.clearAllVocabulary()).thenAnswer((_) async {});
         when(mockStreakService.resetStreak()).thenAnswer((_) async => true);
         when(mockHiveService.saveUser(any)).thenAnswer((_) async {});
-        when(mockHiveService.saveGuestQuotaBackup(any)).thenAnswer((_) async {});
+        when(mockHiveService.saveGuestQuotaBackup(any))
+            .thenAnswer((_) async {});
 
         // Act
         final result = await repository.startOver(UserType.guest);
@@ -1167,7 +1189,8 @@ void main() {
         expect(result.success, isTrue);
         expect(result.data, isNotNull);
         expect(result.data!.currentStreak, equals(0));
-        expect(result.data!.quotaManager.usageHistory.length, equals(2)); // quota preserved
+        expect(result.data!.quotaManager.usageHistory.length,
+            equals(2)); // quota preserved
         verify(mockHiveService.clearAllVocabulary()).called(1);
         verify(mockStreakService.resetStreak()).called(1);
         verify(mockHiveService.saveUser(any)).called(1);
@@ -1201,15 +1224,18 @@ void main() {
 
       test('UT-41-TC02: Guest - Clear vocabulary fails', () async {
         // Arrange - TD01, TD04: Clear vocabulary fails
-        when(mockHiveService.getCurrentUser()).thenAnswer((_) async => guestUser);
-        when(mockHiveService.clearAllVocabulary()).thenThrow(Exception('Clear failed'));
+        when(mockHiveService.getCurrentUser())
+            .thenAnswer((_) async => guestUser);
+        when(mockHiveService.clearAllVocabulary())
+            .thenThrow(Exception('Clear failed'));
 
         // Act
         final result = await repository.startOver(UserType.guest);
 
         // Assert
         expect(result.success, isFalse);
-        expect(result.error, equals('Failed to reset progress. Please try again.'));
+        expect(result.error,
+            equals('Failed to reset progress. Please try again.'));
 
         final expected = {
           'cleared': false,
@@ -1232,16 +1258,19 @@ void main() {
 
       test('UT-41-TC03: Guest - Streak reset fails (vocab cleared)', () async {
         // Arrange - TD01, TD02, TD05: Streak reset fails
-        when(mockHiveService.getCurrentUser()).thenAnswer((_) async => guestUser);
+        when(mockHiveService.getCurrentUser())
+            .thenAnswer((_) async => guestUser);
         when(mockHiveService.clearAllVocabulary()).thenAnswer((_) async {});
-        when(mockStreakService.resetStreak()).thenThrow(Exception('Reset failed'));
+        when(mockStreakService.resetStreak())
+            .thenThrow(Exception('Reset failed'));
 
         // Act
         final result = await repository.startOver(UserType.guest);
 
         // Assert
         expect(result.success, isFalse);
-        expect(result.error, equals('Progress reset. Streak reset failed. Please try again.'));
+        expect(result.error,
+            equals('Progress reset. Streak reset failed. Please try again.'));
 
         final expected = {
           'vocabularyCleared': true,
@@ -1266,7 +1295,8 @@ void main() {
 
       test('UT-41-TC04: Guest - Fresh guest creation fails', () async {
         // Arrange - TD01, TD02, TD03, TD07: Fresh guest creation fails
-        when(mockHiveService.getCurrentUser()).thenAnswer((_) async => guestUser);
+        when(mockHiveService.getCurrentUser())
+            .thenAnswer((_) async => guestUser);
         when(mockHiveService.clearAllVocabulary()).thenAnswer((_) async {});
         when(mockStreakService.resetStreak()).thenAnswer((_) async => true);
         when(mockHiveService.saveUser(any)).thenThrow(Exception('Save failed'));
@@ -1276,7 +1306,8 @@ void main() {
 
         // Assert
         expect(result.success, isFalse);
-        expect(result.error, equals('Failed to reset progress. Please try again.'));
+        expect(result.error,
+            equals('Failed to reset progress. Please try again.'));
 
         final expected = {
           'vocabularyCleared': true,
@@ -1301,11 +1332,13 @@ void main() {
 
       test('UT-41-TC05: Guest - Quota backup preserved', () async {
         // Arrange - TD01, TD06
-        when(mockHiveService.getCurrentUser()).thenAnswer((_) async => guestUser);
+        when(mockHiveService.getCurrentUser())
+            .thenAnswer((_) async => guestUser);
         when(mockHiveService.clearAllVocabulary()).thenAnswer((_) async {});
         when(mockStreakService.resetStreak()).thenAnswer((_) async => true);
         when(mockHiveService.saveUser(any)).thenAnswer((_) async {});
-        when(mockHiveService.saveGuestQuotaBackup(any)).thenAnswer((_) async {});
+        when(mockHiveService.saveGuestQuotaBackup(any))
+            .thenAnswer((_) async {});
 
         // Act
         final result = await repository.startOver(UserType.guest);
@@ -1334,11 +1367,13 @@ void main() {
 
       test('UT-41-TC06: Guest - Preferences preserved', () async {
         // Arrange - TD01, TD06
-        when(mockHiveService.getCurrentUser()).thenAnswer((_) async => guestUser);
+        when(mockHiveService.getCurrentUser())
+            .thenAnswer((_) async => guestUser);
         when(mockHiveService.clearAllVocabulary()).thenAnswer((_) async {});
         when(mockStreakService.resetStreak()).thenAnswer((_) async => true);
         when(mockHiveService.saveUser(any)).thenAnswer((_) async {});
-        when(mockHiveService.saveGuestQuotaBackup(any)).thenAnswer((_) async {});
+        when(mockHiveService.saveGuestQuotaBackup(any))
+            .thenAnswer((_) async {});
 
         // Act
         final result = await repository.startOver(UserType.guest);
@@ -1366,7 +1401,6 @@ void main() {
           actualOutput: actual,
         );
       });
-
     });
   });
 
@@ -1388,7 +1422,8 @@ void main() {
     group('Expected Output Structures', () {
       test('UT-42-TC01: Registered - Successful Start Over', () async {
         // Arrange - TD01, TD02, TD03, TD05: All operations succeed
-        when(mockHiveService.getCurrentUser()).thenAnswer((_) async => registeredUser);
+        when(mockHiveService.getCurrentUser())
+            .thenAnswer((_) async => registeredUser);
         when(mockHiveService.clearAllVocabulary()).thenAnswer((_) async {});
         when(mockVocabSyncService.clearCloud()).thenAnswer((_) async => true);
         when(mockStreakService.resetStreak()).thenAnswer((_) async => true);
@@ -1425,9 +1460,11 @@ void main() {
         );
       });
 
-      test('UT-42-TC02: Registered - Cloud clear fails (local success)', () async {
+      test('UT-42-TC02: Registered - Cloud clear fails (local success)',
+          () async {
         // Arrange - TD01, TD02, TD04: Cloud clear fails
-        when(mockHiveService.getCurrentUser()).thenAnswer((_) async => registeredUser);
+        when(mockHiveService.getCurrentUser())
+            .thenAnswer((_) async => registeredUser);
         when(mockHiveService.clearAllVocabulary()).thenAnswer((_) async {});
         when(mockVocabSyncService.clearCloud()).thenAnswer((_) async => false);
         when(mockStreakService.resetStreak()).thenAnswer((_) async => true);
@@ -1461,17 +1498,20 @@ void main() {
 
       test('UT-42-TC03: Registered - Streak reset fails', () async {
         // Arrange - TD01, TD02, TD03, TD06: Streak reset fails
-        when(mockHiveService.getCurrentUser()).thenAnswer((_) async => registeredUser);
+        when(mockHiveService.getCurrentUser())
+            .thenAnswer((_) async => registeredUser);
         when(mockHiveService.clearAllVocabulary()).thenAnswer((_) async {});
         when(mockVocabSyncService.clearCloud()).thenAnswer((_) async => true);
-        when(mockStreakService.resetStreak()).thenThrow(Exception('Reset failed'));
+        when(mockStreakService.resetStreak())
+            .thenThrow(Exception('Reset failed'));
 
         // Act
         final result = await repository.startOver(UserType.registered);
 
         // Assert
         expect(result.success, isFalse);
-        expect(result.error, equals('Progress reset. Streak reset failed. Please try again.'));
+        expect(result.error,
+            equals('Progress reset. Streak reset failed. Please try again.'));
 
         final expected = {
           'vocabularyCleared': true,
@@ -1496,7 +1536,8 @@ void main() {
 
       test('UT-42-TC04: Registered - Account remains intact', () async {
         // Arrange - After Start Over
-        when(mockHiveService.getCurrentUser()).thenAnswer((_) async => registeredUser);
+        when(mockHiveService.getCurrentUser())
+            .thenAnswer((_) async => registeredUser);
         when(mockHiveService.clearAllVocabulary()).thenAnswer((_) async {});
         when(mockVocabSyncService.clearCloud()).thenAnswer((_) async => true);
         when(mockStreakService.resetStreak()).thenAnswer((_) async => true);
@@ -1528,7 +1569,8 @@ void main() {
 
       test('UT-42-TC05: Registered - Cloud sync queued for retry', () async {
         // Arrange - TD04: Cloud clear fails
-        when(mockHiveService.getCurrentUser()).thenAnswer((_) async => registeredUser);
+        when(mockHiveService.getCurrentUser())
+            .thenAnswer((_) async => registeredUser);
         when(mockHiveService.clearAllVocabulary()).thenAnswer((_) async {});
         when(mockVocabSyncService.clearCloud()).thenAnswer((_) async => false);
         when(mockStreakService.resetStreak()).thenAnswer((_) async => true);
@@ -1596,7 +1638,8 @@ void main() {
 
       test('UT-43-TC02: Guest - Fetch from local fails', () async {
         // Arrange - TD02: Fetch from local fails
-        when(mockHiveService.getAllVocabulary()).thenThrow(Exception('Fetch failed'));
+        when(mockHiveService.getAllVocabulary())
+            .thenThrow(Exception('Fetch failed'));
 
         // Act
         final result = await repository.exportVocabulary(UserType.guest);
@@ -1623,7 +1666,6 @@ void main() {
           actualOutput: actual,
         );
       });
-
     });
   });
 
@@ -1635,7 +1677,8 @@ void main() {
     group('Expected Output Structures', () {
       test('UT-44-TC01: Registered - Cloud fetch fails', () async {
         // Arrange - TD01: Cloud fetch fails
-        when(mockVocabSyncService.fetchFromCloud()).thenThrow(Exception('Cloud fetch failed'));
+        when(mockVocabSyncService.fetchFromCloud())
+            .thenThrow(Exception('Cloud fetch failed'));
 
         // Act
         final result = await repository.exportVocabulary(UserType.registered);
@@ -1662,7 +1705,6 @@ void main() {
           actualOutput: actual,
         );
       });
-
     });
   });
 
@@ -1705,14 +1747,16 @@ void main() {
 
       test('UT-45-TC02: Clear cache fails', () async {
         // Arrange - TD01, TD03: Clear cache fails
-        when(mockAppStateService.clearCache()).thenThrow(Exception('Clear failed'));
+        when(mockAppStateService.clearCache())
+            .thenThrow(Exception('Clear failed'));
 
         // Act
         final result = await repository.clearCache();
 
         // Assert
         expect(result.success, isFalse);
-        expect(result.error, equals('Failed to clear cache. Please try again.'));
+        expect(
+            result.error, equals('Failed to clear cache. Please try again.'));
 
         final expected = {
           'cacheCleared': false,
@@ -1794,6 +1838,3 @@ void main() {
     });
   });
 }
-
-
-

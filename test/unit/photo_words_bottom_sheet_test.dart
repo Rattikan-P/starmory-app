@@ -5,11 +5,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:starmory_app/data/models/vocabulary_model.dart';
 import 'package:starmory_app/presentation/pages/progress_tab.dart';
+import 'package:starmory_app/presentation/providers/providers.dart';
 import 'package:starmory_app/presentation/providers/scrapbook_provider.dart';
 import 'package:starmory_app/presentation/widgets/vocabulary_detail_bottom_sheet.dart';
+import '../scrapbook_widget_test_support.dart';
 import '../test_setup.dart';
 
-class _FakeScrapbookNotifier extends StateNotifier<ScrapbookState> implements ScrapbookNotifier {
+class _FakeScrapbookNotifier extends StateNotifier<ScrapbookState>
+    implements ScrapbookNotifier {
   _FakeScrapbookNotifier() : super(const ScrapbookState(scrapbooks: []));
 
   @override
@@ -44,13 +47,20 @@ void main() {
   final testPhotoEntry = PhotoEntry(
     imageUrl: 'https://example.com/butterfly.jpg',
     vocabularies: [testVocab],
+    capturedAt: testVocab.createdAt,
   );
 
-  testWidgets('PhotoWordsBottomSheet displays unified card with vocab and sentence', (tester) async {
+  testWidgets(
+      'PhotoWordsBottomSheet displays unified card with vocab and sentence',
+      (tester) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          scrapbookStateProvider.overrideWith((ref) => _FakeScrapbookNotifier()),
+          scrapbookStateProvider
+              .overrideWith((ref) => _FakeScrapbookNotifier()),
+          vocabularyStateProvider
+              .overrideWith((ref) => FakeVocabularyNotifier()),
+          userStateProvider.overrideWith((ref) => FakeUserNotifier()),
         ],
         child: MaterialApp(
           home: Scaffold(
@@ -71,15 +81,21 @@ void main() {
     expect(find.text('VOCAB'), findsOneWidget);
 
     // Verify sentence inside the card
-    expect(find.text('A colorful butterfly landed on the flower.'), findsOneWidget);
+    expect(find.text('A colorful butterfly landed on the flower.'),
+        findsOneWidget);
     expect(find.text('ผีเสื้อหลากสีเกาะอยู่บนดอกไม้'), findsOneWidget);
   });
 
-  testWidgets('Tapping the unified card displays VocabularyDetailBottomSheet', (tester) async {
+  testWidgets('Tapping the unified card displays VocabularyDetailBottomSheet',
+      (tester) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          scrapbookStateProvider.overrideWith((ref) => _FakeScrapbookNotifier()),
+          scrapbookStateProvider
+              .overrideWith((ref) => _FakeScrapbookNotifier()),
+          vocabularyStateProvider
+              .overrideWith((ref) => FakeVocabularyNotifier()),
+          userStateProvider.overrideWith((ref) => FakeUserNotifier()),
         ],
         child: MaterialApp(
           home: Scaffold(
@@ -120,5 +136,9 @@ void main() {
 
     // Verify VocabularyDetailBottomSheet is displayed
     expect(find.byType(VocabularyDetailBottomSheet), findsOneWidget);
+
+    Navigator.of(tester.element(find.byType(VocabularyDetailBottomSheet)))
+        .pop();
+    await tester.pumpAndSettle();
   });
 }

@@ -51,13 +51,16 @@ class VocabCompactWidgetProvider : AppWidgetProvider() {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
             val hasData   = prefs.getBoolean("widget_has_data", false)
+            val hasError  = prefs.getBoolean("widget_has_error", false)
             val word      = prefs.getString("widget_word", "") ?: ""
             val trans     = prefs.getString("widget_translation", "") ?: ""
             val imagePath = prefs.getString("widget_image_path", "") ?: ""
             val vocabId   = prefs.getString("widget_vocab_id", "") ?: ""
             val streak    = getIntSafe(prefs, "widget_streak", 0)
 
-            val views = if (!hasData || word.isEmpty()) {
+            val views = if (hasError) {
+                buildErrorView(context)
+            } else if (!hasData || word.isEmpty()) {
                 buildEmptyView(context)
             } else {
                 buildVocabView(context, word, trans, imagePath, vocabId, streak)
@@ -91,7 +94,15 @@ class VocabCompactWidgetProvider : AppWidgetProvider() {
             return views
         }
 
-        // ─── Data State: Full Photo (Rounded) + Scrim + Streak + Word + Camera ──
+        private fun buildErrorView(context: Context): RemoteViews {
+            val views = RemoteViews(context.packageName, R.layout.widget_vocab_2x2_error)
+            val requestCode = System.currentTimeMillis().toInt()
+            val homeIntent = buildDeepLinkIntent(context, "starmory://home", requestCode)
+            views.setOnClickPendingIntent(R.id.widget_root, homeIntent)
+            return views
+        }
+
+        // ─── Data State: Full Photo (Rounded) when available, Clean White Card fallback ──
         private fun buildVocabView(
             context: Context,
             word: String,
@@ -100,7 +111,17 @@ class VocabCompactWidgetProvider : AppWidgetProvider() {
             vocabId: String,
             streak: Int
         ): RemoteViews {
-            val views = RemoteViews(context.packageName, R.layout.widget_vocab_2x2)
+            // Load and process image with aspect-ratio-preserving matrix center-crop + 28dp rounded corners + bottom gradient
+            val rawBitmap = loadBitmapSafe(imagePath)
+            val views = if (rawBitmap != null) {
+                RemoteViews(context.packageName, R.layout.widget_vocab_2x2).apply {
+                    val cardBitmap = getRoundedCroppedBitmap(rawBitmap, 400, 400, 28f, context, addBottomScrim = true)
+                    setImageViewBitmap(R.id.widget_image, cardBitmap)
+                }
+            } else {
+                // Image not available / failed to load: use clean white card style like 4x2
+                RemoteViews(context.packageName, R.layout.widget_vocab_2x2_card)
+            }
 
             views.setTextViewText(R.id.widget_word, word)
             views.setTextViewText(R.id.widget_translation, trans)
@@ -109,16 +130,7 @@ class VocabCompactWidgetProvider : AppWidgetProvider() {
                 if (streak > 0) "🔥$streak" else "🔥0"
             )
 
-            // Load and process image with aspect-ratio-preserving matrix center-crop + 28dp rounded corners + bottom gradient
-            val rawBitmap = loadBitmapSafe(imagePath)
-            if (rawBitmap != null) {
-                val cardBitmap = getRoundedCroppedBitmap(rawBitmap, 400, 400, 28f, context, addBottomScrim = true)
-                views.setImageViewBitmap(R.id.widget_image, cardBitmap)
-            } else {
-                views.setImageViewResource(R.id.widget_image, R.drawable.widget_placeholder)
-            }
-
-            setTapActions(context, views, vocabId, word)
+            setTapActions(context, views, vocabId, word, imagePath)
             return views
         }
 
@@ -126,19 +138,20 @@ class VocabCompactWidgetProvider : AppWidgetProvider() {
             context: Context,
             views: RemoteViews,
             vocabId: String,
-            word: String
+            word: String,
+            imagePath: String
         ) {
             val requestCode = System.currentTimeMillis().toInt() + 100
 
-            // 1. Tap word / content -> open Vocab detail
-            val wordDeepLink = if (vocabId.isNotEmpty()) {
-                "starmory://vocab?id=$vocabId&word=$word"
-            } else {
-                "starmory://review"
-            }
-            val wordIntent = buildDeepLinkIntent(context, wordDeepLink, requestCode)
-            views.setOnClickPendingIntent(R.id.widget_content_area, wordIntent)
-            views.setOnClickPendingIntent(R.id.widget_root, wordIntent)
+            // Open the scrapbook created from this photo and vocabulary.
+            val scrapbookUri = Uri.parse("starmory://scrapbook-day").buildUpon()
+                .appendQueryParameter("vocabId", vocabId)
+                .appendQueryParameter("word", word)
+                .appendQueryParameter("image", imagePath)
+                .build()
+            val scrapbookIntent = buildDeepLinkIntent(context, scrapbookUri.toString(), requestCode)
+            views.setOnClickPendingIntent(R.id.widget_content_area, scrapbookIntent)
+            views.setOnClickPendingIntent(R.id.widget_root, scrapbookIntent)
 
             // 2. Tap streak badge -> open Progress tab
             val progressIntent = buildDeepLinkIntent(context, "starmory://home?tab=progress", requestCode + 1)
