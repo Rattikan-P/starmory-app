@@ -262,6 +262,14 @@ class ProfileSwitchItem extends StatelessWidget {
                 onChanged: onChanged,
                 activeTrackColor: DesignTokens.brandColor,
                 activeThumbColor: Colors.white,
+                inactiveTrackColor: const Color(0xFFF3F4F6),
+                inactiveThumbColor: const Color(0xFF9CA3AF),
+                trackOutlineColor: WidgetStateProperty.resolveWith((states) {
+                  if (!states.contains(WidgetState.selected)) {
+                    return const Color(0xFFE5E7EB);
+                  }
+                  return Colors.transparent;
+                }),
               ),
             ],
           ),

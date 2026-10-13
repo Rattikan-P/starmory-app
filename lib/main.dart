@@ -209,24 +209,7 @@ class _MyAppState extends ConsumerState<MyApp> {
           GoogleFonts.poppinsTextTheme(ThemeData.light().textTheme),
         ),
       ),
-      darkTheme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF6C63FF),
-          brightness: Brightness.dark,
-        ),
-        useMaterial3: true,
-        dialogTheme: DesignTokens.dialogTheme,
-        actionIconTheme: ActionIconThemeData(
-          backButtonIconBuilder: (context) => const Icon(
-              Icons.arrow_back_ios_new_rounded,
-              size: 20,
-              color: Color(0xFF1F2937)),
-        ),
-        textTheme: GoogleFonts.notoSansThaiTextTheme(
-          GoogleFonts.poppinsTextTheme(ThemeData.dark().textTheme),
-        ),
-      ),
-      themeMode: ThemeMode.system,
+      themeMode: ThemeMode.light,
       home: _buildHome(initializationState),
     );
   }
