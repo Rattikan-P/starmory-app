@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,6 +17,7 @@ import '../../data/services/dictionary_service.dart';
 import '../../core/utils/safe_image_picker.dart';
 import '../../core/utils/image_picker_error_message.dart';
 import '../../core/services/widget_service.dart';
+import '../../core/services/notification_service.dart';
 import 'home_tab.dart';
 import 'review_tab.dart';
 import 'scrapbook_tab.dart';
@@ -54,15 +56,96 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
   @override
   void initState() {
     super.initState();
+    if (!kIsWeb) _listenToWidgetTaps();
+    _initNotifications();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _syncOnAppOpen();
-      _updateWidgetOnLaunch();
+      if (!kIsWeb) _updateWidgetOnLaunch();
+      _syncDailyNotification();
+      // Handle the launch URI if the app was cold-started from widget tap
       final initialWidgetUri = widget.initialWidgetUri;
       if (initialWidgetUri != null) {
         _routeWidgetDeepLink(initialWidgetUri);
+      } else if (!kIsWeb) {
+        _handleInitialWidgetUri();
       }
     });
   }
+
+  Future<void> _initNotifications() async {
+    try {
+      await NotificationService.instance.initialize(
+        onSelectNotification: (payload) {
+          if (payload != null && payload.isNotEmpty) {
+            try {
+              _routeWidgetDeepLink(Uri.parse(payload));
+            } catch (_) {}
+          }
+        },
+      );
+    } catch (error, stackTrace) {
+      debugPrint(
+        'Failed to initialize notifications: $error\n$stackTrace',
+      );
+    }
+  }
+
+  Future<void> _syncDailyNotification() async {
+    try {
+      final user = ref.read(userStateProvider).user;
+      final enabled =
+          user?.preferences['notificationEnabled'] as bool? ?? false;
+      if (!enabled) {
+        await NotificationService.instance.cancelDailyReminders();
+        return;
+      }
+
+      final timeStr =
+          user?.preferences['reviewReminderTime'] as String? ?? '19:00';
+      final parts = timeStr.split(':');
+      final hour = int.tryParse(parts[0]) ?? 19;
+      final minute = parts.length > 1 ? (int.tryParse(parts[1]) ?? 0) : 0;
+
+      final reviewService = ref.read(reviewServiceProvider);
+      final streak = ref.read(streakProvider)?.currentStreak ??
+          ref.read(userStateProvider).user?.currentStreak ??
+          ref.read(currentStreakProvider);
+
+      await NotificationService.instance.scheduleDailyReminders(
+        hour: hour,
+        minute: minute,
+        reviewService: reviewService,
+        currentStreak: streak ?? 0,
+      );
+    } catch (error, stackTrace) {
+      debugPrint(
+        'Failed to refresh daily learning reminders: $error\n$stackTrace',
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _widgetClickSubscription?.cancel();
+    super.dispose();
+  }
+
+  /// Listen to widget tap events while app is in foreground/background.
+  void _listenToWidgetTaps() {
+    _widgetClickSubscription = HomeWidget.widgetClicked.listen(
+      (Uri? uri) => _routeWidgetDeepLink(uri),
+      onError: (_) {}, // ignore errors — widget taps are non-critical
+    );
+  }
+
+  /// Handle the URI that launched the app cold (app was not in memory).
+  Future<void> _handleInitialWidgetUri() async {
+    try {
+      final uri = await HomeWidget.initiallyLaunchedFromHomeWidget();
+      if (uri != null) _routeWidgetDeepLink(uri);
+    } catch (_) {}
+  }
+
 
   Future<void> _updateWidgetOnLaunch() async {
     await _updateWidgetWithStreak();
@@ -99,6 +182,7 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
   /// Route a starmory:// deep link to the correct tab or action.
   ///
   /// starmory://review             → Review tab (index 1)
+  /// starmory://home               → Home tab (index 0)
   /// starmory://camera             → Camera modal (same as FAB + camera)
   /// starmory://scrapbook/{id}     → A scrapbook entry
   /// starmory://scrapbook-day      → Today's scrapbook detail sheet
@@ -120,7 +204,15 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
 
     switch (host) {
       case 'review':
-        ref.read(navigationProvider.notifier).goReview();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            final mainRoute = ModalRoute.of(context);
+            if (mainRoute != null) {
+              Navigator.of(context).popUntil((route) => route == mainRoute);
+            }
+            ref.read(navigationProvider.notifier).goReview();
+          }
+        });
         break;
 
       case 'progress':
@@ -128,12 +220,19 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
         break;
 
       case 'home':
-        final tab = uri.queryParameters['tab'];
-        if (tab == 'progress') {
-          ref.read(navigationProvider.notifier).setIndex(3);
-        } else {
-          ref.read(navigationProvider.notifier).goHome();
-        }
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          final mainRoute = ModalRoute.of(context);
+          if (mainRoute != null) {
+            Navigator.of(context).popUntil((route) => route == mainRoute);
+          }
+          final tab = uri.queryParameters['tab'];
+          if (tab == 'progress') {
+            ref.read(navigationProvider.notifier).setIndex(3);
+          } else {
+            ref.read(navigationProvider.notifier).goHome();
+          }
+        });
         break;
 
       case 'camera':

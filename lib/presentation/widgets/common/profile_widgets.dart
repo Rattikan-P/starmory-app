@@ -191,3 +191,91 @@ class ProfileConfirmInfoItem extends StatelessWidget {
     );
   }
 }
+
+/// Switch item widget used for toggling settings like notifications
+class ProfileSwitchItem extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  final bool showDivider;
+  final Color? iconBgColor;
+
+  const ProfileSwitchItem({
+    super.key,
+    required this.icon,
+    required this.title,
+    this.subtitle,
+    required this.value,
+    required this.onChanged,
+    required this.showDivider,
+    this.iconBgColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: iconBgColor ?? DesignTokens.dialogBrandTint,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, size: 21, color: const Color(0xFF8957F5)),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: GoogleFonts.lexend(
+                        fontSize: 14,
+                        color: DesignTokens.textPrimary,
+                        fontWeight: DesignTokens.weightSemiBold,
+                      ),
+                    ),
+                    if (subtitle != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle!,
+                        style: GoogleFonts.lexend(
+                          fontSize: 12,
+                          color: DesignTokens.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              Switch.adaptive(
+                value: value,
+                onChanged: onChanged,
+                activeTrackColor: DesignTokens.brandColor,
+                activeThumbColor: Colors.white,
+              ),
+            ],
+          ),
+        ),
+        if (showDivider)
+          Padding(
+            padding: const EdgeInsets.only(left: 70, right: 16),
+            child: Divider(
+              height: 1,
+              color: const Color(0xFFE5E7EB).withValues(alpha: 0.6),
+              thickness: 0.5,
+            ),
+          ),
+      ],
+    );
+  }
+}

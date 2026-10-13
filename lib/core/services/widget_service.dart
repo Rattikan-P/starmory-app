@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:home_widget/home_widget.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../data/models/scrapbook_model.dart';
@@ -36,8 +36,9 @@ class WidgetService {
   static const String _keyVocabQueue = 'widget_vocab_queue';
   static const String _keyDueVocabularyCount = 'widget_due_vocabulary_count';
 
-  /// Initialize home_widget — call once at app startup.
+  /// Initialize home_widget — call once at app startup (Android/iOS only).
   static Future<void> initialize() async {
+    if (kIsWeb) return;
     await HomeWidget.setAppGroupId(_appGroupId);
   }
 

@@ -1,5 +1,5 @@
 import 'dart:async';
-
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -49,15 +49,17 @@ void main() async {
   // Pre-resolve onboarding status before runApp so first frame goes directly to the app
   final onboardingCompleted = await appStateService.isOnboardingCompleted();
 
-  // Initialize Home Screen Widget bridge
-  await WidgetService.initialize();
-  // Register interactivity callback so WorkManager can trigger widget updates
-  HomeWidget.registerInteractivityCallback(widgetBackgroundCallback);
   Uri? initialWidgetUri;
-  try {
-    initialWidgetUri = await HomeWidget.initiallyLaunchedFromHomeWidget();
-  } catch (error, stackTrace) {
-    debugPrint('Failed to retrieve initial widget URI: $error\n$stackTrace');
+  // Initialize Home Screen Widget bridge (Android/iOS only)
+  if (!kIsWeb) {
+    await WidgetService.initialize();
+    // Register interactivity callback so WorkManager can trigger widget updates
+    HomeWidget.registerInteractivityCallback(widgetBackgroundCallback);
+    try {
+      initialWidgetUri = await HomeWidget.initiallyLaunchedFromHomeWidget();
+    } catch (error, stackTrace) {
+      debugPrint('Failed to retrieve initial widget URI: $error\n$stackTrace');
+    }
   }
   runApp(
     ProviderScope(

@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -31,6 +33,7 @@ import '../widgets/streak_info_dialogs.dart';
 import '../widgets/common/profile_widgets.dart';
 import '../widgets/badges_section.dart';
 import '../widgets/app_loading_widgets.dart';
+import '../../core/services/notification_service.dart';
 
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
 
@@ -403,12 +406,21 @@ class _PreferencesSection extends ConsumerStatefulWidget {
 class _PreferencesSectionState extends ConsumerState<_PreferencesSection> {
   late String _currentLevel;
   late String _currentVariant;
+  bool _notificationEnabled = false;
+  String _reminderTime = '19:00';
 
   @override
   void initState() {
     super.initState();
     _currentLevel = widget.languageLevel;
     _currentVariant = widget.englishVariant;
+    final currentUser = ref.read(userStateProvider).user;
+    if (currentUser != null) {
+      _notificationEnabled =
+          currentUser.preferences['notificationEnabled'] as bool? ?? false;
+      _reminderTime =
+          currentUser.preferences['reviewReminderTime'] as String? ?? '19:00';
+    }
     _reloadFromSource();
   }
 
@@ -425,21 +437,282 @@ class _PreferencesSectionState extends ConsumerState<_PreferencesSection> {
   }
 
   Future<void> _reloadFromSource() async {
-    if (widget.isGuest) {
-      // Load from UserModel instead of SharedPreferences
-      final currentUser = ref.read(userStateProvider).user;
-      if (currentUser != null && mounted) {
-        setState(() {
-          _currentLevel = currentUser.languageLevel;
-          _currentVariant = currentUser.englishVariant;
-        });
-      }
+    final currentUser = ref.read(userStateProvider).user;
+    if (currentUser != null && mounted) {
+      setState(() {
+        _currentLevel = currentUser.languageLevel;
+        _currentVariant = currentUser.englishVariant;
+        _notificationEnabled =
+            currentUser.preferences['notificationEnabled'] as bool? ?? false;
+        _reminderTime =
+            currentUser.preferences['reviewReminderTime'] as String? ?? '19:00';
+      });
     }
   }
 
   String get variantName =>
       _currentVariant == 'UK' ? 'British English' : 'American English';
   String get variantFlag => _currentVariant == 'UK' ? '🇬🇧' : '🇺🇸';
+
+  String _formatDisplayTime(String time24) {
+    try {
+      final parts = time24.split(':');
+      final hour = int.parse(parts[0]);
+      final minute = int.parse(parts[1]);
+      if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+        return time24;
+      }
+      return '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
+    } catch (_) {
+      return time24;
+    }
+  }
+
+  Future<void> _toggleNotification(bool enabled) async {
+    if (enabled && !kIsWeb) {
+      // Check if permission is already granted before requesting
+      final alreadyGranted =
+          await NotificationService.instance.isPermissionGranted();
+      if (!alreadyGranted) {
+        final granted = await NotificationService.instance.requestPermission();
+        if (!granted) {
+          if (mounted) {
+            showPermissionRequiredDialog(context, 'Notification');
+          }
+          return;
+        }
+      }
+    }
+
+    setState(() {
+      _notificationEnabled = enabled;
+    });
+
+    final userNotifier = ref.read(userStateProvider.notifier);
+    await userNotifier.updatePreferences({
+      'notificationEnabled': enabled,
+    });
+
+    if (enabled) {
+      final parts = _reminderTime.split(':');
+      final hour = int.tryParse(parts[0]) ?? 19;
+      final minute = parts.length > 1 ? (int.tryParse(parts[1]) ?? 0) : 0;
+      final reviewService = ref.read(reviewServiceProvider);
+      final streak = ref.read(streakProvider)?.currentStreak ??
+          ref.read(userStateProvider).user?.currentStreak ??
+          ref.read(currentStreakProvider);
+
+      await NotificationService.instance.scheduleDailyReminders(
+        hour: hour,
+        minute: minute,
+        reviewService: reviewService,
+        currentStreak: streak ?? 0,
+      );
+    } else {
+      await NotificationService.instance.cancelDailyReminders();
+    }
+
+    widget.onPreferenceChanged?.call();
+  }
+
+  Future<void> _pickReminderTime() async {
+    final parts = _reminderTime.split(':');
+    final initialHour = int.tryParse(parts[0]) ?? 19;
+    final initialMinute = parts.length > 1 ? (int.tryParse(parts[1]) ?? 0) : 0;
+
+    // Track selected time inside the dialog
+    DateTime pickerTime = DateTime(2000, 1, 1, initialHour, initialMinute);
+
+    const accentColor = DesignTokens.brandColor;
+    const accentTint = DesignTokens.dialogBrandTint;
+
+    final picked = await showDialog<DateTime>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (ctx, setDialogState) => Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(DesignTokens.dialogRadius),
+          ),
+          backgroundColor: Colors.white,
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: DesignTokens.dialogInsetHorizontal,
+            vertical: DesignTokens.dialogInsetVertical,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: DesignTokens.dialogPaddingHorizontal,
+              vertical: DesignTokens.dialogPaddingVertical,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Icon
+                Container(
+                  width: DesignTokens.dialogIconSize,
+                  height: DesignTokens.dialogIconSize,
+                  decoration: const BoxDecoration(
+                    color: accentTint,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Center(
+                    child: Icon(
+                      Icons.notifications_active_rounded,
+                      color: accentColor,
+                      size: 30,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: DesignTokens.dialogIconTitleSpacing),
+                // Title
+                Text(
+                  'Reminder Time',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.lexend(
+                    fontSize: DesignTokens.dialogTitleFontSize,
+                    fontWeight: DesignTokens.weightSemiBold,
+                    color: DesignTokens.dialogTitleColor,
+                  ),
+                ),
+                const SizedBox(
+                    height: DesignTokens.dialogCompactTitleBodySpacing),
+                Text(
+                  'Choose when to receive your daily vocab reminder.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.lexend(
+                    fontSize: DesignTokens.dialogBodyFontSize,
+                    height: DesignTokens.dialogBodyLineHeight,
+                    fontWeight: FontWeight.w400,
+                    color: DesignTokens.dialogSupportingTextColor,
+                  ),
+                ),
+                const SizedBox(height: DesignTokens.dialogTitleBodySpacing),
+                // Cupertino scroll wheel
+                SizedBox(
+                  height: 160,
+                  child: CupertinoTheme(
+                    data: const CupertinoThemeData(
+                      textTheme: CupertinoTextThemeData(
+                        dateTimePickerTextStyle: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w500,
+                          color: DesignTokens.textPrimary,
+                        ),
+                      ),
+                    ),
+                    child: CupertinoDatePicker(
+                      mode: CupertinoDatePickerMode.time,
+                      initialDateTime: pickerTime,
+                      use24hFormat: true,
+                      onDateTimeChanged: (dt) {
+                        setDialogState(() => pickerTime = dt);
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(height: DesignTokens.dialogActionsSpacing),
+                // Buttons
+                Row(
+                  children: [
+                    Expanded(
+                      child: SizedBox(
+                        height: DesignTokens.dialogButtonHeight,
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.pop(dialogContext),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor:
+                                DesignTokens.dialogDisabledActionColor,
+                            side: const BorderSide(
+                              color:
+                                  DesignTokens.dialogDisabledActionBorderColor,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(
+                                DesignTokens.dialogButtonRadius,
+                              ),
+                            ),
+                          ),
+                          child: Text(
+                            'Cancel',
+                            style: GoogleFonts.lexend(
+                              fontSize: DesignTokens.dialogButtonFontSize,
+                              fontWeight: DesignTokens.weightBold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: SizedBox(
+                        height: DesignTokens.dialogButtonHeight,
+                        child: ElevatedButton(
+                          onPressed: () =>
+                              Navigator.pop(dialogContext, pickerTime),
+                          style: ElevatedButton.styleFrom(
+                            elevation: 0,
+                            backgroundColor: accentColor,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(
+                                DesignTokens.dialogButtonRadius,
+                              ),
+                            ),
+                          ),
+                          child: Text(
+                            'Confirm',
+                            style: GoogleFonts.lexend(
+                              fontSize: DesignTokens.dialogButtonFontSize,
+                              fontWeight: DesignTokens.weightBold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    if (picked != null) {
+      final newTimeStr =
+          '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
+      setState(() {
+        _reminderTime = newTimeStr;
+      });
+
+      final userNotifier = ref.read(userStateProvider.notifier);
+      await userNotifier.updatePreferences({
+        'reviewReminderTime': newTimeStr,
+      });
+
+      if (_notificationEnabled) {
+        final reviewService = ref.read(reviewServiceProvider);
+        final streak = ref.read(streakProvider)?.currentStreak ??
+            ref.read(userStateProvider).user?.currentStreak ??
+            ref.read(currentStreakProvider);
+
+        await NotificationService.instance.scheduleDailyReminders(
+          hour: picked.hour,
+          minute: picked.minute,
+          reviewService: reviewService,
+          currentStreak: streak ?? 0,
+        );
+      }
+
+      widget.onPreferenceChanged?.call();
+
+      if (mounted) {
+        SnackBarHelper.success(
+          context,
+          'Reminder time set to ${_formatDisplayTime(newTimeStr)}',
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -505,7 +778,7 @@ class _PreferencesSectionState extends ConsumerState<_PreferencesSection> {
             iconText: variantFlag,
             title: 'English Variant',
             value: variantName,
-            showDivider: false,
+            showDivider: true,
             onTap: () async {
               await Navigator.push(
                 context,
@@ -522,6 +795,28 @@ class _PreferencesSectionState extends ConsumerState<_PreferencesSection> {
             },
             iconBgColor: DesignTokens.dialogBrandTint,
           ),
+
+          // Daily Learning Reminder Toggle
+          ProfileSwitchItem(
+            icon: Icons.notifications_active_outlined,
+            title: 'Daily Reminder',
+            subtitle: 'Get glanceable daily vocab & streak updates',
+            value: _notificationEnabled,
+            onChanged: _toggleNotification,
+            showDivider: _notificationEnabled,
+            iconBgColor: DesignTokens.dialogBrandTint,
+          ),
+
+          // Reminder Time (Visible when enabled)
+          if (_notificationEnabled)
+            ProfileCompactItem(
+              icon: Icons.access_time_rounded,
+              title: 'Reminder Time',
+              value: _formatDisplayTime(_reminderTime),
+              showDivider: false,
+              onTap: _pickReminderTime,
+              iconBgColor: DesignTokens.dialogBrandTint,
+            ),
         ],
       ),
     );

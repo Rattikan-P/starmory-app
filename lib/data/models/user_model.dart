@@ -79,7 +79,7 @@ class UserModel extends Equatable {
     return {
       'languageVariant': AppDefaults.defaultEnglishVariant, // US or UK
       'defaultCefrLevel': AppDefaults.defaultLanguageLevel,
-      'notificationEnabled': true,
+      'notificationEnabled': false,
       'reviewReminderTime': '19:00',
       'soundEnabled': true,
       'vibrationEnabled': true,

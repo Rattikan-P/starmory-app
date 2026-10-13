@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/services/streak_service.dart';
 import '../../data/services/app_state_service.dart';
+import '../../core/services/notification_service.dart';
 import 'providers.dart';
 
 /// Streak service provider
@@ -150,12 +152,40 @@ class StreakNotifier extends StateNotifier<StreakData?> {
       _loadFromUserModel(updatedUser);
       print(
           '✅ [Guest Streak] Updated UserModel: streak=${updatedUser.currentStreak}, shields=${updatedUser.shields}');
+      await _triggerNotificationSmartSkip(updatedUser);
       return true;
     } else {
       // Registered activity triggers update the streak in Supabase.
       // Refresh after the trigger instead of writing a second, potentially stale value.
       await refresh();
+      await _triggerNotificationSmartSkip(currentUser);
       return true;
+    }
+  }
+
+  Future<void> _triggerNotificationSmartSkip(dynamic user) async {
+    final timeStr =
+        user.preferences['reviewReminderTime'] as String? ?? '19:00';
+    final parts = timeStr.split(':');
+    final hour = int.tryParse(parts[0]) ?? 19;
+    final minute = parts.length > 1 ? (int.tryParse(parts[1]) ?? 0) : 0;
+    final enabled = user.preferences['notificationEnabled'] as bool? ?? false;
+    if (enabled) {
+      final reviewService = _ref.read(reviewServiceProvider);
+      final currentStreak = state?.currentStreak ?? user.currentStreak ?? 0;
+      try {
+        await NotificationService.instance.onActivityCompletedToday(
+          hour: hour,
+          minute: minute,
+          reviewService: reviewService,
+          currentStreak: currentStreak,
+        );
+      } catch (error, stackTrace) {
+        debugPrint(
+          'Failed to refresh reminders after learning activity: '
+          '$error\n$stackTrace',
+        );
+      }
     }
   }
 
