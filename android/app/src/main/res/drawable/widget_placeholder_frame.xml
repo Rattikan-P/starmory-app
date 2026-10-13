@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Placeholder background for 2x2 widget when image fails to load: white stroke + purple bg -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- White border (stroke) -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#FFFFFFFF" />
+            <corners android:radius="28dp" />
+        </shape>
+    </item>
+
+    <!-- Purple inner fill (2dp inset = stroke width) -->
+    <item
+        android:left="2dp"
+        android:top="2dp"
+        android:right="2dp"
+        android:bottom="2dp">
+        <shape android:shape="rectangle">
+            <gradient
+                android:type="linear"
+                android:angle="135"
+                android:startColor="#A78BFA"
+                android:centerColor="#8B5CF6"
+                android:endColor="#6D28D9" />
+            <corners android:radius="26dp" />
+        </shape>
+    </item>
+
+</layer-list>

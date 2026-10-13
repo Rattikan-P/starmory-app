@@ -102,7 +102,7 @@ class VocabCompactWidgetProvider : AppWidgetProvider() {
             return views
         }
 
-        // ─── Data State: Full Photo (Rounded) + Scrim + Streak + Word + Camera ──
+        // ─── Data State: Full Photo (Rounded) when available, Clean White Card fallback ──
         private fun buildVocabView(
             context: Context,
             word: String,
@@ -111,7 +111,17 @@ class VocabCompactWidgetProvider : AppWidgetProvider() {
             vocabId: String,
             streak: Int
         ): RemoteViews {
-            val views = RemoteViews(context.packageName, R.layout.widget_vocab_2x2)
+            // Load and process image with aspect-ratio-preserving matrix center-crop + 28dp rounded corners + bottom gradient
+            val rawBitmap = loadBitmapSafe(imagePath)
+            val views = if (rawBitmap != null) {
+                RemoteViews(context.packageName, R.layout.widget_vocab_2x2).apply {
+                    val cardBitmap = getRoundedCroppedBitmap(rawBitmap, 400, 400, 28f, context, addBottomScrim = true)
+                    setImageViewBitmap(R.id.widget_image, cardBitmap)
+                }
+            } else {
+                // Image not available / failed to load: use clean white card style like 4x2
+                RemoteViews(context.packageName, R.layout.widget_vocab_2x2_card)
+            }
 
             views.setTextViewText(R.id.widget_word, word)
             views.setTextViewText(R.id.widget_translation, trans)
@@ -119,15 +129,6 @@ class VocabCompactWidgetProvider : AppWidgetProvider() {
                 R.id.widget_streak_badge,
                 if (streak > 0) "🔥$streak" else "🔥0"
             )
-
-            // Load and process image with aspect-ratio-preserving matrix center-crop + 28dp rounded corners + bottom gradient
-            val rawBitmap = loadBitmapSafe(imagePath)
-            if (rawBitmap != null) {
-                val cardBitmap = getRoundedCroppedBitmap(rawBitmap, 400, 400, 28f, context, addBottomScrim = true)
-                views.setImageViewBitmap(R.id.widget_image, cardBitmap)
-            } else {
-                views.setImageViewResource(R.id.widget_image, R.drawable.widget_placeholder)
-            }
 
             setTapActions(context, views, vocabId, word, imagePath)
             return views
