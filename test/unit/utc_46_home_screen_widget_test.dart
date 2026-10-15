@@ -1,4 +1,4 @@
-import 'package:flutter/services.dart';
+﻿import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/mockito.dart';
 import 'package:starmory_app/core/services/widget_service.dart';
@@ -70,7 +70,7 @@ void main() {
   });
 
   VocabularyModel makeVocab(String id,
-      {String word = 'ASTRONAUT',
+      {String word = 'Astronaut',
       String trans = 'นักบินอวกาศ',
       String sentence = 'The astronaut is floating in space.',
       String imageUrl = 'astronaut.jpg'}) {
@@ -112,7 +112,7 @@ void main() {
     // UTC-46-TC01: Display Compact 2x2 widget data elements (SRS-249, SRS-250)
     // ------------------------------------------------------------------------
     test('UTC-46-TC01: Display Compact 2x2 widget data elements', () async {
-      final vocab = makeVocab('vocab-101', word: 'ASTRONAUT', trans: 'นักบินอวกาศ');
+      final vocab = makeVocab('vocab-101', word: 'Astronaut', trans: 'นักบินอวกาศ');
       final card = makeCard('card-101', vocab);
 
       when(mockReviewService.getDueCards(limit: 1000)).thenAnswer((_) async => [card]);
@@ -121,22 +121,25 @@ void main() {
 
       await WidgetService.updateWidgetWithDueCard(mockReviewService, streak: 7);
 
-      expect(savedWidgetData['widget_word'], 'ASTRONAUT');
+      expect(savedWidgetData['widget_word'], 'Astronaut');
       expect(savedWidgetData['widget_translation'], 'นักบินอวกาศ');
       expect(savedWidgetData['widget_streak'], 7);
       expect(savedWidgetData['widget_has_data'], isTrue);
+      expect(savedWidgetData['widget_image_path'], isNotNull);
       expect(updatedWidgets.contains('VocabCompactWidgetProvider'), isTrue);
 
       final expected = {
-        'word': 'ASTRONAUT',
+        'word': 'Astronaut',
         'translation': 'นักบินอวกาศ',
         'streak': '🔥7',
+        'photo': true,
         'cameraBtn': true,
       };
       final actual = {
         'word': savedWidgetData['widget_word'],
         'translation': savedWidgetData['widget_translation'],
         'streak': '🔥${savedWidgetData['widget_streak']}',
+        'photo': savedWidgetData['widget_image_path'] != null,
         'cameraBtn': updatedWidgets.contains('VocabCompactWidgetProvider'),
       };
 
@@ -155,7 +158,7 @@ void main() {
     test('UTC-46-TC02: Display Expanded 4x2 widget additional elements', () async {
       final vocab = makeVocab(
         'vocab-102',
-        word: 'ASTRONAUT',
+        word: 'Astronaut',
         sentence: 'The astronaut is floating in space.',
       );
       final card = makeCard('card-102', vocab);
@@ -194,12 +197,12 @@ void main() {
     // UTC-46-TC03: Prioritize FSRS-due card as Word of the Day (SRS-251)
     // ------------------------------------------------------------------------
     test('UTC-46-TC03: Prioritize FSRS-due card as Word of the Day', () {
-      final dueVocab1 = makeVocab('due-1', word: 'GALAXY');
-      final dueVocab2 = makeVocab('due-2', word: 'ORBIT');
+      final dueVocab1 = makeVocab('due-1', word: 'Galaxy');
+      final dueVocab2 = makeVocab('due-2', word: 'Orbit');
       final libVocabs = [
-        makeVocab('lib-1', word: 'PLANET'),
-        makeVocab('lib-2', word: 'STAR'),
-        makeVocab('lib-3', word: 'COMET'),
+        makeVocab('lib-1', word: 'Planet'),
+        makeVocab('lib-2', word: 'Star'),
+        makeVocab('lib-3', word: 'Comet'),
       ];
 
       final queue = WidgetVocabularySelection.buildQueue(
@@ -239,9 +242,9 @@ void main() {
     // ------------------------------------------------------------------------
     test('UTC-46-TC04: Fall back to library vocabulary when no cards due', () {
       final libVocabs = [
-        makeVocab('lib-1', word: 'PLANET'),
-        makeVocab('lib-2', word: 'STAR'),
-        makeVocab('lib-3', word: 'COMET'),
+        makeVocab('lib-1', word: 'Planet'),
+        makeVocab('lib-2', word: 'Star'),
+        makeVocab('lib-3', word: 'Comet'),
       ];
 
       final queue = WidgetVocabularySelection.buildQueue(
@@ -280,12 +283,12 @@ void main() {
     // UTC-46-TC05: Widget body tap opens Scrapbook entry (SRS-252)
     // ------------------------------------------------------------------------
     test('UTC-46-TC05: Widget body tap opens Scrapbook entry', () {
-      final uri = Uri.parse('starmory://scrapbook-day?vocabId=vocab-101&word=ASTRONAUT&image=astronaut.jpg');
+      final uri = Uri.parse('starmory://scrapbook-day?vocabId=vocab-101&word=Astronaut&image=astronaut.jpg');
 
       expect(uri.scheme, 'starmory');
       expect(uri.host, 'scrapbook-day');
       expect(uri.queryParameters['vocabId'], 'vocab-101');
-      expect(uri.queryParameters['word'], 'ASTRONAUT');
+      expect(uri.queryParameters['word'], 'Astronaut');
 
       final expected = {
         'deepLink': 'starmory://scrapbook-day',
@@ -369,9 +372,9 @@ void main() {
     // UTC-46-TC08: Midnight auto-refresh rotates word and streak (SRS-255)
     // ------------------------------------------------------------------------
     test('UTC-46-TC08: Midnight auto-refresh rotates word and streak', () {
-      final vocab1 = makeVocab('vocab-1', word: 'ASTRONAUT');
-      final vocab2 = makeVocab('vocab-2', word: 'TELESCOPE');
-      final vocab3 = makeVocab('vocab-3', word: 'NEBULA');
+      final vocab1 = makeVocab('vocab-1', word: 'Astronaut');
+      final vocab2 = makeVocab('vocab-2', word: 'Telescope');
+      final vocab3 = makeVocab('vocab-3', word: 'Nebula');
 
       final queue = WidgetVocabularySelection.buildQueue(
         dueVocabulary: [vocab1, vocab2, vocab3],
@@ -392,8 +395,8 @@ void main() {
 
       expect(day1Word, isNotNull);
       expect(day2Word, isNotNull);
-      expect(day1Word?.word, 'TELESCOPE');
-      expect(day2Word?.word, 'NEBULA');
+      expect(day1Word?.word, 'Telescope');
+      expect(day2Word?.word, 'Nebula');
       expect(day2Word?.word, isNot(equals(day1Word?.word)));
 
       final expected = {
@@ -420,7 +423,7 @@ void main() {
     // UTC-46-TC09: Displaying card does not alter FSRS retention state (SRS-256)
     // ------------------------------------------------------------------------
     test('UTC-46-TC09: Displaying card does not alter FSRS retention state', () async {
-      final vocab = makeVocab('vocab-201', word: 'CONSTELLATION');
+      final vocab = makeVocab('vocab-201', word: 'Constellation');
       final card = makeCard('card-201', vocab, stability: 4.5, reps: 4);
 
       final originalStability = card.stability;
@@ -458,7 +461,7 @@ void main() {
     // UTC-46-TC10: App launch or review activity updates widget data (SRS-257)
     // ------------------------------------------------------------------------
     test('UTC-46-TC10: App launch or review activity updates widget data', () async {
-      final vocab = makeVocab('vocab-301', word: 'ORBIT');
+      final vocab = makeVocab('vocab-301', word: 'Orbit');
       final card = makeCard('card-301', vocab);
 
       when(mockReviewService.getDueCards(limit: 1000)).thenAnswer((_) async => [card]);
@@ -554,3 +557,4 @@ void main() {
     });
   });
 }
+

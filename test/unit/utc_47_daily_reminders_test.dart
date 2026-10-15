@@ -1,4 +1,4 @@
-import 'package:flutter/services.dart';
+﻿import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/mockito.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -109,7 +109,7 @@ void main() {
   });
 
   VocabularyModel makeVocab(String id,
-      {String word = 'ASTRONAUT',
+      {String word = 'Astronaut',
       String trans = 'นักบินอวกาศ',
       String sentence = 'The astronaut is floating in space.'}) {
     return VocabularyModel(
@@ -257,7 +257,7 @@ void main() {
     // UTC-47-TC04: Schedule seven one-time reminder batch ahead (SRS-264)
     // ------------------------------------------------------------------------
     test('UTC-47-TC04: Schedule seven one-time reminder batch ahead', () async {
-      final vocab = makeVocab('vocab-1', word: 'ORBIT', trans: 'วงโคจร');
+      final vocab = makeVocab('vocab-1', word: 'Orbit', trans: 'วงโคจร');
       final card = makeCard('card-1', vocab);
 
       when(mockReviewService.getDueCards(limit: 1000)).thenAnswer((_) async => [card]);
@@ -298,9 +298,9 @@ void main() {
     // UTC-47-TC05: Prioritize FSRS-due vocabulary in candidate rotation (SRS-265)
     // ------------------------------------------------------------------------
     test('UTC-47-TC05: Prioritize FSRS-due vocabulary in candidate rotation', () {
-      final due1 = makeVocab('due-1', word: 'GALAXY');
-      final due2 = makeVocab('due-2', word: 'STAR');
-      final due3 = makeVocab('due-3', word: 'COMET');
+      final due1 = makeVocab('due-1', word: 'Galaxy');
+      final due2 = makeVocab('due-2', word: 'Star');
+      final due3 = makeVocab('due-3', word: 'Comet');
 
       final libVocabs = List.generate(
         10,
@@ -345,9 +345,57 @@ void main() {
     });
 
     // ------------------------------------------------------------------------
-    // UTC-47-TC06: Schedule motivational reminders when no vocabulary (SRS-266)
+    // UTC-47-TC06: Repeat candidates to fill batch of 7 when total < 7 (SRS-265)
     // ------------------------------------------------------------------------
-    test('UTC-47-TC06: Schedule motivational reminders when no vocabulary', () async {
+    test('UTC-47-TC06: Repeat candidates to fill batch of 7 when total < 7', () {
+      final due1 = makeVocab('due-r1', word: 'Galaxy');
+      final due2 = makeVocab('due-r2', word: 'Star');
+      final lib1 = makeVocab('lib-r1', word: 'Comet');
+
+      // Total unique candidates = 3, which is less than the required batch of 7
+      final candidates = ReminderVocabularyRotation.buildCandidates(
+        dueVocabulary: [due1, due2],
+        libraryVocabulary: [due1, due2, lib1],
+      );
+
+      final batch = ReminderVocabularyRotation.selectBatch(
+        candidates: candidates,
+        previousBatchLastVocabularyId: null,
+        count: 7,
+      );
+
+      // Batch must always be exactly 7, repeating from the start via modulo
+      expect(batch.length, 7);
+      expect(batch[0].id, 'due-r1');
+      expect(batch[1].id, 'due-r2');
+      expect(batch[2].id, 'lib-r1');
+      expect(batch[3].id, 'due-r1'); // repeat cycle begins
+      expect(batch[6].id, 'due-r1'); // 6 % 3 = 0
+
+      final expected = {
+        'batchSize': 7,
+        'itemsRepeated': true,
+        'duePrecedesLibrary': true,
+      };
+      final actual = {
+        'batchSize': batch.length,
+        'itemsRepeated': batch[3].id == batch[0].id,
+        'duePrecedesLibrary': batch[0].id.startsWith('due'),
+      };
+
+      printTestOutputSimple(
+        testId: 'UTC-47-TC06',
+        description: 'Repeat candidates to fill batch of 7 when total < 7',
+        input: 'TD07',
+        expectedOutput: expected,
+        actualOutput: actual,
+      );
+    });
+
+    // ------------------------------------------------------------------------
+    // UTC-47-TC07: Schedule motivational reminders when no vocabulary (SRS-266)
+    // ------------------------------------------------------------------------
+    test('UTC-47-TC07: Schedule motivational reminders when no vocabulary', () async {
       when(mockReviewService.getDueCards(limit: 1000)).thenAnswer((_) async => []);
       when(mockHiveService.getAllVocabulary()).thenAnswer((_) async => []);
 
@@ -374,18 +422,18 @@ void main() {
       };
 
       printTestOutputSimple(
-        testId: 'UTC-47-TC06',
+        testId: 'UTC-47-TC07',
         description: 'Schedule motivational reminders when no vocabulary',
-        input: 'TD07',
+        input: 'TD08',
         expectedOutput: expected,
         actualOutput: actual,
       );
     });
 
     // ------------------------------------------------------------------------
-    // UTC-47-TC07: Change reminder time reschedules batch to new time (SRS-267)
+    // UTC-47-TC08: Change reminder time reschedules batch to new time (SRS-267)
     // ------------------------------------------------------------------------
-    test('UTC-47-TC07: Change reminder time reschedules batch to new time', () async {
+    test('UTC-47-TC08: Change reminder time reschedules batch to new time', () async {
       final vocab = makeVocab('vocab-1');
       final card = makeCard('card-1', vocab);
 
@@ -419,7 +467,7 @@ void main() {
       };
 
       printTestOutputSimple(
-        testId: 'UTC-47-TC07',
+        testId: 'UTC-47-TC08',
         description: 'Change reminder time reschedules batch to new time',
         input: 'TD04',
         expectedOutput: expected,
@@ -428,9 +476,9 @@ void main() {
     });
 
     // ------------------------------------------------------------------------
-    // UTC-47-TC08: Cancel time picker retains previous time and schedule (SRS-268, SRS-269)
+    // UTC-47-TC09: Cancel time picker retains previous time and schedule (SRS-268, SRS-269)
     // ------------------------------------------------------------------------
-    test('UTC-47-TC08: Cancel time picker retains previous time and schedule', () async {
+    test('UTC-47-TC09: Cancel time picker retains previous time and schedule', () async {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('reviewReminderTime', '19:00');
 
@@ -450,7 +498,7 @@ void main() {
       };
 
       printTestOutputSimple(
-        testId: 'UTC-47-TC08',
+        testId: 'UTC-47-TC09',
         description: 'Cancel time picker retains previous time and schedule',
         input: 'TD05',
         expectedOutput: expected,
@@ -459,9 +507,9 @@ void main() {
     });
 
     // ------------------------------------------------------------------------
-    // UTC-47-TC09: Disable reminders cancels batch and hides time row (SRS-270)
+    // UTC-47-TC10: Disable reminders cancels batch and hides time row (SRS-270)
     // ------------------------------------------------------------------------
-    test('UTC-47-TC09: Disable reminders cancels batch and hides time row', () async {
+    test('UTC-47-TC10: Disable reminders cancels batch and hides time row', () async {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('notificationEnabled', false);
 
@@ -482,19 +530,19 @@ void main() {
       };
 
       printTestOutputSimple(
-        testId: 'UTC-47-TC09',
+        testId: 'UTC-47-TC10',
         description: 'Disable reminders cancels batch and hides time row',
-        input: 'TD08',
+        input: 'TD09',
         expectedOutput: expected,
         actualOutput: actual,
       );
     });
 
     // ------------------------------------------------------------------------
-    // UTC-47-TC10: Refresh reminder batch automatically on app launch (SRS-271)
+    // UTC-47-TC11: Refresh reminder batch automatically on app launch (SRS-271)
     // ------------------------------------------------------------------------
-    test('UTC-47-TC10: Refresh reminder batch automatically on app launch', () async {
-      final vocab = makeVocab('vocab-2', word: 'PULSAR');
+    test('UTC-47-TC11: Refresh reminder batch automatically on app launch', () async {
+      final vocab = makeVocab('vocab-2', word: 'Pulsar');
       final card = makeCard('card-2', vocab);
 
       when(mockReviewService.getDueCards(limit: 1000)).thenAnswer((_) async => [card]);
@@ -521,19 +569,19 @@ void main() {
       };
 
       printTestOutputSimple(
-        testId: 'UTC-47-TC10',
+        testId: 'UTC-47-TC11',
         description: 'Refresh reminder batch automatically on app launch',
-        input: 'TD09',
+        input: 'TD10',
         expectedOutput: expected,
         actualOutput: actual,
       );
     });
 
     // ------------------------------------------------------------------------
-    // UTC-47-TC11: Refresh batch after activity starts from next day (SRS-271)
+    // UTC-47-TC12: Refresh batch after activity starts from next day (SRS-271)
     // ------------------------------------------------------------------------
-    test('UTC-47-TC11: Refresh batch after activity starts from next day', () async {
-      final vocab = makeVocab('vocab-3', word: 'SOLAR');
+    test('UTC-47-TC12: Refresh batch after activity starts from next day', () async {
+      final vocab = makeVocab('vocab-3', word: 'Solar');
       final card = makeCard('card-3', vocab);
 
       when(mockReviewService.getDueCards(limit: 1000)).thenAnswer((_) async => [card]);
@@ -560,18 +608,18 @@ void main() {
       };
 
       printTestOutputSimple(
-        testId: 'UTC-47-TC11',
+        testId: 'UTC-47-TC12',
         description: 'Refresh batch after activity starts from next day',
-        input: 'TD10',
+        input: 'TD11',
         expectedOutput: expected,
         actualOutput: actual,
       );
     });
 
     // ------------------------------------------------------------------------
-    // UTC-47-TC12: Tap vocabulary reminder opens Review tab (SRS-272)
+    // UTC-47-TC13: Tap vocabulary reminder opens Review tab (SRS-272)
     // ------------------------------------------------------------------------
-    test('UTC-47-TC12: Tap vocabulary reminder opens Review tab', () {
+    test('UTC-47-TC13: Tap vocabulary reminder opens Review tab', () {
       final uri = Uri.parse('starmory://review');
 
       expect(uri.scheme, 'starmory');
@@ -590,18 +638,18 @@ void main() {
       };
 
       printTestOutputSimple(
-        testId: 'UTC-47-TC12',
+        testId: 'UTC-47-TC13',
         description: 'Tap vocabulary reminder opens Review tab',
-        input: 'TD11',
+        input: 'TD12',
         expectedOutput: expected,
         actualOutput: actual,
       );
     });
 
     // ------------------------------------------------------------------------
-    // UTC-47-TC13: Tap motivational reminder opens Home tab (SRS-272)
+    // UTC-47-TC14: Tap motivational reminder opens Home tab (SRS-272)
     // ------------------------------------------------------------------------
-    test('UTC-47-TC13: Tap motivational reminder opens Home tab', () {
+    test('UTC-47-TC14: Tap motivational reminder opens Home tab', () {
       final uri = Uri.parse('starmory://home');
 
       expect(uri.scheme, 'starmory');
@@ -620,12 +668,13 @@ void main() {
       };
 
       printTestOutputSimple(
-        testId: 'UTC-47-TC13',
+        testId: 'UTC-47-TC14',
         description: 'Tap motivational reminder opens Home tab',
-        input: 'TD12',
+        input: 'TD13',
         expectedOutput: expected,
         actualOutput: actual,
       );
     });
   });
 }
+
