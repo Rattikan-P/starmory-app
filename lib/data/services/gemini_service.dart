@@ -25,7 +25,7 @@ class GeminiService {
           apiKey: apiKey ?? AppConstants.geminiApiKey,
         ),
         _fallbackVisionModel = GenerativeModel(
-          model: 'gemini-3.5-flash',
+          model: 'gemini-3.6-flash',
           apiKey: apiKey ?? AppConstants.geminiApiKey,
         ),
         _primaryTextModel = GenerativeModel(
@@ -33,7 +33,7 @@ class GeminiService {
           apiKey: apiKey ?? AppConstants.geminiApiKey,
         ),
         _fallbackTextModel = GenerativeModel(
-          model: 'gemini-3.5-flash',
+          model: 'gemini-3.6-flash',
           apiKey: apiKey ?? AppConstants.geminiApiKey,
         );
 
@@ -830,7 +830,7 @@ Extract exactly 5 vocabulary items from the image, strictly matching the request
 
       final model = useFallback ? _fallbackVisionModel : _primaryVisionModel;
       if (useFallback) {
-        debugPrint('🔄 Using fallback vision model (gemini-3.5-flash)');
+        debugPrint('🔄 Using fallback vision model (gemini-3.6-flash)');
       }
 
       final response = await model.generateContent(
