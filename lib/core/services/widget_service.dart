@@ -372,6 +372,7 @@ class WidgetService {
       'Nov',
       'Dec',
     ];
-    return '${months[date.month - 1]} ${date.day}';
+    final localDate = date.toLocal();
+    return '${months[localDate.month - 1]} ${localDate.day}';
   }
 }

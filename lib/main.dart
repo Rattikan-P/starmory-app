@@ -129,7 +129,7 @@ class _MyAppState extends ConsumerState<MyApp> {
     }
     _lastWidgetUri = uriString;
     _lastWidgetUriTime = now;
-    _widgetLaunchUri = uri;
+    setState(() => _widgetLaunchUri = uri); // Immediately rebuild so _buildHome skips onboarding
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;

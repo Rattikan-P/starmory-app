@@ -185,7 +185,7 @@ class VocabWidgetProvider : AppWidgetProvider() {
             val intent = Intent(context, MainActivity::class.java).apply {
                 action = HomeWidgetLaunchIntent.HOME_WIDGET_LAUNCH_ACTION
                 data = Uri.parse(deepLink)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             }
             return android.app.PendingIntent.getActivity(
                 context,

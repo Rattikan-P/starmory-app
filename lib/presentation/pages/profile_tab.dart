@@ -689,6 +689,7 @@ class _PreferencesSectionState extends ConsumerState<_PreferencesSection> {
         'reviewReminderTime': newTimeStr,
       });
 
+      try {
       if (_notificationEnabled) {
         final reviewService = ref.read(reviewServiceProvider);
         final streak = ref.read(streakProvider)?.currentStreak ??
@@ -701,6 +702,9 @@ class _PreferencesSectionState extends ConsumerState<_PreferencesSection> {
           reviewService: reviewService,
           currentStreak: streak ?? 0,
         );
+      }
+      } catch (e) {
+        debugPrint('[Profile] scheduleDailyReminders failed: $e');
       }
 
       widget.onPreferenceChanged?.call();

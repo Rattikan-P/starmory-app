@@ -75,6 +75,9 @@ class NotificationService {
     } catch (e) {
       debugPrint(
           '⚠️ [NotificationService] Could not set local timezone from device: $e');
+      try {
+        tz.setLocalLocation(tz.getLocation('Asia/Bangkok'));
+      } catch (_) {}
     }
 
     // 2. Android Initialization Settings
@@ -312,7 +315,7 @@ class NotificationService {
       }
     }
 
-    throw StateError('All scheduling modes failed for reminder $id.');
+    debugPrint('[NotificationService] All scheduling modes failed for reminder $id. Notification may not fire.');
   }
 
   /// Instantly trigger a test notification (useful for instant verification)

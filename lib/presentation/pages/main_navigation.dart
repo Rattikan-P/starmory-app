@@ -295,7 +295,7 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
       }
 
       var scrapbookState = ref.read(scrapbookStateProvider);
-      if (scrapbookState.isLoading) {
+      if (scrapbookState.isLoading || scrapbookState.scrapbooks.isEmpty) {
         await ref.read(scrapbookStateProvider.notifier).refresh();
         if (!mounted) return;
         scrapbookState = ref.read(scrapbookStateProvider);
@@ -322,7 +322,7 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
                         targetImage,
                   )
                   .firstOrNull) ??
-          (targetImage.isEmpty ? relatedScrapbooks.firstOrNull : null);
+          relatedScrapbooks.firstOrNull;
 
       if (matchingScrapbook != null && mounted) {
         await showScrapbookDetailSheet(

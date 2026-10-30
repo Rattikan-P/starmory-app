@@ -268,7 +268,7 @@ class QuotaStatus {
   String get warningMessage {
     if (isExhausted) {
       return isGuest
-          ? 'Free trials used up. Sign up for 15 daily generations!'
+          ? 'Free trials used up. Create an account for 15 daily generations!'
           : 'Daily limit reached. Come back tomorrow!';
     }
     if (isLow) {

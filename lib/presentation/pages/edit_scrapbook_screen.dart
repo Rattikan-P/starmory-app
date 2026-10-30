@@ -24,6 +24,8 @@ import '../widgets/tokenized_notice_dialogs.dart';
 import '../widgets/bottom_sheet_chrome.dart';
 import '../widgets/app_loading_widgets.dart';
 import '../../utils/snackbar_helper.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import '../../core/services/widget_service.dart';
 
 const double _scrapbookTopBarHeight = 60;
 const double _polaroidColorSheetHeight = 290;
@@ -4676,6 +4678,25 @@ class _EditScrapbookScreenState extends ConsumerState<EditScrapbookScreen> {
         }
       }
 
+      if (!kIsWeb) {
+        try {
+          final reviewService = ref.read(reviewServiceProvider);
+          final streakData = ref.read(streakProvider);
+          final user = ref.read(userStateProvider).user;
+          unawaited(
+            WidgetService.updateWidgetWithDueCard(
+              reviewService,
+              streak: streakDays ??
+                  streakData?.currentStreak ??
+                  user?.currentStreak,
+              lastActivityDate: streakData?.lastActivityDate ??
+                  user?.lastStreakActivityDate,
+              shields:
+                  streakData?.shieldsAvailable ?? user?.shields ?? 0,
+            ),
+          );
+        } catch (_) {}
+      }
       if (!mounted) return;
 
       // Evaluate and show reward unlocks directly while this screen is mounted!
